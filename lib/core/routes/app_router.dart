@@ -114,9 +114,16 @@ class AppRouter {
         path: '/qps/:id',
         builder: (context, state) {
           final questionPaperId = state.pathParameters['id']!;
-          return QuestionPaperEditScreen(questionPaperId: questionPaperId);
+          final isViewOnly = state.uri.queryParameters['view'] == 'true';
+
+          return QuestionPaperEditScreen(
+            questionPaperId: questionPaperId,
+            isViewOnly: isViewOnly, // NEW
+          );
         },
       ),
+
+
     ],
   );
 }

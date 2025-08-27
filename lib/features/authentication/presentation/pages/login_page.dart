@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
-import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../bloc/auth_event.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -13,15 +13,16 @@ class LoginPage extends StatelessWidget {
     return Scaffold(
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
-          // Router will handle navigation automatically
-          // Just show error messages
+          // ❌ remove UI code here later if you want zero logic
           if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
           }
         },
         builder: (context, state) {
@@ -34,34 +35,18 @@ class LoginPage extends StatelessWidget {
                 children: [
                   const Text(
                     'Welcome to Papercraft',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
+
+                  // UI for loading
                   if (state is AuthLoading)
-                    const Center(
-                      child: Column(
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Signing in...'),
-                        ],
-                      ),
-                    )
+                    const _LoadingIndicator()
                   else
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.login),
-                      label: const Text("Sign in with Google"),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                    _LoginButton(
                       onPressed: () {
+                        // Keep just the trigger here
                         context.read<AuthBloc>().add(SignInWithGoogleEvent());
                       },
                     ),
@@ -71,6 +56,44 @@ class LoginPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+// ✅ Pure UI widgets
+class _LoadingIndicator extends StatelessWidget {
+  const _LoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Signing in...'),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _LoginButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      icon: const Icon(Icons.login),
+      label: const Text("Sign in with Google"),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+      ),
+      onPressed: onPressed,
     );
   }
 }

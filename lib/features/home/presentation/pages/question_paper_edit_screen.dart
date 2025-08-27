@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../qps/data/models/question_paper_model.dart';
-import '../../../qps/domain/entities/exam_type_entity.dart';
-import '../../../qps/domain/entities/subject_entity.dart';
-import '../../../qps/presentation/widgets/question_input_widget.dart';
-import '../../../qps/presentation/widgets/question_paper_preview_widget.dart';
-import '../../../qps/services/question_paper_storage_service.dart';
+import 'package:papercraft/features/qps/data/models/question_paper_model.dart';
+import 'package:papercraft/features/qps/domain/entities/exam_type_entity.dart';
+import 'package:papercraft/features/qps/domain/entities/subject_entity.dart';
+import 'package:papercraft/features/qps/presentation/widgets/question_input_widget.dart';
+import 'package:papercraft/features/qps/presentation/widgets/question_paper_preview_widget.dart';
+import 'package:papercraft/features/qps/services/cloud_service.dart';
+import 'package:papercraft/features/qps/services/question_paper_cordinator_service.dart';
+import 'package:papercraft/features/authentication/data/datasources/local_storage_data_source.dart';
 
 class QuestionPaperEditScreen extends StatefulWidget {
   final String questionPaperId;
+  final bool isViewOnly;
 
   const QuestionPaperEditScreen({
     super.key,
     required this.questionPaperId,
+    this.isViewOnly = false,
   });
 
   @override
@@ -20,7 +24,7 @@ class QuestionPaperEditScreen extends StatefulWidget {
 }
 
 class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
-  final QuestionPaperStorageService _storageService = QuestionPaperStorageService();
+  late final QuestionPaperCoordinatorService _coordinatorService;
 
   QuestionPaperModel? _questionPaper;
   bool _isLoading = true;
@@ -34,6 +38,8 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
   @override
   void initState() {
     super.initState();
+    // Fixed: Removed explicit cast that was causing the type mismatch
+    _coordinatorService = QuestionPaperCoordinatorService(LocalStorageDataSourceImpl());
     _loadQuestionPaper();
   }
 
@@ -44,16 +50,93 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
     });
 
     try {
-      // Try to load from all possible statuses
       QuestionPaperModel? paper;
-      final statuses = ['draft', 'submitted', 'approved', 'rejected'];
 
-      for (final status in statuses) {
-        paper = await _storageService.loadQuestionPaper(widget.questionPaperId, status);
-        if (paper != null) break;
+      // First try to load from local drafts
+      print('🔎 Trying to load ${widget.questionPaperId} from drafts');
+      final draftsResult = await _coordinatorService.getDrafts();
+      if (draftsResult.success) {
+        paper = draftsResult.data?.cast<QuestionPaperModel?>().firstWhere(
+              (p) => p?.id == widget.questionPaperId,
+          orElse: () => null,
+        );
+        if (paper != null) {
+          print('✅ Found in drafts');
+        }
+      }
+
+      // If not found in drafts, try user submissions (cloud)
+      if (paper == null) {
+        print('🔎 Trying to load ${widget.questionPaperId} from user submissions');
+        final submissionsResult = await _coordinatorService.getUserSubmissions();
+        if (submissionsResult.success) {
+          final cloudPaper = submissionsResult.data?.cast<QuestionPaperCloudModel?>().firstWhere(
+                (p) => p?.id == widget.questionPaperId,
+            orElse: () => null,
+          );
+
+          if (cloudPaper != null) {
+            print('✅ Found in user submissions');
+            // Convert CloudModel to local model for editing/viewing
+            paper = QuestionPaperModel(
+              id: cloudPaper.id,
+              title: cloudPaper.title,
+              subject: cloudPaper.subject,
+              examType: cloudPaper.examType,
+              examTypeEntity: cloudPaper.examType != null ? _getExamTypeEntity(cloudPaper.examType) : _getDefaultExamType(),
+              selectedSubjects: _getSubjectsFromString(cloudPaper.subject),
+              questions: cloudPaper.questions,
+              status: cloudPaper.status,
+              createdBy: cloudPaper.createdByName ?? '',
+              createdAt: cloudPaper.createdAt,
+              modifiedAt: cloudPaper.submittedAt,
+              rejectionReason: cloudPaper.rejectionReason,
+            );
+          }
+        }
+      }
+
+      // If still not found and user has admin permissions, check review queue
+      if (paper == null) {
+        print('🔎 Trying to load ${widget.questionPaperId} from admin review queue');
+        try {
+          final hasAdmin = await _coordinatorService.hasAdminPermissions();
+          if (hasAdmin) {
+            final reviewResult = await _coordinatorService.getPapersForReview();
+            if (reviewResult.success) {
+              final cloudPaper = reviewResult.data?.cast<QuestionPaperCloudModel?>().firstWhere(
+                    (p) => p?.id == widget.questionPaperId,
+                orElse: () => null,
+              );
+
+              if (cloudPaper != null) {
+                print('✅ Found in admin review queue');
+                // Convert for viewing
+                paper = QuestionPaperModel(
+                  id: cloudPaper.id,
+                  title: cloudPaper.title,
+                  subject: cloudPaper.subject,
+                  examType: cloudPaper.examType,
+                  examTypeEntity: cloudPaper.examType != null ? _getExamTypeEntity(cloudPaper.examType) : _getDefaultExamType(),
+                  selectedSubjects: _getSubjectsFromString(cloudPaper.subject),
+                  questions: cloudPaper.questions,
+                  status: cloudPaper.status,
+                  createdBy: cloudPaper.createdByName ?? '',
+                  createdAt: cloudPaper.createdAt,
+                  modifiedAt: cloudPaper.submittedAt,
+                  rejectionReason: cloudPaper.rejectionReason,
+                );
+              }
+            }
+          }
+        } catch (e) {
+          print('Warning: Could not check admin permissions: $e');
+          // Continue without admin check - user might not be admin
+        }
       }
 
       if (paper == null) {
+        print('❌ Question paper not found in any location');
         setState(() {
           _errorMessage = 'Question paper not found';
           _isLoading = false;
@@ -79,6 +162,56 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
     }
   }
 
+  // Fixed: Added required id and tenantId parameters
+  ExamTypeEntity _getExamTypeEntity(String examTypeName) {
+    // Get tenant ID from your auth service or use a default
+    // You might need to inject this from your auth service
+    const String tenantId = 'default_tenant'; // Replace with actual tenant ID
+
+    return ExamTypeEntity(
+      id: 'exam_type_${examTypeName.toLowerCase().replaceAll(' ', '_')}',
+      tenantId: tenantId,
+      name: examTypeName,
+      sections: [], // You'll need to populate this based on your data structure
+      totalMarks: 0, // You'll need to calculate this
+      totalQuestions: 0,
+      durationMinutes: null,
+    );
+  }
+
+  // Fixed: Added required id and tenantId parameters
+  ExamTypeEntity _getDefaultExamType() {
+    const String tenantId = 'default_tenant'; // Replace with actual tenant ID
+
+    return ExamTypeEntity(
+      id: 'unknown_exam_type',
+      tenantId: tenantId,
+      name: 'Unknown',
+      sections: [],
+      totalMarks: 0,
+      totalQuestions: 0,
+      durationMinutes: null,
+    );
+  }
+
+  List<SubjectEntity> _getSubjectsFromString(String subjectName) {
+    // Convert subject string to list of SubjectEntity
+    if (subjectName.isEmpty) return [];
+
+    // Get tenant ID from your auth service or use a default
+    const String tenantId = 'default_tenant'; // Replace with actual tenant ID
+
+    return [
+      SubjectEntity(
+        id: 'subject_${subjectName.toLowerCase().replaceAll(' ', '_')}',
+        tenantId: tenantId,
+        name: subjectName,
+        description: null, // Optional description
+        isActive: true, // Default to active
+      )
+    ];
+  }
+
   Future<void> _saveChanges() async {
     if (_questionPaper == null) return;
 
@@ -89,9 +222,10 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
         modifiedAt: DateTime.now(),
       );
 
-      final success = await _storageService.saveQuestionPaper(updatedPaper);
+      // Use coordinator service to save changes
+      final result = await _coordinatorService.saveDraft(updatedPaper);
 
-      if (success) {
+      if (result.success) {
         setState(() {
           _questionPaper = updatedPaper;
         });
@@ -107,8 +241,8 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to save changes'),
+            SnackBar(
+              content: Text('Failed to save changes: ${result.error}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -257,7 +391,7 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
             ),
 
           // Save changes
-          if (_questionPaper != null && _questionPaper!.status != 'approved')
+          if (_questionPaper != null && !widget.isViewOnly && _questionPaper!.status != 'approved')
             IconButton(
               icon: const Icon(Icons.save),
               onPressed: _saveChanges,
@@ -296,54 +430,39 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red[300],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.red[700],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loadQuestionPaper,
-              child: const Text('Retry'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => context.go('/'),
-              child: const Text('Go Back'),
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text(_errorMessage!, textAlign: TextAlign.center),
+            SizedBox(height: 24),
+            ElevatedButton(onPressed: _loadQuestionPaper, child: const Text('Retry')),
           ],
         ),
       );
     }
 
     if (_questionPaper == null || _examType == null) {
-      return const Center(
-        child: Text('Question paper data is incomplete'),
+      return const Center(child: Text('Question paper data is incomplete'));
+    }
+
+    // Updated this block with correct constructor
+    if (widget.isViewOnly) {
+      return QuestionPaperPreview(
+        examType: _examType!,
+        questions: _questions,
+        selectedSubjects: _selectedSubjects,
+        existingQuestionPaper: _questionPaper,
       );
     }
 
+    // Otherwise render the editor
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Question paper info card
           _buildInfoCard(),
           const SizedBox(height: 16),
-
-          // Edit restriction notice
-          if (_questionPaper!.status == 'approved')
-            _buildApprovedNotice(),
-
-          // Sections
+          if (_questionPaper!.status == 'approved') _buildApprovedNotice(),
           _buildSectionsEditor(),
         ],
       ),
@@ -510,7 +629,7 @@ class _QuestionPaperEditScreenState extends State<QuestionPaperEditScreen> {
 
   Widget _buildSectionCard(ExamSectionEntity section) {
     final sectionQuestions = _questions[section.name] ?? [];
-    final isEditable = _questionPaper!.status != 'approved';
+    final isEditable = !widget.isViewOnly && _questionPaper!.status != 'approved';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

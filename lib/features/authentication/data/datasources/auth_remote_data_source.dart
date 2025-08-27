@@ -84,8 +84,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final fullName = profileData['full_name'] as String?;
 
     // Check if user is blocked due to unauthorized domain
-    if (role == 'blocked' || tenantId == null || tenantId.isEmpty) {
-      LoggingService.debug('User blocked due to unauthorized domain: ${user.email}');
+    if (role == null || role == 'blocked' || tenantId == null || tenantId.isEmpty) {
+      LoggingService.debug('User blocked due to unauthorized domain or missing role: ${user.email}');
 
       // Sign out the blocked user
       await supabase.auth.signOut();
@@ -93,15 +93,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception('Access denied. Your organization domain is not authorized to use this application. Please contact your administrator.');
     }
 
-    // Save to local storage
+    // Save to local storage - role is now required
     await localStorage.saveUserData(
       tenantId: tenantId,
       userId: userId,
       fullName: fullName,
-      role: role,
+      role: role, // Now guaranteed to be non-null
     );
 
-    LoggingService.debug('User signed in successfully: ${user.email} -> tenant: $tenantId');
+    LoggingService.debug('User signed in successfully: ${user.email} -> tenant: $tenantId, role: $role');
 
     return (
     UserModel.fromSupabaseUser(userJson),
@@ -134,23 +134,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final role = userData['role'] as String?;
       final tenantId = userData['tenant_id'] as String?;
 
-      // Check if user is blocked
-      if (role == 'blocked' || tenantId == null || tenantId.isEmpty) {
-        LoggingService.debug('User is blocked or has no tenant access');
+      // Check if user is blocked or has missing required data
+      if (role == null || role == 'blocked' || tenantId == null || tenantId.isEmpty) {
+        LoggingService.debug('User is blocked, has no role, or has no tenant access');
         await signOut();
         return null;
       }
 
-      // Ensure tenant_id is saved in local storage
+      // Ensure tenant_id and role are saved in local storage
       final savedTenantId = await localStorage.getTenantId();
-      if (savedTenantId != tenantId) {
+      final savedRole = await localStorage.getUserRole();
+
+      if (savedTenantId != tenantId || savedRole != role) {
         await localStorage.saveUserData(
           tenantId: tenantId,
           userId: userData['id'] as String,
           fullName: userData['full_name'] as String?,
-          role: role,
+          role: role, // Now guaranteed to be non-null
         );
-        LoggingService.debug('Updated tenant_id in local storage: $tenantId');
+        LoggingService.debug('Updated user data in local storage: tenant_id=$tenantId, role=$role');
       }
 
       // Create UserModel with data from both auth user and profiles

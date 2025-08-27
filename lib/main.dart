@@ -1,5 +1,7 @@
+// main.dart - Updated version with permission support
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/routes/app_router.dart';
@@ -27,7 +29,7 @@ void main() async {
   final authDataSource = AuthRemoteDataSourceImpl(
     supabase,
     localStorageDataSource,
-    redirectTo: 'io.supabase.flutterdemo://login-callback', // Deep link
+    redirectTo: 'io.supabase.flutterdemo://login-callback',
   );
 
   // Repository
@@ -73,18 +75,77 @@ class MyApp extends StatelessWidget {
       },
       child: Builder(
         builder: (context) {
-          // Get AuthBloc from context
           final authBloc = context.read<AuthBloc>();
 
           return MaterialApp.router(
-            title: 'Flutter Supabase Auth',
+            title: 'Question Paper System',
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+              useMaterial3: true,
             ),
             routerConfig: AppRouter.createRouter(authBloc),
           );
         },
       ),
     );
+  }
+}
+
+// Add this fixed PermissionService to your main.dart
+class PermissionService {
+  static final SupabaseClient _supabase = Supabase.instance.client;
+
+  /// Quick check if current user is admin - FIXED!
+  static Future<bool> isAdmin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 🔥 FIX: Use the correct key 'user_role' instead of 'role'
+      final role = prefs.getString('user_role');
+      return role == 'admin';
+    } catch (e) {
+      print('Error checking admin status: $e');
+      return false;
+    }
+  }
+
+  /// Quick check for paper creation permission
+  static Future<bool> canCreatePapers() async {
+    try {
+      if (await isAdmin()) return true;
+
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      final tenantId = prefs.getString('tenant_id');
+
+      if (userId == null || tenantId == null) return false;
+
+      final data = await _supabase
+          .from('user_permissions')
+          .select('can_create_papers')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+
+      return data?['can_create_papers'] as bool? ?? false;
+    } catch (e) {
+      print('Error checking paper creation permission: $e');
+      return false;
+    }
+  }
+
+  /// Debug method to check all stored user data
+  static Future<void> debugUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      print('=== PermissionService Debug ===');
+      print('user_id: ${prefs.getString('user_id')}');
+      print('tenant_id: ${prefs.getString('tenant_id')}');
+      print('user_role: ${prefs.getString('user_role')}');
+      print('full_name: ${prefs.getString('full_name')}');
+      print('All keys: ${prefs.getKeys()}');
+      print('==============================');
+    } catch (e) {
+      print('Error in debugUserData: $e');
+    }
   }
 }

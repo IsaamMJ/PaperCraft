@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../qps/services/question_paper_storage_service.dart';
+import '../../../authentication/data/datasources/local_storage_data_source.dart';
 import '../../../qps/data/models/question_paper_model.dart';
+import '../../../qps/services/cloud_service.dart';
+import '../../../../core/services/logger.dart';
+import '../../../qps/services/question_paper_cordinator_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,16 +18,38 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final QuestionPaperStorageService _storageService = QuestionPaperStorageService();
-  List<QuestionPaperModel> _questionPapers = [];
+  late final QuestionPaperCoordinatorService _coordinatorService;
+
+  // For teachers: drafts + submissions
+  List<QuestionPaperModel> _drafts = [];
+  List<QuestionPaperCloudModel> _submissions = [];
+
+  // For admins: papers pending review
+  List<QuestionPaperCloudModel> _reviewQueue = [];
+
   bool _isLoading = true;
   String _selectedStatus = 'all';
   String _errorMessage = '';
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
-    _loadQuestionPapers();
+    _coordinatorService = QuestionPaperCoordinatorService(LocalStorageDataSourceImpl());
+    _checkUserRoleAndLoadData();
+  }
+
+  Future<void> _checkUserRoleAndLoadData() async {
+    try {
+      _isAdmin = await _coordinatorService.hasAdminPermissions();
+      await _loadQuestionPapers();
+    } catch (e) {
+      LoggingService.error('Error checking user role: $e');
+      setState(() {
+        _errorMessage = 'Error checking user permissions';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadQuestionPapers() async {
@@ -34,26 +59,23 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      List<QuestionPaperModel> papers;
-      if (_selectedStatus == 'all') {
-        papers = await _storageService.getAllQuestionPapers();
+      if (_isAdmin) {
+        await _loadAdminData();
       } else {
-        papers = await _storageService.getQuestionPapersByStatus(_selectedStatus);
+        await _loadTeacherData();
       }
 
       setState(() {
-        _questionPapers = papers;
         _isLoading = false;
       });
 
-      print('Successfully loaded ${papers.length} question papers');
     } catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error loading question papers: $e';
       });
 
-      print('Error loading question papers: $e');
+      LoggingService.error('Error loading question papers: $e');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +89,41 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadAdminData() async {
+    LoggingService.debug('Loading admin data - papers for review');
+
+    final result = await _coordinatorService.getPapersForReview();
+
+    if (result.success) {
+      _reviewQueue = result.data!;
+      LoggingService.debug('Loaded ${_reviewQueue.length} papers for review');
+    } else {
+      throw Exception(result.error);
+    }
+  }
+
+  Future<void> _loadTeacherData() async {
+    LoggingService.debug('Loading teacher data - drafts and submissions');
+
+    // Load drafts and submissions in parallel
+    final results = await Future.wait([
+      _coordinatorService.getDrafts(),
+      _coordinatorService.getUserSubmissions(),
+    ]);
+
+    final draftsResult = results[0] as QuestionPaperResult<List<QuestionPaperModel>>;
+    final submissionsResult = results[1] as QuestionPaperResult<List<QuestionPaperCloudModel>>;
+
+    if (draftsResult.success && submissionsResult.success) {
+      _drafts = draftsResult.data!;
+      _submissions = submissionsResult.data!;
+      LoggingService.debug('Loaded ${_drafts.length} drafts and ${_submissions.length} submissions');
+    } else {
+      final error = draftsResult.error ?? submissionsResult.error ?? 'Unknown error';
+      throw Exception(error);
     }
   }
 
@@ -115,8 +172,127 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (confirmed == true && mounted) {
-      // Trigger sign out event - router will handle navigation automatically
       context.read<AuthBloc>().add(SignOutEvent());
+    }
+  }
+
+  Future<void> _approveQuestionPaper(QuestionPaperCloudModel paper) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve Question Paper'),
+        content: Text('Are you sure you want to approve "${paper.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final result = await _coordinatorService.approveQuestionPaper(paper.id);
+
+      if (result.success) {
+        _loadQuestionPapers();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Question paper "${paper.title}" approved successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to approve question paper: ${result.error}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _rejectQuestionPaper(QuestionPaperCloudModel paper) async {
+    String? rejectionReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Question Paper'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Are you sure you want to reject "${paper.title}"?'),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason (Required)',
+                hintText: 'Please provide feedback for the teacher',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              onChanged: (value) => rejectionReason = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (rejectionReason?.trim().isNotEmpty ?? false) {
+                Navigator.pop(context, true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please provide a rejection reason'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && rejectionReason != null) {
+      final result = await _coordinatorService.rejectQuestionPaper(paper.id, rejectionReason!);
+
+      if (result.success) {
+        _loadQuestionPapers();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Question paper "${paper.title}" rejected with feedback'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to reject question paper: ${result.error}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -141,9 +317,10 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (confirmed == true) {
-      final success = await _storageService.deleteQuestionPaper(paper.id, paper.status);
-      if (success) {
-        _loadQuestionPapers(); // Refresh the list
+      final result = await _coordinatorService.deleteDraft(paper.id);
+
+      if (result.success) {
+        _loadQuestionPapers();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Question paper deleted successfully')),
@@ -152,8 +329,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to delete question paper'),
+            SnackBar(
+              content: Text('Failed to delete question paper: ${result.error}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -162,45 +339,53 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _clearAllData() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Data'),
-        content: const Text('Are you sure you want to delete all question papers? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear All'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _pullForEditing(QuestionPaperCloudModel paper) async {
+    final result = await _coordinatorService.pullForEditing(paper.id);
 
-    if (confirmed == true) {
-      final success = await _storageService.clearAllQuestionPapers();
-      if (success) {
-        _loadQuestionPapers();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('All question papers cleared successfully')),
-          );
+    if (result.success) {
+      _loadQuestionPapers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Question paper "${paper.title}" is now available for editing'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pull for editing: ${result.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToEdit(dynamic paper) {
+    if (paper is QuestionPaperModel) {
+      // Local draft - navigate to edit
+      context.go('/qps/${paper.id}');
+    } else if (paper is QuestionPaperCloudModel) {
+      if (_isAdmin) {
+        // Admin viewing submission - show view-only mode
+        context.go('/qps/${paper.id}?view=true');
+      } else {
+        // Teacher viewing their submission
+        if (paper.status == 'rejected') {
+          // Can pull for editing
+          _showQuestionPaperOptions(paper);
+        } else {
+          // View only
+          context.go('/qps/${paper.id}?view=true');
         }
       }
     }
   }
 
-  void _navigateToEdit(QuestionPaperModel paper) {
-    // Navigate to the edit screen using the question paper ID
-    context.go('/qps/${paper.id}');
-  }
-
-  void _showQuestionPaperOptions(QuestionPaperModel paper) {
+  void _showQuestionPaperOptions(dynamic paper) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -209,61 +394,119 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              paper.title,
+              paper is QuestionPaperModel ? paper.title : paper.title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 16),
 
-            // Edit option
-            ListTile(
-              leading: Icon(
-                paper.status == 'approved' ? Icons.visibility : Icons.edit,
-                color: paper.status == 'approved' ? Colors.blue : Colors.green,
-              ),
-              title: Text(paper.status == 'approved' ? 'View' : 'Edit'),
-              subtitle: Text(
-                paper.status == 'approved'
-                    ? 'View question paper details'
-                    : 'Edit question paper',
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _navigateToEdit(paper);
-              },
-            ),
-
-            // Duplicate option
-            ListTile(
-              leading: const Icon(Icons.copy, color: Colors.orange),
-              title: const Text('Duplicate'),
-              subtitle: const Text('Create a copy of this question paper'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Duplicate feature coming soon')),
-                );
-              },
-            ),
-
-            // Delete option
-            if (paper.status != 'approved') // Don't allow deleting approved papers
+            // Admin actions
+            if (_isAdmin && paper is QuestionPaperCloudModel) ...[
               ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                subtitle: const Text('Permanently delete this question paper'),
+                leading: const Icon(Icons.visibility, color: Colors.blue),
+                title: const Text('View Details'),
+                subtitle: const Text('View question paper details'),
                 onTap: () {
                   Navigator.pop(context);
-                  _deleteQuestionPaper(paper);
+                  context.go('/qps/${paper.id}?view=true');
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: const Text('Approve'),
+                subtitle: const Text('Approve this question paper'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _approveQuestionPaper(paper);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cancel, color: Colors.red),
+                title: const Text('Reject'),
+                subtitle: const Text('Reject with feedback'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _rejectQuestionPaper(paper);
+                },
+              ),
+            ],
+
+            // Teacher actions
+            if (!_isAdmin) ...[
+              // Draft actions
+              if (paper is QuestionPaperModel) ...[
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.green),
+                  title: const Text('Edit'),
+                  subtitle: const Text('Edit question paper'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _navigateToEdit(paper);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  subtitle: const Text('Permanently delete this question paper'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteQuestionPaper(paper);
+                  },
+                ),
+              ],
+
+              // Submission actions
+              if (paper is QuestionPaperCloudModel) ...[
+                ListTile(
+                  leading: Icon(
+                    paper.status == 'rejected' ? Icons.edit : Icons.visibility,
+                    color: paper.status == 'rejected' ? Colors.orange : Colors.blue,
+                  ),
+                  title: Text(paper.status == 'rejected' ? 'Pull for Editing' : 'View'),
+                  subtitle: Text(
+                      paper.status == 'rejected'
+                          ? 'Edit and resubmit this question paper'
+                          : 'View question paper details'
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (paper.status == 'rejected') {
+                      _pullForEditing(paper);
+                    } else {
+                      context.go('/qps/${paper.id}?view=true');
+                    }
+                  },
+                ),
+              ],
+            ],
 
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
+  }
+
+  List<dynamic> _getFilteredPapers() {
+    if (_isAdmin) {
+      return _reviewQueue;
+    } else {
+      switch (_selectedStatus) {
+        case 'all':
+          return [..._drafts, ..._submissions];
+        case 'draft':
+          return _drafts;
+        case 'submitted':
+          return _submissions.where((p) => p.status == 'submitted').toList();
+        case 'approved':
+          return _submissions.where((p) => p.status == 'approved').toList();
+        case 'rejected':
+          return _submissions.where((p) => p.status == 'rejected').toList();
+        default:
+          return [..._drafts, ..._submissions];
+      }
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -300,7 +543,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
-        // Router handles navigation automatically, so we just handle loading states
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -311,7 +553,6 @@ class _HomePageState extends State<HomePage> {
         }
       },
       builder: (context, authState) {
-        // Get user from auth state instead of widget parameter
         final user = authState is AuthAuthenticated ? authState.user : null;
 
         if (user == null) {
@@ -322,59 +563,41 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
+        final filteredPapers = _getFilteredPapers();
+
         return Scaffold(
           appBar: AppBar(
-            title: Text("Welcome ${user.name ?? 'User'}"),
+            title: Text(_isAdmin
+                ? "Admin Dashboard - ${user.name ?? 'User'}"
+                : "Welcome ${user.name ?? 'User'}"
+            ),
             elevation: 0,
             actions: [
+              // Role indicator
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isAdmin ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isAdmin ? Colors.red.withOpacity(0.3) : Colors.blue.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  _isAdmin ? 'ADMIN' : 'TEACHER',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _isAdmin ? Colors.red : Colors.blue,
+                  ),
+                ),
+              ),
               // Logout button
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: _showLogoutDialog,
                 tooltip: 'Sign Out',
-              ),
-              // Debug: Show storage stats
-              IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: () async {
-                  final stats = await _storageService.getStorageStats();
-                  if (mounted) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Storage Statistics'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Drafts: ${stats['draft'] ?? 0}'),
-                            Text('Submitted: ${stats['submitted'] ?? 0}'),
-                            Text('Approved: ${stats['approved'] ?? 0}'),
-                            Text('Rejected: ${stats['rejected'] ?? 0}'),
-                            const Divider(),
-                            Text('Total: ${stats.values.fold<int>(0, (sum, count) => sum + count)}'),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Close'),
-                          ),
-                          if (stats.values.fold<int>(0, (sum, count) => sum + count) > 0)
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _clearAllData();
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                              child: const Text('Clear All'),
-                            ),
-                        ],
-                      ),
-                    );
-                  }
-                },
-                tooltip: 'Storage Info',
               ),
             ],
           ),
@@ -390,18 +613,17 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Question Papers",
+                            _isAdmin ? "Papers for Review" : "Question Papers",
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            "${_questionPapers.length} papers found",
+                            "${filteredPapers.length} ${_isAdmin ? 'submissions pending approval' : 'papers found'}",
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
                           ),
-                          // Show error message if any
                           if (_errorMessage.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
@@ -416,22 +638,28 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => context.go('/qps'),
-                      icon: const Icon(Icons.add),
-                      label: const Text("Create New"),
-                    ),
+                    // Only show create button for teachers
+                    if (!_isAdmin)
+                      ElevatedButton.icon(
+                        onPressed: () => context.go('/qps'),
+                        icon: const Icon(Icons.add),
+                        label: const Text("Create New"),
+                      ),
                   ],
                 ),
               ),
 
-              // Status filter chips
+              // Status filter chips - different for admin vs teacher
               Container(
                 height: 50,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  children: [
+                  children: _isAdmin
+                      ? [
+                    _buildFilterChip('all', 'All Submissions'),
+                  ]
+                      : [
                     _buildFilterChip('all', 'All'),
                     _buildFilterChip('draft', 'Drafts'),
                     _buildFilterChip('submitted', 'Submitted'),
@@ -456,15 +684,15 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 )
-                    : _questionPapers.isEmpty
+                    : filteredPapers.isEmpty
                     ? _buildEmptyState()
                     : RefreshIndicator(
                   onRefresh: _loadQuestionPapers,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _questionPapers.length,
+                    itemCount: filteredPapers.length,
                     itemBuilder: (context, index) {
-                      final paper = _questionPapers[index];
+                      final paper = filteredPapers[index];
                       return _buildQuestionPaperCard(paper);
                     },
                   ),
@@ -472,12 +700,12 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          // Add floating action button for quick access
-          floatingActionButton: FloatingActionButton(
+          // Only show FAB for teachers
+          floatingActionButton: !_isAdmin ? FloatingActionButton(
             onPressed: () => context.go('/qps'),
             tooltip: 'Create Question Paper',
             child: const Icon(Icons.add),
-          ),
+          ) : null,
         );
       },
     );
@@ -494,7 +722,6 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             _selectedStatus = value;
           });
-          _loadQuestionPapers();
         },
         selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
         checkmarkColor: Theme.of(context).primaryColor,
@@ -502,13 +729,35 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildQuestionPaperCard(QuestionPaperModel paper) {
+  Widget _buildQuestionPaperCard(dynamic paper) {
+    // Determine if this is a draft or cloud model
+    final isLocalDraft = paper is QuestionPaperModel;
+    final title = isLocalDraft ? paper.title : paper.title;
+    final subject = isLocalDraft ? paper.subject : paper.subject;
+    final examType = isLocalDraft ? paper.examType : paper.examType;
+    final status = isLocalDraft ? paper.status : paper.status;
+    final createdBy = isLocalDraft ? paper.createdBy : (paper.createdByName ?? 'Unknown');
+    final modifiedAt = isLocalDraft ? paper.modifiedAt : paper.submittedAt;
+    // Replace the existing questionCount calculation with this:
+    final questionCount = () {
+      int count = 0;
+      final questions = isLocalDraft
+          ? (paper as QuestionPaperModel).questions
+          : (paper as QuestionPaperCloudModel).questions;
+
+      for (var questionList in questions.values) {
+        count += questionList.length;
+      }
+      return count;
+    }();
+    final rejectionReason = isLocalDraft ? paper.rejectionReason : paper.rejectionReason;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       child: InkWell(
-        onTap: () => _navigateToEdit(paper), // Navigate to edit when tapped
-        onLongPress: () => _showQuestionPaperOptions(paper), // Show options on long press
+        onTap: () => _navigateToEdit(paper),
+        onLongPress: () => _showQuestionPaperOptions(paper),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -520,7 +769,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Expanded(
                     child: Text(
-                      paper.title,
+                      title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -533,34 +782,34 @@ class _HomePageState extends State<HomePage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(paper.status).withOpacity(0.1),
+                        color: _getStatusColor(status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _getStatusColor(paper.status).withOpacity(0.3),
+                          color: _getStatusColor(status).withOpacity(0.3),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _getStatusIcon(paper.status),
+                            _getStatusIcon(status),
                             size: 14,
-                            color: _getStatusColor(paper.status),
+                            color: _getStatusColor(status),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            paper.status.toUpperCase(),
+                            status.toUpperCase(),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: _getStatusColor(paper.status),
+                              color: _getStatusColor(status),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.more_vert,
                             size: 14,
-                            color: _getStatusColor(paper.status),
+                            color: _getStatusColor(status),
                           ),
                         ],
                       ),
@@ -578,7 +827,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      paper.subject,
+                      subject,
                       style: TextStyle(color: Colors.grey[600]),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -587,7 +836,7 @@ class _HomePageState extends State<HomePage> {
                   Icon(Icons.quiz, size: 16, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
-                    paper.examType,
+                    examType,
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -604,7 +853,7 @@ class _HomePageState extends State<HomePage> {
                         Icon(Icons.help_outline, size: 16, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          "${paper.questions.values.fold<int>(0, (sum, list) => sum + list.length)} questions",
+                          "$questionCount questions",
                           style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
@@ -614,15 +863,15 @@ class _HomePageState extends State<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        "Modified: ${_formatDate(paper.modifiedAt)}",
+                        isLocalDraft ? "Modified: ${_formatDate(modifiedAt)}" : "Submitted: ${_formatDate(modifiedAt)}",
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[500],
                         ),
                       ),
-                      if (paper.createdBy.isNotEmpty)
+                      if (createdBy.isNotEmpty)
                         Text(
-                          "By: ${paper.createdBy}",
+                          "By: $createdBy",
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[500],
@@ -634,7 +883,7 @@ class _HomePageState extends State<HomePage> {
               ),
 
               // Rejection reason (if applicable)
-              if (paper.status == 'rejected' && paper.rejectionReason != null)
+              if (status == 'rejected' && rejectionReason != null && rejectionReason.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.all(8),
@@ -649,7 +898,7 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          "Rejection reason: ${paper.rejectionReason}",
+                          "Rejection reason: $rejectionReason",
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.red[700],
@@ -660,35 +909,73 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-              // Tap hint
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    paper.status == 'approved' ? Icons.visibility : Icons.edit,
-                    size: 14,
-                    color: Colors.grey[400],
+              // Admin quick actions
+              if (_isAdmin && paper is QuestionPaperCloudModel)
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _approveQuestionPaper(paper),
+                          icon: const Icon(Icons.check, size: 16),
+                          label: const Text('Approve'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _rejectQuestionPaper(paper),
+                          icon: const Icon(Icons.close, size: 16),
+                          label: const Text('Reject'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    paper.status == 'approved' ? 'Tap to view' : 'Tap to edit',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[400],
-                      fontStyle: FontStyle.italic,
-                    ),
+                ),
+
+              // Tap hint for teachers
+              if (!_isAdmin)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isLocalDraft ? Icons.edit :
+                        (status == 'rejected' ? Icons.edit : Icons.visibility),
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isLocalDraft ? 'Tap to edit' :
+                        (status == 'rejected' ? 'Tap to pull for editing' : 'Tap to view'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[400],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Long press for options',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[400],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    'Long press for options',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[400],
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
+                ),
             ],
           ),
         ),
@@ -699,15 +986,22 @@ class _HomePageState extends State<HomePage> {
   Widget _buildEmptyState() {
     String message;
     String subtitle;
+    IconData icon;
 
     if (_errorMessage.isNotEmpty) {
       message = "Failed to load question papers";
       subtitle = "Please check your connection and try again";
+      icon = Icons.error_outline;
+    } else if (_isAdmin) {
+      message = "No submissions for review";
+      subtitle = "All submitted question papers have been reviewed";
+      icon = Icons.inbox_outlined;
     } else {
       message = _selectedStatus == 'all'
           ? "No question papers found"
           : "No ${_selectedStatus} papers found";
       subtitle = "Create your first question paper to get started";
+      icon = Icons.description_outlined;
     }
 
     return Center(
@@ -715,7 +1009,7 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _errorMessage.isNotEmpty ? Icons.error_outline : Icons.description_outlined,
+            icon,
             size: 64,
             color: Colors.grey[400],
           ),
@@ -739,7 +1033,7 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.refresh),
               label: const Text("Retry"),
             )
-          else
+          else if (!_isAdmin)
             ElevatedButton.icon(
               onPressed: () => context.go('/qps'),
               icon: const Icon(Icons.add),

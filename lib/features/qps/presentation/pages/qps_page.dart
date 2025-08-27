@@ -4,9 +4,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/qps_repository_impl.dart';
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
+import '../../domain/entities/grade_entity.dart';
 import '../../domain/usecases/get_exam_types.dart';
 import '../../domain/usecases/get_subjects.dart';
+import '../../domain/usecases/get_grades.dart';
+import '../../domain/usecases/get_user_permissions.dart';
+import '../../domain/usecases/get_filtered_subjects.dart';
+import '../../domain/usecases/get_filtered_grades.dart';
+import '../../domain/usecases/can_create_paper.dart';
 import '../bloc/qps_bloc.dart';
+import '../bloc/qps_event.dart';
+import '../bloc/qps_state.dart';
 import '../widgets/question_input_widget.dart';
 
 class QpsPage extends StatefulWidget {
@@ -19,7 +27,10 @@ class QpsPage extends StatefulWidget {
 class _QpsPageState extends State<QpsPage> with TickerProviderStateMixin {
   String? selectedExamTypeId;
   ExamTypeEntity? selectedExamType;
-  String? selectedSubjectId; // Changed from Set to single String
+  String? selectedSubjectId;
+  String? selectedGradeId;
+  GradeEntity? selectedGrade;
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -41,16 +52,44 @@ class _QpsPageState extends State<QpsPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // Helper method to format grade display name
+  String _formatGradeName(GradeEntity grade) {
+    // Clean up the display name by removing redundant parts
+    String name = grade.displayName;
+
+    // Remove duplicate words and extra hyphens
+    List<String> parts = name.split('-').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    Set<String> uniqueParts = <String>{};
+
+    for (String part in parts) {
+      // Convert to lowercase for comparison but keep original case
+      String lowerPart = part.toLowerCase();
+      if (!uniqueParts.any((existing) => existing.toLowerCase() == lowerPart)) {
+        uniqueParts.add(part);
+      }
+    }
+
+    return uniqueParts.join(' - ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return BlocProvider(
-      create: (_) => QpsBloc(
-        getExamTypes: GetExamTypes(QpsRepositoryImpl(supabase: Supabase.instance.client)),
-        getSubjects: GetSubjects(QpsRepositoryImpl(supabase: Supabase.instance.client)),
-      )..add(LoadQpsData()),
+      create: (_) {
+        final repository = QpsRepositoryImpl(supabase: Supabase.instance.client);
+        return QpsBloc(
+          getExamTypes: GetExamTypes(repository),
+          getSubjects: GetSubjects(repository),
+          getGrades: GetGrades(repository),
+          getUserPermissions: GetUserPermissions(repository),
+          getFilteredSubjects: GetFilteredSubjects(repository),
+          getFilteredGrades: GetFilteredGrades(repository),
+          canCreatePaper: CanCreatePaper(repository),
+        )..add(LoadQpsData());
+      },
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         appBar: AppBar(
@@ -63,7 +102,15 @@ class _QpsPageState extends State<QpsPage> with TickerProviderStateMixin {
           automaticallyImplyLeading: false,
           elevation: 0,
         ),
-        body: BlocBuilder<QpsBloc, QpsState>(
+        body: BlocConsumer<QpsBloc, QpsState>(
+          listener: (context, state) {
+            if (state is QpsPermissionValidated) {
+              if (!state.canCreate) {
+                _showErrorSnackBar(context, state.message);
+              }
+              // Don't show success message here - just validate silently
+            }
+          },
           builder: (context, state) {
             if (state is QpsLoading) {
               return Center(
@@ -90,457 +137,44 @@ class _QpsPageState extends State<QpsPage> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Header Card
-                    Card(
-                      elevation: 0,
-                      color: colorScheme.primaryContainer,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.quiz_outlined,
-                              size: 48,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Create Question Paper',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Select exam type and subject to generate questions',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onPrimaryContainer.withOpacity(0.8),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    // Header Card with permissions info
+                    _buildHeaderCard(context, state),
 
                     const SizedBox(height: 24),
 
-                    // Exam Type Selection
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: colorScheme.outline.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.school_outlined,
-                                    color: colorScheme.onSecondaryContainer,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Step 1: Select Exam Type',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            DropdownButtonFormField<String>(
-                              value: selectedExamTypeId,
-                              items: state.examTypes
-                                  .map((e) => DropdownMenuItem(
-                                value: e.id,
-                                child: Text(
-                                  e.name,
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ))
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedExamTypeId = value;
-                                  selectedExamType = state.examTypes
-                                      .firstWhere((exam) => exam.id == value);
-                                  selectedSubjectId = null; // Clear subject when exam type changes
-                                });
-                                _fadeController.reset();
-                                _fadeController.forward();
-                              },
-                              decoration: InputDecoration(
-                                labelText: "Choose exam type",
-                                prefixIcon: const Icon(Icons.assignment_outlined),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline.withOpacity(0.5),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: colorScheme.surface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    // Step 1: Grade Selection
+                    _buildGradeSelectionCard(context, state),
+
+                    const SizedBox(height: 16),
+
+                    // Step 2: Exam Type Selection
+                    _buildExamTypeSelectionCard(context, state),
 
                     // Exam Sections (animated)
                     if (selectedExamType != null && selectedExamType!.sections.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Card(
-                          elevation: 0,
-                          color: colorScheme.tertiaryContainer.withOpacity(0.3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.view_list_outlined,
-                                      color: colorScheme.onTertiaryContainer,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Exam Sections',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.onTertiaryContainer,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                ...selectedExamType!.sections.map(
-                                      (section) => Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: colorScheme.outline.withOpacity(0.2),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: colorScheme.primary.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Icon(
-                                            Icons.quiz,
-                                            size: 16,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                section.name,
-                                                style: theme.textTheme.bodyMedium?.copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              Text(
-                                                '${section.questions} ${section.formattedType} • ${section.totalMarks} marks',
-                                                style: theme.textTheme.bodySmall?.copyWith(
-                                                  color: colorScheme.onSurfaceVariant,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      _buildExamSectionsCard(context, state),
                     ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                    // Subject Selection (Updated to single selection)
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: colorScheme.outline.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.subject_outlined,
-                                    color: colorScheme.onSecondaryContainer,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Step 2: Select Subject',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (selectedSubjectId != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Subject selected',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 16),
-
-                            // Option 1: Dropdown for subjects (cleaner for single selection)
-                            DropdownButtonFormField<String>(
-                              value: selectedSubjectId,
-                              items: state.subjects
-                                  .map((subject) => DropdownMenuItem(
-                                value: subject.id,
-                                child: Text(
-                                  subject.name,
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ))
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedSubjectId = value;
-                                });
-                              },
-                              decoration: InputDecoration(
-                                labelText: "Choose subject",
-                                prefixIcon: const Icon(Icons.book_outlined),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline.withOpacity(0.5),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: colorScheme.surface,
-                              ),
-                            ),
-
-                            // Option 2: Radio buttons (alternative implementation - uncomment to use)
-                            /*
-                            SizedBox(
-                              height: 300,
-                              child: ListView.builder(
-                                itemCount: state.subjects.length,
-                                itemBuilder: (context, index) {
-                                  final subject = state.subjects[index];
-                                  final isSelected = selectedSubjectId == subject.id;
-
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? colorScheme.primaryContainer.withOpacity(0.5)
-                                          : colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? colorScheme.primary
-                                            : colorScheme.outline.withOpacity(0.2),
-                                        width: isSelected ? 2 : 1,
-                                      ),
-                                    ),
-                                    child: RadioListTile<String>(
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 4,
-                                      ),
-                                      title: Text(
-                                        subject.name,
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          fontWeight: isSelected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                          color: isSelected
-                                              ? colorScheme.onPrimaryContainer
-                                              : colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      value: subject.id,
-                                      groupValue: selectedSubjectId,
-                                      activeColor: colorScheme.primary,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedSubjectId = value;
-                                        });
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            */
-                          ],
-                        ),
-                      ),
-                    ),
+                    // Step 3: Subject Selection
+                    _buildSubjectSelectionCard(context, state),
 
                     const SizedBox(height: 32),
 
                     // Submit Button
-                    SizedBox(
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: selectedExamTypeId != null && selectedSubjectId != null
-                            ? () => _handleCreateQuestions(context, state)
-                            : null,
-                        icon: const Icon(Icons.create_outlined),
-                        label: Text(
-                          "Create Questions",
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          disabledBackgroundColor: colorScheme.outline.withOpacity(0.2),
-                          disabledForegroundColor: colorScheme.onSurfaceVariant,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: selectedExamTypeId != null && selectedSubjectId != null ? 2 : 0,
-                        ),
-                      ),
-                    ),
+                    _buildSubmitButton(context, state),
 
                     const SizedBox(height: 16),
 
                     // Helper text
-                    if (selectedExamTypeId == null || selectedSubjectId == null)
-                      Center(
-                        child: Text(
-                          selectedExamTypeId == null
-                              ? 'Please select an exam type first'
-                              : 'Please select a subject',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
+                    _buildHelperText(context, state),
                   ],
                 ),
               );
             } else if (state is QpsError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Oops! Something went wrong",
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: colorScheme.error,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.error,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        context.read<QpsBloc>().add(LoadQpsData());
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              );
+              return _buildErrorState(context, state);
             }
             return const SizedBox();
           },
@@ -549,29 +183,536 @@ class _QpsPageState extends State<QpsPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildHeaderCard(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.primaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(
+              Icons.quiz_outlined,
+              size: 48,
+              color: colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Create Question Paper',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.isAdmin
+                  ? 'Admin access - Create papers for any subject and grade'
+                  : 'Select grade, exam type, and subject to generate questions',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (!state.isAdmin && state.userPermissions != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Limited Access - ${state.filteredSubjects.length} subjects, ${state.filteredGrades.length} grades',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradeSelectionCard(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.grade_outlined,
+                    color: colorScheme.onSecondaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Step 1: Select Grade',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            if (selectedGradeId != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Grade selected: ${_formatGradeName(selectedGrade!)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedGradeId,
+              items: state.filteredGrades
+                  .map((grade) => DropdownMenuItem(
+                value: grade.id,
+                child: Text(
+                  _formatGradeName(grade), // Use the formatted name
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ))
+                  .toList(),
+              onChanged: state.filteredGrades.isEmpty
+                  ? null
+                  : (value) {
+                setState(() {
+                  selectedGradeId = value;
+                  selectedGrade = state.filteredGrades.firstWhere((g) => g.id == value);
+                  // Clear dependent selections
+                  selectedExamTypeId = null;
+                  selectedExamType = null;
+                  selectedSubjectId = null;
+                });
+                _fadeController.reset();
+                _fadeController.forward();
+              },
+              decoration: InputDecoration(
+                labelText: state.filteredGrades.isEmpty
+                    ? "No grades available"
+                    : "Choose grade level",
+                prefixIcon: const Icon(Icons.school_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                ),
+                filled: true,
+                fillColor: colorScheme.surface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExamTypeSelectionCard(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.assignment_outlined,
+                    color: colorScheme.onSecondaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Step 2: Select Exam Type',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedExamTypeId,
+              items: state.examTypes
+                  .map((e) => DropdownMenuItem(
+                value: e.id,
+                child: Text(e.name, style: theme.textTheme.bodyMedium),
+              ))
+                  .toList(),
+              onChanged: selectedGradeId == null
+                  ? null
+                  : (value) {
+                setState(() {
+                  selectedExamTypeId = value;
+                  selectedExamType = state.examTypes.firstWhere((exam) => exam.id == value);
+                  selectedSubjectId = null; // Clear subject when exam type changes
+                });
+                _fadeController.reset();
+                _fadeController.forward();
+              },
+              decoration: InputDecoration(
+                labelText: selectedGradeId == null ? "Select grade first" : "Choose exam type",
+                prefixIcon: const Icon(Icons.quiz_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                ),
+                filled: true,
+                fillColor: colorScheme.surface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExamSectionsCard(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Card(
+        elevation: 0,
+        color: colorScheme.tertiaryContainer.withOpacity(0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.view_list_outlined,
+                    color: colorScheme.onTertiaryContainer,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Exam Sections',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...selectedExamType!.sections.map((section) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(Icons.quiz, size: 16, color: colorScheme.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.name,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            '${section.questions} ${section.formattedType} • ${section.totalMarks} marks',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubjectSelectionCard(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.subject_outlined,
+                    color: colorScheme.onSecondaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Step 3: Select Subject',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            if (selectedSubjectId != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Subject selected',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedSubjectId,
+              items: state.filteredSubjects
+                  .map((subject) => DropdownMenuItem(
+                value: subject.id,
+                child: Text(subject.name, style: theme.textTheme.bodyMedium),
+              ))
+                  .toList(),
+              onChanged: selectedExamTypeId == null || state.filteredSubjects.isEmpty
+                  ? null
+                  : (value) {
+                setState(() {
+                  selectedSubjectId = value;
+                });
+                // Don't validate permissions automatically - let user click the button
+              },
+              decoration: InputDecoration(
+                labelText: selectedExamTypeId == null
+                    ? "Select exam type first"
+                    : state.filteredSubjects.isEmpty
+                    ? "No subjects available"
+                    : "Choose subject",
+                prefixIcon: const Icon(Icons.book_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                ),
+                filled: true,
+                fillColor: colorScheme.surface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final canSubmit = selectedExamTypeId != null && selectedSubjectId != null && selectedGradeId != null;
+
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: canSubmit ? () => _handleCreateQuestions(context, state) : null,
+        icon: const Icon(Icons.create_outlined),
+        label: Text(
+          "Create Questions",
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          disabledBackgroundColor: colorScheme.outline.withOpacity(0.2),
+          disabledForegroundColor: colorScheme.onSurfaceVariant,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: canSubmit ? 2 : 0,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHelperText(BuildContext context, QpsLoaded state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    if (selectedGradeId != null && selectedExamTypeId != null && selectedSubjectId != null) {
+      return const SizedBox.shrink();
+    }
+
+    String helperText;
+    if (selectedGradeId == null) {
+      helperText = 'Please select a grade level first';
+    } else if (selectedExamTypeId == null) {
+      helperText = 'Please select an exam type';
+    } else {
+      helperText = state.filteredSubjects.isEmpty
+          ? 'No subjects available for your permissions'
+          : 'Please select a subject';
+    }
+
+    return Center(
+      child: Text(
+        helperText,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, QpsError state) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: colorScheme.error),
+          const SizedBox(height: 16),
+          Text(
+            "Oops! Something went wrong",
+            style: theme.textTheme.headlineSmall?.copyWith(color: colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.error,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.read<QpsBloc>().add(LoadQpsData()),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleCreateQuestions(BuildContext context, QpsLoaded state) {
-    if (selectedExamType == null || selectedSubjectId == null) {
-      _showErrorSnackBar(context, 'Please select exam type and subject first');
+    print('_handleCreateQuestions called'); // Debug print
+
+    if (selectedExamType == null || selectedSubjectId == null || selectedGrade == null) {
+      print('Missing selections: ExamType: $selectedExamType, Subject: $selectedSubjectId, Grade: $selectedGrade');
+      _showErrorSnackBar(context, 'Please select grade, exam type and subject first');
       return;
     }
 
-    // Find the selected subject entity
-    final selectedSubject = state.subjects.firstWhere(
+    final selectedSubject = state.filteredSubjects.firstWhere(
           (subject) => subject.id == selectedSubjectId,
     );
 
+    print('Opening dialog with:');
+    print('ExamType: ${selectedExamType!.name}');
+    print('Subject: ${selectedSubject.name}');
+    print('Grade: ${selectedGrade!.displayName}');
+    print('Sections: ${selectedExamType!.sections.length}');
+
+    // Simply open the dialog without permission validation
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => QuestionInputDialog(
         sections: selectedExamType!.sections,
         examType: selectedExamType!,
-        selectedSubjects: [selectedSubject], // Pass as a single-item list
+        selectedSubjects: [selectedSubject],
+        selectedGrade: selectedGrade!,
         onQuestionsSubmitted: (questions) {
-          // Handle the submitted questions
           print('Questions submitted: $questions');
-
-          // Show success message
+          Navigator.of(context).pop(); // Close the dialog
           _showSuccessSnackBar(context, 'Questions saved! Ready for preview.');
         },
       ),

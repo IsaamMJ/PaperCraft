@@ -1,7 +1,4 @@
 import 'dart:convert';
-
-import 'package:papercraft/features/qps/services/question_paper_storage_service.dart';
-
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../presentation/widgets/question_input_widget.dart';
@@ -15,9 +12,9 @@ class QuestionPaperModel {
   final DateTime createdAt;
   final DateTime modifiedAt;
   final String status; // draft, submitted, approved, rejected
-  final ExamTypeEntity examTypeEntity;
+  final ExamTypeEntity examTypeEntity; // Made required, no nullable
   final Map<String, List<Question>> questions;
-  final List<SubjectEntity> selectedSubjects;
+  final List<SubjectEntity> selectedSubjects; // Made non-nullable
   final String? rejectionReason;
   final String? approvedBy;
   final DateTime? approvedAt;
@@ -31,9 +28,9 @@ class QuestionPaperModel {
     required this.createdAt,
     required this.modifiedAt,
     required this.status,
-    required this.examTypeEntity,
+    required this.examTypeEntity, // Required
     required this.questions,
-    required this.selectedSubjects,
+    required this.selectedSubjects, // Required, default to empty list
     this.rejectionReason,
     this.approvedBy,
     this.approvedAt,
