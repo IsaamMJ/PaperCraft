@@ -1,0 +1,1 @@
+export '../../../../core/services/permission_service.dart' show UserRole;

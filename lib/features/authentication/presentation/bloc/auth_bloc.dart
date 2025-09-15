@@ -1,132 +1,84 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/usecases/sign_in_with_google.dart';
-import '../../domain/usecases/get_current_user.dart';
-import '../../domain/usecases/sign_out.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import '../../domain/usecases/auth_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final SignInWithGoogle _signInWithGoogle;
-  final GetCurrentUser _getCurrentUser;
-  final SignOut _signOutUseCase;
+  final AuthUseCase _authUseCase;
+  late StreamSubscription _authSubscription;
 
-  AuthBloc({
-    required SignInWithGoogle signInWithGoogle,
-    required GetCurrentUser getCurrentUser,
-    required SignOut signOutUseCase,
-  }) : _signInWithGoogle = signInWithGoogle,
-        _getCurrentUser = getCurrentUser,
-        _signOutUseCase = signOutUseCase,
-        super(AuthInitial()) {
-    on<AppStartedEvent>(_onAppStarted);
-    on<SignInWithGoogleEvent>(_onSignInWithGoogle);
-    on<GetCurrentUserEvent>(_onGetCurrentUser);
-    on<SignOutEvent>(_onSignOut);
+  AuthBloc(this._authUseCase) : super(const AuthInitial()) {
+    on<AuthInitialize>(_onInitialize);
+    on<AuthSignInGoogle>(_onSignInGoogle);
+    on<AuthSignOut>(_onSignOut);
+    on<AuthCheckStatus>(_onCheckStatus);
 
-    // Check current user when bloc is created
-    add(AppStartedEvent());
+    _listenToAuthChanges();
   }
 
-  Future<void> _onAppStarted(
-      AppStartedEvent event,
-      Emitter<AuthState> emit,
-      ) async {
-    emit(AuthLoading());
-
-    try {
-      final user = await _getCurrentUser();
-      if (user != null) {
-        emit(AuthAuthenticated(user));
-      } else {
-        emit(AuthUnauthenticated());
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      // Handle session expiry - silent redirect to login
+      if (data.event == AuthChangeEvent.signedOut && state is AuthAuthenticated) {
+        _handleSessionExpiry();
       }
-    } catch (e) {
-      emit(AuthError(_formatError(e)));
-    }
+    });
   }
 
-  Future<void> _onSignInWithGoogle(
-      SignInWithGoogleEvent event,
-      Emitter<AuthState> emit,
-      ) async {
-    // Don't emit loading if already authenticated
-    if (state is! AuthAuthenticated) {
-      emit(AuthLoading());
-    }
+  void _handleSessionExpiry() {
+    // Silent redirect - preserves draft papers
+    add(const AuthSignOut());
+  }
 
+  @override
+  Future<void> close() {
+    _authSubscription.cancel();
+    return super.close();
+  }
+
+  Future<void> _onInitialize(AuthInitialize event, Emitter<AuthState> emit) async {
+    emit(const AuthLoading());
     try {
-      final (user, _) = await _signInWithGoogle();
-      emit(AuthAuthenticated(user));
+      final user = await _authUseCase.initialize();
+      emit(user != null
+          ? AuthAuthenticated(user)
+          : const AuthUnauthenticated());
     } catch (e) {
-      emit(AuthError(_formatError(e)));
+      emit(const AuthUnauthenticated());
     }
   }
 
-  Future<void> _onGetCurrentUser(
-      GetCurrentUserEvent event,
-      Emitter<AuthState> emit,
-      ) async {
-    emit(AuthLoading());
-
+  Future<void> _onSignInGoogle(AuthSignInGoogle event, Emitter<AuthState> emit) async {
+    emit(const AuthLoading());
     try {
-      final user = await _getCurrentUser();
-      if (user != null) {
-        emit(AuthAuthenticated(user));
-      } else {
-        emit(AuthUnauthenticated());
-      }
+      final result = await _authUseCase.signInWithGoogle();
+      emit(AuthAuthenticated(result.user, isFirstLogin: result.isFirstLogin));
     } catch (e) {
-      emit(AuthError(_formatError(e)));
+      emit(AuthError(e.toString()));
     }
   }
 
-  Future<void> _onSignOut(
-      SignOutEvent event,
-      Emitter<AuthState> emit,
-      ) async {
-    emit(AuthLoading());
-
+  Future<void> _onSignOut(AuthSignOut event, Emitter<AuthState> emit) async {
+    emit(const AuthLoading());
     try {
-      await _signOutUseCase();
-      emit(AuthUnauthenticated());
+      await _authUseCase.signOut();
+      emit(const AuthUnauthenticated());
     } catch (e) {
-      // Even if sign out fails, go to unauthenticated state
-      emit(AuthUnauthenticated());
+      // Even if logout fails, we should clear the local state
+      emit(const AuthUnauthenticated());
     }
   }
 
-  String _formatError(dynamic error) {
-    final errorString = error.toString().toLowerCase();
-
-    // Domain-specific error messages
-    if (errorString.contains('access denied') ||
-        errorString.contains('not authorized') ||
-        errorString.contains('domain') && errorString.contains('authorized')) {
-      return 'Access denied. Your organization domain is not authorized to use this application. Please contact your administrator.';
+  Future<void> _onCheckStatus(AuthCheckStatus event, Emitter<AuthState> emit) async {
+    try {
+      final user = await _authUseCase.getCurrentUser();
+      emit(user != null
+          ? AuthAuthenticated(user)
+          : const AuthUnauthenticated());
+    } catch (e) {
+      emit(const AuthUnauthenticated());
     }
-
-    // Network-related errors
-    if (errorString.contains('network') ||
-        errorString.contains('connection') ||
-        errorString.contains('timeout')) {
-      return 'Network error. Please check your internet connection and try again.';
-    }
-
-    // Authentication-related errors
-    if (errorString.contains('cancelled')) {
-      return 'Sign in was cancelled.';
-    }
-
-    if (errorString.contains('oauth') || errorString.contains('sign-in')) {
-      return 'Sign in failed. Please try again.';
-    }
-
-    // Profile-related errors
-    if (errorString.contains('profile')) {
-      return 'Account setup failed. Please try again or contact administrator.';
-    }
-
-    // Generic fallback
-    return 'An error occurred. Please try again.';
   }
 }

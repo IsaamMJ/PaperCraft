@@ -31,23 +31,49 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # UI & Icons
   cupertino_icons: ^1.0.8
+
+  # Authentication & Backend
   google_sign_in: ^7.1.1
   supabase_flutter: ^2.9.1
+
+  # State Management & Architecture
   flutter_bloc: ^9.1.1
-  go_router: ^16.1.0
   equatable: ^2.0.7
+
+  # Navigation
+  go_router: ^16.1.0
+
+  # Storage & File Management
   shared_preferences: ^2.5.3
+  path_provider: ^2.1.5
+
+  # PDF Generation
   pdf: ^3.11.3
   printing: ^5.14.2
-  path_provider: ^2.1.5
-  logger: ^2.6.1
+
+  # Code Generation Annotations (Runtime needed)
+  freezed_annotation: ^3.1.0
+  bloc_test: ^10.0.0
+  dartz: ^0.10.1
+  get_it: ^8.2.0
+  uuid: ^4.5.1
+  intl: ^0.20.2
 
 dev_dependencies:
+  json_serializable: ^6.11.0
   flutter_test:
     sdk: flutter
+
+  # Code Generation Tools (Build-time only)
+  freezed: ^3.2.0
+  build_runner: ^2.7.0
+
+  # Recommended additions for code quality:
+  very_good_analysis: ^5.1.0  # Strict linting rules
+  mocktail: ^1.0.0           # For testing
+          # For BLoC testing
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
