@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/services/permission_service.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/paper_status.dart';
 import '../bloc/question_paper_bloc.dart';
@@ -37,7 +39,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
   }
 
   void _checkAdminStatus() async {
-    final isAdmin = await PermissionService.currentUserIsAdmin();
+    final isAdmin = sl<UserStateService>().isAdmin;
     if (mounted) {
       setState(() => _isAdmin = isAdmin);
 
@@ -55,8 +57,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
   }
 
   void _loadInitialData() {
-    context.read<QuestionPaperBloc>().add(const LoadPapersForReview());
-    context.read<QuestionPaperBloc>().add(const LoadUserSubmissions());
+    context.read<QuestionPaperBloc>().add(const LoadAllPapersForAdmin());
   }
 
   void _handleApprove(String paperId) async {
@@ -85,7 +86,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
   }
 
   void _handleViewDetails(String paperId) {
-    context.go('/question-papers/view/$paperId');
+    context.go(AppRoutes.questionPaperViewWithId(paperId));
   }
 
   Future<bool?> _showConfirmDialog({
@@ -204,7 +205,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/question-papers/create'),
+        onPressed: () => context.go(AppRoutes.questionPaperCreate),
         backgroundColor: Colors.blue.shade600,
         tooltip: 'Create New Paper',
         child: const Icon(Icons.add, color: Colors.white),
@@ -340,29 +341,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
         }
 
         if (state is QuestionPaperLoaded) {
-          // Combine all papers (submissions and pending reviews)
-          final allPapers = <QuestionPaperEntity>[
-            ...state.submissions,
-            ...state.papersForReview,
-          ];
+          // For admin, only show papers for review (these are all submitted papers from all users)
+          final allPapers = state.allPapersForAdmin;
 
-          // Remove duplicates and sort by date
-          final uniquePapers = <String, QuestionPaperEntity>{};
-          for (final paper in allPapers) {
-            uniquePapers[paper.id] = paper;
-          }
-
-          final papers = uniquePapers.values.toList();
-          papers.sort((a, b) => (b.submittedAt ?? b.createdAt)
-              .compareTo(a.submittedAt ?? a.createdAt));
-
-          final filteredPapers = _filterPapers(papers);
+          final filteredPapers = _filterPapers(allPapers);
 
           if (filteredPapers.isEmpty) {
             return _buildEmptyState(
               icon: Icons.description_outlined,
               title: 'No Papers Found',
-              subtitle: 'No papers match your search criteria',
+              subtitle: _searchQuery.isNotEmpty || _selectedSubject.isNotEmpty
+                  ? 'No papers match your current filters'
+                  : 'No papers have been submitted yet',
             );
           }
 
@@ -427,6 +417,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
   }
 
   Widget _buildAnalyticsContent(QuestionPaperLoaded state) {
+
+
     final allPapers = <QuestionPaperEntity>[
       ...state.submissions,
       ...state.papersForReview,
@@ -437,7 +429,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with TickerProv
       uniquePapers[paper.id] = paper;
     }
 
-    final papers = uniquePapers.values.toList();
+    final papers = state.papersForReview;
     final totalPapers = papers.length;
     final pendingCount = papers.where((p) => p.status.isSubmitted).length;
     final approvedCount = papers.where((p) => p.status.isApproved).length;

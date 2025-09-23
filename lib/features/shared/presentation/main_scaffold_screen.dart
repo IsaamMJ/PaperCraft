@@ -1,0 +1,882 @@
+import 'dart:core';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../core/infrastructure/di/injection_container.dart';
+import '../../../core/presentation/constants/app_colors.dart';
+import '../../authentication/domain/entities/user_role.dart';
+import '../../authentication/domain/services/user_state_service.dart';
+import '../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../authentication/presentation/bloc/auth_event.dart';
+import '../../authentication/presentation/bloc/auth_state.dart';
+import '../../home/presentation/pages/home_page.dart';
+import '../../question_papers/presentation/admin/admin_dashboard_page.dart';
+import '../../question_papers/presentation/bloc/shared_bloc_provider.dart';
+import '../../question_papers/presentation/pages/question_bank_page.dart';
+import '../../question_papers/presentation/pages/question_paper_create_page.dart';
+
+class MainScaffoldPage extends StatefulWidget {
+  const MainScaffoldPage({super.key});
+
+  @override
+  State<MainScaffoldPage> createState() => _MainScaffoldPageState();
+}
+
+class _MainScaffoldPageState extends State<MainScaffoldPage>
+    with TickerProviderStateMixin, PerformanceOptimizationMixin {
+
+  // State variables
+  int _selectedIndex = 0;
+  bool _isLoggingOut = false;
+  bool _isAdmin = false;
+
+  // Animation controllers
+  late AnimationController _tabAnimationController;
+  late AnimationController _logoutAnimationController;
+  late Animation<double> _tabAnimation;
+
+  // User state subscription
+  StreamSubscription<void>? _userStateSubscription;
+  late UserStateService _userStateService;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+    _initializeAnimations();
+    _subscribeToUserStateChanges();
+  }
+
+  @override
+  void dispose() {
+    _tabAnimationController.dispose();
+    _logoutAnimationController.dispose();
+    _userStateSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _initializeServices() {
+    _userStateService = sl<UserStateService>();
+    _checkUserRole();
+  }
+
+  void _initializeAnimations() {
+    _tabAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _logoutAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _tabAnimation = CurvedAnimation(
+      parent: _tabAnimationController,
+      curve: Curves.easeInOut,
+    );
+
+    _tabAnimationController.forward();
+  }
+
+  void _subscribeToUserStateChanges() {
+    _userStateSubscription = _userStateService.addListener(() {
+      if (mounted) {
+        final newAdminStatus = _userStateService.isAdmin;
+        if (_isAdmin != newAdminStatus) {
+          setState(() {
+            _isAdmin = newAdminStatus;
+            // Reset selected index if it's out of bounds
+            if (_selectedIndex >= _getPages().length) {
+              _selectedIndex = 0;
+            }
+          });
+        }
+      }
+    }) as StreamSubscription<void>?;
+  }
+
+  void _checkUserRole() {
+    final isAdmin = _userStateService.isAdmin;
+    if (mounted && _isAdmin != isAdmin) {
+      setState(() => _isAdmin = isAdmin);
+    }
+  }
+
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex && index < _getPages().length) {
+      _tabAnimationController.reset();
+      _tabAnimationController.forward();
+      setState(() => _selectedIndex = index);
+    }
+  }
+
+  void _showLogoutDialog(BuildContext context, dynamic user) {
+    showDialog(
+      context: context,
+      barrierDismissible: !_isLoggingOut,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Text(
+                      user.fullName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to sign out?',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 16,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You will need to sign in again to access your papers.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isLoggingOut ? null : () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: _isLoggingOut ? null : () => _handleLogout(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isLoggingOut ? AppColors.textTertiary : AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: _isLoggingOut
+                  ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+                  : const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleLogout(BuildContext context) {
+    print('🔥 DEBUG: _handleLogout called');
+
+    // Prevent multiple logout attempts
+    if (_isLoggingOut) {
+      print('🔥 DEBUG: Logout already in progress, ignoring');
+      return;
+    }
+
+    setState(() => _isLoggingOut = true);
+    _logoutAnimationController.repeat();
+    Navigator.of(context).pop();
+
+    // Check if AuthBloc is available
+    try {
+      final authBloc = context.read<AuthBloc>();
+      print('🔥 DEBUG: AuthBloc found, state: ${authBloc.state.runtimeType}');
+      print('🔥 DEBUG: AuthBloc is closed: ${authBloc.isClosed}');
+
+      if (authBloc.isClosed) {
+        print('🔥 ERROR: AuthBloc is closed!');
+        setState(() => _isLoggingOut = false);
+        _logoutAnimationController.stop();
+        return;
+      }
+
+      print('🔥 DEBUG: About to dispatch AuthSignOut event');
+      authBloc.add(const AuthSignOut());
+      print('🔥 DEBUG: AuthSignOut event dispatched successfully');
+
+    } catch (e, stackTrace) {
+      print('🔥 ERROR: Failed to get AuthBloc: $e');
+      print('🔥 ERROR: StackTrace: $stackTrace');
+      setState(() => _isLoggingOut = false);
+      _logoutAnimationController.stop();
+    }
+  }
+
+  String _getRoleDisplayName(UserRole role) {
+    return role.displayName;
+  }
+
+  List<Widget> _getPages() {
+    if (_isAdmin) {
+      // For admins: only Question Bank and Admin Dashboard
+      return [
+        SharedBlocProvider(child: const QuestionBankPage()),
+        SharedBlocProvider(child: const AdminDashboardPage()),
+      ];
+    } else {
+      // For teachers: Home and Question Bank
+      return [
+        SharedBlocProvider(child: const HomePage()),
+        SharedBlocProvider(child: const QuestionBankPage()),
+      ];
+    }
+  }
+
+  List<_NavItem> _getNavigationItems() {
+    if (_isAdmin) {
+      // Admin navigation: Question Bank + Admin Dashboard
+      return [
+        _NavItem(
+          icon: Icons.library_books_outlined,
+          activeIcon: Icons.library_books,
+          label: 'Bank',
+          semanticLabel: 'Question bank',
+        ),
+        _NavItem(
+          icon: Icons.admin_panel_settings_outlined,
+          activeIcon: Icons.admin_panel_settings,
+          label: 'Admin',
+          semanticLabel: 'Admin dashboard',
+        ),
+      ];
+    } else {
+      // Teacher navigation: Home + Question Bank
+      return [
+        _NavItem(
+          icon: Icons.home_rounded,
+          activeIcon: Icons.home,
+          label: 'Home',
+          semanticLabel: 'Home page',
+        ),
+        _NavItem(
+          icon: Icons.library_books_outlined,
+          activeIcon: Icons.library_books,
+          label: 'Bank',
+          semanticLabel: 'Question bank',
+        ),
+      ];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: _handleAuthStateChanges,
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is AuthLoading && !_isLoggingOut) {
+            return _buildLoadingScaffold();
+          }
+
+          if (state is! AuthAuthenticated) {
+            return _buildUnauthenticatedScaffold();
+          }
+
+          final user = state.user;
+          final pages = _getPages();
+          final navigationItems = _getNavigationItems();
+
+          // Ensure selected index is within bounds
+          if (_selectedIndex >= pages.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setState(() => _selectedIndex = 0);
+            });
+          }
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 768;
+
+              return Scaffold(
+                backgroundColor: AppColors.background,
+                appBar: _buildAppBar(context, user, isMobile),
+                body: AnimatedBuilder(
+                  animation: _tabAnimation,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: _tabAnimation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.05, 0),
+                          end: Offset.zero,
+                        ).animate(_tabAnimation),
+                        child: IndexedStack(
+                          index: _selectedIndex.clamp(0, pages.length - 1),
+                          children: pages,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                bottomNavigationBar: isMobile ? _buildBottomNav(navigationItems) : null,
+                drawer: !isMobile ? _buildDrawer(context, user, navigationItems) : null,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _handleAuthStateChanges(BuildContext context, AuthState state) {
+    if (_isLoggingOut && state is! AuthLoading) {
+      setState(() => _isLoggingOut = false);
+      _logoutAnimationController.stop();
+      _logoutAnimationController.reset();
+    }
+
+    if (state is AuthError && _isLoggingOut) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sign out failed: ${state.message}'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () => _handleLogout(context),
+          ),
+        ),
+      );
+    }
+
+    if (state is AuthAuthenticated) {
+      _checkUserRole();
+    }
+  }
+
+  Widget _buildLoadingScaffold() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your workspace...',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnauthenticatedScaffold() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 64,
+              color: AppColors.textTertiary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Authentication Required',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please sign in to access your papers',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, dynamic user, bool isMobile) {
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Papercraft',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          if (!isMobile) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _getPageTitle(_selectedIndex),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      backgroundColor: AppColors.surface,
+      foregroundColor: AppColors.textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      actions: [
+        // User info section for mobile - properly aligned
+        if (isMobile) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildRoleBadge(user.role, true),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _showLogoutDialog(context, user),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ),
+        ],
+      ],
+      leading: !isMobile ? Builder(
+        builder: (context) => IconButton(
+          icon: Icon(Icons.menu_rounded, color: AppColors.textPrimary),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+          tooltip: 'Open navigation menu',
+        ),
+      ) : null,
+    );
+  }
+
+  Widget _buildRoleBadge(UserRole role, bool isMobile) {
+    final isAdminRole = role == UserRole.admin || role == UserRole.teacher;
+    return Container(
+      height: isMobile ? 24 : 28, // Fixed height for better alignment
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 10,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        gradient: isAdminRole ? AppColors.accentGradient : null,
+        color: isAdminRole ? null : AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: isAdminRole ? null : Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+        ),
+      ),
+      child: Center(
+        child: Text(
+          _getRoleDisplayName(role),
+          style: TextStyle(
+            color: isAdminRole ? Colors.white : AppColors.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: isMobile ? 10 : 11,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav(List<_NavItem> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: items.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final isSelected = _selectedIndex == index;
+
+              return Semantics(
+                label: item.semanticLabel,
+                button: true,
+                selected: isSelected,
+                child: GestureDetector(
+                  onTap: () => _onItemTapped(index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: isSelected ? AppColors.primaryGradient : null,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSelected ? item.activeIcon : item.icon,
+                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          size: 24,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, dynamic user, List<_NavItem> items) {
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    user.fullName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRoleBadge(user.role, false),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  children: items.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isSelected = _selectedIndex == index;
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: isSelected ? AppColors.primaryGradient : null,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Semantics(
+                        label: item.semanticLabel,
+                        button: true,
+                        selected: isSelected,
+                        child: ListTile(
+                          leading: Icon(
+                            isSelected ? item.activeIcon : item.icon,
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                          ),
+                          title: Text(
+                            item.label,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppColors.textPrimary,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            ),
+                          ),
+                          onTap: () {
+                            _onItemTapped(index);
+                            Navigator.pop(context);
+                          },
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.all(12),
+              child: Semantics(
+                label: 'Sign out of your account',
+                button: true,
+                child: ListTile(
+                  leading: AnimatedBuilder(
+                    animation: _logoutAnimationController,
+                    builder: (context, child) {
+                      return Transform.rotate(
+                        angle: _logoutAnimationController.value * 2 * 3.141592653589793,
+                        child: _isLoggingOut
+                            ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.error),
+                          ),
+                        )
+                            : Icon(Icons.logout_rounded, color: AppColors.error),
+                      );
+                    },
+                  ),
+                  title: Text(
+                    'Sign Out',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: _isLoggingOut ? null : () {
+                    Navigator.pop(context);
+                    _showLogoutDialog(context, user);
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getPageTitle(int index) {
+    if (_isAdmin) {
+      switch (index) {
+        case 0: return 'Question Bank';
+        case 1: return 'Admin Dashboard';
+        default: return 'Papercraft';
+      }
+    } else {
+      switch (index) {
+        case 0: return 'Home';
+        case 1: return 'Question Bank';
+        default: return 'Papercraft';
+      }
+    }
+  }
+}
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final String semanticLabel;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.semanticLabel,
+  });
+}

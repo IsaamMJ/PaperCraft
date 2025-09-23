@@ -1,4 +1,4 @@
-import 'package:papercraft/features/authentication/domain/entities/user_entity.dart';
+import 'user_entity.dart';
 
 class AuthResultEntity {
   final UserEntity user;

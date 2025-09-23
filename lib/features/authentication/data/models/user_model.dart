@@ -33,18 +33,29 @@ class UserModel {
     createdAt: createdAt,
   );
 
-  factory UserModel.fromDatabase(Map<String, dynamic> data) {
+  factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: data['id'] as String,
-      email: data['email'] as String,
-      fullName: data['full_name'] as String? ?? '',
-      tenantId: data['tenant_id'] as String?,
-      role: data['role'] as String,
-      isActive: data['is_active'] as bool,
-      lastLoginAt: data['last_login_at'] != null
-          ? DateTime.parse(data['last_login_at'] as String)
+      id: json['id'] as String,
+      email: json['email'] as String,
+      fullName: json['full_name'] as String? ?? '',
+      tenantId: json['tenant_id'] as String?,
+      role: json['role'] as String,
+      isActive: json['is_active'] as bool,
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.parse(json['last_login_at'] as String)
           : null,
-      createdAt: DateTime.parse(data['created_at'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'email': email,
+    'full_name': fullName,
+    'tenant_id': tenantId,
+    'role': role,
+    'is_active': isActive,
+    'last_login_at': lastLoginAt?.toIso8601String(),
+    'created_at': createdAt.toIso8601String(),
+  };
 }

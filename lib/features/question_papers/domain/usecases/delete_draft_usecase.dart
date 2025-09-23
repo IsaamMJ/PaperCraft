@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/error/failures.dart';
+import '../../../../core/domain/errors/failures.dart';
 import '../repositories/question_paper_repository.dart';
 
 class DeleteDraftUseCase {

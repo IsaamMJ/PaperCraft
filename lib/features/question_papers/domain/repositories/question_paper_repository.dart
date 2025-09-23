@@ -1,7 +1,7 @@
 
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/error/failures.dart';
+import '../../../../core/domain/errors/failures.dart';
 import '../entities/question_paper_entity.dart';
 
 abstract class QuestionPaperRepository {
@@ -10,6 +10,12 @@ abstract class QuestionPaperRepository {
   Future<Either<Failure, List<QuestionPaperEntity>>> getDrafts();
   Future<Either<Failure, QuestionPaperEntity?>> getDraftById(String id);
   Future<Either<Failure, void>> deleteDraft(String id);
+
+
+  Future<Either<Failure, List<QuestionPaperEntity>>> getAllPapersForAdmin();
+
+  /// Get all approved papers for question bank (visible to everyone)
+  Future<Either<Failure, List<QuestionPaperEntity>>> getApprovedPapers();
 
   // =============== SUBMISSION OPERATIONS (Cloud Storage) ===============
   Future<Either<Failure, QuestionPaperEntity>> submitPaper(QuestionPaperEntity paper);

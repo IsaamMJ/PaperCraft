@@ -1,4 +1,4 @@
-// domain/entities/grade_entity.dart
+// domain2/entities/grade_entity.dart
 import 'package:equatable/equatable.dart';
 
 class GradeEntity extends Equatable {

@@ -1,288 +1,316 @@
-// features/authentication/data/datasources/auth_data_source.dart
+// Fixed auth_data_source.dart - Simplified and working version
 import 'dart:async';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/error/auth_error_mapper.dart';
-import '../../../../core/utils/app_logger.dart';
+import 'package:dartz/dartz.dart';
+import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/infrastructure/config/auth_config.dart';
+import '../../../../core/infrastructure/network/api_client.dart';
+import '../../../../core/infrastructure/utils/platform_utils.dart';
+import '../../domain/failures/auth_failures.dart';
 import '../models/user_model.dart';
 
 class AuthDataSource {
+  final ApiClient _apiClient;
+  final ILogger _logger;
   final SupabaseClient _supabase;
 
-  AuthDataSource(this._supabase);
+  AuthDataSource(this._apiClient, this._logger, this._supabase);
 
-  Future<UserModel?> initialize() async {
-    AppLogger.info('AuthDataSource: Starting initialization');
+  Future<Either<AuthFailure, UserModel?>> initialize() async {
+    _logger.authEvent('initialize_started', 'system', context: {
+      'method': 'session_check',
+      'timestamp': DateTime.now().toIso8601String(),
+    });
 
     try {
       final session = _supabase.auth.currentSession;
       if (session?.user == null) {
-        AppLogger.info('AuthDataSource: No current session found');
-        await _clearAllAuthData();
-        return null;
+        _logger.authEvent('initialize_no_session', 'system', context: {
+          'hasSession': false,
+          'reason': 'no_current_session',
+        });
+        return const Right(null);
       }
 
-      AppLogger.info('AuthDataSource: Current session found for user: ${session!.user.id}');
-      final userModel = await _getUserProfile(session.user.id);
+      _logger.authEvent('initialize_session_found', session!.user.id, context: {
+        'hasSession': true,
+        'userEmail': session.user.email,
+      });
 
-      if (userModel != null && userModel.isActive) {
-        AppLogger.info('AuthDataSource: Active user profile found - ${userModel.fullName} (${userModel.role})');
-        await _updateLastLogin(userModel.id);
-        await _saveAuthData(userModel);
-        AppLogger.info('AuthDataSource: Initialization completed successfully');
-        return userModel;
-      }
+      // Simple profile fetch - no complex retry logic
+      final userResult = await _getUserProfile(session.user.id);
 
-      if (userModel != null && !userModel.isActive) {
-        AppLogger.error('AuthDataSource: User profile found but inactive - ${userModel.fullName} (${userModel.role})');
-      } else {
-        AppLogger.error('AuthDataSource: No user profile found for session user');
-      }
-
-      await _clearAllAuthData();
-      return null;
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Initialize failed', e);
-      await _clearAllAuthData();
-      return null;
+      return userResult.fold(
+            (failure) {
+          _logger.authError('User profile fetch failed', failure, context: {
+            'userId': session.user.id,
+            'failure': failure.message,
+          });
+          return Left(failure);
+        },
+            (userModel) {
+          if (userModel != null && userModel.isActive) {
+            _logger.authEvent('initialize_success', userModel.id, context: {
+              'fullName': userModel.fullName,
+              'role': userModel.role,
+              'isActive': userModel.isActive,
+            });
+            return Right(userModel);
+          } else if (userModel != null && !userModel.isActive) {
+            return const Left(DeactivatedAccountFailure());
+          } else {
+            return const Left(AuthFailure('User profile not found'));
+          }
+        },
+      );
+    } catch (e, stackTrace) {
+      _logger.authError('Initialize failed with exception', e, context: {
+        'errorType': e.runtimeType.toString(),
+        'operation': 'initialize',
+      });
+      return Left(AuthFailure('Initialization failed: ${e.toString()}'));
     }
   }
 
-  Future<UserModel> signInWithGoogle({required String redirectTo}) async {
-    AppLogger.info('AuthDataSource: Starting Google OAuth sign-in');
+  Future<Either<AuthFailure, UserModel>> signInWithGoogle() async {
+    final operationId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    _logger.authEvent('google_signin_started', 'pending', context: {
+      'redirectTo': AuthConfig.redirectUrl,
+      'operationId': operationId,
+      'platform': PlatformUtils.platformName,
+      'isWeb': kIsWeb,
+    });
+
+    print('🚀 DEBUG: About to call OAuth with redirectTo: ${AuthConfig.redirectUrl}');
 
     try {
-      // Force logout first to clear any existing sessions
-      await _forceGoogleLogout();
-
-      AppLogger.info('AuthDataSource: Initiating OAuth flow with redirect: $redirectTo');
-
+      // Start the OAuth flow
       final bool launched = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: redirectTo,
+        redirectTo: AuthConfig.redirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
         queryParams: {
-          // Force Google to show account selection
           'prompt': 'select_account',
-          // Clear any cached login hints
-          'login_hint': '',
+          'access_type': 'offline',
         },
       );
 
       if (!launched) {
-        AppLogger.error('AuthDataSource: Failed to launch OAuth flow');
-        throw AuthException('Failed to start OAuth flow');
+        _logger.authError('OAuth launch failed', null, context: {
+          'operationId': operationId,
+          'reason': 'failed_to_launch',
+          'platform': PlatformUtils.platformName,
+        });
+        return const Left(AuthFailure('Failed to start OAuth flow'));
       }
 
-      AppLogger.info('AuthDataSource: OAuth flow launched, waiting for session...');
+      _logger.debug('OAuth flow launched successfully', category: LogCategory.auth, context: {
+        'operationId': operationId,
+        'isWeb': kIsWeb,
+        'note': kIsWeb ? 'Web redirect initiated' : 'Waiting for mobile callback',
+      });
 
-      // Wait for session with improved error handling
-      final session = await _waitForSessionWithRetry();
+      // On web, this method triggers a page redirect, so execution stops here
+      if (kIsWeb) {
+        return const Left(AuthFailure('OAuth redirect in progress'));
+      }
+
+      // For mobile platforms, wait for the session
+      final session = await _waitForSession();
 
       if (session?.user == null) {
-        AppLogger.error('AuthDataSource: No session received after OAuth flow');
-        throw AuthException('Authentication failed. Please try again or contact your administrator.');
+        _logger.authError('OAuth session not received', null, context: {
+          'operationId': operationId,
+          'reason': 'no_session_after_oauth',
+          'platform': 'mobile',
+        });
+        return const Left(AuthFailure('Authentication was cancelled or failed'));
       }
 
-      AppLogger.info('AuthDataSource: OAuth session received for user: ${session!.user.id}');
-      AppLogger.info('AuthDataSource: User email: ${session.user.email}');
+      return await _processSuccessfulOAuth(session!, operationId);
 
-      try {
-        // Create or get user profile using our database function
-        final userModel = await _createOrGetUserProfile(session.user);
+    } catch (e, stackTrace) {
+      _logger.authError('Unexpected sign-in error', e, context: {
+        'operationId': operationId,
+        'errorType': e.runtimeType.toString(),
+        'operation': 'google_signin',
+        'platform': PlatformUtils.platformName,
+      });
+      return Left(AuthFailure('Sign-in failed: ${e.toString()}'));
+    }
+  }
 
-        // Check user status and provide specific error messages
+  Future<Either<AuthFailure, UserModel>> _processSuccessfulOAuth(Session session, String operationId) async {
+    _logger.authEvent('oauth_session_received', session.user.id, context: {
+      'operationId': operationId,
+      'userEmail': session.user.email,
+      'provider': 'google',
+      'platform': PlatformUtils.platformName,
+    });
+
+    // Wait longer for profile creation/sync - increased to 2 seconds
+    await Future.delayed(const Duration(milliseconds: 2000));
+
+    // Get user profile after successful OAuth
+    final userResult = await _createOrGetUserProfile(session.user);
+
+    return userResult.fold(
+          (failure) {
+        _signOut(); // Cleanup on failure
+        return Left(failure);
+      },
+          (userModel) {
         if (!userModel.isActive) {
-          AppLogger.error('AuthDataSource: User account is inactive - ${userModel.fullName} (${userModel.role}, tenant: ${userModel.tenantId})');
-          await signOut(); // Use our comprehensive sign out
-
-          if (userModel.role == 'blocked' && userModel.tenantId == null) {
-            AppLogger.error('AuthDataSource: Organization not authorized');
-            throw AuthException('Your organization (${_extractDomain(session.user.email)}) is not authorized to use this application. Please contact your school administrator.');
-          } else if (userModel.role == 'blocked') {
-            AppLogger.error('AuthDataSource: Account blocked');
-            throw AuthException('Your account has been deactivated. Please contact your school administrator.');
-          } else {
-            AppLogger.error('AuthDataSource: Account inactive');
-            throw AuthException('Your account is inactive. Please contact your school administrator.');
-          }
+          _signOut(); // Cleanup on inactive user
+          return const Left(DeactivatedAccountFailure());
         }
 
-        AppLogger.info('AuthDataSource: User authenticated successfully - ${userModel.fullName} (${userModel.role})');
-        await _updateLastLogin(userModel.id);
-        await _saveAuthData(userModel);
+        _logger.authEvent('google_signin_success', userModel.id, context: {
+          'operationId': operationId,
+          'fullName': userModel.fullName,
+          'role': userModel.role,
+          'userEmail': userModel.email,
+          'completedAt': DateTime.now().toIso8601String(),
+          'platform': PlatformUtils.platformName,
+        });
 
-        AppLogger.info('AuthDataSource: Google sign-in completed successfully');
-        return userModel;
-      } catch (e) {
-        AppLogger.error('AuthDataSource: Error during profile handling', e);
-        await signOut(); // Use our comprehensive sign out
+        return Right(userModel);
+      },
+    );
+  }
 
-        if (e is AuthException) {
-          rethrow;
-        }
-
-        if (e.toString().contains('Profile creation failed')) {
-          AppLogger.error('AuthDataSource: Profile creation failed - likely unauthorized domain');
-          final domain = _extractDomain(session.user.email);
-          throw AuthException('Your organization ($domain) is not authorized to use this application. Please contact your school administrator to add your domain.');
-        }
-
-        throw AuthException('Authentication failed. Please try again or contact your administrator.');
+  Future<Either<AuthFailure, UserModel?>> getCurrentUser() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        return const Right(null);
       }
-    } on AuthException catch (e) {
-      AppLogger.error('AuthDataSource: Authentication exception: ${e.message}');
-      rethrow;
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Unexpected error during Google sign-in', e);
-      throw AuthException('Sign-in failed. Please try again.');
+
+      return await _getUserProfile(user.id);
+    } catch (e, stackTrace) {
+      _logger.authError('Error getting current user', e, context: {
+        'errorType': e.runtimeType.toString(),
+        'operation': 'get_current_user',
+      });
+      return Left(AuthFailure('Failed to get current user: ${e.toString()}'));
     }
   }
 
-  // Comprehensive sign out that clears Google OAuth session
-  Future<void> signOut() async {
-    AppLogger.info('AuthDataSource: Starting comprehensive sign out');
+  Future<Either<AuthFailure, void>> signOut() async {
+    final currentUserId = _supabase.auth.currentUser?.id ?? 'unknown';
+
+    _logger.authEvent('signout_started', currentUserId, context: {
+      'hasCurrentUser': _supabase.auth.currentUser != null,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
 
     try {
-      // Step 1: Clear local data first
-      await _clearAllAuthData();
-      AppLogger.info('AuthDataSource: Local auth data cleared');
+      await _signOut();
 
-      // Step 2: Sign out from Supabase with global scope
-      await _supabase.auth.signOut(scope: SignOutScope.global);
-      AppLogger.info('AuthDataSource: Supabase global sign out completed');
+      _logger.authEvent('signout_success', currentUserId, context: {
+        'completedAt': DateTime.now().toIso8601String(),
+      });
 
-      // Step 3: Force Google logout
-      await _forceGoogleLogout();
-      AppLogger.info('AuthDataSource: Google logout completed');
-
-      // Step 4: Verify sign out was successful
-      if (_supabase.auth.currentUser != null) {
-        AppLogger.error('AuthDataSource: User still present after sign out attempt');
-        // Force clear the session
-        await _supabase.auth.signOut(scope: SignOutScope.local);
-      }
-
-      AppLogger.info('AuthDataSource: Complete sign out successful');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Error during sign out', e);
-
-      // Even if sign out fails, ensure local data is cleared
-      try {
-        await _clearAllAuthData();
-      } catch (clearError) {
-        AppLogger.error('AuthDataSource: Failed to clear local data during error recovery', clearError);
-      }
-
-      // Don't rethrow - we want logout to appear successful to user
-      AppLogger.info('AuthDataSource: Sign out completed with errors (local data cleared)');
+      return const Right(null);
+    } catch (e, stackTrace) {
+      _logger.authError('Sign out error', e, context: {
+        'userId': currentUserId,
+        'operation': 'signout',
+      });
+      // Always return success to user even if there was an error
+      return const Right(null);
     }
-  }
-
-  // Force logout from Google OAuth
-  Future<void> _forceGoogleLogout() async {
-    try {
-      AppLogger.info('AuthDataSource: Attempting to force Google logout');
-
-      // Clear Google OAuth cookies by visiting logout URL
-      final googleLogoutUrl = Uri.parse('https://accounts.google.com/logout');
-
-      if (Platform.isAndroid || Platform.isIOS) {
-        // On mobile, we can try to launch the logout URL
-        if (await canLaunchUrl(googleLogoutUrl)) {
-          await launchUrl(
-            googleLogoutUrl,
-            mode: LaunchMode.externalApplication,
-          );
-          // Give it a moment to process
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
-      }
-
-      AppLogger.info('AuthDataSource: Google logout attempt completed');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Could not force Google logout', e);
-      // Don't rethrow - this is a best-effort operation
-    }
-  }
-
-  Future<UserModel?> getCurrentUser() async {
-    AppLogger.info('AuthDataSource: Getting current user');
-
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      AppLogger.info('AuthDataSource: No current user in Supabase auth');
-      return null;
-    }
-
-    AppLogger.info('AuthDataSource: Current user found: ${user.id}');
-    return await _getUserProfile(user.id);
   }
 
   bool get isAuthenticated => _supabase.auth.currentUser != null;
 
-  // Enhanced session waiting with retry logic
-  Future<Session?> _waitForSessionWithRetry() async {
-    AppLogger.info('AuthDataSource: Waiting for OAuth session with retry logic');
+  // =============== PRIVATE METHODS ===============
 
-    for (int attempt = 1; attempt <= 3; attempt++) {
-      AppLogger.info('AuthDataSource: Session wait attempt $attempt/3');
+  Future<Either<AuthFailure, UserModel?>> _getUserProfile(String userId) async {
+    try {
+      final response = await _apiClient.selectSingle<UserModel>(
+        table: 'profiles',
+        fromJson: UserModel.fromJson,
+        filters: {'id': userId},
+      );
 
-      try {
-        final session = await _waitForSingleSession();
-        if (session != null) {
-          AppLogger.info('AuthDataSource: Session received on attempt $attempt');
-          return session;
+      if (response.isSuccess) {
+        final userModel = response.data;
+        if (userModel == null) {
+          return const Right(null);
         }
-      } catch (e) {
-        AppLogger.error('AuthDataSource: Session wait attempt $attempt failed', e);
-        if (attempt == 3) rethrow;
+        return Right(userModel);
+      } else {
+        return Left(AuthFailure(response.message ?? 'Failed to fetch user profile'));
       }
-
-      if (attempt < 3) {
-        AppLogger.info('AuthDataSource: Retrying session wait in 2 seconds...');
-        await Future.delayed(const Duration(seconds: 2));
-      }
+    } catch (e, stackTrace) {
+      _logger.authError('Exception fetching user profile', e, context: {
+        'userId': userId,
+        'operation': 'api_profile_fetch',
+      });
+      return Left(AuthFailure('Failed to fetch user profile: ${e.toString()}'));
     }
-
-    AppLogger.error('AuthDataSource: All session wait attempts failed');
-    return null;
   }
 
-  Future<Session?> _waitForSingleSession() async {
+  Future<Either<AuthFailure, UserModel>> _createOrGetUserProfile(User user) async {
+    try {
+      // Wait briefly for any database triggers to complete
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final profileResult = await _getUserProfile(user.id);
+
+      return profileResult.fold(
+            (failure) => Left(failure),
+            (profile) {
+          if (profile != null) {
+            return Right(profile);
+          }
+          return const Left(AuthFailure('Profile creation failed'));
+        },
+      );
+    } catch (e, stackTrace) {
+      _logger.authError('Error in profile lookup', e, context: {
+        'userId': user.id,
+        'userEmail': user.email,
+      });
+      return Left(AuthFailure('Profile lookup failed: ${e.toString()}'));
+    }
+  }
+
+  Future<Session?> _waitForSession() async {
     final completer = Completer<Session?>();
     late StreamSubscription subscription;
-    int eventCount = 0;
 
+    print('🚀 DEBUG: Starting to wait for session');
+
+    // Check if we already have a session
+    final currentSession = _supabase.auth.currentSession;
+    if (currentSession?.user != null) {
+      print('🚀 DEBUG: Session already available');
+      return currentSession;
+    }
+
+    // Listen for auth state changes
     subscription = _supabase.auth.onAuthStateChange.listen((data) {
-      eventCount++;
-      AppLogger.info('AuthDataSource: Auth state change #$eventCount - Event: ${data.event}');
+      print('🚀 DEBUG: Auth state change: ${data.event.name}, hasSession: ${data.session != null}');
 
       if (data.session?.user != null && !completer.isCompleted) {
-        AppLogger.info('AuthDataSource: Valid session received');
+        print('🚀 DEBUG: Session received via auth state change');
         completer.complete(data.session);
         subscription.cancel();
       } else if (data.event == AuthChangeEvent.signedOut && !completer.isCompleted) {
-        AppLogger.info('AuthDataSource: User signed out during OAuth flow');
+        print('🚀 DEBUG: SignedOut event received');
         completer.complete(null);
         subscription.cancel();
       }
     });
 
-    // Check current session first
-    final currentSession = _supabase.auth.currentSession;
-    if (currentSession?.user != null && !completer.isCompleted) {
-      AppLogger.info('AuthDataSource: Using existing valid session');
-      completer.complete(currentSession);
-      subscription.cancel();
-    }
-
-    // 30 second timeout for single attempt
-    Timer(const Duration(seconds: 30), () {
+    // Set timeout - increased to 45 seconds
+    Timer(const Duration(seconds: 45), () {
+      print('🚀 DEBUG: Session wait timed out after 45 seconds');
       if (!completer.isCompleted) {
-        AppLogger.info('AuthDataSource: Session wait timed out after 30 seconds');
         subscription.cancel();
         completer.complete(null);
       }
@@ -291,127 +319,32 @@ class AuthDataSource {
     return await completer.future;
   }
 
-  // Enhanced profile creation with better error handling
-  Future<UserModel> _createOrGetUserProfile(User user) async {
-    AppLogger.info('AuthDataSource: Getting profile for user: ${user.id}');
-
+  Future<void> _signOut() async {
     try {
-      // Wait a moment for the trigger to complete
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Add shorter timeout to prevent hanging
+      await _supabase.auth.signOut(scope: SignOutScope.global)
+          .timeout(const Duration(seconds: 5)); // Reduced from 10 to 5 seconds
 
-      final profile = await _getUserProfile(user.id);
-      if (profile != null) {
-        AppLogger.info('AuthDataSource: Profile found - ${profile.fullName} (${profile.role})');
-        return profile;
+      _logger.debug('Global signout completed', category: LogCategory.auth);
+    } catch (e) {
+      _logger.warning('Global signout failed, trying local', category: LogCategory.auth, context: {
+        'error': e.toString(),
+        'fallback': 'local_signout',
+      });
+
+      try {
+        // Try local signout with shorter timeout as fallback
+        await _supabase.auth.signOut(scope: SignOutScope.local)
+            .timeout(const Duration(seconds: 3)); // Reduced from 5 to 3 seconds
+
+        _logger.debug('Local signout completed', category: LogCategory.auth);
+      } catch (localError) {
+        _logger.warning('Local signout also failed', category: LogCategory.auth, context: {
+          'error': localError.toString(),
+          'action': 'continuing_anyway',
+        });
+        // Continue anyway - we'll clear local state
       }
-
-      // If no profile exists (shouldn't happen with trigger), throw error
-      throw AuthException('Profile creation failed. Please contact your administrator.');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Error getting profile', e);
-      rethrow;
     }
-  }
-
-  String _extractDomain(String? email) {
-    if (email == null || !email.contains('@')) {
-      return 'unknown domain';
-    }
-    return email.split('@')[1];
-  }
-
-  Future<UserModel?> _getUserProfile(String userId) async {
-    AppLogger.info('AuthDataSource: Fetching user profile for: $userId');
-
-    try {
-      final data = await _supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (data == null) {
-        AppLogger.info('AuthDataSource: No profile data found for user: $userId');
-        return null;
-      }
-
-      final userModel = UserModel.fromDatabase(data);
-      AppLogger.info('AuthDataSource: Profile fetched successfully - ${userModel.fullName} (${userModel.role})');
-      return userModel;
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Error fetching user profile for: $userId', e);
-      return null;
-    }
-  }
-
-  Future<void> _updateLastLogin(String userId) async {
-    AppLogger.info('AuthDataSource: Updating last login timestamp for: $userId');
-
-    try {
-      await _supabase
-          .from('profiles')
-          .update({'last_login_at': DateTime.now().toIso8601String()})
-          .eq('id', userId);
-      AppLogger.info('AuthDataSource: Last login timestamp updated successfully');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Non-critical error updating last login', e);
-    }
-  }
-
-  Future<void> _saveAuthData(UserModel user) async {
-    AppLogger.info('AuthDataSource: Saving auth data to SharedPreferences for: ${user.fullName}');
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await Future.wait([
-        prefs.setString('user_id', user.id),
-        prefs.setString('tenant_id', user.tenantId ?? ''),
-        prefs.setString('user_role', user.role),
-        prefs.setString('full_name', user.fullName),
-        prefs.setBool('can_create_papers', user.isActive && (user.role == 'admin' || user.role == 'teacher')),
-      ]);
-      AppLogger.info('AuthDataSource: Auth data saved to SharedPreferences successfully');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Non-critical error saving auth data', e);
-    }
-  }
-
-  // Enhanced clear method that removes ALL auth-related data
-  Future<void> _clearAllAuthData() async {
-    AppLogger.info('AuthDataSource: Clearing all authentication data');
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Get all keys and find auth-related ones
-      final keys = prefs.getKeys();
-      final authKeys = keys.where((key) =>
-      key.startsWith('user_') ||
-          key.startsWith('auth_') ||
-          key.startsWith('supabase_') ||
-          key.startsWith('sb-') ||  // Supabase session keys
-          key.contains('token') ||
-          key.contains('session') ||
-          key.contains('oauth') ||
-          key == 'tenant_id' ||
-          key == 'full_name' ||
-          key == 'can_create_papers'
-      ).toList();
-
-      // Remove all auth-related keys
-      for (final key in authKeys) {
-        await prefs.remove(key);
-        AppLogger.info('AuthDataSource: Cleared key: $key');
-      }
-
-      AppLogger.info('AuthDataSource: All authentication data cleared (${authKeys.length} keys)');
-    } catch (e) {
-      AppLogger.error('AuthDataSource: Error clearing auth data', e);
-    }
-  }
-
-  // Legacy method for backward compatibility
-  Future<void> _clearAuthData() async {
-    await _clearAllAuthData();
   }
 }

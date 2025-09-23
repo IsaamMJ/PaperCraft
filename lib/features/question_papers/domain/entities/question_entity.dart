@@ -1,4 +1,4 @@
-// features/question_papers/domain/entities/question_entity.dart
+// features/question_papers/domain2/entities/question_entity.dart
 import 'package:equatable/equatable.dart';
 
 class Question extends Equatable {

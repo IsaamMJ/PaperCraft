@@ -1,4 +1,4 @@
-import 'package:papercraft/features/authentication/domain/entities/user_role.dart';
+import 'user_role.dart';
 
 class UserEntity {
   final String id;

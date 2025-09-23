@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "527384772122",
+    "project_id": "papercraft-20d5c",
+    "storage_bucket": "papercraft-20d5c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527384772122:android:bcdf8f6e00b2d4b7f51ba3",
+        "android_client_info": {
+          "package_name": "com.pearl.papercraft"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK8QckhFogLJVOzC4Xnp7oBaJkfiC72ls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527384772122:android:dev123456789",
+        "android_client_info": {
+          "package_name": "com.pearl.papercraft.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK8QckhFogLJVOzC4Xnp7oBaJkfiC72ls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527384772122:android:staging123456789",
+        "android_client_info": {
+          "package_name": "com.pearl.papercraft.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK8QckhFogLJVOzC4Xnp7oBaJkfiC72ls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

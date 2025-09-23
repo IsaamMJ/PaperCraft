@@ -1,4 +1,4 @@
-// features/question_papers/domain/entities/paper_status.dart
+// features/question_papers/domain2/entities/paper_status.dart
 enum PaperStatus {
   draft('draft'),
   submitted('submitted'),

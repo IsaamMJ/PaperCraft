@@ -4,7 +4,10 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  connectivity_plus
+  firebase_core
   printing
+  syncfusion_pdfviewer_windows
   url_launcher_windows
 )
 

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/services/permission_service.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
 import '../bloc/question_paper_bloc.dart';
@@ -41,7 +42,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
   }
 
   void _checkAdminStatus() async {
-    final isAdmin = await PermissionService.currentUserIsAdmin();
+    final isAdmin = sl<UserStateService>().isAdmin;
     if (mounted) {
       setState(() => _isAdmin = isAdmin);
 

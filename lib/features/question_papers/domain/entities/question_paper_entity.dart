@@ -17,6 +17,10 @@ class QuestionPaperEntity extends Equatable {
   final ExamTypeEntity examTypeEntity;
   final Map<String, List<Question>> questions;
 
+  // NEW: Grade and Section fields
+  final int? gradeLevel;
+  final List<String> selectedSections;
+
   // Cloud-specific fields (null for local drafts)
   final String? tenantId;
   final String? userId;
@@ -36,6 +40,8 @@ class QuestionPaperEntity extends Equatable {
     required this.status,
     required this.examTypeEntity,
     required this.questions,
+    this.gradeLevel,
+    this.selectedSections = const [],
     this.tenantId,
     this.userId,
     this.submittedAt,
@@ -51,6 +57,8 @@ class QuestionPaperEntity extends Equatable {
     required String examType,
     required String createdBy,
     required ExamTypeEntity examTypeEntity,
+    required int gradeLevel,
+    required List<String> selectedSections,
     Map<String, List<Question>>? questions,
   }) {
     return QuestionPaperEntity(
@@ -64,6 +72,8 @@ class QuestionPaperEntity extends Equatable {
       status: PaperStatus.draft,
       examTypeEntity: examTypeEntity,
       questions: questions ?? {},
+      gradeLevel: gradeLevel,
+      selectedSections: selectedSections,
     );
   }
 
@@ -98,6 +108,8 @@ class QuestionPaperEntity extends Equatable {
 
   bool get isComplete {
     return title.trim().isNotEmpty &&
+        gradeLevel != null &&
+        selectedSections.isNotEmpty &&
         questions.isNotEmpty &&
         _hasValidQuestions() &&
         _meetsMinimumQuestionRequirements();
@@ -160,6 +172,24 @@ class QuestionPaperEntity extends Equatable {
     return sectionSummaries.join(', ');
   }
 
+  // NEW: Grade and section display helpers
+  String get gradeDisplayName {
+    if (gradeLevel == null) return 'No grade selected';
+    return 'Grade $gradeLevel';
+  }
+
+  String get sectionsDisplayName {
+    if (selectedSections.isEmpty) return 'No sections selected';
+    if (selectedSections.length == 1) return 'Section ${selectedSections.first}';
+    return 'Sections ${selectedSections.join(', ')}';
+  }
+
+  String get gradeAndSectionsDisplay {
+    if (gradeLevel == null) return 'No grade selected';
+    if (selectedSections.isEmpty) return 'Grade $gradeLevel (No sections)';
+    return 'Grade $gradeLevel - ${sectionsDisplayName}';
+  }
+
   // Status validation for transitions
   bool canTransitionTo(PaperStatus newStatus) {
     return status.canTransitionTo(newStatus);
@@ -178,6 +208,8 @@ class QuestionPaperEntity extends Equatable {
       status: PaperStatus.draft,
       examTypeEntity: examTypeEntity,
       questions: Map.from(questions), // Deep copy
+      gradeLevel: gradeLevel,
+      selectedSections: List.from(selectedSections),
       rejectionReason: rejectionReason, // Keep for reference
     );
   }
@@ -206,6 +238,14 @@ class QuestionPaperEntity extends Equatable {
 
     if (title.trim().isEmpty) {
       errors.add('Title is required');
+    }
+
+    if (gradeLevel == null) {
+      errors.add('Grade level is required');
+    }
+
+    if (selectedSections.isEmpty) {
+      errors.add('At least one section must be selected');
     }
 
     if (questions.isEmpty) {
@@ -243,6 +283,8 @@ class QuestionPaperEntity extends Equatable {
     DateTime? modifiedAt,
     PaperStatus? status,
     ExamTypeEntity? examTypeEntity,
+    int? gradeLevel,
+    List<String>? selectedSections,
     Map<String, List<Question>>? questions,
     String? tenantId,
     String? userId,
@@ -261,6 +303,8 @@ class QuestionPaperEntity extends Equatable {
       modifiedAt: modifiedAt ?? this.modifiedAt,
       status: status ?? this.status,
       examTypeEntity: examTypeEntity ?? this.examTypeEntity,
+      gradeLevel: gradeLevel ?? this.gradeLevel,
+      selectedSections: selectedSections ?? this.selectedSections,
       questions: questions ?? this.questions,
       tenantId: tenantId ?? this.tenantId,
       userId: userId ?? this.userId,
@@ -270,11 +314,28 @@ class QuestionPaperEntity extends Equatable {
       rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
+  // Add this method to your QuestionPaperEntity class:
+
+  /// Converts a rejected paper back to draft status (replaces the rejected version)
+  QuestionPaperEntity convertToDraft() {
+    if (status != PaperStatus.rejected) {
+      throw StateError('Only rejected papers can be converted back to draft');
+    }
+
+    return copyWith(
+      status: PaperStatus.draft,
+      modifiedAt: DateTime.now(),
+      rejectionReason: null,  // Clear rejection reason
+      submittedAt: null,      // Clear submission date
+      reviewedAt: null,       // Clear review date
+      // Keep same ID, title, questions, etc. - this replaces the rejected version
+    );
+  }
 
   @override
   List<Object?> get props => [
     id, title, subject, examType, createdBy, createdAt, modifiedAt,
-    status, examTypeEntity, questions, tenantId, userId, submittedAt,
-    reviewedAt, reviewedBy, rejectionReason,
+    status, examTypeEntity, questions, gradeLevel, selectedSections,
+    tenantId, userId, submittedAt, reviewedAt, reviewedBy, rejectionReason,
   ];
 }

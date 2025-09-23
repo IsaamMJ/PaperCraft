@@ -1,6 +1,6 @@
-// features/question_papers/domain/usecases/submit_paper_usecase.dart
+// features/question_papers/domain2/usecases/submit_paper_usecase.dart
 import 'package:dartz/dartz.dart';
-import '../../../../core/error/failures.dart';
+import '../../../../core/domain/errors/failures.dart';
 import '../entities/question_paper_entity.dart';
 import '../repositories/question_paper_repository.dart';
 
