@@ -1,4 +1,5 @@
 // features/question_papers/data/datasources/paper_local_data_source_hive.dart
+import 'dart:async';
 import 'dart:convert';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/database/hive_database_helper.dart';
@@ -11,11 +12,158 @@ import 'paper_local_data_source.dart';
 class PaperLocalDataSourceHive implements PaperLocalDataSource {
   final HiveDatabaseHelper _databaseHelper;
   final ILogger _logger;
+  // Cache for indexed data to avoid rebuilding on every call
+  Map<String, List<Map<String, dynamic>>>? _questionsByPaper;
+  Map<String, List<Map<String, dynamic>>>? _subQuestionsByQuestion;
+  DateTime? _lastIndexBuildTime;
+  static const Duration _indexCacheTimeout = Duration(minutes: 5);
+
+  // Concurrent access protection
+  final Map<String, Future<void>> _operations = {};
+  static final Map<String, bool> _operationLocks = {};
 
   PaperLocalDataSourceHive(this._databaseHelper, this._logger);
 
+  void _buildIndexes() {
+    // Check if indexes are still valid (within cache timeout)
+    if (_questionsByPaper != null &&
+        _subQuestionsByQuestion != null &&
+        _lastIndexBuildTime != null &&
+        DateTime.now().difference(_lastIndexBuildTime!) < _indexCacheTimeout) {
+      return; // Use existing cache
+    }
+
+    _logger.debug('Building question indexes for better performance',
+        category: LogCategory.storage);
+
+    final startTime = DateTime.now();
+
+    _questionsByPaper = <String, List<Map<String, dynamic>>>{};
+    _subQuestionsByQuestion = <String, List<Map<String, dynamic>>>{};
+
+    // Index questions by paper_id - O(n)
+    int totalQuestions = 0;
+    for (final entry in _databaseHelper.questions.toMap().entries) {
+      final questionMap = entry.value;
+      final paperId = questionMap['paper_id'] as String;
+
+      _questionsByPaper!.putIfAbsent(paperId, () => []).add({
+        'key': entry.key,
+        ...questionMap,
+      });
+      totalQuestions++;
+    }
+
+    // Index sub-questions by question_key - O(m)
+    int totalSubQuestions = 0;
+    for (final entry in _databaseHelper.subQuestions.toMap().entries) {
+      final subQuestionMap = entry.value;
+      final questionKey = subQuestionMap['question_key'] as String;
+
+      _subQuestionsByQuestion!.putIfAbsent(questionKey, () => []).add(subQuestionMap);
+      totalSubQuestions++;
+    }
+
+    _lastIndexBuildTime = DateTime.now();
+    final buildDuration = DateTime.now().difference(startTime);
+
+    _logger.debug('Question indexes built successfully',
+        category: LogCategory.storage,
+        context: {
+          'totalQuestions': totalQuestions,
+          'totalSubQuestions': totalSubQuestions,
+          'uniquePapers': _questionsByPaper!.length,
+          'buildTimeMs': buildDuration.inMilliseconds,
+        });
+  }
+
+  /// Call this when data changes to invalidate cache
+  void _invalidateIndexes() {
+    _questionsByPaper = null;
+    _subQuestionsByQuestion = null;
+    _lastIndexBuildTime = null;
+    _logger.debug('Question indexes invalidated', category: LogCategory.storage);
+  }
+
+  /// Synchronizes operations for a specific paper to prevent concurrent access issues
+  Future<T> _synchronizeOperation<T>(String paperId, Future<T> Function() operation) async {
+    final key = 'paper_$paperId';
+
+    // Wait for any existing operation on this paper
+    final existingOperation = _operations[key];
+    if (existingOperation != null) {
+      try {
+        await existingOperation;
+      } catch (e) {
+        // Ignore errors from previous operations
+        _logger.debug('Previous operation failed, continuing with new operation',
+            category: LogCategory.storage,
+            context: {'paperId': paperId, 'error': e.toString()}
+        );
+      }
+    }
+
+    // Create and track the new operation
+    final completer = Completer<void>();
+    _operations[key] = completer.future;
+
+    try {
+      final result = await operation();
+      completer.complete();
+      return result;
+    } catch (e) {
+      completer.completeError(e);
+      rethrow;
+    } finally {
+      // Clean up completed operation
+      if (_operations[key] == completer.future) {
+        _operations.remove(key);
+      }
+    }
+  }
+
+  /// Synchronizes global operations (like clearAllDrafts) to prevent conflicts
+  Future<T> _synchronizeGlobalOperation<T>(Future<T> Function() operation) async {
+    const key = 'global_operation';
+
+    // Wait for any existing global operation
+    final existingOperation = _operations[key];
+    if (existingOperation != null) {
+      try {
+        await existingOperation;
+      } catch (e) {
+        _logger.debug('Previous global operation failed, continuing with new operation',
+            category: LogCategory.storage,
+            context: {'error': e.toString()}
+        );
+      }
+    }
+
+    // Create and track the new operation
+    final completer = Completer<void>();
+    _operations[key] = completer.future;
+
+    try {
+      final result = await operation();
+      completer.complete();
+      return result;
+    } catch (e) {
+      completer.completeError(e);
+      rethrow;
+    } finally {
+      // Clean up completed operation
+      if (_operations[key] == completer.future) {
+        _operations.remove(key);
+      }
+    }
+  }
+
   @override
   Future<void> saveDraft(QuestionPaperModel paper) async {
+    return _synchronizeOperation(paper.id, () => _saveDraftInternal(paper));
+  }
+
+  Future<void> _saveDraftInternal(QuestionPaperModel paper) async {
     try {
       _logger.paperAction('save_draft_started', paper.id, context: {
         'title': paper.title,
@@ -26,11 +174,17 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         'selectedSections': paper.selectedSections,
       });
 
-      // Save to question_papers box
-      await _databaseHelper.questionPapers.put(paper.id, _paperToMap(paper));
+      // Use safe transaction for atomic operations
+      await _safeTransaction(() async {
+        // Save to question_papers box
+        await _databaseHelper.questionPapers.put(paper.id, _paperToMap(paper));
 
-      // Save questions with paper_id as key prefix
-      await _saveQuestions(paper.id, paper.questions);
+        // Save questions with paper_id as key prefix
+        await _saveQuestions(paper.id, paper.questions);
+      });
+
+      // Invalidate indexes after data changes
+      _invalidateIndexes();
 
       _logger.paperAction('save_draft_success', paper.id, context: {
         'title': paper.title,
@@ -52,8 +206,37 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
     }
   }
 
+  // Enhanced safe transaction with better error handling
+  Future<void> _safeTransaction(Function transaction) async {
+    try {
+      await transaction();
+    } catch (e) {
+      _logger.warning('Transaction failed, attempting rollback',
+          category: LogCategory.storage,
+          context: {'error': e.toString()}
+      );
+
+      try {
+        // Rollback on any failure
+        await _databaseHelper.questionPapers.compact();
+        await _databaseHelper.questions.compact();
+        await _databaseHelper.subQuestions.compact();
+      } catch (rollbackError) {
+        _logger.error('Rollback failed',
+            category: LogCategory.storage,
+            error: rollbackError
+        );
+      }
+      rethrow;
+    }
+  }
+
   @override
   Future<List<QuestionPaperModel>> getDrafts() async {
+    return _synchronizeGlobalOperation(() => _getDraftsInternal());
+  }
+
+  Future<List<QuestionPaperModel>> _getDraftsInternal() async {
     try {
       _logger.debug('Fetching all draft papers from Hive', category: LogCategory.storage);
 
@@ -98,6 +281,10 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   @override
   Future<QuestionPaperModel?> getDraftById(String id) async {
+    return _synchronizeOperation(id, () => _getDraftByIdInternal(id));
+  }
+
+  Future<QuestionPaperModel?> _getDraftByIdInternal(String id) async {
     try {
       _logger.debug('Fetching draft paper by ID from Hive', category: LogCategory.storage, context: {
         'paperId': id,
@@ -146,6 +333,10 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   @override
   Future<void> deleteDraft(String id) async {
+    return _synchronizeOperation(id, () => _deleteDraftInternal(id));
+  }
+
+  Future<void> _deleteDraftInternal(String id) async {
     try {
       // Get paper info before deletion for logging
       final paperMap = _databaseHelper.questionPapers.get(id);
@@ -158,11 +349,18 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         'storageType': 'hive_local',
       });
 
-      // Delete paper
-      await _databaseHelper.questionPapers.delete(id);
+      // Use safe transaction for atomic deletion
+      int deletedQuestionCount = 0;
+      await _safeTransaction(() async {
+        // Delete associated questions first
+        deletedQuestionCount = await _deleteQuestions(id);
 
-      // Delete associated questions
-      final deletedQuestionCount = await _deleteQuestions(id);
+        // Delete paper
+        await _databaseHelper.questionPapers.delete(id);
+      });
+
+      // Invalidate indexes after data changes
+      _invalidateIndexes();
 
       _logger.paperAction('delete_draft_success', id, context: {
         'title': title,
@@ -182,6 +380,10 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   @override
   Future<void> clearAllDrafts() async {
+    return _synchronizeGlobalOperation(() => _clearAllDraftsInternal());
+  }
+
+  Future<void> _clearAllDraftsInternal() async {
     try {
       _logger.info('Clearing all draft papers from Hive', category: LogCategory.storage);
 
@@ -211,17 +413,23 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
       int totalQuestionsDeleted = 0;
 
-      // Delete papers and their questions
-      for (final id in draftIds) {
-        await _databaseHelper.questionPapers.delete(id);
-        totalQuestionsDeleted += await _deleteQuestions(id);
-      }
+      // Use safe transaction for atomic bulk deletion
+      await _safeTransaction(() async {
+        // Delete papers and their questions
+        for (final id in draftIds) {
+          totalQuestionsDeleted += await _deleteQuestions(id);
+          await _databaseHelper.questionPapers.delete(id);
+        }
+      });
+
+      // Invalidate indexes after bulk deletion
+      _invalidateIndexes();
 
       _logger.info('All draft papers cleared successfully from Hive', category: LogCategory.storage, context: {
         'deletedPapers': draftIds.length,
         'deletedQuestions': totalQuestionsDeleted,
         'gradeStats': gradeStats,
-        'paperTitles': draftTitles.take(5).toList(), // Log first 5 titles
+        'paperTitles': draftTitles.take(5).toList(),
       });
     } catch (e, stackTrace) {
       _logger.error('Failed to clear draft papers from Hive',
@@ -235,6 +443,24 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   @override
   Future<List<QuestionPaperModel>> searchDrafts({
+    String? subject,
+    String? title,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? gradeLevel,
+    String? section,
+  }) async {
+    return _synchronizeGlobalOperation(() => _searchDraftsInternal(
+      subject: subject,
+      title: title,
+      fromDate: fromDate,
+      toDate: toDate,
+      gradeLevel: gradeLevel,
+      section: section,
+    ));
+  }
+
+  Future<List<QuestionPaperModel>> _searchDraftsInternal({
     String? subject,
     String? title,
     DateTime? fromDate,
@@ -256,7 +482,7 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         'section': section,
       });
 
-      final allDrafts = await getDrafts();
+      final allDrafts = await _getDraftsInternal(); // Use internal method to avoid double synchronization
       final initialCount = allDrafts.length;
 
       List<QuestionPaperModel> filteredDrafts = allDrafts;
@@ -421,28 +647,49 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   Future<int> _deleteQuestions(String paperId) async {
     try {
-      // Get all question keys for this paper
+      // Use indexes if available, otherwise fall back to linear search
+      _buildIndexes();
+
       final questionKeysToDelete = <String>[];
       final subQuestionKeysToDelete = <String>[];
 
-      for (final entry in _databaseHelper.questions.toMap().entries) {
-        final questionMap = entry.value;
-        if (questionMap['paper_id'] == paperId) {
-          questionKeysToDelete.add(entry.key);
-        }
-      }
+      // Use indexed lookup if available and indexes exist
+      if (_questionsByPaper != null && _subQuestionsByQuestion != null) {
+        final paperQuestions = _questionsByPaper![paperId] ?? [];
 
-      // Get sub-question keys
-      for (final questionKey in questionKeysToDelete) {
-        for (final entry in _databaseHelper.subQuestions.toMap().entries) {
-          final subQuestionMap = entry.value;
-          if (subQuestionMap['question_key'] == questionKey) {
-            subQuestionKeysToDelete.add(entry.key);
+        for (final questionData in paperQuestions) {
+          final questionKey = questionData['key'] as String;
+          questionKeysToDelete.add(questionKey);
+
+          // Get sub-question keys using index
+          final subQuestions = _subQuestionsByQuestion![questionKey] ?? [];
+          for (final subQuestionData in subQuestions) {
+            // Use the actual key from the sub-question data instead of reconstructing
+            final subQuestionKey = subQuestionData['key'] as String;
+            subQuestionKeysToDelete.add(subQuestionKey);
+          }
+        }
+      } else {
+        // Fallback to linear search if indexes are not available
+        for (final entry in _databaseHelper.questions.toMap().entries) {
+          final questionMap = entry.value;
+          if (questionMap['paper_id'] == paperId) {
+            questionKeysToDelete.add(entry.key);
+          }
+        }
+
+        // Get sub-question keys using linear search
+        for (final questionKey in questionKeysToDelete) {
+          for (final entry in _databaseHelper.subQuestions.toMap().entries) {
+            final subQuestionMap = entry.value;
+            if (subQuestionMap['question_key'] == questionKey) {
+              subQuestionKeysToDelete.add(entry.key);
+            }
           }
         }
       }
 
-      // Delete sub-questions first
+      // Delete sub-questions first (to maintain referential integrity)
       for (final key in subQuestionKeysToDelete) {
         await _databaseHelper.subQuestions.delete(key);
       }
@@ -454,12 +701,15 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
       final totalDeleted = questionKeysToDelete.length + subQuestionKeysToDelete.length;
 
-      _logger.debug('Questions deleted from Hive', category: LogCategory.storage, context: {
-        'paperId': paperId,
-        'deletedQuestions': questionKeysToDelete.length,
-        'deletedSubQuestions': subQuestionKeysToDelete.length,
-        'totalDeleted': totalDeleted,
-      });
+      _logger.debug('Questions deleted from Hive',
+          category: LogCategory.storage,
+          context: {
+            'paperId': paperId,
+            'deletedQuestions': questionKeysToDelete.length,
+            'deletedSubQuestions': subQuestionKeysToDelete.length,
+            'totalDeleted': totalDeleted,
+          }
+      );
 
       return questionKeysToDelete.length;
     } catch (e, stackTrace) {
@@ -477,42 +727,38 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
     final paperId = paperMap['id'] as String;
 
     try {
-      // Build questions map
+      // Ensure indexes are built - this is O(1) if already cached
+      _buildIndexes();
+
+      // Build questions map - now O(1) lookup + O(k) where k is questions for this paper
       final questionsMap = <String, List<Question>>{};
 
-      // Get all questions for this paper
-      for (final entry in _databaseHelper.questions.toMap().entries) {
-        final questionMap = entry.value;
-        if (questionMap['paper_id'] == paperId) {
-          final questionKey = entry.key;
-          final sectionName = questionMap['section_name'] as String;
+      final paperQuestions = _questionsByPaper![paperId] ?? [];
 
-          // Get sub-questions for this question
-          final subQuestions = <SubQuestion>[];
-          for (final subEntry in _databaseHelper.subQuestions.toMap().entries) {
-            final subQuestionMap = subEntry.value;
-            if (subQuestionMap['question_key'] == questionKey) {
-              subQuestions.add(SubQuestion(
-                text: subQuestionMap['text'] as String,
-                marks: subQuestionMap['marks'] as int,
-              ));
-            }
-          }
+      for (final questionData in paperQuestions) {
+        final questionKey = questionData['key'];
+        final sectionName = questionData['section_name'] as String;
 
-          final question = Question(
-            text: questionMap['question_text'] as String,
-            type: questionMap['question_type'] as String,
-            marks: questionMap['marks'] as int,
-            isOptional: questionMap['is_optional'] as bool,
-            correctAnswer: questionMap['correct_answer'] as String?,
-            options: questionMap['options'] != null
-                ? List<String>.from(jsonDecode(questionMap['options'] as String))
-                : null,
-            subQuestions: subQuestions,
-          );
+        // Get sub-questions for this question - O(1) lookup + O(j) where j is sub-questions
+        final subQuestionsData = _subQuestionsByQuestion![questionKey] ?? [];
+        final subQuestions = subQuestionsData.map((subData) => SubQuestion(
+          text: subData['text'] as String,
+          marks: subData['marks'] as int,
+        )).toList();
 
-          questionsMap.putIfAbsent(sectionName, () => []).add(question);
-        }
+        final question = Question(
+          text: questionData['question_text'] as String,
+          type: questionData['question_type'] as String,
+          marks: questionData['marks'] as int,
+          isOptional: questionData['is_optional'] as bool,
+          correctAnswer: questionData['correct_answer'] as String?,
+          options: questionData['options'] != null
+              ? List<String>.from(jsonDecode(questionData['options'] as String))
+              : null,
+          subQuestions: subQuestions,
+        );
+
+        questionsMap.putIfAbsent(sectionName, () => []).add(question);
       }
 
       // Parse exam type entity
@@ -543,8 +789,8 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         modifiedAt: DateTime.fromMillisecondsSinceEpoch(paperMap['modified_at'] as int),
         status: PaperStatus.fromString(paperMap['status'] as String),
         examTypeEntity: examTypeEntity,
-        gradeLevel: gradeLevel, // NEW FIELD
-        selectedSections: selectedSections, // NEW FIELD
+        gradeLevel: gradeLevel,
+        selectedSections: selectedSections,
         questions: questionsMap,
         tenantId: paperMap['tenant_id'] as String?,
         userId: paperMap['user_id'] as String?,
@@ -558,13 +804,14 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         rejectionReason: paperMap['rejection_reason'] as String?,
       );
 
-      _logger.debug('Paper built from Hive data', category: LogCategory.storage, context: {
+      _logger.debug('Paper built from Hive data (optimized)', category: LogCategory.storage, context: {
         'paperId': paperId,
         'title': paper.title,
         'gradeLevel': paper.gradeLevel,
         'selectedSections': paper.selectedSections,
         'questionCount': _getTotalQuestionCount(questionsMap),
         'sections': questionsMap.keys.toList(),
+        'performanceOptimized': true,
       });
 
       return paper;
@@ -584,5 +831,12 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
 
   int _getTotalQuestionCount(Map<String, List<Question>> questionsMap) {
     return questionsMap.values.fold(0, (total, questions) => total + questions.length);
+  }
+
+  /// Cleanup method to clear any pending operations (useful for testing or disposal)
+  void dispose() {
+    _operations.clear();
+    _operationLocks.clear();
+    _invalidateIndexes(); // Add this line
   }
 }

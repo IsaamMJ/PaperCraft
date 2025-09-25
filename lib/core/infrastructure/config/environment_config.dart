@@ -101,39 +101,30 @@ class EnvironmentConfig {
   static void _validateConfig() {
     final errors = <String>[];
 
-    // Always validate in production/staging
-    // In dev, only validate if values are provided (allow offline development)
-    final shouldValidate = _current != Environment.dev ||
-        (_supabaseUrl.isNotEmpty || _supabaseAnonKey.isNotEmpty);
+    // FIXED: Always validate if any Supabase operations will be attempted
+    final willUseSupabase = _supabaseUrl.isNotEmpty || _supabaseAnonKey.isNotEmpty;
 
-    if (!shouldValidate) {
-      if (kDebugMode) {
-        debugPrint("ℹ️ Development mode: Skipping validation for offline development");
+    if (_current != Environment.dev && willUseSupabase) {
+      // Production/staging must have valid config
+      if (_supabaseUrl.isEmpty || !_isValidUrl(_supabaseUrl)) {
+        errors.add('SUPABASE_URL is required and must be valid for ${_current.name}');
       }
-      return;
+      if (_supabaseAnonKey.isEmpty || _supabaseAnonKey.length < 20) {
+        errors.add('SUPABASE_KEY is required and must be valid for ${_current.name}');
+      }
     }
 
-    // Validate Supabase URL
-    if (_supabaseUrl.isEmpty) {
-      errors.add('SUPABASE_URL is required for ${_current.name} environment');
-    } else if (!_isValidUrl(_supabaseUrl)) {
-      errors.add('SUPABASE_URL is not a valid URL: $_supabaseUrl');
+    // FIXED: In dev, warn but don't fail if config is missing
+    if (_current == Environment.dev && !willUseSupabase) {
+      debugPrint('⚠️ WARNING: Supabase config missing in dev mode. App will run in offline mode.');
+      return; // Allow offline development
     }
 
-    // Validate Supabase Key
-    if (_supabaseAnonKey.isEmpty) {
-      errors.add('SUPABASE_KEY is required for ${_current.name} environment');
-    } else if (_supabaseAnonKey.length < 20) {
-      errors.add('SUPABASE_KEY appears to be invalid (too short)');
-    }
-
-    // Fail fast if validation errors exist
     if (errors.isNotEmpty) {
       final errorMessage = 'Environment configuration validation failed:\n'
           '${errors.map((e) => '• $e').join('\n')}\n\n'
           'Environment: ${_current.name}\n'
           '${_getFixInstructions()}';
-
       throw StateError(errorMessage);
     }
   }

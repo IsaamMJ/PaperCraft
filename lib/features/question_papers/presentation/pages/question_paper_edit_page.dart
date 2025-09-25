@@ -12,7 +12,7 @@ import '../../domain/services/subject_grade_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
-import '../widgets/question_input_dialog.dart';
+import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperEditPage extends StatelessWidget {
   final String questionPaperId;

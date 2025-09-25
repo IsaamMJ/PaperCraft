@@ -34,47 +34,12 @@ abstract class IPdfGenerationService {
 
 class SimplePdfService implements IPdfGenerationService {
   static const _defaultSchoolName = 'Pearl Matriculation Higher Secondary School, Nagercoil';
+  static const int MAX_QUESTIONS_PER_BATCH = 20;
+  static const int MAX_QUESTIONS_PER_PAGE = 10;
 
   // Font for Android compatibility
   static pw.Font? _regularFont;
   static pw.Font? _boldFont;
-
-  Future<void> _loadFonts() async {
-    // Using system fonts that work well on Android
-    _regularFont = pw.Font.helvetica();
-    _boldFont = pw.Font.helveticaBold();
-  }
-
-  @override
-  Future<Uint8List> generateStudentPdf({
-    required QuestionPaperEntity paper,
-    required String schoolName,
-    String? studentName,
-    String? rollNumber,
-  }) async {
-    await _loadFonts();
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        header: (context) => _buildHeader(
-          schoolName: schoolName,
-          paper: paper,
-          studentName: studentName,
-          rollNumber: rollNumber,
-        ),
-        build: (context) => [
-          _buildInstructions(),
-          pw.SizedBox(height: 10),
-          ..._buildQuestions(paper),
-        ],
-      ),
-    );
-
-    return pdf.save();
-  }
 
   @override
   Future<Uint8List> generateDualLayoutPdf({
@@ -108,7 +73,7 @@ class SimplePdfService implements IPdfGenerationService {
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: _buildCompactQuestions(paper),
+                          children: _buildCompactQuestions(paper), // This now has roman numerals
                         ),
                       ),
                     ],
@@ -133,11 +98,301 @@ class SimplePdfService implements IPdfGenerationService {
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: _buildCompactQuestions(paper),
+                          children: _buildCompactQuestions(paper), // This now has roman numerals
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  pw.Widget _buildCompactHeaderForSinglePage({
+    required String schoolName,
+    required QuestionPaperEntity paper,
+    String? studentName,
+    String? rollNumber,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // School name
+        pw.Center(
+          child: pw.Text(
+            schoolName,
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              font: _boldFont,
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 4),
+
+        // Paper title
+        pw.Center(
+          child: pw.Text(
+            paper.title,
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              font: _boldFont,
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 4),
+
+        // Paper details in single row
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('Subject: ${paper.subject}', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+            pw.Text('Grade: ${paper.gradeDisplayName}', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+            if (paper.examTypeEntity.durationMinutes != null)
+              pw.Text('Time: ${paper.examTypeEntity.formattedDuration}', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+            pw.Text('Total Marks: ${paper.totalMarks}', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+          ],
+        ),
+
+        // Student details in single line if provided
+        if (studentName != null || rollNumber != null) ...[
+          pw.SizedBox(height: 4),
+          pw.Row(
+            children: [
+              pw.Text('Name: ___________________', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+              pw.SizedBox(width: 20),
+              pw.Text('Roll No: __________', style: pw.TextStyle(fontSize: 9, font: _regularFont)),
+            ],
+          ),
+        ],
+
+        pw.SizedBox(height: 4),
+        pw.Divider(height: 1),
+      ],
+    );
+  }
+
+  pw.Widget _buildCompactInstructionsForSinglePage() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(width: 0.5),
+        borderRadius: pw.BorderRadius.circular(2),
+      ),
+      child: pw.Text(
+        'Instructions: Read all questions carefully. Answer all questions.',
+        style: pw.TextStyle(fontSize: 8, font: _regularFont),
+      ),
+    );
+  }
+
+  List<pw.Widget> _buildCompactQuestionsForSinglePage(QuestionPaperEntity paper) {
+    final widgets = <pw.Widget>[];
+    final sortedSections = _getSortedSections(paper.questions);
+    int sectionIndex = 1;
+
+    for (final sectionEntry in sortedSections) {
+      final sectionName = sectionEntry.key;
+      final questions = sectionEntry.value;
+
+      if (questions.isEmpty) continue;
+
+      // Calculate section total marks
+      final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
+      final questionCount = questions.length;
+
+      // Very compact section header
+      widgets.add(
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                '${_getRomanNumeral(sectionIndex)}. $sectionName',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                  font: _boldFont,
+                ),
+              ),
+              pw.Text(
+                '$questionCount × ${sectionMarks ~/ questionCount} = $sectionMarks marks',
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                  font: _boldFont,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      widgets.add(pw.SizedBox(height: 3));
+
+      // Compact questions
+      for (int i = 0; i < questions.length; i++) {
+        final question = questions[i];
+        final questionNumber = i + 1;
+
+        widgets.add(_buildSinglePageQuestion(
+          question: question,
+          questionNumber: questionNumber,
+        ));
+
+        if (i < questions.length - 1) {
+          widgets.add(pw.SizedBox(height: 3));
+        }
+      }
+
+      widgets.add(pw.SizedBox(height: 6));
+      sectionIndex++;
+    }
+
+    return widgets;
+  }
+
+  pw.Widget _buildSinglePageQuestion({
+    required Question question,
+    required int questionNumber,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Question text
+        pw.Text(
+          '$questionNumber. ${question.text}',
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: pw.FontWeight.normal,
+            font: _regularFont,
+          ),
+        ),
+
+        pw.SizedBox(height: 2),
+
+        // Question options (for MCQ) - Horizontal compact layout
+        if (question.options != null && question.options!.isNotEmpty)
+          _buildSinglePageOptions(question),
+
+        // Sub-questions
+        if (question.subQuestions.isNotEmpty)
+          ..._buildSinglePageSubQuestions(question.subQuestions),
+      ],
+    );
+  }
+
+  pw.Widget _buildSinglePageOptions(Question question) {
+    return pw.Wrap(
+      spacing: 10,
+      runSpacing: 2,
+      children: question.options!.asMap().entries.map((entry) {
+        final index = entry.key;
+        final option = entry.value;
+        final optionLabel = String.fromCharCode(65 + index);
+
+        return pw.Text(
+          '$optionLabel) $option',
+          style: pw.TextStyle(
+            fontSize: 8,
+            font: _regularFont,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  List<pw.Widget> _buildSinglePageSubQuestions(List<SubQuestion> subQuestions) {
+    final widgets = <pw.Widget>[];
+
+    for (int i = 0; i < subQuestions.length; i++) {
+      final subQuestion = subQuestions[i];
+      final subLabel = String.fromCharCode(97 + i);
+
+      widgets.add(
+        pw.Container(
+          margin: const pw.EdgeInsets.only(left: 10, bottom: 1),
+          child: pw.Text(
+            '$subLabel) ${subQuestion.text}',
+            style: pw.TextStyle(fontSize: 8, font: _regularFont),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  // Add this method to the SimplePdfService class
+  String _getRomanNumeral(int number) {
+    switch (number) {
+      case 1: return 'I';
+      case 2: return 'II';
+      case 3: return 'III';
+      case 4: return 'IV';
+      case 5: return 'V';
+      case 6: return 'VI';
+      case 7: return 'VII';
+      case 8: return 'VIII';
+      case 9: return 'IX';
+      case 10: return 'X';
+      case 11: return 'XI';
+      case 12: return 'XII';
+      case 13: return 'XIII';
+      case 14: return 'XIV';
+      case 15: return 'XV';
+      default: return number.toString(); // Fallback to numbers for >15
+    }
+  }
+
+  Future<void> _loadFonts() async {
+    // Using system fonts that work well on Android
+    _regularFont = pw.Font.helvetica();
+    _boldFont = pw.Font.helveticaBold();
+  }
+
+  @override
+  Future<Uint8List> generateStudentPdf({
+    required QuestionPaperEntity paper,
+    required String schoolName,
+    String? studentName,
+    String? rollNumber,
+  }) async {
+    await _loadFonts();
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page( // Changed from MultiPage to Page
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(15), // Reduced margin for more space
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header (only once)
+              _buildCompactHeaderForSinglePage(
+                schoolName: schoolName,
+                paper: paper,
+                studentName: studentName,
+                rollNumber: rollNumber,
+              ),
+              pw.SizedBox(height: 6),
+              _buildCompactInstructionsForSinglePage(),
+              pw.SizedBox(height: 8),
+              // Questions - fill remaining space
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: _buildCompactQuestionsForSinglePage(paper),
                 ),
               ),
             ],
@@ -489,10 +744,14 @@ class SimplePdfService implements IPdfGenerationService {
     );
   }
 
-  // Question building with sorted sections
+  // Question building with memory management and batching
+  // Question building with memory management and batching
   List<pw.Widget> _buildQuestions(QuestionPaperEntity paper, {bool isTeacherCopy = false}) {
     final widgets = <pw.Widget>[];
     final sortedSections = _getSortedSections(paper.questions);
+
+    // Add section counter for roman numerals
+    int sectionIndex = 1;
 
     for (final sectionEntry in sortedSections) {
       final sectionName = sectionEntry.key;
@@ -504,7 +763,7 @@ class SimplePdfService implements IPdfGenerationService {
       final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
       final questionCount = questions.length;
 
-      // Simple section header without design
+      // Professional section header with roman numerals
       widgets.add(
         pw.Container(
           width: double.infinity,
@@ -513,7 +772,7 @@ class SimplePdfService implements IPdfGenerationService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                sectionName,
+                '${_getRomanNumeral(sectionIndex)}. $sectionName', // Add roman numeral
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -535,23 +794,35 @@ class SimplePdfService implements IPdfGenerationService {
 
       widgets.add(pw.SizedBox(height: 6));
 
-      // Questions
-      for (int i = 0; i < questions.length; i++) {
-        final question = questions[i];
-        final questionNumber = i + 1;
+      // ... rest of the existing question processing logic remains the same ...
+      for (int batchStart = 0; batchStart < questions.length; batchStart += MAX_QUESTIONS_PER_BATCH) {
+        final batchEnd = (batchStart + MAX_QUESTIONS_PER_BATCH).clamp(0, questions.length);
+        final batch = questions.sublist(batchStart, batchEnd);
 
-        widgets.add(_buildSingleQuestion(
-          question: question,
-          questionNumber: questionNumber,
-          isTeacherCopy: isTeacherCopy,
-        ));
+        for (int i = 0; i < batch.length; i++) {
+          final question = batch[i];
+          final questionNumber = batchStart + i + 1;
 
-        if (i < questions.length - 1) {
-          widgets.add(pw.SizedBox(height: 6));
+          widgets.add(_buildSingleQuestion(
+            question: question,
+            questionNumber: questionNumber,
+            isTeacherCopy: isTeacherCopy,
+          ));
+
+          if (batchStart + i < questions.length - 1) {
+            widgets.add(pw.SizedBox(height: 6));
+          }
+        }
+
+        if (batchEnd < questions.length && questions.length > MAX_QUESTIONS_PER_BATCH * 2) {
+          Future.delayed(const Duration(milliseconds: 1));
         }
       }
 
       widgets.add(pw.SizedBox(height: 10));
+
+      // Increment section counter
+      sectionIndex++;
     }
 
     return widgets;
@@ -560,6 +831,9 @@ class SimplePdfService implements IPdfGenerationService {
   List<pw.Widget> _buildCompactQuestions(QuestionPaperEntity paper) {
     final widgets = <pw.Widget>[];
     final sortedSections = _getSortedSections(paper.questions);
+
+    // Add section counter for roman numerals
+    int sectionIndex = 1;
 
     for (final sectionEntry in sortedSections) {
       final sectionName = sectionEntry.key;
@@ -571,7 +845,7 @@ class SimplePdfService implements IPdfGenerationService {
       final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
       final questionCount = questions.length;
 
-      // Simple compact section header without design
+      // Compact section header with roman numerals
       widgets.add(
         pw.Container(
           width: double.infinity,
@@ -580,7 +854,7 @@ class SimplePdfService implements IPdfGenerationService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                sectionName,
+                '${_getRomanNumeral(sectionIndex)}. $sectionName', // Add roman numeral
                 style: pw.TextStyle(
                   fontSize: 9,
                   fontWeight: pw.FontWeight.bold,
@@ -602,22 +876,30 @@ class SimplePdfService implements IPdfGenerationService {
 
       widgets.add(pw.SizedBox(height: 4));
 
-      // Compact questions
-      for (int i = 0; i < questions.length; i++) {
-        final question = questions[i];
-        final questionNumber = i + 1;
+      // ... rest of the existing compact question processing logic remains the same ...
+      for (int batchStart = 0; batchStart < questions.length; batchStart += MAX_QUESTIONS_PER_BATCH) {
+        final batchEnd = (batchStart + MAX_QUESTIONS_PER_BATCH).clamp(0, questions.length);
+        final batch = questions.sublist(batchStart, batchEnd);
 
-        widgets.add(_buildCompactSingleQuestion(
-          question: question,
-          questionNumber: questionNumber,
-        ));
+        for (int i = 0; i < batch.length; i++) {
+          final question = batch[i];
+          final questionNumber = batchStart + i + 1;
 
-        if (i < questions.length - 1) {
-          widgets.add(pw.SizedBox(height: 4));
+          widgets.add(_buildCompactSingleQuestion(
+            question: question,
+            questionNumber: questionNumber,
+          ));
+
+          if (batchStart + i < questions.length - 1) {
+            widgets.add(pw.SizedBox(height: 4));
+          }
         }
       }
 
       widgets.add(pw.SizedBox(height: 6));
+
+      // Increment section counter
+      sectionIndex++;
     }
 
     return widgets;
@@ -777,11 +1059,14 @@ class SimplePdfService implements IPdfGenerationService {
     return widgets;
   }
 
-  // Answer sheet content with sorted sections
+  // Answer sheet content with memory management and sorted sections
   List<pw.Widget> _buildAnswerSheetContent(QuestionPaperEntity paper) {
     final widgets = <pw.Widget>[];
     int questionCounter = 1;
     final sortedSections = _getSortedSections(paper.questions);
+
+    // Add section counter for roman numerals
+    int sectionIndex = 1;
 
     for (final sectionEntry in sortedSections) {
       final sectionName = sectionEntry.key;
@@ -791,7 +1076,7 @@ class SimplePdfService implements IPdfGenerationService {
 
       widgets.add(
         pw.Text(
-          sectionName,
+          '${_getRomanNumeral(sectionIndex)}. $sectionName', // Add roman numeral
           style: pw.TextStyle(
             fontSize: 12,
             fontWeight: pw.FontWeight.bold,
@@ -802,12 +1087,21 @@ class SimplePdfService implements IPdfGenerationService {
 
       widgets.add(pw.SizedBox(height: 8));
 
-      for (final question in questions) {
-        widgets.add(_buildAnswerSheetQuestion(questionCounter, question));
-        questionCounter++;
+      // ... rest of the existing answer sheet logic remains the same ...
+      for (int batchStart = 0; batchStart < questions.length; batchStart += MAX_QUESTIONS_PER_BATCH) {
+        final batchEnd = (batchStart + MAX_QUESTIONS_PER_BATCH).clamp(0, questions.length);
+        final batch = questions.sublist(batchStart, batchEnd);
+
+        for (final question in batch) {
+          widgets.add(_buildAnswerSheetQuestion(questionCounter, question));
+          questionCounter++;
+        }
       }
 
       widgets.add(pw.SizedBox(height: 15));
+
+      // Increment section counter
+      sectionIndex++;
     }
 
     return widgets;

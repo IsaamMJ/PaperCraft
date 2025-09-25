@@ -255,10 +255,11 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.auto_awesome,
-                color: Colors.white,
-                size: logoSize * 0.5,
+              child: Image.asset(
+                'assets/images/roundedlogo.png',
+                width: 200,
+                height: 100,
+                fit: BoxFit.contain,
               ),
             ),
             SizedBox(height: isShortScreen ? 20 : 32),

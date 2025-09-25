@@ -1,8 +1,11 @@
 // features/authentication/domain2/services/user_state_service.dart
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../entities/user_entity.dart';
 import '../entities/user_role.dart';
+import '../usecases/auth_usecase.dart';
 
 /// Fast, in-memory user state service for managing authenticated user state
 /// This is a domain2 service that tracks current user and provides permission logic
@@ -10,12 +13,20 @@ class UserStateService extends ChangeNotifier {
   final ILogger _logger;
   UserEntity? _currentUser;
 
+  // SECURITY FIX: Periodic permission refresh
+  Timer? _permissionRefreshTimer;
+  final Duration _permissionRefreshInterval = const Duration(minutes: 5);
+
   UserStateService(this._logger) {
     _logger.debug('UserStateService initialized', category: LogCategory.auth, context: {
       'serviceType': 'domain_service',
       'responsibilities': ['user_state', 'permissions'],
     });
+    _startPermissionRefreshTimer();
   }
+
+  // Add refresh state flag
+  bool _isRefreshing = false;
 
   /// Current authenticated user (null if not authenticated)
   UserEntity? get currentUser => _currentUser;
@@ -37,6 +48,94 @@ class UserStateService extends ChangeNotifier {
 
   /// Quick teacher check
   bool get isTeacher => currentRole == UserRole.teacher;
+
+  // =============== SECURITY FIX: PERIODIC PERMISSION REFRESH ===============
+
+  /// Start periodic permission refresh timer
+  void _startPermissionRefreshTimer() {
+    _permissionRefreshTimer?.cancel();
+    _permissionRefreshTimer = Timer.periodic(_permissionRefreshInterval, (_) {
+      if (isAuthenticated) {
+        _refreshUserPermissions();
+      }
+    });
+  }
+
+  /// Refresh user permissions from database
+  Future<void> _refreshUserPermissions() async {
+    if (!isAuthenticated || currentUserId == null || _isRefreshing) return;
+
+    _isRefreshing = true;
+
+    try {
+      _logger.debug('Refreshing user permissions', category: LogCategory.auth, context: {
+        'userId': currentUserId,
+        'currentRole': currentRole.value,
+      });
+
+      // Get fresh user data from database
+      final authUseCase = sl<AuthUseCase>();
+      final result = await authUseCase.getCurrentUser();
+
+      result.fold(
+            (failure) {
+          _logger.warning('Permission refresh failed', category: LogCategory.auth, context: {
+            'userId': currentUserId,
+            'error': failure.message,
+          });
+        },
+            (freshUser) {
+          if (freshUser != null && freshUser.id == currentUserId) {
+            // SECURITY FIX: Check if permissions changed
+            final oldRole = currentRole;
+            final newRole = freshUser.role;
+
+            if (oldRole != newRole) {
+              _logger.warning('User role changed, updating permissions', category: LogCategory.auth, context: {
+                'userId': currentUserId,
+                'oldRole': oldRole.value,
+                'newRole': newRole.value,
+                'securityUpdate': true,
+              });
+
+              updateUser(freshUser);
+            }
+
+            // Check if user was deactivated
+            if (_currentUser!.isActive && !freshUser.isActive) {
+              _logger.warning('User was deactivated, clearing state', category: LogCategory.auth, context: {
+                'userId': currentUserId,
+                'securityAction': 'account_deactivated',
+              });
+
+              clearUser();
+              // TODO: Trigger logout in AuthBloc
+            }
+          } else if (freshUser == null) {
+            _logger.warning('User no longer exists, clearing state', category: LogCategory.auth, context: {
+              'userId': currentUserId,
+              'securityAction': 'user_deleted',
+            });
+
+            clearUser();
+            // TODO: Trigger logout in AuthBloc
+          }
+        },
+      );
+    } catch (e, stackTrace) {
+      _logger.warning('Permission refresh exception', category: LogCategory.auth, context: {
+        'userId': currentUserId,
+        'error': e.toString(),
+      });
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  /// SECURITY FIX: Force permission refresh
+  Future<void> forcePermissionRefresh() async {
+    await _refreshUserPermissions();
+  }
 
   /// Update user state (called from AuthBloc)
   void updateUser(UserEntity? user) {
@@ -287,6 +386,12 @@ class UserStateService extends ChangeNotifier {
       });
       return 'Failed to get user info: $e';
     }
+  }
+
+  @override
+  void dispose() {
+    _permissionRefreshTimer?.cancel();
+    super.dispose();
   }
 }
 

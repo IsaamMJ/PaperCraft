@@ -43,11 +43,16 @@ import '../../../features/question_papers/domain/usecases/pull_for_editing_useca
 import '../../../features/question_papers/domain/usecases/reject_paper_usecase.dart';
 import '../../../features/question_papers/domain/usecases/save_draft_usecase.dart';
 import '../../../features/question_papers/domain/usecases/submit_paper_usecase.dart';
-// ADD THESE NEW IMPORTS
 import '../../../features/question_papers/domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../../features/question_papers/domain/usecases/get_approved_papers_usecase.dart';
 
-// Grade feature (NEW)
+// NEW: Exam Type imports
+import '../../../features/question_papers/data/datasources/exam_type_data_source.dart';
+import '../../../features/question_papers/data/repositories/exam_type_repository_impl.dart';
+import '../../../features/question_papers/domain/repositories/exam_type_repository.dart';
+import '../../../features/question_papers/domain/usecases/get_exam_types_usecase.dart';
+
+// Grade feature
 import '../../../features/question_papers/data/datasources/grade_data_source.dart';
 import '../../../features/question_papers/data/repositories/grade_repository_impl.dart';
 import '../../../features/question_papers/domain/repositories/grade_repository.dart';
@@ -83,7 +88,7 @@ Future<void> setupDependencies() async {
     await _NetworkModule.setup();
     await _AuthModule.setup();
     await _QuestionPapersModule.setup();
-    await _GradeModule.setup(); // NEW MODULE
+    await _GradeModule.setup();
 
     final setupDuration = DateTime.now().difference(setupStartTime);
     sl<ILogger>().info(
@@ -91,7 +96,7 @@ Future<void> setupDependencies() async {
       category: LogCategory.system,
       context: {
         'duration': '${setupDuration.inMilliseconds}ms',
-        'components': ['database', 'network', 'auth', 'question_papers', 'grades'],
+        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types'],
         'environment': EnvironmentConfig.current.name,
         'platform': PlatformUtils.platformName,
       },
@@ -293,14 +298,15 @@ class _QuestionPapersModule {
       _setupDataSources();
       _setupRepositories();
       _setupUseCases();
+      _setupExamTypes(); // NEW: Add exam types setup
 
       sl<ILogger>().info(
         'Question papers module initialized successfully',
         category: LogCategory.system,
         context: {
-          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow'],
-          'useCasesRegistered': 12, // Updated count
-          'dataSourcesRegistered': 2,
+          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow', 'exam_types'],
+          'useCasesRegistered': 14, // Updated count (12 + 2 exam type use cases)
+          'dataSourcesRegistered': 3, // Updated count (2 + 1 exam type data source)
           'platform': PlatformUtils.platformName,
         },
       );
@@ -361,14 +367,31 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => RejectPaperUseCase(repository));
     sl.registerLazySingleton(() => GetPaperByIdUseCase(repository));
     sl.registerLazySingleton(() => PullForEditingUseCase(repository));
-
-    // ADD THE TWO NEW USE CASES HERE
     sl.registerLazySingleton(() => GetAllPapersForAdminUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersUseCase(repository));
   }
+
+  // NEW: Exam Types setup
+  static void _setupExamTypes() {
+    sl<ILogger>().debug('Setting up exam types', category: LogCategory.examtype);
+
+    // Data Sources
+    sl.registerLazySingleton<ExamTypeDataSource>(
+          () => ExamTypeSupabaseDataSource(Supabase.instance.client, sl<ILogger>()),
+    );
+
+    // Repositories
+    sl.registerLazySingleton<ExamTypeRepository>(
+          () => ExamTypeRepositoryImpl(sl<ExamTypeDataSource>(), sl<ILogger>()),
+    );
+
+    // Use Cases
+    sl.registerLazySingleton(() => GetExamTypesUseCase(sl<ExamTypeRepository>()));
+    sl.registerLazySingleton(() => GetExamTypeByIdUseCase(sl<ExamTypeRepository>()));
+  }
 }
 
-/// NEW: Grade feature dependencies
+/// Grade feature dependencies
 class _GradeModule {
   static Future<void> setup() async {
     try {

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
+import '../../domain/entities/exam_type_entity.dart'; // ADD THIS IMPORT
 import '../../domain/usecases/save_draft_usecase.dart';
 import '../../domain/usecases/submit_paper_usecase.dart';
 import '../../domain/usecases/get_drafts_usecase.dart';
@@ -15,6 +16,7 @@ import '../../domain/usecases/pull_for_editing_usecase.dart';
 import '../../domain/usecases/get_paper_by_id_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../domain/usecases/get_approved_papers_usecase.dart';
+import '../../domain/usecases/get_exam_types_usecase.dart'; // ADD THIS IMPORT
 
 // =============== EVENTS ===============
 abstract class QuestionPaperEvent extends Equatable {
@@ -42,6 +44,10 @@ class LoadAllPapersForAdmin extends QuestionPaperEvent {
 
 class LoadApprovedPapers extends QuestionPaperEvent {
   const LoadApprovedPapers();
+}
+
+class LoadExamTypes extends QuestionPaperEvent {
+  const LoadExamTypes();
 }
 
 class LoadPaperById extends QuestionPaperEvent {
@@ -137,6 +143,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
   final List<QuestionPaperEntity> papersForReview;
   final List<QuestionPaperEntity> allPapersForAdmin;
   final List<QuestionPaperEntity> approvedPapers;
+  final List<ExamTypeEntity> examTypes;
   final QuestionPaperEntity? currentPaper;
 
   const QuestionPaperLoaded({
@@ -145,6 +152,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
     this.papersForReview = const [],
     this.allPapersForAdmin = const [],
     this.approvedPapers = const [],
+    this.examTypes = const [],
     this.currentPaper,
   });
 
@@ -155,6 +163,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
     papersForReview,
     allPapersForAdmin,
     approvedPapers,
+    examTypes,
     currentPaper
   ];
 
@@ -164,6 +173,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
     List<QuestionPaperEntity>? papersForReview,
     List<QuestionPaperEntity>? allPapersForAdmin,
     List<QuestionPaperEntity>? approvedPapers,
+    List<ExamTypeEntity>? examTypes,
     QuestionPaperEntity? currentPaper,
     bool clearCurrentPaper = false,
   }) {
@@ -173,6 +183,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
       papersForReview: papersForReview ?? this.papersForReview,
       allPapersForAdmin: allPapersForAdmin ?? this.allPapersForAdmin,
       approvedPapers: approvedPapers ?? this.approvedPapers,
+      examTypes: examTypes ?? this.examTypes,
       currentPaper: clearCurrentPaper ? null : (currentPaper ?? this.currentPaper),
     );
   }
@@ -211,6 +222,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetPaperByIdUseCase _getPaperByIdUseCase;
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final GetApprovedPapersUseCase _getApprovedPapersUseCase;
+  final GetExamTypesUseCase _getExamTypesUseCase;
 
   QuestionPaperBloc({
     required SaveDraftUseCase saveDraftUseCase,
@@ -225,6 +237,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetPaperByIdUseCase getPaperByIdUseCase,
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required GetApprovedPapersUseCase getApprovedPapersUseCase,
+    required GetExamTypesUseCase getExamTypesUseCase,
   })  : _saveDraftUseCase = saveDraftUseCase,
         _submitPaperUseCase = submitPaperUseCase,
         _getDraftsUseCase = getDraftsUseCase,
@@ -237,12 +250,14 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getPaperByIdUseCase = getPaperByIdUseCase,
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _getApprovedPapersUseCase = getApprovedPapersUseCase,
+        _getExamTypesUseCase = getExamTypesUseCase,
         super(QuestionPaperInitial()) {
     on<LoadDrafts>(_onLoadDrafts);
     on<LoadUserSubmissions>(_onLoadUserSubmissions);
     on<LoadPapersForReview>(_onLoadPapersForReview);
     on<LoadAllPapersForAdmin>(_onLoadAllPapersForAdmin);
     on<LoadApprovedPapers>(_onLoadApprovedPapers);
+    on<LoadExamTypes>(_onLoadExamTypes);
     on<LoadPaperById>(_onLoadPaperById);
     on<SaveDraft>(_onSaveDraft);
     on<SubmitPaper>(_onSubmitPaper);
@@ -333,6 +348,22 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     );
   }
 
+  Future<void> _onLoadExamTypes(LoadExamTypes event, Emitter<QuestionPaperState> emit) async {
+    final result = await _getExamTypesUseCase();
+
+    result.fold(
+          (failure) => emit(QuestionPaperError(failure.message)),
+          (examTypes) {
+        if (state is QuestionPaperLoaded) {
+          final currentState = state as QuestionPaperLoaded;
+          emit(currentState.copyWith(examTypes: examTypes));
+        } else {
+          emit(QuestionPaperLoaded(examTypes: examTypes));
+        }
+      },
+    );
+  }
+
   Future<void> _onLoadPaperById(LoadPaperById event, Emitter<QuestionPaperState> emit) async {
     emit(const QuestionPaperLoading(message: 'Loading paper...'));
 
@@ -387,8 +418,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         emit(const QuestionPaperSuccess('Paper approved successfully', actionType: 'approve'));
         add(const LoadPapersForReview());
         add(const LoadUserSubmissions());
-        add(const LoadApprovedPapers()); // Refresh approved papers
-        add(const LoadAllPapersForAdmin()); // Refresh all papers for admin
+        add(const LoadApprovedPapers());
+        add(const LoadAllPapersForAdmin());
       },
     );
   }
@@ -402,7 +433,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         emit(const QuestionPaperSuccess('Paper rejected with feedback', actionType: 'reject'));
         add(const LoadPapersForReview());
         add(const LoadUserSubmissions());
-        add(const LoadAllPapersForAdmin()); // Refresh all papers for admin
+        add(const LoadAllPapersForAdmin());
       },
     );
   }
@@ -435,7 +466,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         // Refresh the data
         add(const LoadDrafts());
         add(const LoadUserSubmissions());
-        add(const LoadAllPapersForAdmin()); // Refresh all papers for admin
+        add(const LoadAllPapersForAdmin());
       },
     );
   }
@@ -446,5 +477,6 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     add(const LoadPapersForReview());
     add(const LoadAllPapersForAdmin());
     add(const LoadApprovedPapers());
+    add(const LoadExamTypes());
   }
 }

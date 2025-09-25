@@ -1,5 +1,6 @@
 // features/question_papers/data/repositories/question_paper_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
@@ -617,7 +618,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       }
 
       // CREATE NEW ID FOR THE DRAFT VERSION (simple timestamp)
-      final newDraftId = 'draft_${DateTime.now().millisecondsSinceEpoch}';
+      final newDraftId = 'draft_${const Uuid().v4()}';
 
       // Convert the rejected paper to a NEW draft with NEW ID
       final draftPaper = cloudEntity.copyWith(

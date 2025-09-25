@@ -44,32 +44,32 @@ class NetworkServiceImpl implements INetworkService {
 
   Future<bool> _testNetworkConnection() async {
     try {
-      // For web platform, skip the HTTP test since CORS will block it
-      // Instead, rely on connectivity status only
       if (kIsWeb) {
-        _logger.debug('Web platform - skipping HTTP connectivity test due to CORS',
-            category: LogCategory.network,
-            context: {'platform': 'web'});
-        return true; // Assume connected if we have connectivity
+        // FIXED: Proper web connectivity test using fetch API
+        return await _testWebConnectivity();
       }
 
       final testUrl = _getNetworkTestUrl();
       final response = await http.head(testUrl).timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (e) {
-      _logger.debug('Network test failed',
-          category: LogCategory.network,
-          context: {
-            'error': e.toString(),
-            'platform': PlatformUtils.platformName,
-            'testUrl': _getNetworkTestUrl().toString()
-          });
+      _logger.debug('Network test failed', category: LogCategory.network, context: {
+        'error': e.toString(),
+        'platform': PlatformUtils.platformName,
+      });
 
-      // For web, if the test fails due to CORS, assume we're connected
-      // if we have basic connectivity
-      if (kIsWeb) {
-        return true;
-      }
+      // FIXED: Don't assume web is connected on failure
+      return false;
+    }
+  }
+
+  Future<bool> _testWebConnectivity() async {
+    try {
+      // Use a simple HTTP request that bypasses CORS for connectivity test
+      final testUrl = Uri.parse('https://www.google.com/favicon.ico');
+      final response = await http.head(testUrl).timeout(const Duration(seconds: 3));
+      return response.statusCode == 200;
+    } catch (e) {
       return false;
     }
   }

@@ -14,6 +14,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final UserStateService _userStateService;
   late StreamSubscription _authSubscription;
 
+  // FIXED: Prevent multiple OAuth attempts and resource leaks
+  bool _isOAuthInProgress = false;
+  bool _isInitialized = false;
+
+  // SECURITY FIX: Auth state synchronization
+  Timer? _syncTimer;
+
   AuthBloc(this._authUseCase, this._userStateService) : super(const AuthInitial()) {
     print('🔥 DEBUG: AuthBloc constructor called at ${DateTime.now()}');
 
@@ -25,6 +32,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     print('🔥 DEBUG: AuthBloc event handlers registered');
     AppLogger.blocEvent('AuthBloc', 'initialized');
     _listenToAuthChanges();
+
+    // SECURITY FIX: Start auth state synchronization
+    _startAuthStateSyncTimer();
   }
 
   void _listenToAuthChanges() {
@@ -75,10 +85,53 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'finalState': state.runtimeType.toString(),
     });
     _authSubscription.cancel();
+    _syncTimer?.cancel();
     return super.close();
   }
 
+  // =============== SECURITY FIX: AUTH STATE SYNCHRONIZATION ===============
+
+  /// Start periodic auth state synchronization timer
+  void _startAuthStateSyncTimer() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (state is AuthAuthenticated) {
+        _syncAuthState();
+      }
+    });
+  }
+
+  /// Synchronize auth state between AuthBloc and UserStateService
+  Future<void> _syncAuthState() async {
+    try {
+      final currentUser = _userStateService.currentUser;
+      final authUser = (state as AuthAuthenticated).user;
+
+      // SECURITY FIX: Verify auth state consistency
+      if (currentUser?.id != authUser.id) {
+        AppLogger.warning('Auth state desync detected', category: LogCategory.auth, context: {
+          'userStateServiceUser': currentUser?.id,
+          'authBlocUser': authUser.id,
+          'securityIssue': 'state_desync',
+        });
+
+        // Force status check to resync
+        add(const AuthCheckStatus());
+      }
+    } catch (e, stackTrace) {
+      AppLogger.warning('Auth state sync error', category: LogCategory.auth, context: {
+        'error': e.toString(),
+      });
+    }
+  }
+
   Future<void> _onInitialize(AuthInitialize event, Emitter<AuthState> emit) async {
+    // FIXED: Prevent double initialization
+    if (_isInitialized) {
+      print('🔥 DEBUG: AuthBloc already initialized, skipping');
+      return;
+    }
+
     print('🔥 DEBUG: _onInitialize method called');
 
     AppLogger.blocEvent('AuthBloc', 'initialize_started', context: {
@@ -88,92 +141,133 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     print('🔥 DEBUG: About to emit AuthLoading');
     emit(const AuthLoading());
 
-    print('🔥 DEBUG: About to call _authUseCase.initialize()');
-    final result = await _authUseCase.initialize();
+    try {
+      print('🔥 DEBUG: About to call _authUseCase.initialize()');
+      final result = await _authUseCase.initialize();
+      print('🔥 DEBUG: _authUseCase.initialize() completed');
 
-    print('🔥 DEBUG: _authUseCase.initialize() completed');
-
-    result.fold(
-          (failure) {
-        print('🔥 DEBUG: Initialize failed with: ${failure.runtimeType} - ${failure.message}');
-        _userStateService.clearUser();
-        AppLogger.authError('Initialize failed', failure, context: {
-          'failureType': failure.runtimeType.toString(),
-          'fallbackAction': 'redirect_to_login',
-        });
-        emit(const AuthUnauthenticated());
-      },
-          (user) {
-        print('🔥 DEBUG: Initialize success, user: ${user?.id ?? 'null'}');
-        if (user != null) {
-          _userStateService.updateUser(user);
-          AppLogger.authEvent('initialize_success', user.id, context: {
-            'hasUser': true,
-            'userName': user.fullName,
-            'userEmail': user.email,
-          });
-          emit(AuthAuthenticated(user));
-        } else {
+      result.fold(
+            (failure) {
+          print('🔥 DEBUG: Initialize failed with: ${failure.runtimeType} - ${failure.message}');
           _userStateService.clearUser();
-          AppLogger.authEvent('initialize_success', 'none', context: {
-            'hasUser': false,
-            'reason': 'no_session',
+          AppLogger.authError('Initialize failed', failure, context: {
+            'failureType': failure.runtimeType.toString(),
+            'fallbackAction': 'redirect_to_login',
           });
           emit(const AuthUnauthenticated());
-        }
-      },
-    );
+        },
+            (user) {
+          print('🔥 DEBUG: Initialize success, user: ${user?.id ?? 'null'}');
+          if (user != null) {
+            _userStateService.updateUser(user);
+            AppLogger.authEvent('initialize_success', user.id, context: {
+              'hasUser': true,
+              'userName': user.fullName,
+              'userEmail': user.email,
+            });
+            emit(AuthAuthenticated(user));
+          } else {
+            _userStateService.clearUser();
+            AppLogger.authEvent('initialize_success', 'none', context: {
+              'hasUser': false,
+              'reason': 'no_session',
+            });
+            emit(const AuthUnauthenticated());
+          }
+        },
+      );
 
-    print('🔥 DEBUG: _onInitialize method completed');
+      _isInitialized = true;
+      print('🔥 DEBUG: _onInitialize method completed');
+    } catch (e, stackTrace) {
+      print('🔥 DEBUG: Initialize exception: $e');
+      AppLogger.authError('Initialize exception', e, context: {
+        'operation': 'initialize',
+        'errorType': e.runtimeType.toString(),
+      });
+      _userStateService.clearUser();
+      emit(const AuthUnauthenticated());
+    }
   }
 
   Future<void> _onSignInGoogle(AuthSignInGoogle event, Emitter<AuthState> emit) async {
-    AppLogger.authEvent('google_signin_started', 'pending', context: {
-      'method': 'google_oauth',
-      'initiatedAt': DateTime.now().toIso8601String(),
-    });
+    // FIXED: Prevent multiple OAuth attempts
+    if (_isOAuthInProgress) {
+      AppLogger.warning('OAuth already in progress, ignoring duplicate request',
+          category: LogCategory.auth,
+          context: {
+            'currentState': state.runtimeType.toString(),
+            'duplicateAttempt': true,
+          });
+      return;
+    }
 
-    emit(const AuthLoading());
+    _isOAuthInProgress = true;
 
-    final result = await _authUseCase.signInWithGoogle();
+    try {
+      AppLogger.authEvent('google_signin_started', 'pending', context: {
+        'method': 'google_oauth',
+        'initiatedAt': DateTime.now().toIso8601String(),
+      });
 
-    result.fold(
-          (failure) {
-        _userStateService.clearUser();
+      emit(const AuthLoading());
 
-        String errorCategory = 'unknown';
-        if (failure is UnauthorizedDomainFailure) {
-          errorCategory = 'unauthorized_domain';
-        } else if (failure is DeactivatedAccountFailure) {
-          errorCategory = 'account_deactivated';
-        } else if (failure is SessionExpiredFailure) {
-          errorCategory = 'session_expired';
-        } else if (failure.message.contains('network')) {
-          errorCategory = 'network';
-        }
+      final result = await _authUseCase.signInWithGoogle();
 
-        AppLogger.authError('Google sign-in failed', failure, context: {
-          'failureType': failure.runtimeType.toString(),
-          'errorCategory': errorCategory,
-          'method': 'google_oauth',
-        });
+      result.fold(
+            (failure) {
+          _userStateService.clearUser();
 
-        emit(AuthError(failure.message));
-      },
-          (authResult) {
-        _userStateService.updateUser(authResult.user);
+          String errorCategory = 'unknown';
+          if (failure is UnauthorizedDomainFailure) {
+            errorCategory = 'unauthorized_domain';
+          } else if (failure is DeactivatedAccountFailure) {
+            errorCategory = 'account_deactivated';
+          } else if (failure is SessionExpiredFailure) {
+            errorCategory = 'session_expired';
+          } else if (failure.message.contains('network')) {
+            errorCategory = 'network';
+          }
 
-        AppLogger.authEvent('google_signin_success', authResult.user.id, context: {
-          'isFirstLogin': authResult.isFirstLogin,
-          'userName': authResult.user.fullName,
-          'userEmail': authResult.user.email,
-          'signInMethod': 'google',
-          'completedAt': DateTime.now().toIso8601String(),
-        });
+          // FIXED: Handle web OAuth redirect properly
+          if (failure.message.contains('OAuth redirect in progress')) {
+            // Web OAuth redirect - don't emit error, let callback handle it
+            AppLogger.info('Web OAuth redirect initiated', category: LogCategory.auth);
+            return;
+          }
 
-        emit(AuthAuthenticated(authResult.user, isFirstLogin: authResult.isFirstLogin));
-      },
-    );
+          AppLogger.authError('Google sign-in failed', failure, context: {
+            'failureType': failure.runtimeType.toString(),
+            'errorCategory': errorCategory,
+            'method': 'google_oauth',
+          });
+
+          emit(AuthError(failure.message));
+        },
+            (authResult) {
+          _userStateService.updateUser(authResult.user);
+
+          AppLogger.authEvent('google_signin_success', authResult.user.id, context: {
+            'isFirstLogin': authResult.isFirstLogin,
+            'userName': authResult.user.fullName,
+            'userEmail': authResult.user.email,
+            'signInMethod': 'google',
+            'completedAt': DateTime.now().toIso8601String(),
+          });
+
+          emit(AuthAuthenticated(authResult.user, isFirstLogin: authResult.isFirstLogin));
+        },
+      );
+    } catch (e, stackTrace) {
+      AppLogger.authError('Unexpected sign-in error', e, context: {
+        'operation': 'google_signin',
+        'errorType': e.runtimeType.toString(),
+      });
+      _userStateService.clearUser();
+      emit(AuthError('Sign-in failed: ${e.toString()}'));
+    } finally {
+      _isOAuthInProgress = false;
+    }
   }
 
   Future<void> _onSignOut(AuthSignOut event, Emitter<AuthState> emit) async {
@@ -243,36 +337,45 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'triggeredAt': DateTime.now().toIso8601String(),
     });
 
-    final result = await _authUseCase.getCurrentUser();
+    try {
+      final result = await _authUseCase.getCurrentUser();
 
-    result.fold(
-          (failure) {
-        _userStateService.clearUser();
-        AppLogger.authError('Status check failed', failure, context: {
-          'failureType': failure.runtimeType.toString(),
-          'fallbackAction': 'clear_state_redirect_login',
-        });
-        emit(const AuthUnauthenticated());
-      },
-          (user) {
-        if (user != null) {
-          _userStateService.updateUser(user);
-          AppLogger.authEvent('status_check_success', user.id, context: {
-            'hasUser': true,
-            'userName': user.fullName,
-            'sessionValid': true,
-          });
-          emit(AuthAuthenticated(user));
-        } else {
+      result.fold(
+            (failure) {
           _userStateService.clearUser();
-          AppLogger.authEvent('status_check_success', 'none', context: {
-            'hasUser': false,
-            'sessionValid': false,
-            'reason': 'no_current_session',
+          AppLogger.authError('Status check failed', failure, context: {
+            'failureType': failure.runtimeType.toString(),
+            'fallbackAction': 'clear_state_redirect_login',
           });
           emit(const AuthUnauthenticated());
-        }
-      },
-    );
+        },
+            (user) {
+          if (user != null) {
+            _userStateService.updateUser(user);
+            AppLogger.authEvent('status_check_success', user.id, context: {
+              'hasUser': true,
+              'userName': user.fullName,
+              'sessionValid': true,
+            });
+            emit(AuthAuthenticated(user));
+          } else {
+            _userStateService.clearUser();
+            AppLogger.authEvent('status_check_success', 'none', context: {
+              'hasUser': false,
+              'sessionValid': false,
+              'reason': 'no_current_session',
+            });
+            emit(const AuthUnauthenticated());
+          }
+        },
+      );
+    } catch (e, stackTrace) {
+      AppLogger.authError('Status check exception', e, context: {
+        'operation': 'check_status',
+        'errorType': e.runtimeType.toString(),
+      });
+      _userStateService.clearUser();
+      emit(const AuthUnauthenticated());
+    }
   }
 }

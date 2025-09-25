@@ -110,6 +110,8 @@ class ExamSectionEntity extends Equatable {
         return 'Multiple Choice';
       case 'fill_blanks':
         return 'Fill in Blanks';
+      case 'matching':
+        return 'Match the Following';
       case 'short_answer':
         return 'Short Answer';
       case 'true_false':

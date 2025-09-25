@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/entities/grade_entity.dart';
 import '../../domain/services/subject_grade_service.dart';
+import '../../domain/services/paper_validation_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
-import '../widgets/question_input_dialog.dart';
+import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {
   const QuestionPaperCreatePage({super.key});
@@ -26,37 +29,23 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  // Grade and Section Selection
+  // Step management
+  int _currentStep = 1;
+  final int _totalSteps = 4;
+
+  // Form state
   int? _selectedGradeLevel;
   List<String> _availableSections = [];
   List<String> _selectedSections = [];
-
-  // Existing selections
   ExamTypeEntity? _selectedExamType;
   List<SubjectEntity> _selectedSubjects = [];
   List<SubjectEntity> _filteredSubjects = [];
   bool _isCreating = false;
 
-  // Mock data - replace with actual data from BLoC
-  final _examTypes = [
-    ExamTypeEntity(
-      id: '1', tenantId: 'tenant1', name: 'Midterm Exam',
-      durationMinutes: 90, totalMarks: 100,
-      sections: [
-        ExamSectionEntity(name: 'Multiple Choice', type: 'multiple_choice', questions: 10, marksPerQuestion: 2),
-        ExamSectionEntity(name: 'Short Answer', type: 'short_answer', questions: 5, marksPerQuestion: 6),
-      ],
-    ),
-    ExamTypeEntity(
-      id: '2', tenantId: 'tenant1', name: 'Final Exam',
-      durationMinutes: 120, totalMarks: 150,
-      sections: [
-        ExamSectionEntity(name: 'Multiple Choice', type: 'multiple_choice', questions: 15, marksPerQuestion: 3),
-        ExamSectionEntity(name: 'Essay Questions', type: 'short_answer', questions: 3, marksPerQuestion: 35),
-      ],
-    ),
-  ];
+  // Exam types will now come from BLoC instead of hardcoded data
+  List<ExamTypeEntity> _availableExamTypes = [];
 
+  // Keep subjects hardcoded for now - you can later move this to a separate BLoC
   final _subjects = [
     SubjectEntity(id: '1', tenantId: 'tenant1', name: 'Mathematics', isActive: true, createdAt: DateTime.now()),
     SubjectEntity(id: '2', tenantId: 'tenant1', name: 'Physics', isActive: true, createdAt: DateTime.now()),
@@ -71,16 +60,29 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
+
+    final userStateService = sl<UserStateService>();
+    print('=== USER STATE DEBUG ===');
+    print('User authenticated: ${userStateService.isAuthenticated}');
+    print('Current user: ${userStateService.currentUser}');
+    print('User tenantId: ${userStateService.currentUser?.tenantId}');
+    print('User isValid: ${userStateService.currentUser?.isValid}');
+    print('User info: ${userStateService.getUserInfo()}');
+    print('========================');
+
+    _animController = AnimationController(duration: const Duration(milliseconds: 400), vsync: this);
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
 
-    // Initialize with all subjects
     _filteredSubjects = _subjects;
 
-    // Load grade levels when page loads
+    // Load initial data from BLoC
     context.read<GradeBloc>().add(const LoadGradeLevels());
+    context.read<QuestionPaperBloc>().add(const LoadExamTypes());
+
+    // Auto-generate title as user makes selections
+    _titleController.addListener(_generateTitle);
 
     Future.delayed(const Duration(milliseconds: 200), () => mounted ? _animController.forward() : null);
   }
@@ -92,18 +94,57 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     super.dispose();
   }
 
-  bool get _canProceed {
-    // Check if title has valid content (without triggering form validation)
-    final titleValid = _titleController.text.trim().isNotEmpty &&
-        _titleController.text.trim().length >= 3;
-    final gradeValid = _selectedGradeLevel != null;
-    final sectionsValid = _selectedSections.isNotEmpty || _availableSections.isEmpty;
-    final examTypeValid = _selectedExamType != null;
-    final subjectsValid = _selectedSubjects.isNotEmpty;
+  // Smart title generation
+  void _generateTitle() {
+    if (_selectedSubjects.isNotEmpty && _selectedGradeLevel != null && _selectedExamType != null) {
+      final subject = _selectedSubjects.first.name; // This was already correct
+      final grade = 'Grade $_selectedGradeLevel';
+      final examType = _selectedExamType!.name;
+      final currentYear = DateTime.now().year;
 
-    return titleValid && gradeValid && sectionsValid && examTypeValid && subjectsValid;
+      final suggestedTitle = '$subject $grade $examType $currentYear';
+
+      // Only update if user hasn't manually edited the title
+      if (_titleController.text.isEmpty || _titleController.text.contains('Grade') || _titleController.text.contains('Exam')) {
+        _titleController.text = suggestedTitle;
+      }
+    }
   }
 
+  // Step validation with enhanced checks
+  bool _isStepValid(int step) {
+    switch (step) {
+      case 1:
+        return _titleController.text.trim().length >= 3 && _selectedGradeLevel != null;
+      case 2:
+      // Must select exam type, and if sections available, must select at least one
+        return _selectedExamType != null &&
+            (_availableSections.isEmpty || _selectedSections.isNotEmpty);
+      case 3:
+        return _selectedSubjects.isNotEmpty;
+      case 4:
+        return true; // Preview step
+      default:
+        return false;
+    }
+  }
+
+  void _nextStep() {
+    if (_isStepValid(_currentStep) && _currentStep < _totalSteps) {
+      setState(() => _currentStep++);
+      _animController.reset();
+      _animController.forward();
+      _generateTitle(); // Update title when moving to next step
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 1) {
+      setState(() => _currentStep--);
+      _animController.reset();
+      _animController.forward();
+    }
+  }
 
   void _onGradeSelected(int gradeLevel) {
     setState(() {
@@ -111,13 +152,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       _selectedSections.clear();
       _selectedSubjects.clear();
       _availableSections.clear();
-
-      // Filter subjects based on grade level
       _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(_subjects, gradeLevel);
     });
 
-    // Load sections for this grade level
     context.read<GradeBloc>().add(LoadSectionsByGrade(gradeLevel));
+
+    // Auto-advance if both title and grade are valid
   }
 
   void _onSectionToggled(String section, bool selected) {
@@ -145,29 +185,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 padding: const EdgeInsets.all(16),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _buildHeader(),
+                    _buildProgressIndicator(),
                     const SizedBox(height: 24),
-                    _buildTitleSection(),
-                    const SizedBox(height: 20),
-                    _buildGradeSection(),
-                    if (_selectedGradeLevel != null) ...[
-                      const SizedBox(height: 20),
-                      _buildSectionSelection(),
-                    ],
-                    if (_selectedGradeLevel != null && (_selectedSections.isNotEmpty || _availableSections.isEmpty)) ...[
-                      const SizedBox(height: 20),
-                      _buildExamTypeSection(),
-                    ],
-                    if (_selectedExamType != null) ...[
-                      const SizedBox(height: 20),
-                      _buildSubjectSection(),
-                    ],
-                    if (_selectedExamType != null && _selectedSubjects.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      _buildPreview(),
-                    ],
+                    _buildCurrentStep(),
                     const SizedBox(height: 32),
-                    _buildActions(),
+                    _buildNavigationButtons(),
                     const SizedBox(height: 100),
                   ]),
                 ),
@@ -193,447 +215,667 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         'Create Paper',
         style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'New Question Paper',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Set up the basic information for your question paper',
-          style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-        ),
+      actions: [
+        if (_currentStep > 1)
+          TextButton(
+            onPressed: () => setState(() => _currentStep = 1),
+            child: Text('Start Over', style: TextStyle(color: AppColors.primary)),
+          ),
       ],
     );
   }
 
-  Widget _buildTitleSection() {
-    return _buildCard(
-      'Paper Title',
-      'Give your paper a clear, descriptive title',
-      Form(
-        key: _formKey,
-        child: TextFormField(
-          controller: _titleController,
-          decoration: InputDecoration(
-            hintText: 'e.g., Mathematics Midterm Exam 2024',
-            filled: true,
-            fillColor: AppColors.backgroundSecondary,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary, width: 2),
-            ),
-            prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
+  Widget _buildProgressIndicator() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'Step $_currentStep of $_totalSteps',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _getStepTitle(_currentStep),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-          validator: (value) {
-            if (value?.trim().isEmpty ?? true) return 'Please enter a paper title';
-            if (value!.trim().length < 3) return 'Title must be at least 3 characters';
-            return null;
-          },
-          onChanged: (_) => setState(() {}),
-        ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _currentStep / _totalSteps,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation(AppColors.primary),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: List.generate(_totalSteps, (index) {
+              final stepNumber = index + 1;
+              final isCompleted = stepNumber < _currentStep || _isStepValid(stepNumber);
+              final isCurrent = stepNumber == _currentStep;
+
+              return Expanded(
+                child: GestureDetector(
+                  onTap: stepNumber < _currentStep ? () => setState(() => _currentStep = stepNumber) : null,
+                  child: Container(
+                    margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? AppColors.primary.withOpacity(0.1)
+                          : isCompleted
+                          ? AppColors.success.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                          size: 16,
+                          color: isCompleted ? AppColors.success : AppColors.textTertiary,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getStepTitle(stepNumber),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isCurrent ? AppColors.primary : AppColors.textTertiary,
+                            fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildGradeSection() {
-    return BlocListener<GradeBloc, GradeState>(
-      listener: (context, state) {
-        if (state is GradeLevelsLoaded) {
-          setState(() {
-            _availableGradeLevels = state.gradeLevels;
-          });
-        }
-      },
-      child: BlocBuilder<GradeBloc, GradeState>(
-        builder: (context, state) {
-          return _buildCard(
-            'Grade Level',
-            'Select the grade level for this question paper',
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (state is GradeLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (state is GradeError)
-                  Container(
+  String _getStepTitle(int step) {
+    switch (step) {
+      case 1: return 'Basic Info';
+      case 2: return 'Exam Setup';
+      case 3: return 'Subjects';
+      case 4: return 'Review';
+      default: return '';
+    }
+  }
+
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 1:
+        return _buildStep1();
+      case 2:
+        return _buildStep2();
+      case 3:
+        return _buildStep3();
+      case 4:
+        return _buildStep4();
+      default:
+        return Container();
+    }
+  }
+
+  Widget _buildStep1() {
+    return _buildStepCard(
+      'Paper Details',
+      'Let\'s start with basic information about your question paper',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Paper Title',
+                hintText: 'e.g., Mathematics Grade 10 Midterm Exam 2024',
+                filled: true,
+                fillColor: AppColors.backgroundSecondary,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
+                suffixIcon: _titleController.text.isNotEmpty
+                    ? IconButton(
+                  icon: Icon(Icons.clear, color: AppColors.textSecondary),
+                  onPressed: () => _titleController.clear(),
+                )
+                    : null,
+              ),
+              validator: (value) {
+                if (value?.trim().isEmpty ?? true) return 'Please enter a paper title';
+                if (value!.trim().length < 3) return 'Title must be at least 3 characters';
+                return null;
+              },
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(height: 20),
+          BlocListener<GradeBloc, GradeState>(
+            listener: (context, state) {
+              if (state is GradeLevelsLoaded) {
+                setState(() => _availableGradeLevels = state.gradeLevels);
+              }
+            },
+            child: BlocBuilder<GradeBloc, GradeState>(
+              builder: (context, state) {
+                if (state is GradeLoading) {
+                  return Container(
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (state is GradeError) {
+                  return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                        Icon(Icons.error_outline, color: AppColors.error),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(state.message, style: TextStyle(color: AppColors.error))),
-                      ],
-                    ),
-                  )
-                else if (state is GradeLevelsLoaded || state is SectionsLoaded) ...[
-                    DropdownButtonFormField<int>(
-                      value: _selectedGradeLevel,
-                      hint: const Text('Select Grade Level'),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppColors.backgroundSecondary,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                        prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
-                      ),
-                      items: (state is GradeLevelsLoaded ? state.gradeLevels : _availableGradeLevels).map((level) {
-                        return DropdownMenuItem(
-                          value: level,
-                          child: Text('Grade $level'),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          _onGradeSelected(value);
-                        }
-                      },
-                      validator: (value) => value == null ? 'Please select a grade level' : null,
-                    ),
-                    if (_selectedGradeLevel != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Selected: Grade $_selectedGradeLevel',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Failed to load grades',
+                                  style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
+                              Text(state.message, style: TextStyle(color: AppColors.error, fontSize: 12)),
+                            ],
                           ),
                         ),
-                      ),
-                  ] else
-                    const Text('Loading grade levels...'),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSectionSelection() {
-    return BlocBuilder<GradeBloc, GradeState>(
-      builder: (context, state) {
-        if (state is SectionsLoaded) {
-          _availableSections = state.sections;
-        }
-
-        return _buildCard(
-          'Sections',
-          'Select which sections this paper applies to',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_availableSections.isEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'No specific sections found for Grade $_selectedGradeLevel. This paper will apply to all sections.',
-                          style: TextStyle(color: AppColors.primary),
+                        TextButton(
+                          onPressed: () => context.read<GradeBloc>().add(const LoadGradeLevels()),
+                          child: const Text('Retry'),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  );
+                }
+
+                final gradeLevels = state is GradeLevelsLoaded ? state.gradeLevels : _availableGradeLevels;
+
+                return DropdownButtonFormField<int>(
+                  value: _selectedGradeLevel,
+                  hint: const Text('Select Grade Level'),
+                  decoration: InputDecoration(
+                    labelText: 'Grade Level',
+                    filled: true,
+                    fillColor: AppColors.backgroundSecondary,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
                   ),
-                ),
-              ] else ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: _availableSections.map((section) {
-                    final isSelected = _selectedSections.contains(section);
-                    return FilterChip(
-                      label: Text('Section $section'),
-                      selected: isSelected,
-                      onSelected: (selected) => _onSectionToggled(section, selected),
-                      backgroundColor: AppColors.surface,
-                      selectedColor: AppColors.primary.withOpacity(0.1),
-                      checkmarkColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.border,
-                      ),
-                    );
+                  items: gradeLevels.map((level) {
+                    return DropdownMenuItem(value: level, child: Text('Grade $level'));
                   }).toList(),
-                ),
-                if (_selectedSections.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Please select at least one section',
-                      style: TextStyle(color: AppColors.error, fontSize: 14),
-                    ),
-                  ),
-
-                // Quick selection buttons
-                if (_availableSections.length > 1) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedSections = List.from(_availableSections);
-                          });
-                        },
-                        icon: const Icon(Icons.select_all, size: 16),
-                        label: const Text('Select All'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedSections.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.clear_all, size: 16),
-                        label: const Text('Clear All'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildExamTypeSection() {
-    return _buildCard(
-      'Exam Type',
-      'Choose the type of exam you want to create',
-      Column(
-        children: _examTypes.map((type) {
-          final isSelected = _selectedExamType?.id == type.id;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() => _selectedExamType = type),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20, height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border, width: 2),
-                          color: isSelected ? AppColors.primary : Colors.transparent,
-                        ),
-                        child: isSelected ? Icon(Icons.check, size: 12, color: Colors.white) : null,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              type.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${type.formattedDuration} • ${type.calculatedTotalMarks} marks • ${type.sections.length} sections',
-                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isSelected) Icon(Icons.check_circle, color: AppColors.primary),
-                    ],
-                  ),
-                ),
-              ),
+                  onChanged: (value) {
+                    if (value != null) _onGradeSelected(value);
+                  },
+                  validator: (value) => value == null ? 'Please select a grade level' : null,
+                );
+              },
             ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSubjectSection() {
-    return _buildCard(
-      'Subjects',
-      'Select subjects for this paper (filtered by Grade $_selectedGradeLevel)',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_filteredSubjects.isEmpty) ...[
+          ),
+          if (_selectedGradeLevel != null) ...[
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: AppColors.success.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_outlined, color: AppColors.warning, size: 20),
+                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'No subjects available for Grade $_selectedGradeLevel',
-                      style: TextStyle(color: AppColors.warning),
-                    ),
-                  ),
+                  Text('Grade $_selectedGradeLevel selected',
+                      style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
-          ] else ...[
-            Text(
-              'Available subjects for Grade $_selectedGradeLevel:',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _filteredSubjects.map((subject) {
-                final isSelected = _selectedSubjects.contains(subject);
-                return FilterChip(
-                  label: Text(subject.name),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      selected ? _selectedSubjects.add(subject) : _selectedSubjects.remove(subject);
-                    });
-                  },
-                  backgroundColor: AppColors.surface,
-                  selectedColor: AppColors.primary.withOpacity(0.1),
-                  checkmarkColor: AppColors.primary,
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                  ),
-                );
-              }).toList(),
-            ),
-            if (_selectedSubjects.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  'Please select at least one subject',
-                  style: TextStyle(color: AppColors.error, fontSize: 14),
-                ),
-              ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildPreview() {
-    return _buildCard(
-      'Preview',
-      'Here\'s how your paper will look',
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Paper',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 12),
-            if (_selectedGradeLevel != null)
-              _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
-            if (_selectedSections.isNotEmpty)
-              _buildPreviewRow(Icons.class_rounded, 'Sections', _selectedSections.join(', '))
-            else if (_availableSections.isEmpty)
-              _buildPreviewRow(Icons.class_rounded, 'Sections', 'All sections'),
-            _buildPreviewRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType!.name),
-            _buildPreviewRow(Icons.access_time_rounded, 'Duration', _selectedExamType!.formattedDuration),
-            _buildPreviewRow(Icons.grade_rounded, 'Total Marks', '${_selectedExamType!.calculatedTotalMarks}'),
-            if (_selectedSubjects.isNotEmpty)
-              _buildPreviewRow(Icons.subject_rounded, 'Subjects', _selectedSubjects.map((s) => s.name).join(', ')),
-            const SizedBox(height: 12),
-            Text('Sections:', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
-            ..._selectedExamType!.sections.map((section) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
+  Widget _buildStep2() {
+    return _buildStepCard(
+      'Exam Configuration',
+      'Configure the sections and exam type for your paper',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sections selection
+          BlocBuilder<GradeBloc, GradeState>(
+            builder: (context, state) {
+              if (state is SectionsLoaded) {
+                _availableSections = state.sections;
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 4, height: 4,
-                    decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${section.name} (${section.questions} questions × ${section.marksPerQuestion} marks)',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  if (_availableSections.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This paper will apply to all sections in Grade $_selectedGradeLevel',
+                              style: TextStyle(color: AppColors.primary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    Text('Select Sections',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: _availableSections.map((section) {
+                        final isSelected = _selectedSections.contains(section);
+                        return FilterChip(
+                          label: Text('Section $section'),
+                          selected: isSelected,
+                          onSelected: (selected) => _onSectionToggled(section, selected),
+                          backgroundColor: AppColors.surface,
+                          selectedColor: AppColors.primary.withOpacity(0.1),
+                          checkmarkColor: AppColors.primary,
+                          elevation: isSelected ? 2 : 0,
+                        );
+                      }).toList(),
+                    ),
+                    if (_selectedSections.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Please select at least one section',
+                          style: TextStyle(color: AppColors.error, fontSize: 14)),
+                    ],
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Exam Type Selection - Now using BLoC data
+          Text('Exam Type',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
+
+          BlocListener<QuestionPaperBloc, QuestionPaperState>(
+            listener: (context, state) {
+              if (state is QuestionPaperLoaded) {
+                setState(() => _availableExamTypes = state.examTypes);
+              }
+            },
+            child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
+              builder: (context, state) {
+                if (state is QuestionPaperLoading) {
+                  return Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text('Loading exam types...'),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                if (state is QuestionPaperError) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.error_outline, color: AppColors.error, size: 32),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Failed to load exam types',
+                          style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          state.message,
+                          style: TextStyle(color: AppColors.error, fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            context.read<QuestionPaperBloc>().add(const LoadExamTypes());
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final examTypes = state is QuestionPaperLoaded ? state.examTypes : _availableExamTypes;
+
+                if (examTypes.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.warning),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.warning_amber, color: AppColors.warning, size: 32),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No exam types available',
+                          style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Please contact your administrator to set up exam types.',
+                          style: TextStyle(color: AppColors.warning, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: examTypes.map((type) {
+                    final isSelected = _selectedExamType?.id == type.id;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedExamType = type),
+                          borderRadius: BorderRadius.circular(12),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : AppColors.border,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+                              boxShadow: isSelected ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ] : null,
+                            ),
+                            child: Row(
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 20, height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: isSelected ? AppColors.primary : AppColors.border, width: 2),
+                                    color: isSelected ? AppColors.primary : Colors.transparent,
+                                  ),
+                                  child: isSelected ? Icon(Icons.check, size: 12, color: Colors.white) : null,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(type.name,
+                                          style: TextStyle(fontWeight: FontWeight.w600,
+                                              color: isSelected ? AppColors.primary : AppColors.textPrimary)),
+                                      Text('${type.formattedDuration} • ${type.calculatedTotalMarks} marks • ${type.sections.length} sections',
+                                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep3() {
+    return _buildStepCard(
+      'Subject Selection',
+      'Choose the subject for this question paper', // Changed from 'subjects' to 'subject'
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_filteredSubjects.isEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('No subjects available for Grade $_selectedGradeLevel',
+                  style: TextStyle(color: AppColors.warning)),
+            ),
+          ] else ...[
+            Text('Select a subject for Grade $_selectedGradeLevel:',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 12),
+
+            // Changed to radio buttons for single selection
+            Column(
+              children: _filteredSubjects.map((subject) {
+                final isSelected = _selectedSubjects.contains(subject);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _onSubjectSelected(subject),
+                      borderRadius: BorderRadius.circular(12),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : AppColors.border,
+                            width: isSelected ? 2 : 1,
+                          ),
+                          color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+                        ),
+                        child: Row(
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: isSelected ? AppColors.primary : AppColors.border,
+                                    width: 2
+                                ),
+                                color: isSelected ? AppColors.primary : Colors.transparent,
+                              ),
+                              child: isSelected
+                                  ? Icon(Icons.check, size: 12, color: Colors.white)
+                                  : null,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                subject.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ],
-              ),
-            )),
+                );
+              }).toList(),
+            ),
+
+            if (_selectedSubjects.isEmpty) ...[
+              const SizedBox(height: 12),
+              Text('Please select a subject',
+                  style: TextStyle(color: AppColors.error, fontSize: 14)),
+            ],
           ],
-        ),
+        ],
+      ),
+    );
+  }
+  Widget _buildStep4() {
+    return _buildStepCard(
+      'Review & Create',
+      'Review your paper configuration and create questions',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_titleController.text.isNotEmpty ? _titleController.text : 'Untitled Paper',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                const SizedBox(height: 12),
+                _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
+                _buildPreviewRow(Icons.class_rounded, 'Sections',
+                    _selectedSections.isNotEmpty ? _selectedSections.join(', ') : 'All sections'),
+                _buildPreviewRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType!.name),
+                _buildPreviewRow(Icons.access_time_rounded, 'Duration', _selectedExamType!.formattedDuration),
+                _buildPreviewRow(Icons.grade_rounded, 'Total Marks', '${_selectedExamType!.calculatedTotalMarks}'),
+                _buildPreviewRow(Icons.subject_rounded, 'Subjects', _selectedSubjects.map((s) => s.name).join(', ')),
+                const SizedBox(height: 12),
+                Text('Question Sections:', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                const SizedBox(height: 8),
+                ..._selectedExamType!.sections.map((section) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Container(width: 4, height: 4, decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('${section.name} (${section.questions} questions × ${section.marksPerQuestion} marks)',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      ),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: !_isCreating ? _proceedToQuestions : null,
+              icon: _isCreating
+                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+                  : const Icon(Icons.add_rounded),
+              label: Text(_isCreating ? 'Creating Questions...' : 'Create Questions'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -652,47 +894,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
-  Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _navigateBack,
-            icon: const Icon(Icons.close_rounded),
-            label: const Text('Cancel'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: BorderSide(color: AppColors.border),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton.icon(
-            onPressed: _canProceed && !_isCreating ? _proceedToQuestions : null,
-            icon: _isCreating
-                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
-                : const Icon(Icons.arrow_forward_rounded),
-            label: Text(_isCreating ? 'Creating...' : 'Create Questions'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              disabledBackgroundColor: AppColors.textTertiary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCard(String title, String subtitle, Widget child) {
+  Widget _buildStepCard(String title, String subtitle, Widget child) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -701,18 +905,84 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          const SizedBox(height: 16),
+          Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          const SizedBox(height: 8),
+          Text(subtitle, style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
+          const SizedBox(height: 24),
           child,
         ],
       ),
     );
   }
 
+  Widget _buildNavigationButtons() {
+    return Row(
+      children: [
+        if (_currentStep > 1)
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _previousStep,
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Previous'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        if (_currentStep > 1) const SizedBox(width: 16),
+        if (_currentStep < _totalSteps)
+          Expanded(
+            flex: _currentStep == 1 ? 1 : 2,
+            child: ElevatedButton.icon(
+              onPressed: _isStepValid(_currentStep) ? _nextStep : null,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(_currentStep == _totalSteps - 1 ? 'Review' : 'Next'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                disabledBackgroundColor: AppColors.textTertiary,
+              ),
+            ),
+          ),
+        if (_currentStep == 1)
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _navigateBack,
+              icon: const Icon(Icons.close_rounded),
+              label: const Text('Cancel'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   void _proceedToQuestions() {
-    if (!_canProceed || _isCreating) return;
+    if (_isCreating) return;
+
+    // Add validation before proceeding
+    final errors = PaperValidationService.validatePaperForCreation(
+      title: _titleController.text,
+      gradeLevel: _selectedGradeLevel,
+      selectedSections: _selectedSections,
+      selectedSubjects: _selectedSubjects,
+      examType: _selectedExamType,
+    );
+
+    if (errors.isNotEmpty) {
+      _showMessage(errors.first, AppColors.error);
+      return;
+    }
 
     setState(() => _isCreating = true);
 
@@ -752,6 +1022,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   void _showMessage(String message, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -766,6 +1037,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  void _onSubjectSelected(SubjectEntity subject) {
+    setState(() {
+      // Clear existing selection and select only the new one
+      _selectedSubjects.clear();
+      _selectedSubjects.add(subject);
+    });
+    _generateTitle(); // Update title when subject changes
   }
 
   void _navigateBack() {

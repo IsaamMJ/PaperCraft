@@ -81,6 +81,7 @@ enum LogCategory {
   navigation('NAVIGATION'),
   paper('PAPER'),
   storage('STORAGE'),
+  examtype('EXAMTYPE'),
   system('SYSTEM');
 
   const LogCategory(this.prefix);

@@ -890,8 +890,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       // Generate PDF bytes
       final pdfService = SimplePdfService();
       final pdfBytes = layoutType == 'single'
-          ? await pdfService.generateStudentPdf(paper: paper, schoolName: 'Your School Name')
-          : await pdfService.generateDualLayoutPdf(paper: paper, schoolName: 'Your School Name');
+          ? await pdfService.generateStudentPdf(paper: paper, schoolName: 'Pearl Matriculation Higher Secondary School, Nagercoil')
+          : await pdfService.generateDualLayoutPdf(paper: paper, schoolName: 'Pearl Matriculation Higher Secondary School, Nagercoil');
 
       // Hide loading
       Navigator.of(context).pop();
@@ -1002,8 +1002,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     try {
       final pdfService = SimplePdfService();
       final pdfBytes = layoutType == 'single'
-          ? await pdfService.generateStudentPdf(paper: paper, schoolName: 'Your School Name')
-          : await pdfService.generateDualLayoutPdf(paper: paper, schoolName: 'Your School Name');
+          ? await pdfService.generateStudentPdf(paper: paper, schoolName: 'Pearl Matriculation Higher Secondary School, Nagercoil')
+          : await pdfService.generateDualLayoutPdf(paper: paper, schoolName: 'Pearl Matriculation Higher Secondary School, Nagercoil');
 
       Directory? directory;
       if (Platform.isAndroid) {

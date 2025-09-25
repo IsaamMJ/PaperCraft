@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/config/auth_config.dart';
+import '../../../../core/infrastructure/config/environment.dart';
+import '../../../../core/infrastructure/config/environment_config.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../../../core/infrastructure/utils/platform_utils.dart';
 import '../../domain/failures/auth_failures.dart';
@@ -83,8 +85,6 @@ class AuthDataSource {
       'isWeb': kIsWeb,
     });
 
-    print('🚀 DEBUG: About to call OAuth with redirectTo: ${AuthConfig.redirectUrl}');
-
     try {
       // Start the OAuth flow
       final bool launched = await _supabase.auth.signInWithOAuth(
@@ -101,46 +101,66 @@ class AuthDataSource {
         _logger.authError('OAuth launch failed', null, context: {
           'operationId': operationId,
           'reason': 'failed_to_launch',
-          'platform': PlatformUtils.platformName,
         });
         return const Left(AuthFailure('Failed to start OAuth flow'));
       }
 
-      _logger.debug('OAuth flow launched successfully', category: LogCategory.auth, context: {
-        'operationId': operationId,
-        'isWeb': kIsWeb,
-        'note': kIsWeb ? 'Web redirect initiated' : 'Waiting for mobile callback',
-      });
-
-      // On web, this method triggers a page redirect, so execution stops here
       if (kIsWeb) {
         return const Left(AuthFailure('OAuth redirect in progress'));
       }
 
-      // For mobile platforms, wait for the session
       final session = await _waitForSession();
 
       if (session?.user == null) {
-        _logger.authError('OAuth session not received', null, context: {
-          'operationId': operationId,
-          'reason': 'no_session_after_oauth',
-          'platform': 'mobile',
-        });
         return const Left(AuthFailure('Authentication was cancelled or failed'));
       }
 
-      return await _processSuccessfulOAuth(session!, operationId);
+      // SECURITY FIX: Validate email domain after OAuth
+      final email = session!.user.email;
+      if (email == null || !_isAllowedDomain(email)) {
+        _logger.authError('Unauthorized domain attempted signin', null, context: {
+          'email': email,
+          'operationId': operationId,
+          'securityViolation': true,
+        });
+
+        // Sign out the unauthorized user
+        await _signOut();
+        return Left(UnauthorizedDomainFailure(_extractDomain(email ?? 'unknown')));
+      }
+
+      return await _processSuccessfulOAuth(session, operationId);
 
     } catch (e, stackTrace) {
       _logger.authError('Unexpected sign-in error', e, context: {
         'operationId': operationId,
         'errorType': e.runtimeType.toString(),
-        'operation': 'google_signin',
-        'platform': PlatformUtils.platformName,
       });
       return Left(AuthFailure('Sign-in failed: ${e.toString()}'));
     }
   }
+
+  bool _isAllowedDomain(String email) {
+    final allowedDomains = _getAllowedDomains();
+    final domain = _extractDomain(email);
+    return allowedDomains.contains(domain.toLowerCase());
+  }
+
+  List<String> _getAllowedDomains() {
+    switch (EnvironmentConfig.current) {
+      case Environment.dev:
+        return ['pearlmatricschool.com', 'gmail.com']; // Both school and Gmail for development
+      case Environment.staging:
+      case Environment.prod:
+        return ['pearlmatricschool.com', 'gmail.com']; // Allow both domains in production as requested
+    }
+  }
+
+  String _extractDomain(String email) {
+    final parts = email.split('@');
+    return parts.length == 2 ? parts[1] : '';
+  }
+
 
   Future<Either<AuthFailure, UserModel>> _processSuccessfulOAuth(Session session, String operationId) async {
     _logger.authEvent('oauth_session_received', session.user.id, context: {
@@ -236,11 +256,23 @@ class AuthDataSource {
         filters: {'id': userId},
       );
 
+      print('=== DEBUG: Raw API Response ===');
+      print('Response success: ${response.isSuccess}');
+      print('Response data: ${response.data}');
+      print('==============================');
+
       if (response.isSuccess) {
         final userModel = response.data;
         if (userModel == null) {
           return const Right(null);
         }
+
+        // ADD MORE DEBUG
+        print('=== DEBUG: UserModel ===');
+        print('UserModel tenantId: ${userModel.tenantId}');
+        print('UserModel toEntity tenantId: ${userModel.toEntity().tenantId}');
+        print('=======================');
+
         return Right(userModel);
       } else {
         return Left(AuthFailure(response.message ?? 'Failed to fetch user profile'));
@@ -256,7 +288,6 @@ class AuthDataSource {
 
   Future<Either<AuthFailure, UserModel>> _createOrGetUserProfile(User user) async {
     try {
-      // Wait briefly for any database triggers to complete
       await Future.delayed(const Duration(milliseconds: 500));
 
       final profileResult = await _getUserProfile(user.id);
@@ -265,9 +296,29 @@ class AuthDataSource {
             (failure) => Left(failure),
             (profile) {
           if (profile != null) {
+            // SECURITY FIX: Validate tenant assignment
+            if (profile.tenantId == null) {
+              _logger.warning('User profile missing tenant assignment',
+                  category: LogCategory.auth,
+                  context: {
+                    'userId': user.id,
+                    'email': user.email,
+                    'securityIssue': 'missing_tenant',
+                  });
+            }
             return Right(profile);
           }
-          return const Left(AuthFailure('Profile creation failed'));
+
+          // Profile doesn't exist - this should be handled by database triggers
+          _logger.warning('Profile not found after OAuth completion',
+              category: LogCategory.auth,
+              context: {
+                'userId': user.id,
+                'email': user.email,
+                'expectedAutoCreation': true,
+              });
+
+          return const Left(AuthFailure('Profile creation failed - please contact administrator'));
         },
       );
     } catch (e, stackTrace) {
@@ -278,6 +329,7 @@ class AuthDataSource {
       return Left(AuthFailure('Profile lookup failed: ${e.toString()}'));
     }
   }
+
 
   Future<Session?> _waitForSession() async {
     final completer = Completer<Session?>();

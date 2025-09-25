@@ -104,34 +104,35 @@ class HiveDatabaseHelper {
   }
 
   Box get questionPapers {
-    if (!_initialized && _featureFlags.enableDebugLogging) {
-      _logger.warning('Accessing question papers box before initialization',
+    if (!_initialized) {
+      _logger.error('Attempting to access questionPapers box before initialization',
           category: LogCategory.storage,
-          context: {'boxName': questionPapersBox}
-      );
+          context: {'operation': 'questionPapers_box_access'});
+      throw StateError('Database not initialized. Call initialize() first.');
     }
     return Hive.box(questionPapersBox);
   }
 
   Box get questions {
-    if (!_initialized && _featureFlags.enableDebugLogging) {
-      _logger.warning('Accessing questions box before initialization',
+    if (!_initialized) {
+      _logger.error('Attempting to access questions box before initialization',
           category: LogCategory.storage,
-          context: {'boxName': questionsBox}
-      );
+          context: {'operation': 'questions_box_access'});
+      throw StateError('Database not initialized. Call initialize() first.');
     }
     return Hive.box(questionsBox);
   }
 
   Box get subQuestions {
-    if (!_initialized && _featureFlags.enableDebugLogging) {
-      _logger.warning('Accessing sub-questions box before initialization',
+    if (!_initialized) {
+      _logger.error('Attempting to access subQuestions box before initialization',
           category: LogCategory.storage,
-          context: {'boxName': subQuestionsBox}
-      );
+          context: {'operation': 'subQuestions_box_access'});
+      throw StateError('Database not initialized. Call initialize() first.');
     }
     return Hive.box(subQuestionsBox);
   }
+
 
   Future<void> close() async {
     _logger.info('Closing Hive database', category: LogCategory.storage, context: {

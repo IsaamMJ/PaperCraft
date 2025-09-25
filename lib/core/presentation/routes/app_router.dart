@@ -53,6 +53,8 @@ class AppRouter {
   }
 
   /// Handle authentication and authorization redirects
+
+
   static String? _handleRedirection(BuildContext context, GoRouterState state, AuthBloc authBloc) {
     final authState = authBloc.state;
     final currentLocation = state.matchedLocation;
@@ -88,14 +90,68 @@ class AppRouter {
       return AppRoutes.login;
     }
 
-    // Handle admin route protection
+    // SECURITY FIX: Safe admin route protection for Pearl Matric School
     if (RouteGuard.isAdmin(currentLocation)) {
-      final userStateService = sl<UserStateService>();
-      if (!userStateService.isAdmin) {
-        AppLogger.warning('Non-admin user attempted admin access',
+      if (authState is! AuthAuthenticated) {
+        AppLogger.warning('Unauthenticated admin access attempt',
             category: LogCategory.navigation,
             context: {'attemptedRoute': currentLocation});
-        return AppRoutes.home;
+        return AppRoutes.login;
+      }
+
+      final authUser = (authState as AuthAuthenticated).user;
+
+      try {
+        final userStateService = sl<UserStateService>();
+        final stateUser = userStateService.currentUser;
+
+        // SECURITY FIX: Use AuthBloc as primary source of truth
+        bool isAdminByAuth = authUser.isAdmin;
+        bool isAdminByState = userStateService.isAdmin;
+
+        // Check for consistency
+        if (stateUser?.id == authUser.id) {
+          // States are consistent, check admin status
+          if (!isAdminByAuth || !isAdminByState) {
+            AppLogger.warning('Non-admin user attempted admin access',
+                category: LogCategory.navigation,
+                context: {
+                  'attemptedRoute': currentLocation,
+                  'userId': authUser.id,
+                  'userRole': authUser.role.value,
+                  'authAdmin': isAdminByAuth,
+                  'stateAdmin': isAdminByState,
+                });
+            return AppRoutes.home;
+          }
+        } else {
+          // State inconsistency detected
+          AppLogger.warning('Auth state inconsistency in admin check',
+              category: LogCategory.navigation,
+              context: {
+                'authUserId': authUser.id,
+                'stateUserId': stateUser?.id,
+                'securityIssue': 'admin_check_inconsistency',
+              });
+
+          // Use AuthBloc state as source of truth for security
+          if (!authUser.isAdmin) {
+            return AppRoutes.home;
+          }
+
+          // Allow access but log the inconsistency
+          AppLogger.info('Allowing admin access based on AuthBloc state',
+              category: LogCategory.navigation);
+        }
+      } catch (e) {
+        // If UserStateService is not available, fall back to AuthBloc
+        AppLogger.warning('UserStateService error in admin check, using AuthBloc fallback',
+            category: LogCategory.navigation,
+            context: {'error': e.toString()});
+
+        if (!authUser.isAdmin) {
+          return AppRoutes.home;
+        }
       }
     }
 
@@ -106,6 +162,8 @@ class AppRouter {
   static QuestionPaperBloc _createQuestionPaperBloc() {
     return QuestionPaperBloc(
       saveDraftUseCase: sl(),
+
+      getExamTypesUseCase: sl(), // ADD THIS LINE
       submitPaperUseCase: sl(),
       getDraftsUseCase: sl(),
       getUserSubmissionsUseCase: sl(),
@@ -270,53 +328,59 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
     try {
       AppLogger.info('OAuth callback initiated', category: LogCategory.auth);
 
-      // Give Supabase time to process the OAuth response
-      await Future.delayed(const Duration(milliseconds: 1500));
-
       setState(() {
-        _statusMessage = 'Checking authentication status...';
+        _statusMessage = 'Verifying authentication...';
       });
 
-      // Check if we have a session after OAuth
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
+      // SECURITY FIX: Robust session waiting
+      final session = await _waitForSessionWithRetry();
 
-      AppLogger.info('OAuth callback session check',
-          category: LogCategory.auth,
-          context: {
-            'hasSession': session != null,
-            'hasUser': session?.user != null,
-            'userEmail': session?.user?.email,
-          }
-      );
-
-      if (session?.user != null) {
-        setState(() {
-          _statusMessage = 'Authentication successful! Loading your account...';
-        });
-
-        // We have a session, trigger auth status check
-        if (mounted) {
-          context.read<AuthBloc>().add(const AuthCheckStatus());
-        }
-      } else {
-        // No session found - this could be due to:
-        // 1. User cancelled OAuth
-        // 2. OAuth error
-        // 3. Invalid configuration
+      if (session?.user == null) {
         AppLogger.warning('OAuth callback - no session found', category: LogCategory.auth);
-
         setState(() {
           _statusMessage = 'Authentication was not completed.';
           _isProcessing = false;
         });
 
-        // Redirect to login after a delay
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
           context.go(AppRoutes.login);
         }
+        return;
       }
+
+      // SECURITY FIX: Validate domain before proceeding
+      final email = session!.user.email;
+      if (email != null && _isValidDomain(email)) {
+        setState(() {
+          _statusMessage = 'Authentication successful! Loading your account...';
+        });
+
+        if (mounted) {
+          context.read<AuthBloc>().add(const AuthCheckStatus());
+        }
+      } else {
+        AppLogger.warning('Unauthorized domain in OAuth callback',
+            category: LogCategory.auth,
+            context: {
+              'email': email,
+              'securityViolation': true,
+            });
+
+        setState(() {
+          _statusMessage = 'Your email domain is not authorized for this application.';
+          _isProcessing = false;
+        });
+
+        // Sign out unauthorized user
+        await Supabase.instance.client.auth.signOut();
+
+        await Future.delayed(const Duration(seconds: 3));
+        if (mounted) {
+          context.go(AppRoutes.login);
+        }
+      }
+
     } catch (e, stackTrace) {
       AppLogger.error('OAuth callback error',
           error: e,
@@ -329,12 +393,35 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
         _isProcessing = false;
       });
 
-      // Redirect to login after showing error
       await Future.delayed(const Duration(seconds: 3));
       if (mounted) {
         context.go(AppRoutes.login);
       }
     }
+  }
+
+  Future<Session?> _waitForSessionWithRetry() async {
+    const maxAttempts = 8; // Reduced attempts for faster feedback
+    const baseDelay = Duration(milliseconds: 500);
+
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session?.user != null) {
+        return session;
+      }
+
+      // Exponential backoff with max delay
+      final delayMs = (baseDelay.inMilliseconds * (1 << attempt)).clamp(500, 3000);
+      await Future.delayed(Duration(milliseconds: delayMs));
+    }
+
+    return null;
+  }
+
+  bool _isValidDomain(String email) {
+    final domain = email.split('@').last.toLowerCase();
+    // Pearl Matric School domains
+    return domain == 'pearlmatricschool.com' || domain == 'gmail.com';
   }
 
   @override

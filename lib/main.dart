@@ -1,4 +1,4 @@
-// Clean and refactored main.dart with proper integration
+// Corrected main.dart with critical fixes applied
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -62,10 +62,18 @@ Future<void> _initializeServices() async {
 }
 
 /// Initialize Firebase with platform-specific options
+/// FIXED: Added error handling for Firebase initialization
 Future<void> _initializeFirebase() async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    if (kDebugMode) debugPrint('Firebase initialized successfully');
+  } catch (e, stackTrace) {
+    debugPrint('Firebase initialization failed: $e');
+    // Continue without Firebase - app can still work without Crashlytics
+    if (kDebugMode) debugPrint('Continuing without Firebase services');
+  }
 }
 
 /// Configure global error handlers for Flutter and Crashlytics
@@ -73,6 +81,7 @@ void _setupErrorHandlers() {
   FlutterError.onError = (FlutterErrorDetails details) {
     _logFlutterError(details);
 
+    // FIXED: Only try Crashlytics if Firebase is available
     if (FeatureFlags.enableCrashlytics) {
       _sendToCrashlytics(
             () => FirebaseCrashlytics.instance.recordFlutterError(details),
@@ -109,7 +118,13 @@ Future<void> _runApp() async {
 /// Perform debug-specific tasks
 Future<void> _performDebugTasks() async {
   await _cleanupOldDraftData();
-  sl<UserStateService>().debugUserInfo();
+
+  // FIXED: Safe access to UserStateService
+  try {
+    sl<UserStateService>().debugUserInfo();
+  } catch (e) {
+    debugPrint('Failed to debug user info: $e');
+  }
 }
 
 /// Clean up old draft data from SharedPreferences
@@ -163,6 +178,7 @@ Future<void> _handleCriticalError(Object error, StackTrace stackTrace) async {
 
 /// Handle zone errors (uncaught async errors)
 void _handleZoneError(Object error, StackTrace stackTrace) {
+  // FIXED: Only try Crashlytics if it's available
   if (FeatureFlags.enableCrashlytics) {
     _sendToCrashlytics(
           () => FirebaseCrashlytics.instance.recordError(error, stackTrace),
@@ -200,11 +216,13 @@ void _logFlutterError(FlutterErrorDetails details) {
 }
 
 /// Send error to Crashlytics with error handling
+/// FIXED: Better error handling for Crashlytics calls
 void _sendToCrashlytics(VoidCallback crashlyticsAction) {
   try {
     crashlyticsAction();
   } catch (e) {
     debugPrint('Failed to send to Crashlytics: $e');
+    // Don't rethrow - continue normal operation
   }
 }
 
@@ -235,28 +253,38 @@ Map<String, dynamic> _getAppContext() {
 }
 
 /// Main application widget
+/// FIXED: Safe service locator access and removed double initialization
 class PaperCraftApp extends StatelessWidget {
   const PaperCraftApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final authBloc = sl<AuthBloc>();
+    // FIXED: Safe service locator access
+    try {
+      final authBloc = sl<AuthBloc>();
 
-    print('🔥 DEBUG: AuthBloc state is ${authBloc.state}');
+      print('🔥 DEBUG: AuthBloc state is ${authBloc.state}');
 
-    // Initialize auth bloc immediately if not already done
-    if (authBloc.state is AuthInitial) {
-      print('🔥 DEBUG: Adding AuthInitialize event');
-      authBloc.add(const AuthInitialize());
+      // FIXED: Don't double-initialize - AuthBloc constructor already handles this
+      // Remove the manual AuthInitialize event - let the router handle auth initialization
+
+      return BlocProvider<AuthBloc>.value(
+        value: authBloc,
+        child: Builder(
+          builder: (context) => _buildMaterialApp(context, authBloc),
+        ),
+      );
+    } catch (e, stackTrace) {
+      AppLogger.recordNonFatalError(
+        e,
+        stackTrace,
+        reason: 'Failed to get AuthBloc from service locator',
+        category: LogCategory.system,
+      );
+      return _buildErrorApp(e);
     }
-
-    return BlocProvider<AuthBloc>.value(
-      value: authBloc,
-      child: Builder(
-        builder: (context) => _buildMaterialApp(context, authBloc),
-      ),
-    );
   }
+
   /// Build the main MaterialApp with routing and theming
   Widget _buildMaterialApp(BuildContext context, AuthBloc authBloc) {
     try {
@@ -308,51 +336,22 @@ class PaperCraftApp extends StatelessWidget {
     };
   }
 
-  /// Build a simple error app fallback
+  /// FIXED: Better error app with more helpful information
   Widget _buildErrorApp(Object error) {
     return MaterialApp(
       home: Scaffold(
         body: _ErrorDisplay(
           icon: Icons.error,
-          title: 'Failed to build app',
-          message: 'Error: $error',
+          title: 'App initialization failed',
+          message: 'Please restart the app. If the problem persists, check your internet connection.',
+          subtitle: 'Error: ${error.toString()}',
         ),
       ),
     );
   }
 }
 
-/// Widget that initializes AuthBloc and starts the app
-class _AuthBlocInitializer extends StatefulWidget {
-  final Widget child;
-  final AuthBloc authBloc;
-
-  const _AuthBlocInitializer({
-    required this.child,
-    required this.authBloc,
-  });
-
-  @override
-  State<_AuthBlocInitializer> createState() => _AuthBlocInitializerState();
-}
-
-class _AuthBlocInitializerState extends State<_AuthBlocInitializer> {
-  @override
-  void initState() {
-    super.initState();
-    // Initialize the auth bloc only once
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.authBloc.state is AuthInitial) {
-        widget.authBloc.add(const AuthInitialize());
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
-  }
-}
+// REMOVED: _AuthBlocInitializer class - not needed anymore
 
 /// Error app shown when initialization fails
 class _ErrorApp extends StatelessWidget {

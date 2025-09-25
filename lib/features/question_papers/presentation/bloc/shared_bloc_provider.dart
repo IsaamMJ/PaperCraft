@@ -26,8 +26,9 @@ class SharedBlocProvider extends StatelessWidget {
       deleteDraftUseCase: sl(),
       pullForEditingUseCase: sl(),
       getPaperByIdUseCase: sl(),
-      getAllPapersForAdminUseCase: sl(), // NEW
-      getApprovedPapersUseCase: sl(),    // NEW
+      getAllPapersForAdminUseCase: sl(),
+      getApprovedPapersUseCase: sl(),
+      getExamTypesUseCase: sl(), // ADD THIS LINE
     );
     return _sharedQuestionPaperBloc!;
   }

@@ -8,11 +8,12 @@ import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../question_papers/domain/entities/question_paper_entity.dart';
 import '../../../question_papers/domain/entities/paper_status.dart';
 import '../../../question_papers/presentation/bloc/question_paper_bloc.dart';
-import '../../../question_papers/presentation/bloc/shared_bloc_provider.dart';
+import '../../../question_papers/presentation/widgets/shared/paper_status_badge.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,26 +22,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with TickerProviderStateMixin, PerformanceOptimizationMixin, AutomaticKeepAliveClientMixin {
-
-  // State variables
-  String _selectedFilter = 'all';
+class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   bool _isRefreshing = false;
-
-  // Animation controllers
-  late AnimationController _statsAnimationController;
-  late AnimationController _refreshAnimationController;
-  late Animation<double> _statsAnimation;
-  late Animation<double> _refreshAnimation;
-
-  // Performance optimization
-  late ComputationCache<Map<String, int>> _statsCache;
-  late ComputationCache<List<QuestionPaperEntity>> _filterCache;
-
-  // User state subscription
-  StreamSubscription<void>? _userStateSubscription;
+  late UserStateService _userStateService;
   bool _isAdmin = false;
+  bool _hasLoadedInitialData = false;
+  Timer? _debounceTimer;
 
   @override
   bool get wantKeepAlive => true;
@@ -48,72 +35,97 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    _initializeCaches();
+    _userStateService = sl<UserStateService>();
     _subscribeToUserStateChanges();
-    _loadInitialData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Load data only once initially
+    if (!_hasLoadedInitialData) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadInitialData();
+          _hasLoadedInitialData = true;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    _statsAnimationController.dispose();
-    _refreshAnimationController.dispose();
-    _userStateSubscription?.cancel();
-    _statsCache.invalidateAll();
-    _filterCache.invalidateAll();
+    _debounceTimer?.cancel();
+    _userStateService.removeListener(_handleUserStateChange);
     super.dispose();
   }
 
-  void _initializeAnimations() {
-    _statsAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _refreshAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
+  void _subscribeToUserStateChanges() {
+    _isAdmin = _userStateService.isAdmin;
+    _userStateService.addListener(_handleUserStateChange);
+  }
 
-    _statsAnimation = CurvedAnimation(
-      parent: _statsAnimationController,
-      curve: Curves.easeOutCubic,
-    );
-    _refreshAnimation = CurvedAnimation(
-      parent: _refreshAnimationController,
-      curve: Curves.easeInOut,
-    );
+  void _handleUserStateChange() {
+    if (mounted && _isAdmin != _userStateService.isAdmin) {
+      setState(() => _isAdmin = _userStateService.isAdmin);
+      _debounceDataLoad();
+    }
+  }
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _statsAnimationController.forward();
+  void _debounceDataLoad() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _loadInitialData();
+      }
     });
   }
 
-  void _initializeCaches() {
-    _statsCache = ComputationCache<Map<String, int>>();
-    _filterCache = ComputationCache<List<QuestionPaperEntity>>();
-  }
-
-  void _subscribeToUserStateChanges() {
-    final userStateService = sl<UserStateService>();
-    _isAdmin = userStateService.isAdmin;
-
-    _userStateSubscription = userStateService.addListener(() {
-      if (mounted && _isAdmin != userStateService.isAdmin) {
-        setState(() {
-          _isAdmin = userStateService.isAdmin;
-        });
-        _loadInitialData();
-      }
-    }) as StreamSubscription<void>?;
-  }
-
   void _loadInitialData() {
-    final bloc = context.read<QuestionPaperBloc>();
-    bloc.add(const LoadDrafts());
-    bloc.add(const LoadUserSubmissions());
-    if (_isAdmin) {
-      bloc.add(const LoadPapersForReview());
+    try {
+      // Ensure we have a valid authentication state
+      final authState = context.read<AuthBloc>().state;
+
+      if (authState is! AuthAuthenticated) {
+        debugPrint('Cannot load data: User not authenticated');
+        return;
+      }
+
+      // Double-check admin status from auth state
+      final isCurrentlyAdmin = authState.user.role == UserRole.admin;
+
+      final bloc = context.read<QuestionPaperBloc>();
+
+      // Load data based on current role, not cached _isAdmin
+      if (isCurrentlyAdmin) {
+        bloc.add(const LoadPapersForReview());
+      } else {
+        bloc.add(const LoadDrafts());
+        bloc.add(const LoadUserSubmissions());
+      }
+
+      // Update cached admin status
+      if (_isAdmin != isCurrentlyAdmin) {
+        setState(() => _isAdmin = isCurrentlyAdmin);
+      }
+
+    } catch (e) {
+      debugPrint('Error loading initial data: $e');
+      if (mounted) {
+        _showErrorSnackBar('Failed to load data. Please try again.');
+      }
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
@@ -123,10 +135,11 @@ class _HomePageState extends State<HomePage>
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, authState) {
         if (authState is AuthAuthenticated) {
-          final newAdminStatus = authState.user.role == UserRole.admin ||
-              authState.user.role == UserRole.teacher;
+          // Only admin role should be considered admin, not teachers
+          final newAdminStatus = authState.user.role == UserRole.admin;
           if (_isAdmin != newAdminStatus) {
             setState(() => _isAdmin = newAdminStatus);
+            _debounceDataLoad();
           }
         }
       },
@@ -142,369 +155,266 @@ class _HomePageState extends State<HomePage>
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 768;
-
-              return RefreshIndicator(
-                onRefresh: _handleRefresh,
-                backgroundColor: AppColors.surface,
-                color: AppColors.primary,
-                displacement: 80,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    _buildWelcomeHeader(context, user, isMobile),
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        isMobile ? 16 : 24,
-                        0,
-                        isMobile ? 16 : 24,
-                        isMobile ? 16 : 24,
-                      ),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildStatsCards(context, isMobile),
-                          const SizedBox(height: 24),
-                          _buildFilterSection(isMobile),
-                          const SizedBox(height: 16),
-                          _buildContent(context, isMobile),
-                          const SizedBox(height: 80), // Space for FAB
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+          body: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            backgroundColor: AppColors.surface,
+            color: AppColors.primary,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildHeader(user),
+                _buildContent(),
+              ],
+            ),
           ),
-          floatingActionButton: !_isAdmin ? _buildCreateFAB(context) : null,
+          floatingActionButton: !_isAdmin ? _buildCreateButton() : null,
         );
       },
     );
   }
 
-  Widget _buildWelcomeHeader(BuildContext context, dynamic user, bool isMobile) {
+  Widget _buildHeader(dynamic user) {
     return SliverToBoxAdapter(
       child: Container(
-        margin: EdgeInsets.fromLTRB(
-          isMobile ? 16 : 24,
-          isMobile ? 16 : 24,
-          isMobile ? 16 : 24,
-          16,
-        ),
-        padding: EdgeInsets.all(isMobile ? 20 : 24),
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.primary.withOpacity(0.05),
-              AppColors.secondary.withOpacity(0.05),
+              AppColors.primary.withOpacity(0.08),
+              AppColors.secondary.withOpacity(0.08),
             ],
           ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.primary.withOpacity(0.1),
-          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    fontSize: isMobile ? 14 : 16,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getGreeting(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user.fullName,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
-
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              user.fullName,
-              style: TextStyle(
-                fontSize: isMobile ? 24 : 28,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Active',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsCards(BuildContext context, bool isMobile) {
-    return BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
-      builder: (context, state) {
-        if (state is QuestionPaperLoaded) {
-          return AnimatedBuilder(
-            animation: _statsAnimation,
-            child: _buildStatsCardsContent(state, isMobile),
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, 20 * (1 - _statsAnimation.value)),
-                child: Opacity(
-                  opacity: _statsAnimation.value,
-                  child: child,
-                ),
-              );
-            },
-          );
-        }
-        return const SizedBox();
-      },
-    );
-  }
-
-  Widget _buildStatsCardsContent(QuestionPaperLoaded state, bool isMobile) {
-    final stats = _statsCache.getOrCompute('main_stats', () => _calculateStats(state));
-    final cardHeight = isMobile ? 80.0 : 96.0;
-
-    return SizedBox(
-      height: cardHeight,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _buildStatCard(
-            'Total Papers',
-            stats['total'].toString(),
-            Icons.description_outlined,
-            AppColors.primary,
-            isMobile,
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            'Drafts',
-            stats['drafts'].toString(),
-            Icons.edit_outlined,
-            AppColors.warning,
-            isMobile,
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            'Approved',
-            stats['approved'].toString(),
-            Icons.check_circle_outline,
-            AppColors.success,
-            isMobile,
-          ),
-          if (_isAdmin) ...[
-            const SizedBox(width: 12),
-            _buildStatCard(
-              'Pending Review',
-              stats['pending'].toString(),
-              Icons.pending_outlined,
-              AppColors.accent,
-              isMobile,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, IconData icon, Color color, bool isMobile) {
-    return Container(
-      width: isMobile ? 120 : 140,
-      padding: EdgeInsets.all(isMobile ? 12 : 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: isMobile ? 20 : 24),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isMobile ? 20 : 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: isMobile ? 12 : 14,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterSection(bool isMobile) {
-    final filters = _isAdmin
-        ? ['all', 'submitted', 'approved', 'rejected']
-        : ['all', 'drafts', 'submitted', 'approved', 'rejected'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Filter Papers',
-          style: TextStyle(
-            fontSize: isMobile ? 16 : 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 36,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: filters.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final filter = filters[index];
-              final isSelected = _selectedFilter == filter;
-
-              return GestureDetector(
-                onTap: () {
-                  if (!isSelected) {
-                    setState(() => _selectedFilter = filter);
-                    _filterCache.invalidateAll(); // Clear filter cache
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 14 : 16,
-                    vertical: 8,
-                  ),
+                Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    gradient: isSelected ? AppColors.primaryGradient : null,
-                    color: isSelected ? null : AppColors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: isSelected ? null : Border.all(
-                      color: AppColors.border,
-                    ),
-                    boxShadow: isSelected ? [
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withOpacity(0.3),
                         blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        offset: const Offset(0, 4),
                       ),
-                    ] : null,
+                    ],
                   ),
-                  child: Text(
-                    _getFilterLabel(filter),
-                    style: TextStyle(
-                      fontSize: isMobile ? 13 : 14,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                  child: Center(
+                    child: Text(
+                      user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'T',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                 ),
-              );
+              ],
+            ),
+            if (!_isAdmin) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go(AppRoutes.questionPaperCreate),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: const Text('Create Question Paper'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
+        builder: (context, state) {
+          try {
+            if (state is QuestionPaperLoading) {
+              return _buildLoading();
+            }
+
+            if (state is QuestionPaperError) {
+              // Add more specific error handling
+              String errorMessage = state.message;
+              if (errorMessage.toLowerCase().contains('admin') ||
+                  errorMessage.toLowerCase().contains('privilege')) {
+                // This is likely an auth/permission issue
+                errorMessage = 'Permission issue detected. Please log out and log back in.';
+
+                // Optional: Automatically trigger re-authentication
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _handleAuthenticationError();
+                  }
+                });
+              }
+              return _buildError(errorMessage);
+            }
+
+            if (state is QuestionPaperLoaded) {
+              final papers = _getAllPapers(state);
+              return _buildPapersList(papers);
+            }
+
+            // Handle initial state
+            if (state is QuestionPaperInitial) {
+              // Trigger data loading if not already done
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _hasLoadedInitialData) {
+                  _loadInitialData();
+                }
+              });
+              return _buildLoading();
+            }
+
+            return _buildEmpty();
+          } catch (e) {
+            debugPrint('Error building content: $e');
+            return _buildError('Failed to load papers: ${e.toString()}');
+          }
+        },
+      ),
+    );
+  }
+
+  void _handleAuthenticationError() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Authentication Issue'),
+        content: const Text('There seems to be an issue with your authentication. Would you like to log out and log back in?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.read<AuthBloc>().add(const AuthSignOut());
             },
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 200,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading your papers...',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildContent(BuildContext context, bool isMobile) {
-    return BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
-      builder: (context, state) {
-        if (state is QuestionPaperLoading) {
-          return _buildLoadingState(isMobile);
-        }
-
-        if (state is QuestionPaperError) {
-          return _buildErrorState(state.message, isMobile);
-        }
-
-        if (state is QuestionPaperLoaded) {
-          final cacheKey = '${_selectedFilter}_${state.hashCode}';
-          final papers = _filterCache.getOrCompute(cacheKey, () => _getFilteredPapers(state));
-          return _buildPapersList(papers, isMobile);
-        }
-
-        return _buildEmptyState(isMobile);
-      },
-    );
-  }
-
-  Widget _buildLoadingState(bool isMobile) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(isMobile ? 24 : 32),
+  Widget _buildError(String message) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.error.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.error.withOpacity(0.2)),
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            ),
+            Icon(Icons.error_outline, color: AppColors.error, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Loading your papers...',
+              'Something went wrong',
               style: TextStyle(
-                fontSize: isMobile ? 14 : 16,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadInitialData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -513,28 +423,100 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildPapersList(List<QuestionPaperEntity> papers, bool isMobile) {
-    if (papers.isEmpty) {
-      return _buildEmptyState(isMobile);
-    }
-
-    return Column(
-      children: papers.map((paper) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _buildPaperCard(paper, isMobile),
-      )).toList(),
+  Widget _buildEmpty() {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(0.1),
+                    AppColors.secondary.withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.description_outlined,
+                size: 40,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _isAdmin ? 'No papers to review' : 'No papers yet',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _isAdmin
+                  ? 'Papers submitted by teachers will appear here'
+                  : 'Create your first question paper to get started',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildPaperCard(QuestionPaperEntity paper, bool isMobile) {
+  Widget _buildPapersList(List<QuestionPaperEntity> papers) {
+    if (papers.isEmpty) {
+      return _buildEmpty();
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          if (index == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    _isAdmin ? 'Papers for Review' : 'Your Question Papers',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                _buildPaperCard(papers[index]),
+              ],
+            );
+          }
+          return _buildPaperCard(papers[index]);
+        },
+        childCount: papers.length,
+      ),
+    );
+  }
+
+  Widget _buildPaperCard(QuestionPaperEntity paper) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -545,7 +527,7 @@ class _HomePageState extends State<HomePage>
           onTap: () => _navigateToPaper(paper),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: EdgeInsets.all(isMobile ? 16 : 20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -555,7 +537,7 @@ class _HomePageState extends State<HomePage>
                       child: Text(
                         paper.title,
                         style: TextStyle(
-                          fontSize: isMobile ? 16 : 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
@@ -563,18 +545,50 @@ class _HomePageState extends State<HomePage>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    _buildStatusChip(paper.status, isMobile),
+                    PaperStatusBadge(status: paper.status, isCompact: true),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildPaperInfo(paper, isMobile),
+                Row(
+                  children: [
+                    Icon(Icons.subject_rounded, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 6),
+                    Text(
+                      paper.subject,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.quiz_rounded, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${paper.totalQuestions} questions',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      _formatDate(paper.modifiedAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                    const Spacer(),
+                    _buildActionButton(paper),
+                  ],
+                ),
                 if (paper.rejectionReason != null) ...[
                   const SizedBox(height: 12),
-                  _buildRejectionReason(paper.rejectionReason!, isMobile),
-                ],
-                if (_isAdmin && paper.status.isSubmitted) ...[
-                  const SizedBox(height: 16),
-                  _buildAdminActions(paper.id, isMobile),
+                  _buildRejectionReason(paper.rejectionReason!),
                 ],
               ],
             ),
@@ -584,139 +598,76 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildPaperInfo(QuestionPaperEntity paper, bool isMobile) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(Icons.subject_rounded, size: 16, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                paper.subject,
-                style: TextStyle(
-                  fontSize: isMobile ? 14 : 15,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Icon(Icons.quiz_rounded, size: 16, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                paper.examType,
-                style: TextStyle(
-                  fontSize: isMobile ? 14 : 15,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Icon(Icons.help_outline_rounded, size: 16, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              '${paper.totalQuestions} questions',
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 15,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              paper.examTypeEntity.formattedDuration,
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 15,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              _formatDate(paper.modifiedAt),
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textTertiary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusChip(PaperStatus status, bool isMobile) {
+  Widget _buildActionButton(QuestionPaperEntity paper) {
+    String text;
+    IconData icon;
     Color color;
-    switch (status) {
+
+    switch (paper.status) {
       case PaperStatus.draft:
-        color = AppColors.warning;
-        break;
-      case PaperStatus.submitted:
+        text = 'View Draft'; // Changed from 'Continue'
+        icon = Icons.visibility_rounded; // Changed from edit icon
         color = AppColors.primary;
         break;
+      case PaperStatus.rejected:
+        text = 'View Details'; // Changed from 'Edit Again'
+        icon = Icons.visibility_rounded; // Changed from refresh icon
+        color = AppColors.accent;
+        break;
       case PaperStatus.approved:
+        text = 'View';
+        icon = Icons.visibility_rounded;
         color = AppColors.success;
         break;
-      case PaperStatus.rejected:
-        color = AppColors.error;
-        break;
+      default:
+        text = 'View Status';
+        icon = Icons.info_outline_rounded;
+        color = AppColors.textSecondary;
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 10 : 12,
-        vertical: isMobile ? 4 : 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        status.displayName.toUpperCase(),
-        style: TextStyle(
-          fontSize: isMobile ? 10 : 12,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRejectionReason(String reason, bool isMobile) {
+  Widget _buildRejectionReason(String reason) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 12 : 14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.error.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.error.withOpacity(0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: AppColors.error,
-          ),
+          Icon(Icons.info_outline, size: 16, color: AppColors.error),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Rejection Reason',
+                  'Feedback',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -727,7 +678,7 @@ class _HomePageState extends State<HomePage>
                 Text(
                   reason,
                   style: TextStyle(
-                    fontSize: isMobile ? 13 : 14,
+                    fontSize: 13,
                     color: AppColors.error.withOpacity(0.8),
                   ),
                 ),
@@ -739,159 +690,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildAdminActions(String paperId, bool isMobile) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _approvePaper(paperId),
-            icon: const Icon(Icons.check_rounded, size: 18),
-            label: const Text('Approve'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _rejectPaper(paperId),
-            icon: const Icon(Icons.close_rounded, size: 18),
-            label: const Text('Reject'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildErrorState(String message, bool isMobile) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(isMobile ? 24 : 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isMobile ? 64 : 80,
-              height: isMobile ? 64 : 80,
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
-              ),
-              child: Icon(
-                Icons.error_outline_rounded,
-                size: isMobile ? 32 : 40,
-                color: AppColors.error,
-              ),
-            ),
-            SizedBox(height: isMobile ? 16 : 20),
-            Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: isMobile ? 18 : 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 16,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(bool isMobile) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(isMobile ? 24 : 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isMobile ? 80 : 100,
-              height: isMobile ? 80 : 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primary.withOpacity(0.1),
-                    AppColors.secondary.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(isMobile ? 20 : 25),
-              ),
-              child: Icon(
-                Icons.description_outlined,
-                size: isMobile ? 40 : 50,
-                color: AppColors.primary,
-              ),
-            ),
-            SizedBox(height: isMobile ? 20 : 24),
-            Text(
-              _getEmptyStateTitle(),
-              style: TextStyle(
-                fontSize: isMobile ? 18 : 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getEmptyStateSubtitle(),
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 16,
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (!_isAdmin) ...[
-              SizedBox(height: isMobile ? 24 : 32),
-              ElevatedButton.icon(
-                onPressed: () => context.go(AppRoutes.questionPaperCreate),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Create Question Paper'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 20 : 24,
-                    vertical: isMobile ? 14 : 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreateFAB(BuildContext context) {
+  Widget _buildCreateButton() {
     return FloatingActionButton.extended(
       onPressed: () => context.go(AppRoutes.questionPaperCreate),
       backgroundColor: AppColors.primary,
@@ -899,159 +698,73 @@ class _HomePageState extends State<HomePage>
       icon: const Icon(Icons.add_rounded),
       label: const Text('Create'),
       elevation: 4,
-      extendedPadding: const EdgeInsets.symmetric(horizontal: 20),
     );
   }
 
-  // Event handlers
-  Future<void> _handleRefresh() async {
-    if (_isRefreshing) return;
+  // Helper methods
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
 
-    setState(() => _isRefreshing = true);
-    _refreshAnimationController.repeat();
-
-    // Clear caches
-    _statsCache.invalidateAll();
-    _filterCache.invalidateAll();
-
-    // Debounced refresh to prevent multiple rapid calls
-    debounce('refresh_${hashCode}', () {
-      final bloc = context.read<QuestionPaperBloc>();
-      bloc.add(const RefreshAll());
-    });
-
-    // Simulate minimum refresh time for better UX
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (mounted) {
-      setState(() => _isRefreshing = false);
-      _refreshAnimationController.stop();
-      _refreshAnimationController.reset();
+  List<QuestionPaperEntity> _getAllPapers(QuestionPaperLoaded state) {
+    if (_isAdmin) {
+      return state.papersForReview;
+    } else {
+      final allPapers = [...state.drafts, ...state.submissions];
+      allPapers.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+      return allPapers;
     }
   }
 
   void _navigateToPaper(QuestionPaperEntity paper) {
     try {
-      // Always go to detail page first, regardless of status
+      // Always go to detail view first, regardless of status
       context.go(AppRoutes.questionPaperViewWithId(paper.id));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to open paper: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      );
+      debugPrint('Navigation error: $e');
+      _showErrorSnackBar('Navigation failed. Please try again.');
     }
   }
 
-  void _approvePaper(String paperId) {
-    context.read<QuestionPaperBloc>().add(ApprovePaper(paperId));
-    _statsCache.invalidateAll();
-    _filterCache.invalidateAll();
-  }
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
 
-  Future<void> _rejectPaper(String paperId) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (context) => _RejectPaperDialog(),
-    );
+    setState(() => _isRefreshing = true);
 
-    if (reason != null && reason.isNotEmpty) {
-      context.read<QuestionPaperBloc>().add(RejectPaper(paperId, reason));
-      _statsCache.invalidateAll();
-      _filterCache.invalidateAll();
-    }
-  }
+    try {
+      // Wait for auth state to be ready before refreshing data
+      final authState = context.read<AuthBloc>().state;
 
-  // Helper methods
-  String _getRoleDisplayName(UserRole role) {
-    switch (role) {
-      case UserRole.admin:
-        return 'ADMIN';
-      case UserRole.teacher:
-        return 'TEACHER';
-      default:
-        return 'USER';
-    }
-  }
-
-  Map<String, int> _calculateStats(QuestionPaperLoaded state) {
-    final total = state.drafts.length + state.submissions.length;
-    final approved = state.submissions.where((p) => p.status.isApproved).length;
-    final pending = _isAdmin ? state.papersForReview.length : 0;
-
-    return {
-      'total': total,
-      'drafts': state.drafts.length,
-      'approved': approved,
-      'pending': pending,
-    };
-  }
-
-  List<QuestionPaperEntity> _getFilteredPapers(QuestionPaperLoaded state) {
-    if (_isAdmin) {
-      switch (_selectedFilter) {
-        case 'submitted':
-          return state.papersForReview;
-        case 'approved':
-          return [...state.submissions, ...state.papersForReview]
-              .where((p) => p.status.isApproved).toList();
-        case 'rejected':
-          return [...state.submissions, ...state.papersForReview]
-              .where((p) => p.status.isRejected).toList();
-        default:
-          return [...state.submissions, ...state.papersForReview];
+      if (authState is! AuthAuthenticated) {
+        debugPrint('User not authenticated during refresh');
+        if (mounted) {
+          _showErrorSnackBar('Please log in again to continue.');
+        }
+        return;
       }
-    } else {
-      switch (_selectedFilter) {
-        case 'drafts':
-          return state.drafts;
-        case 'submitted':
-          return state.submissions.where((p) => p.status.isSubmitted).toList();
-        case 'approved':
-          return state.submissions.where((p) => p.status.isApproved).toList();
-        case 'rejected':
-          return state.submissions.where((p) => p.status.isRejected).toList();
-        default:
-          return [...state.drafts, ...state.submissions];
+
+      // Update admin status from current auth state
+      final currentAdminStatus = authState.user.role == UserRole.admin;
+      if (_isAdmin != currentAdminStatus) {
+        setState(() => _isAdmin = currentAdminStatus);
       }
-    }
-  }
 
-  String _getFilterLabel(String filter) {
-    switch (filter) {
-      case 'all': return 'All';
-      case 'drafts': return 'Drafts';
-      case 'submitted': return 'Submitted';
-      case 'approved': return 'Approved';
-      case 'rejected': return 'Rejected';
-      default: return filter.toUpperCase();
-    }
-  }
+      // Now safely load data based on current user role
+      _loadInitialData();
 
-  String _getEmptyStateTitle() {
-    if (_isAdmin) {
-      return _selectedFilter == 'submitted'
-          ? 'No papers to review'
-          : 'No papers found';
-    } else {
-      return _selectedFilter == 'drafts'
-          ? 'No drafts yet'
-          : 'No papers found';
-    }
-  }
-
-  String _getEmptyStateSubtitle() {
-    if (_isAdmin) {
-      return 'All submitted papers have been reviewed';
-    } else {
-      return _selectedFilter == 'drafts'
-          ? 'Create your first question paper to get started'
-          : 'You haven\'t created any question papers yet';
+      await Future.delayed(const Duration(milliseconds: 800));
+    } catch (e) {
+      debugPrint('Refresh error: $e');
+      if (mounted) {
+        _showErrorSnackBar('Refresh failed. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
     }
   }
 
@@ -1065,98 +778,11 @@ class _HomePageState extends State<HomePage>
       return 'Yesterday';
     } else if (difference.inDays < 7) {
       return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return '$weeks week${weeks > 1 ? 's' : ''} ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
-  }
-}
-
-class _RejectPaperDialog extends StatefulWidget {
-  @override
-  _RejectPaperDialogState createState() => _RejectPaperDialogState();
-}
-
-class _RejectPaperDialogState extends State<_RejectPaperDialog> {
-  final _controller = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(
-        'Reject Question Paper',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Please provide a reason for rejection:',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _controller,
-              decoration: InputDecoration(
-                labelText: 'Rejection Reason',
-                hintText: 'Enter feedback for the teacher',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.primary, width: 2),
-                ),
-              ),
-              maxLines: 3,
-              autofocus: true,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please provide a rejection reason';
-                }
-                if (value.trim().length < 10) {
-                  return 'Please provide a more detailed reason (min 10 characters)';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(context, _controller.text.trim());
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.error,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: const Text('Reject'),
-        ),
-      ],
-    );
   }
 }

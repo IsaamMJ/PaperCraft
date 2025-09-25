@@ -242,6 +242,8 @@ class QuestionPaperEntity extends Equatable {
 
     if (gradeLevel == null) {
       errors.add('Grade level is required');
+    } else if (gradeLevel! < 1 || gradeLevel! > 12) {
+      throw ArgumentError('Invalid grade level');
     }
 
     if (selectedSections.isEmpty) {

@@ -30,6 +30,8 @@ class AppBlocProviders {
         getPaperByIdUseCase: sl(),
         getDraftsUseCase: sl(),
         getAllPapersForAdminUseCase: sl(), // NEW
+
+        getExamTypesUseCase: sl(), // ADD THIS LINE
         getApprovedPapersUseCase: sl(),    // NEW
       );
     } catch (error, stackTrace) {
