@@ -3,8 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/paper_status.dart';
+import '../../domain/services/enhanced_date_formatter.dart';
+import '../../domain/services/section_ordering_helper.dart';
+import '../../domain/services/user_info_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
 
@@ -42,9 +46,16 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   late Animation<Offset> _slideAnim;
   bool _isSubmitting = false, _isPulling = false;
 
+  // Add user info service
+  late final UserInfoService _userInfoService;
+  String? _createdByName;
+  bool _loadingUserInfo = false;
+
   @override
   void initState() {
     super.initState();
+    _userInfoService = sl<UserInfoService>();
+
     _animController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
@@ -60,6 +71,30 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  // Load user info when paper is loaded
+  Future<void> _loadUserInfo(String userId) async {
+    if (_loadingUserInfo || _createdByName != null) return;
+
+    setState(() => _loadingUserInfo = true);
+
+    try {
+      final fullName = await _userInfoService.getUserFullName(userId);
+      if (mounted) {
+        setState(() {
+          _createdByName = fullName;
+          _loadingUserInfo = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _createdByName = 'User $userId';
+          _loadingUserInfo = false;
+        });
+      }
+    }
   }
 
   @override
@@ -86,13 +121,17 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       } else if (state.actionType == 'pull') {
         setState(() => _isPulling = false);
-        // Navigate to edit page - this will be handled by the BLoC success state
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       }
     }
     if (state is QuestionPaperError) {
       setState(() => _isSubmitting = _isPulling = false);
       _showMessage(state.message, AppColors.error);
+    }
+
+    // Load user info when paper is loaded
+    if (state is QuestionPaperLoaded && state.currentPaper != null) {
+      _loadUserInfo(state.currentPaper!.createdBy);
     }
   }
 
@@ -328,7 +367,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   Widget _buildActions(QuestionPaperEntity paper) {
     final actions = <Widget>[];
 
-    // For DRAFT papers only - show edit and submit
     if (paper.status == PaperStatus.draft && !widget.isViewOnly) {
       actions.add(_buildActionBtn(
           Icons.edit_rounded,
@@ -346,7 +384,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       ));
     }
 
-    // For REJECTED papers only - show edit again (creates new draft)
     if (paper.status == PaperStatus.rejected && !widget.isViewOnly) {
       actions.add(_buildActionBtn(
           Icons.edit_note_rounded,
@@ -356,9 +393,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           _isPulling
       ));
     }
-
-    // For SUBMITTED papers - no actions for teacher (admin handles these)
-    // For APPROVED papers - no actions needed
 
     return actions.isEmpty ? const SizedBox.shrink() : Column(children: actions);
   }
@@ -397,15 +431,27 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         children: [
           Text('Paper Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 16),
-          _buildInfoRow(Icons.person_rounded, 'Created by', paper.createdBy),
+          if (paper.examDate != null)
+            _buildInfoRow(Icons.event_rounded, 'Exam Date',
+                EnhancedDateFormatter.formatForContext(paper.examDate!, DateContext.examDate)),
+          _buildInfoRow(Icons.person_rounded, 'Created by',
+              _loadingUserInfo
+                  ? 'Loading...'
+                  : (_createdByName ?? 'User ${paper.createdBy}')),
           if (paper.gradeLevel != null)
             _buildInfoRow(Icons.school_rounded, 'Grade Level', paper.gradeDisplayName),
           if (paper.selectedSections.isNotEmpty)
             _buildInfoRow(Icons.class_rounded, 'Sections', paper.sectionsDisplayName),
-          _buildInfoRow(Icons.calendar_today_rounded, 'Created', _formatDate(paper.createdAt)),
-          _buildInfoRow(Icons.update_rounded, 'Last modified', _formatDate(paper.modifiedAt)),
-          if (paper.submittedAt != null) _buildInfoRow(Icons.send_rounded, 'Submitted', _formatDate(paper.submittedAt!)),
-          if (paper.reviewedAt != null) _buildInfoRow(Icons.rate_review_rounded, 'Reviewed', _formatDate(paper.reviewedAt!)),
+          _buildInfoRow(Icons.calendar_today_rounded, 'Created',
+              EnhancedDateFormatter.formatForContext(paper.createdAt, DateContext.created)),
+          _buildInfoRow(Icons.update_rounded, 'Last modified',
+              EnhancedDateFormatter.formatForContext(paper.modifiedAt, DateContext.modified)),
+          if (paper.submittedAt != null)
+            _buildInfoRow(Icons.send_rounded, 'Submitted',
+                EnhancedDateFormatter.formatForContext(paper.submittedAt!, DateContext.submitted)),
+          if (paper.reviewedAt != null)
+            _buildInfoRow(Icons.rate_review_rounded, 'Reviewed',
+                EnhancedDateFormatter.formatForContext(paper.reviewedAt!, DateContext.reviewed)),
           if (paper.rejectionReason != null) ...[
             const SizedBox(height: 16),
             Container(
@@ -459,6 +505,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildSummary(QuestionPaperEntity paper) {
+    // Use the new section ordering helper
+    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.examTypeEntity, paper.questions);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -471,8 +520,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         children: [
           Text('Question Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 16),
-          ...paper.examTypeEntity.sections.map((section) {
-            final questions = paper.questions[section.name] ?? [];
+          ...orderedSections.map((orderedSection) {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
@@ -483,18 +531,28 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               ),
               child: Row(
                 children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(4))),
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
+                    child: Center(
+                      child: Text('${orderedSection.sectionNumber}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(section.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                        Text('${questions.length} questions • ${section.marksPerQuestion} marks each', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        Text(orderedSection.section.name,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        Text(SectionOrderingHelper.getSectionSummary(orderedSection),
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),
-                  Text('${questions.length * section.marksPerQuestion} marks', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  Text('${orderedSection.totalMarks} marks',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
                 ],
               ),
             );
@@ -505,6 +563,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildQuestions(QuestionPaperEntity paper) {
+    // Use ordered sections for questions display
+    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.examTypeEntity, paper.questions);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -517,13 +578,14 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         children: [
           Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 16),
-          ...paper.questions.entries.map((entry) => _buildSection(entry.key, entry.value)),
+          ...orderedSections.map((orderedSection) =>
+              _buildSection(orderedSection.sectionNumber, orderedSection.section.name, orderedSection.questions)),
         ],
       ),
     );
   }
 
-  Widget _buildSection(String name, List<dynamic> questions) {
+  Widget _buildSection(int sectionNumber, String name, List<dynamic> questions) {
     return Column(
       children: [
         Container(
@@ -531,7 +593,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           padding: const EdgeInsets.all(12),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(8)),
-          child: Text('$name (${questions.length} questions)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+          child: Text(
+              'Section $sectionNumber: $name (${questions.length} questions)',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
         ),
         ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value)),
         const SizedBox(height: 24),
@@ -564,23 +628,27 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
                 if (question.options != null && question.options!.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  ...question.options!.asMap().entries.map((optionEntry) {
-                    final label = String.fromCharCode(65 + (optionEntry.key as int));
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 24, height: 24,
-                            decoration: BoxDecoration(color: AppColors.textTertiary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                            child: Center(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(optionEntry.value, style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.3))),
-                        ],
-                      ),
-                    );
-                  }),
+                  if (question.type == 'match_following' && question.options!.contains('---SEPARATOR---')) ...[
+                    _buildMatchingPairsForDetail(question.options!),
+                  ] else ...[
+                    ...question.options!.asMap().entries.map((optionEntry) {
+                      final label = String.fromCharCode(65 + (optionEntry.key as int));
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 24, height: 24,
+                              decoration: BoxDecoration(color: AppColors.textTertiary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                              child: Center(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(optionEntry.value, style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.3))),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ],
               ],
             ),
@@ -604,16 +672,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _editPaper(QuestionPaperEntity paper) {
-    print('Navigating to edit page for paper: ${paper.id}');
-    print('Paper Status: ${paper.status}');
-    print('Can Edit: ${paper.canEdit}');
-    print('Edit Route: ${AppRoutes.questionPaperEditWithId(paper.id)}');
-
     try {
-      // Navigate to the dedicated edit page
       context.go(AppRoutes.questionPaperEditWithId(paper.id));
     } catch (e) {
-      print('Navigation error: $e');
       _showMessage('Navigation failed. Please try again.', AppColors.error);
     }
   }
@@ -629,6 +690,74 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       context.read<QuestionPaperBloc>().add(SubmitPaper(paper));
     },
   );
+
+  Widget _buildMatchingPairsForDetail(List<String> options) {
+    int separatorIndex = options.indexOf('---SEPARATOR---');
+    if (separatorIndex == -1) return const SizedBox.shrink();
+
+    List<String> leftColumn = options.sublist(0, separatorIndex);
+    List<String> rightColumn = options.sublist(separatorIndex + 1);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Column A',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.primary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Column B',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.primary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(
+            leftColumn.length.compareTo(rightColumn.length) <= 0 ? leftColumn.length : rightColumn.length,
+                (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      i < leftColumn.length ? leftColumn[i] : '',
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(Icons.arrow_forward, size: 16, color: AppColors.textSecondary),
+                  ),
+                  Expanded(
+                    child: Text(
+                      i < rightColumn.length ? rightColumn[i] : '',
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _pullForEditing(QuestionPaperEntity paper) => _showDialog(
     'Edit Again',
@@ -671,14 +800,5 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    final time = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    if (diff.inDays == 0) return 'Today at $time';
-    if (diff.inDays == 1) return 'Yesterday at $time';
-    if (diff.inDays < 7) return '${diff.inDays} days ago';
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

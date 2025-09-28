@@ -560,7 +560,7 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
   // Private helper methods
 
   Map<String, dynamic> _paperToMap(QuestionPaperModel paper) {
-    return {
+    return <String, dynamic>{
       'id': paper.id,
       'title': paper.title,
       'subject': paper.subject,
@@ -570,8 +570,8 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
       'modified_at': paper.modifiedAt.millisecondsSinceEpoch,
       'status': paper.status.value,
       'exam_type_entity': jsonEncode(paper.examTypeEntity.toJson()),
-      'grade_level': paper.gradeLevel, // NEW FIELD
-      'selected_sections': jsonEncode(paper.selectedSections), // NEW FIELD
+      'grade_level': paper.gradeLevel,
+      'selected_sections': jsonEncode(paper.selectedSections),
       'tenant_id': paper.tenantId,
       'user_id': paper.userId,
       'submitted_at': paper.submittedAt?.millisecondsSinceEpoch,

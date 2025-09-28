@@ -15,7 +15,7 @@ class UserStateService extends ChangeNotifier {
 
   // SECURITY FIX: Periodic permission refresh
   Timer? _permissionRefreshTimer;
-  final Duration _permissionRefreshInterval = const Duration(minutes: 5);
+  final Duration _permissionRefreshInterval = const Duration(minutes: 45);
 
   UserStateService(this._logger) {
     _logger.debug('UserStateService initialized', category: LogCategory.auth, context: {
@@ -61,6 +61,8 @@ class UserStateService extends ChangeNotifier {
     });
   }
 
+
+  
   /// Refresh user permissions from database
   Future<void> _refreshUserPermissions() async {
     if (!isAuthenticated || currentUserId == null || _isRefreshing) return;

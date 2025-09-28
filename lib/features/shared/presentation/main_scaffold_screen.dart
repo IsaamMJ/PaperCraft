@@ -14,7 +14,6 @@ import '../../home/presentation/pages/home_page.dart';
 import '../../question_papers/presentation/admin/admin_dashboard_page.dart';
 import '../../question_papers/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_papers/presentation/pages/question_bank_page.dart';
-import '../../question_papers/presentation/pages/question_paper_create_page.dart';
 
 class MainScaffoldPage extends StatefulWidget {
   const MainScaffoldPage({super.key});
@@ -86,10 +85,8 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         if (_isAdmin != newAdminStatus) {
           setState(() {
             _isAdmin = newAdminStatus;
-            // Reset selected index if it's out of bounds
-            if (_selectedIndex >= _getPages().length) {
-              _selectedIndex = 0;
-            }
+            // Set default screen based on user role
+            _selectedIndex = _getDefaultScreenIndex();
           });
         }
       }
@@ -99,7 +96,20 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   void _checkUserRole() {
     final isAdmin = _userStateService.isAdmin;
     if (mounted && _isAdmin != isAdmin) {
-      setState(() => _isAdmin = isAdmin);
+      setState(() {
+        _isAdmin = isAdmin;
+        // Set default screen based on user role
+        _selectedIndex = _getDefaultScreenIndex();
+      });
+    }
+  }
+
+  // NEW METHOD: Get default screen index based on user role
+  int _getDefaultScreenIndex() {
+    if (_isAdmin) {
+      return 0; // Admin Dashboard (index 0) for admin users - now first position
+    } else {
+      return 0; // Home Page (index 0) for teacher users
     }
   }
 
@@ -282,10 +292,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<Widget> _getPages() {
     if (_isAdmin) {
-      // For admins: only Question Bank and Admin Dashboard
+      // For admins: Admin Dashboard first, then Question Bank
       return [
-        SharedBlocProvider(child: const QuestionBankPage()),
         SharedBlocProvider(child: const AdminDashboardPage()),
+        SharedBlocProvider(child: const QuestionBankPage()),
       ];
     } else {
       // For teachers: Home and Question Bank
@@ -298,19 +308,19 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<_NavItem> _getNavigationItems() {
     if (_isAdmin) {
-      // Admin navigation: Question Bank + Admin Dashboard
+      // Admin navigation: Admin Dashboard first, then Question Bank
       return [
-        _NavItem(
-          icon: Icons.library_books_outlined,
-          activeIcon: Icons.library_books,
-          label: 'Bank',
-          semanticLabel: 'Question bank',
-        ),
         _NavItem(
           icon: Icons.admin_panel_settings_outlined,
           activeIcon: Icons.admin_panel_settings,
           label: 'Admin',
           semanticLabel: 'Admin dashboard',
+        ),
+        _NavItem(
+          icon: Icons.library_books_outlined,
+          activeIcon: Icons.library_books,
+          label: 'Bank',
+          semanticLabel: 'Question bank',
         ),
       ];
     } else {
@@ -350,10 +360,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           final pages = _getPages();
           final navigationItems = _getNavigationItems();
 
-          // Ensure selected index is within bounds
+          // Ensure selected index is within bounds and set to default if needed
           if (_selectedIndex >= pages.length) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              setState(() => _selectedIndex = 0);
+              setState(() => _selectedIndex = _getDefaultScreenIndex());
             });
           }
 
@@ -519,31 +529,31 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            'Papercraft',
-            style: TextStyle(
-              fontSize: isMobile ? 20 : 22,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          if (!isMobile) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _getPageTitle(_selectedIndex),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _getPageTitle(_selectedIndex),  // Dynamic page title
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  fontSize: isMobile ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
-            ),
+              if (_getPageSubtitle(_selectedIndex).isNotEmpty)
+                Text(
+                  _getPageSubtitle(_selectedIndex),  // Dynamic subtitle
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
+          ),
+          if (!isMobile) ...[
+            const Spacer(),
+            // Removed the old page title badge since title is now in main area
           ],
         ],
       ),
@@ -853,8 +863,8 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   String _getPageTitle(int index) {
     if (_isAdmin) {
       switch (index) {
-        case 0: return 'Question Bank';
-        case 1: return 'Admin Dashboard';
+        case 0: return 'Admin Dashboard';
+        case 1: return 'Question Bank';
         default: return 'Papercraft';
       }
     } else {
@@ -862,6 +872,23 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         case 0: return 'Home';
         case 1: return 'Question Bank';
         default: return 'Papercraft';
+      }
+    }
+  }
+
+  // Add this helper method to get subtitles
+  String _getPageSubtitle(int index) {
+    if (_isAdmin) {
+      switch (index) {
+        case 0: return 'Manage papers and users';
+        case 1: return 'Approved question papers';
+        default: return '';
+      }
+    } else {
+      switch (index) {
+        case 0: return 'Create and manage papers';
+        case 1: return 'Approved question papers';
+        default: return '';
       }
     }
   }

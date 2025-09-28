@@ -8,5 +8,7 @@ abstract class AuthRepository {
   Future<Either<AuthFailure, AuthResultEntity>> signInWithGoogle();
   Future<Either<AuthFailure, UserEntity?>> getCurrentUser();
   Future<Either<AuthFailure, void>> signOut();
+
+  Future<Either<AuthFailure, UserEntity?>> getUserById(String userId);
   bool get isAuthenticated;
 }

@@ -1,7 +1,6 @@
 // features/question_papers/presentation/bloc/question_paper_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/exam_type_entity.dart'; // ADD THIS IMPORT
 import '../../domain/usecases/save_draft_usecase.dart';

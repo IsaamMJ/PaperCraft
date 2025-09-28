@@ -6,11 +6,13 @@ import '../../../domain/entities/question_entity.dart';
 class McqInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
+  final bool isAdmin;
 
   const McqInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isMobile,
+    required this.isAdmin,
   });
 
   @override
@@ -45,14 +47,9 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
   }
 
   bool get _isValid {
-    if (_questionController.text
-        .trim()
-        .isEmpty) return false;
+    if (_questionController.text.trim().isEmpty) return false;
     final filledOptions = _optionControllers
-        .where((c) =>
-    c.text
-        .trim()
-        .isNotEmpty)
+        .where((c) => c.text.trim().isNotEmpty)
         .length;
     return filledOptions >= 2;
   }
@@ -85,8 +82,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
       type: 'multiple_choice',
       options: options,
       correctAnswer: null,
-      marks: 2,
-      // Default marks for MCQ
+      marks: 1, // Default marks for MCQ
       isOptional: _isOptional,
     );
 
@@ -111,9 +107,12 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
         ),
         const SizedBox(height: 12),
 
-        // Question input
+        // Question input with Enter key navigation
         TextField(
           controller: _questionController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
@@ -135,7 +134,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
 
         const SizedBox(height: 16),
 
-        // Options
+        // Options with Enter key navigation
         Text(
           'Options (minimum 2 required)',
           style: TextStyle(
@@ -146,15 +145,29 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
         ),
         const SizedBox(height: 12),
 
-        ..._optionControllers
-            .asMap()
-            .entries
-            .map((e) {
-          final label = String.fromCharCode(65 + e.key);
+        ..._optionControllers.asMap().entries.map((e) {
+          final index = e.key;
+          final controller = e.value;
+          final label = String.fromCharCode(65 + index); // A, B, C, D
+
           return Padding(
             padding: EdgeInsets.only(bottom: widget.isMobile ? 16 : 12),
             child: TextField(
-              controller: e.value,
+              controller: controller,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: index == _optionControllers.length - 1
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              onSubmitted: (value) {
+                if (index == _optionControllers.length - 1) {
+                  // Last option field - unfocus and try to add question if valid
+                  FocusScope.of(context).unfocus();
+                  if (_isValid) _addQuestion();
+                } else {
+                  // Move to next option field
+                  FocusScope.of(context).nextFocus();
+                }
+              },
               style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
               decoration: InputDecoration(
                 labelText: 'Option $label',
@@ -266,9 +279,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              _questionController.text
-                  .trim()
-                  .isEmpty
+              _questionController.text.trim().isEmpty
                   ? 'Please enter a question'
                   : 'Please provide at least 2 options',
               style: TextStyle(

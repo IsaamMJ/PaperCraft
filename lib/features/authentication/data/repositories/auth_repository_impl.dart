@@ -19,6 +19,30 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<AuthFailure, UserEntity?>> getUserById(String userId) async {
+    try {
+      _logger.debug('Repository: Getting user by ID', category: LogCategory.auth, context: {
+        'targetUserId': userId,
+      });
+
+      final result = await _dataSource.getUserProfileById(userId);
+
+      return result.fold(
+            (failure) => Left(failure),
+            (userModel) => Right(userModel?.toEntity()),
+      );
+    } catch (e, stackTrace) {
+      _logger.error('Repository: Exception getting user by ID',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'targetUserId': userId},
+      );
+      return Left(AuthFailure('Repository error getting user by ID: ${e.toString()}'));
+    }
+  }
+
+  @override
   Future<Either<AuthFailure, UserEntity?>> initialize() async {
     _logger.info('App initialization started', category: LogCategory.auth, context: {
       'operation': 'app_startup',

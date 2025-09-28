@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
 import '../config/environment.dart';
-import '../utils/platform_utils.dart';
 
 class FeatureFlagsImpl implements IFeatureFlags {
   final Environment _environment;

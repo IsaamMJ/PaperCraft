@@ -36,7 +36,7 @@ class QuestionListWidget extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Container(
-          constraints: BoxConstraints(maxHeight: isMobile ? 200 : 150),
+          constraints: BoxConstraints(maxHeight: isMobile ? 300 : 250), // Increased height for matching questions
           child: ListView.builder(
             shrinkWrap: true,
             itemCount: questions.length,
@@ -50,10 +50,9 @@ class QuestionListWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildQuestionCard(BuildContext context, Question question,
-      int index) {
+  Widget _buildQuestionCard(BuildContext context, Question question, int index) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12), // Increased margin for matching questions
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -91,13 +90,18 @@ class QuestionListWidget extends StatelessWidget {
               children: [
                 Text(
                   question.text,
-                  style: TextStyle(fontSize: isMobile ? 14 : 13),
+                  style: TextStyle(fontSize: isMobile ? 14 : 13, fontWeight: FontWeight.w500),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (question.options != null &&
-                    question.options!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                const SizedBox(height: 8),
+
+                // SPECIAL HANDLING FOR MATCHING QUESTIONS
+                if (question.type == 'match_following' && question.options != null) ...[
+                  _buildMatchingPairs(question.options!),
+                ]
+                // MCQ and other question types
+                else if (question.options != null && question.options!.isNotEmpty) ...[
                   Text(
                     'Options: ${question.options!.length}',
                     style: TextStyle(
@@ -106,6 +110,7 @@ class QuestionListWidget extends StatelessWidget {
                     ),
                   ),
                 ],
+
                 if (question.subQuestions.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -116,6 +121,8 @@ class QuestionListWidget extends StatelessWidget {
                     ),
                   ),
                 ],
+
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
@@ -129,8 +136,7 @@ class QuestionListWidget extends StatelessWidget {
                     if (question.isOptional) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.warning.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
@@ -180,13 +186,104 @@ class QuestionListWidget extends StatelessWidget {
     );
   }
 
+  // NEW METHOD: Build matching pairs display
+  Widget _buildMatchingPairs(List<String> options) {
+    // Find the separator to split left and right columns
+    int separatorIndex = options.indexOf('---SEPARATOR---');
+    if (separatorIndex == -1) return const SizedBox.shrink();
+
+    List<String> leftColumn = options.sublist(0, separatorIndex);
+    List<String> rightColumn = options.sublist(separatorIndex + 1);
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Column A',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Column B',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Display pairs
+          ...List.generate(
+            leftColumn.length.compareTo(rightColumn.length) <= 0
+                ? leftColumn.length
+                : rightColumn.length,
+                (pairIndex) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        pairIndex < leftColumn.length ? leftColumn[pairIndex] : '',
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        pairIndex < rightColumn.length ? rightColumn[pairIndex] : '',
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditDialog(BuildContext context, Question question, int index) {
     final textController = TextEditingController(text: question.text);
     bool isOptional = question.isOptional;
 
     // For MCQ questions, prepare option controllers
     List<TextEditingController>? optionControllers;
-    if (question.options != null) {
+    if (question.options != null && question.type != 'match_following') {
       optionControllers = List.generate(4, (i) =>
           TextEditingController(
               text: i < question.options!.length ? question.options![i] : ''
@@ -195,112 +292,168 @@ class QuestionListWidget extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (context) =>
-          StatefulBuilder(
-            builder: (context, setState) =>
-                AlertDialog(
-                  title: Text('Edit Question ${index + 1}'),
-                  content: SizedBox(
-                    width: 400,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Edit Question ${index + 1}'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: textController,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: optionControllers != null
+                      ? TextInputAction.next
+                      : TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (optionControllers != null) {
+                      FocusScope.of(context).nextFocus();
+                    } else {
+                      // No options, so save directly
+                      final updatedQuestion = question.copyWith(
+                        text: textController.text.trim(),
+                        isOptional: isOptional,
+                      );
+                      onEditQuestion(index, updatedQuestion);
+                      Navigator.pop(context);
+                    }
+                  },
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Question Text',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Show note for matching questions
+                if (question.type == 'match_following') ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
                       children: [
-                        TextField(
-                          controller: textController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Question Text',
-                            border: OutlineInputBorder(),
+                        Icon(Icons.info_outline, size: 16, color: AppColors.warning),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Matching pairs cannot be edited here. Delete and recreate if needed.',
+                            style: TextStyle(fontSize: 12, color: AppColors.warning),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // MCQ options
-                        if (optionControllers != null) ...[
-                          const Text('Options:',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
-                          ...optionControllers
-                              .asMap()
-                              .entries
-                              .map((e) {
-                            final label = String.fromCharCode(65 + e.key);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: TextField(
-                                controller: e.value,
-                                decoration: InputDecoration(
-                                  labelText: 'Option $label',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Optional checkbox
-                        CheckboxListTile(
-                          value: isOptional,
-                          onChanged: (value) =>
-                              setState(() => isOptional = value ?? false),
-                          title: const Text('Optional question'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
                         ),
                       ],
                     ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final updatedQuestion = question.copyWith(
-                          text: textController.text.trim(),
-                          isOptional: isOptional,
-                          options: optionControllers?.map((c) => c.text.trim())
-                              .where((t) => t.isNotEmpty).toList(),
-                        );
-                        onEditQuestion(index, updatedQuestion);
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Update'),
-                    ),
-                  ],
+                  const SizedBox(height: 16),
+                ],
+
+                // MCQ options with Enter key navigation
+                if (optionControllers != null) ...[
+                  const Text('Options:',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  ...optionControllers.asMap().entries.map((e) {
+                    final optionIndex = e.key;
+                    final optionController = e.value;
+                    final label = String.fromCharCode(65 + optionIndex);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: TextField(
+                        controller: optionController,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: optionIndex == optionControllers!.length - 1
+                            ? TextInputAction.done
+                            : TextInputAction.next,
+                        onSubmitted: (_) {
+                          if (optionIndex == optionControllers!.length - 1) {
+                            // Last option - save the question
+                            final updatedQuestion = question.copyWith(
+                              text: textController.text.trim(),
+                              isOptional: isOptional,
+                              options: optionControllers.map((c) => c.text.trim())
+                                  .where((t) => t.isNotEmpty).toList(),
+                            );
+                            onEditQuestion(index, updatedQuestion);
+                            Navigator.pop(context);
+                          } else {
+                            // Move to next option
+                            FocusScope.of(context).nextFocus();
+                          }
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Option $label',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 16),
+                ],
+
+                // Optional checkbox
+                CheckboxListTile(
+                  value: isOptional,
+                  onChanged: (value) =>
+                      setState(() => isOptional = value ?? false),
+                  title: const Text('Optional question'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final updatedQuestion = question.copyWith(
+                  text: textController.text.trim(),
+                  isOptional: isOptional,
+                  options: optionControllers?.map((c) => c.text.trim())
+                      .where((t) => t.isNotEmpty).toList(),
+                );
+                onEditQuestion(index, updatedQuestion);
+                Navigator.pop(context);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _showDeleteConfirmation(BuildContext context, int index) {
     showDialog(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text('Delete Question ${index + 1}'),
-            content: const Text(
-                'Are you sure you want to delete this question?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  onRemoveQuestion(index);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error),
-                child: const Text('Delete'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('Delete Question ${index + 1}'),
+        content: const Text('Are you sure you want to delete this question?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              onRemoveQuestion(index);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }

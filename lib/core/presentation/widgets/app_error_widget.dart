@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../routes/app_routes.dart';
 import '../constants/app_messages.dart';
 import '../constants/ui_constants.dart';
-import '../../infrastructure/logging/app_logger.dart';
 
 /// Unified error widget for all error scenarios
 class AppErrorWidget extends StatelessWidget {

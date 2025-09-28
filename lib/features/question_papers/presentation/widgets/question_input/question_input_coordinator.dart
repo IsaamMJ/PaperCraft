@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:papercraft/features/question_papers/presentation/widgets/question_input/question_list_widget.dart';
 import 'package:papercraft/features/question_papers/presentation/widgets/question_input/section_progress_widget.dart';
-import 'package:papercraft/features/question_papers/presentation/widgets/question_input/true_false_input_widget.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../../../core/presentation/routes/app_routes.dart';
 import '../../../domain/entities/exam_type_entity.dart';
@@ -14,6 +13,7 @@ import '../../../domain/entities/question_entity.dart';
 import '../../../domain/entities/question_paper_entity.dart';
 import '../../../domain/services/paper_validation_service.dart';
 import '../../bloc/question_paper_bloc.dart';
+import 'bulk_input_widget.dart';
 import 'essay_input_widget.dart';
 import 'fill_blanks_input_widget.dart';
 import 'matching_input_widget.dart';
@@ -27,6 +27,9 @@ class QuestionInputCoordinator extends StatefulWidget {
   final int gradeLevel;
   final List<String> selectedSections;
   final Function(QuestionPaperEntity) onPaperCreated;
+  final DateTime? examDate;
+
+  final bool isAdmin; // ADD THIS
 
   // Edit mode parameters
   final Map<String, List<Question>>? existingQuestions;
@@ -41,10 +44,13 @@ class QuestionInputCoordinator extends StatefulWidget {
     required this.paperTitle,
     required this.gradeLevel,
     required this.selectedSections,
+
+    required this.isAdmin, // ADD THIS
     required this.onPaperCreated,
     this.existingQuestions,
     this.isEditing = false,
     this.existingPaperId,
+    this.examDate,
   });
 
   @override
@@ -208,36 +214,63 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         return McqInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
+          isAdmin: widget.isAdmin,
         );
 
       case 'fill_in_blanks':
         return FillBlanksInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
+          isAdmin: widget.isAdmin,
         );
 
       case 'match_following':
+      // UPDATED: Pass requiredPairs parameter for matching questions
         return MatchingInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
+          requiredPairs: _currentSection.marksPerQuestion, // This is the number of pairs needed
+
+          isAdmin: widget.isAdmin,
         );
 
-    // All these new types use simple text input (like essay)
+    // USE BULK INPUT for these simple question types:
       case 'missing_letters':
+      case 'true_false':
+      case 'short_answers':
+        return BulkInputWidget(
+          questionType: _currentSection.type,
+          questionCount: _currentSection.questions,
+          onQuestionsAdded: _addMultipleQuestions, // Different callback
+          isMobile: isMobile,
+
+          isAdmin: widget.isAdmin,
+        );
+
+    // Keep single input for other types:
       case 'meanings':
       case 'opposites':
       case 'frame_sentences':
       case 'misc_grammar':
-      case 'true_false':
-      case 'short_answers':
       case 'long_answers':
       default:
         return EssayInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           questionType: _currentSection.type,
+
+          isAdmin: widget.isAdmin,
         );
     }
+  }
+
+  // ADD this new method to handle multiple questions:
+  void _addMultipleQuestions(List<Question> questions) {
+    setState(() {
+      _allQuestions[_currentSection.name]!.addAll(questions);
+    });
+    _showMessage('${questions.length} questions added', AppColors.success);
+    _checkSectionCompletion();
   }
 
   Widget _buildActions(bool isMobile) {
@@ -304,16 +337,32 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(widget.isEditing ? 'Updating...' : 'Saving...'),
+                      Text(_getProcessingText()),
                     ],
                   )
-                      : Text(widget.isEditing ? 'Update Paper' : 'Save as Draft'),
+                      : Text(_getCompleteButtonText()),
                 ),
               ),
           ],
         ),
       ),
     );
+  }
+
+  String _getProcessingText() {
+    if (widget.isEditing) {
+      return widget.isAdmin ? 'Submitting Updates...' : 'Updating Draft...';
+    } else {
+      return widget.isAdmin ? 'Submitting Paper...' : 'Saving Draft...';
+    }
+  }
+
+  String _getCompleteButtonText() {
+    if (widget.isEditing) {
+      return widget.isAdmin ? 'Submit Updated Paper' : 'Update Draft';
+    } else {
+      return widget.isAdmin ? 'Submit Paper' : 'Save as Draft';
+    }
   }
 
   void _addQuestion(Question question) {
@@ -343,7 +392,10 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     final questions = _allQuestions[section.name]!;
     final mandatoryQuestions = questions.where((q) => !q.isOptional).length;
 
-    if (mandatoryQuestions >= section.questions && _currentSectionIndex < widget.sections.length - 1) {
+    // ✅ Same logic for ALL question types - clean and consistent
+    bool sectionComplete = mandatoryQuestions >= section.questions;
+
+    if (sectionComplete && _currentSectionIndex < widget.sections.length - 1) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) setState(() => _currentSectionIndex++);
       });
@@ -354,6 +406,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     for (var section in widget.sections) {
       final questions = _allQuestions[section.name] ?? [];
       final mandatoryCount = questions.where((q) => !q.isOptional).length;
+
+      // ✅ Same logic for ALL question types - clean and consistent
       if (mandatoryCount < section.questions) return false;
     }
     return true;
@@ -386,7 +440,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         subject: widget.selectedSubjects.map((s) => s.name).join(', '),
         examType: widget.examType.name,
         createdBy: 'current_user',
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)), // Preserve original
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
         modifiedAt: DateTime.now(),
         status: widget.isEditing ? PaperStatus.draft : PaperStatus.draft,
         examTypeEntity: widget.examType,
@@ -402,10 +456,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         examTypeEntity: widget.examType,
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
+        examDate: widget.examDate,
         questions: _allQuestions,
       );
 
-      context.read<QuestionPaperBloc>().add(SaveDraft(paper));
+      // WORKFLOW LOGIC: Admin submits directly, Teacher saves as draft first
+      if (widget.isAdmin) {
+        // Admin: Submit directly for approval
+        context.read<QuestionPaperBloc>().add(SubmitPaper(paper));
+      } else {
+        // Teacher: Save as draft first
+        context.read<QuestionPaperBloc>().add(SaveDraft(paper));
+      }
     } catch (e) {
       setState(() => _isProcessing = false);
       _showMessage('Error: $e', AppColors.error);

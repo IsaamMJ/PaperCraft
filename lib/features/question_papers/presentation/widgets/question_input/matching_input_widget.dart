@@ -6,11 +6,15 @@ import '../../../domain/entities/question_entity.dart';
 class MatchingInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
+  final int requiredPairs; // This is the number of pairs needed for this matching question
+  final bool isAdmin;
 
   const MatchingInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isMobile,
+    required this.requiredPairs,
+    required this.isAdmin,
   });
 
   @override
@@ -19,10 +23,10 @@ class MatchingInputWidget extends StatefulWidget {
 
 class MatchingInputWidgetState extends State<MatchingInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
-  final List<TextEditingController> _leftColumnControllers = List.generate(5, (_) => TextEditingController());
-  final List<TextEditingController> _rightColumnControllers = List.generate(5, (_) => TextEditingController());
+  final List<TextEditingController> _leftColumnControllers = List.generate(10, (_) => TextEditingController());
+  final List<TextEditingController> _rightColumnControllers = List.generate(10, (_) => TextEditingController());
   bool _isOptional = false;
-  int _pairCount = 3; // Start with 3 pairs
+  late int _pairCount;
 
   @override
   bool get wantKeepAlive => true;
@@ -30,6 +34,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
   @override
   void initState() {
     super.initState();
+    _pairCount = widget.requiredPairs; // Set to exactly the required number of pairs
     _questionController.addListener(() => setState(() {}));
 
     // Add listeners to pair controllers
@@ -54,7 +59,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
   bool get _isValid {
     if (_questionController.text.trim().isEmpty) return false;
 
-    // Check if we have at least the minimum number of valid pairs
+    // Check if ALL required pairs are filled
     int validPairs = 0;
     for (int i = 0; i < _pairCount; i++) {
       if (_leftColumnControllers[i].text.trim().isNotEmpty &&
@@ -62,7 +67,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         validPairs++;
       }
     }
-    return validPairs >= 2; // At least 2 pairs required
+    return validPairs == _pairCount;
   }
 
   void _clear() {
@@ -75,60 +80,30 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
     }
     setState(() {
       _isOptional = false;
-      _pairCount = 3;
     });
-  }
-
-  void _addPair() {
-    if (_pairCount < 5) {
-      setState(() => _pairCount++);
-    }
-  }
-
-  void _removePair() {
-    if (_pairCount > 2) {
-      setState(() => _pairCount--);
-    }
-  }
-
-  // Public method that can be called from coordinator
-  void addQuestion() {
-    if (_isValid) {
-      _addQuestion();
-    }
   }
 
   void _addQuestion() {
     if (!_isValid) return;
 
-    // Collect valid pairs
+    // Collect all pairs
     final List<String> leftItems = [];
     final List<String> rightItems = [];
 
     for (int i = 0; i < _pairCount; i++) {
       final left = _leftColumnControllers[i].text.trim();
       final right = _rightColumnControllers[i].text.trim();
-      if (left.isNotEmpty && right.isNotEmpty) {
-        leftItems.add(left);
-        rightItems.add(right);
-      }
+      leftItems.add(left);
+      rightItems.add(right);
     }
 
-    // Store matching pairs as sub-questions for display purposes
-    final subQuestions = <SubQuestion>[];
-    for (int i = 0; i < leftItems.length; i++) {
-      subQuestions.add(SubQuestion(
-        text: '${leftItems[i]} → ${rightItems[i]}',
-        marks: 1,
-      ));
-    }
-
+    // FIXED: Create the question with proper type and structure
     final question = Question(
       text: _questionController.text.trim(),
-      type: 'matching',
+      type: 'match_following', // Use the correct type from your exam configuration
       options: [...leftItems, '---SEPARATOR---', ...rightItems], // Store both columns
-      marks: leftItems.length, // 1 mark per pair
-      subQuestions: subQuestions,
+      marks: _pairCount, // Total marks = number of pairs
+      subQuestions: [], // Keep empty for matching questions
       isOptional: _isOptional,
     );
 
@@ -167,7 +142,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Create matching pairs - students will match items from left column to right column',
+                  'Create 1 matching question with $_pairCount pairs - students will match Column A to Column B',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.primary,
@@ -180,9 +155,12 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         const SizedBox(height: 16),
 
-        // Question instruction
+        // Question instruction with Enter key navigation
         TextField(
           controller: _questionController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           maxLines: widget.isMobile ? 3 : 2,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
@@ -204,45 +182,36 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         const SizedBox(height: 20),
 
-        // Pair count controls
-        Row(
-          children: [
-            Text(
-              'Number of pairs:',
-              style: TextStyle(
-                fontSize: widget.isMobile ? 16 : 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            IconButton(
-              onPressed: _pairCount > 2 ? _removePair : null,
-              icon: const Icon(Icons.remove_circle_outline),
-              iconSize: 20,
-              color: _pairCount > 2 ? AppColors.primary : Colors.grey,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$_pairCount',
+        // Show required pairs count
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.secondary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.pin, color: AppColors.secondary, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Required pairs: $_pairCount',
                 style: TextStyle(
+                  fontSize: widget.isMobile ? 14 : 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  color: AppColors.secondary,
                 ),
               ),
-            ),
-            IconButton(
-              onPressed: _pairCount < 5 ? _addPair : null,
-              icon: const Icon(Icons.add_circle_outline),
-              iconSize: 20,
-              color: _pairCount < 5 ? AppColors.primary : Colors.grey,
-            ),
-          ],
+              const Spacer(),
+              Text(
+                'Total marks: $_pairCount',
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 12 : 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 16),
@@ -278,7 +247,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         const SizedBox(height: 12),
 
-        // Matching pairs input
+        // Matching pairs input with Enter key navigation
         Column(
           children: List.generate(_pairCount, (index) {
             return Padding(
@@ -289,6 +258,9 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                   Expanded(
                     child: TextField(
                       controller: _leftColumnControllers[index],
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                       style: TextStyle(fontSize: widget.isMobile ? 14 : 13),
                       decoration: InputDecoration(
                         hintText: 'Item ${index + 1}',
@@ -340,6 +312,16 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                   Expanded(
                     child: TextField(
                       controller: _rightColumnControllers[index],
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: index == _pairCount - 1 ? TextInputAction.done : TextInputAction.next,
+                      onSubmitted: (value) {
+                        if (index == _pairCount - 1) {
+                          FocusScope.of(context).unfocus();
+                          if (_isValid) _addQuestion();
+                        } else {
+                          FocusScope.of(context).nextFocus();
+                        }
+                      },
                       style: TextStyle(fontSize: widget.isMobile ? 14 : 13),
                       decoration: InputDecoration(
                         hintText: 'Match ${index + 1}',
@@ -383,7 +365,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         ),
 
         // Validation indicator
-            () {
+        (() {
           int validPairs = 0;
           for (int i = 0; i < _pairCount; i++) {
             if (_leftColumnControllers[i].text.trim().isNotEmpty &&
@@ -392,37 +374,34 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
             }
           }
 
-          if (validPairs > 0) {
-            return Container(
-              padding: const EdgeInsets.all(8),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: validPairs >= 2
-                    ? AppColors.success.withOpacity(0.1)
-                    : AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    validPairs >= 2 ? Icons.check_circle_outline : Icons.warning_amber,
-                    size: 16,
-                    color: validPairs >= 2 ? AppColors.success : AppColors.warning,
+          return Container(
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: validPairs == _pairCount
+                  ? AppColors.success.withOpacity(0.1)
+                  : AppColors.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  validPairs == _pairCount ? Icons.check_circle_outline : Icons.warning_amber,
+                  size: 16,
+                  color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$validPairs of $_pairCount pairs completed ${validPairs < _pairCount ? '(${_pairCount - validPairs} remaining)' : '✓'}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$validPairs valid pair${validPairs != 1 ? 's' : ''} ${validPairs < 2 ? '(minimum 2 required)' : ''}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: validPairs >= 2 ? AppColors.success : AppColors.warning,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        }(),
+                ),
+              ],
+            ),
+          );
+        })(),
 
         // Optional checkbox
         InkWell(
@@ -448,7 +427,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         const SizedBox(height: 24),
 
-        // Action buttons (kept for backward compatibility, but coordinator button is primary)
+        // Action buttons
         Row(
           children: [
             Expanded(
@@ -492,7 +471,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         if (!_isValid && _questionController.text.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            'Please create at least 2 complete matching pairs',
+            'Please complete all $_pairCount matching pairs',
             style: TextStyle(
               color: AppColors.error,
               fontSize: 12,

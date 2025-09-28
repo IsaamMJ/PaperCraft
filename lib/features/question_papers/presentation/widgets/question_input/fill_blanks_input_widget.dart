@@ -6,10 +6,12 @@ import '../../../domain/entities/question_entity.dart';
 class FillBlanksInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
+  final bool isAdmin;
 
   const FillBlanksInputWidget({
     super.key,
     required this.onQuestionAdded,
+    required this.isAdmin,
     required this.isMobile,
   });
 
@@ -118,9 +120,15 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
         const SizedBox(height: 16),
 
-        // Question input
+        // Question input with Enter key navigation
         TextField(
           controller: _questionController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            FocusScope.of(context).unfocus();
+            if (_isValid) _addQuestion();
+          },
           maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(

@@ -13,13 +13,10 @@ import 'core/infrastructure/di/injection_container.dart';
 import 'core/infrastructure/feature_flags/feature_flags.dart';
 import 'core/infrastructure/logging/app_logger.dart';
 import 'core/presentation/routes/app_router.dart';
-import 'features/authentication/presentation/bloc/auth_state.dart';
 import 'firebase_options.dart';
 
 import 'features/authentication/domain/services/user_state_service.dart';
-import 'features/authentication/domain/usecases/auth_usecase.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
-import 'features/authentication/presentation/bloc/auth_event.dart';
 
 /// Entry point of the PaperCraft application
 Future<void> main() async {

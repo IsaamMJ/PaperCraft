@@ -1,6 +1,5 @@
 // features/question_papers/presentation/widgets/question_input_dialog.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:papercraft/features/question_papers/presentation/widgets/question_input/question_input_coordinator.dart';
 import '../../../domain/entities/exam_type_entity.dart';
 import '../../../domain/entities/question_entity.dart';
@@ -15,11 +14,16 @@ class QuestionInputDialog extends StatelessWidget {
   final int gradeLevel;
   final List<String> selectedSections;
   final Function(QuestionPaperEntity) onPaperCreated;
+  final DateTime? examDate;
+
+  final bool isAdmin; // ADD THIS
+
 
   // Edit mode parameters
   final Map<String, List<Question>>? existingQuestions;
   final bool isEditing;
   final String? existingPaperId;
+
 
   const QuestionInputDialog({
     super.key,
@@ -30,9 +34,12 @@ class QuestionInputDialog extends StatelessWidget {
     required this.gradeLevel,
     required this.selectedSections,
     required this.onPaperCreated,
+
+    required this.isAdmin, // ADD THIS
     this.existingQuestions,
     this.isEditing = false,
     this.existingPaperId,
+    this.examDate,
   });
 
   @override
@@ -48,7 +55,11 @@ class QuestionInputDialog extends StatelessWidget {
       onPaperCreated: onPaperCreated,
       existingQuestions: existingQuestions,
       isEditing: isEditing,
+
       existingPaperId: existingPaperId,
+      examDate: examDate,
+
+      isAdmin: isAdmin, // PASS IT THROUGH
     );
   }
 }

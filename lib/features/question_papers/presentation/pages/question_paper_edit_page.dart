@@ -3,11 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
-import '../../domain/entities/grade_entity.dart';
-import '../../domain/entities/question_entity.dart';
 import '../../domain/services/subject_grade_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
@@ -16,6 +15,7 @@ import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperEditPage extends StatelessWidget {
   final String questionPaperId;
+
 
   const QuestionPaperEditPage({
     super.key,
@@ -43,6 +43,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+
+  late UserStateService _userStateService;
 
   // Form controllers and state
   final _titleController = TextEditingController();
@@ -1047,6 +1049,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     );
   }
 
+
   void _editQuestions() {
     if (_currentPaper == null || _selectedExamType == null) return;
 
@@ -1075,12 +1078,14 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             existingQuestions: _currentPaper?.questions,
             isEditing: true,
             existingPaperId: _currentPaper?.id,
+            isAdmin: _userStateService.isAdmin, // FIXED: Added this line
             onPaperCreated: (_) {},
           ),
         ),
       ),
     );
   }
+
 
   void _saveChanges() {
     if (!_canSave || _isSaving || _currentPaper == null) return;

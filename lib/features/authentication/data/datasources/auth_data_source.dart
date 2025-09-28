@@ -146,6 +146,53 @@ class AuthDataSource {
     return allowedDomains.contains(domain.toLowerCase());
   }
 
+  // Add this method to your AuthDataSource class
+// features/authentication/data/datasources/auth_data_source.dart
+
+// Add this method to your existing AuthDataSource class:
+
+  Future<Either<AuthFailure, UserModel?>> getUserProfileById(String userId) async {
+    try {
+      _logger.debug('Fetching user profile by ID from API', category: LogCategory.auth, context: {
+        'targetUserId': userId,
+      });
+
+      final response = await _apiClient.selectSingle<UserModel>(
+        table: 'profiles',
+        fromJson: UserModel.fromJson,
+        filters: {'id': userId},
+      );
+
+      if (response.isSuccess) {
+        final userModel = response.data;
+
+        if (userModel != null) {
+          _logger.debug('User profile found by ID', category: LogCategory.auth, context: {
+            'targetUserId': userId,
+            'userFullName': userModel.fullName,
+            'userEmail': userModel.email,
+          });
+        } else {
+          _logger.debug('User profile not found by ID', category: LogCategory.auth, context: {
+            'targetUserId': userId,
+          });
+        }
+
+        return Right(userModel);
+      } else {
+        return Left(AuthFailure(response.message ?? 'Failed to fetch user profile by ID'));
+      }
+    } catch (e, stackTrace) {
+      _logger.error('Exception fetching user profile by ID',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'targetUserId': userId},
+      );
+      return Left(AuthFailure('Failed to fetch user profile by ID: ${e.toString()}'));
+    }
+  }
+
   List<String> _getAllowedDomains() {
     switch (EnvironmentConfig.current) {
       case Environment.dev:

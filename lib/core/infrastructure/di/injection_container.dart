@@ -4,7 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Core domain interfaces
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../../features/question_papers/data/datasources/subject_data_source.dart';
+import '../../../features/question_papers/data/repositories/subject_repository_impl.dart';
+import '../../../features/question_papers/domain/repositories/subject_repository.dart';
 import '../../../features/question_papers/domain/usecases/get_grades_usecase.dart';
+import '../../../features/question_papers/domain/usecases/get_subjects_usecase.dart';
+import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
 import '../../domain/interfaces/i_network_service.dart';
@@ -45,6 +50,9 @@ import '../../../features/question_papers/domain/usecases/save_draft_usecase.dar
 import '../../../features/question_papers/domain/usecases/submit_paper_usecase.dart';
 import '../../../features/question_papers/domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../../features/question_papers/domain/usecases/get_approved_papers_usecase.dart';
+
+// NEW: UserInfoService import
+import '../../../features/question_papers/domain/services/user_info_service.dart';
 
 // NEW: Exam Type imports
 import '../../../features/question_papers/data/datasources/exam_type_data_source.dart';
@@ -96,7 +104,7 @@ Future<void> setupDependencies() async {
       category: LogCategory.system,
       context: {
         'duration': '${setupDuration.inMilliseconds}ms',
-        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types'],
+        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service'],
         'environment': EnvironmentConfig.current.name,
         'platform': PlatformUtils.platformName,
       },
@@ -246,9 +254,9 @@ class _AuthModule {
         ),
       );
 
-      // Use cases - clean domain logic, no infrastructure concerns
+      // Use cases - UPDATED: Now includes logger dependency
       sl.registerLazySingleton<AuthUseCase>(
-            () => AuthUseCase(sl<AuthRepository>()),
+            () => AuthUseCase(sl<AuthRepository>(), sl<ILogger>()),
       );
 
       // Domain services - can have their own logging if needed
@@ -298,15 +306,18 @@ class _QuestionPapersModule {
       _setupDataSources();
       _setupRepositories();
       _setupUseCases();
-      _setupExamTypes(); // NEW: Add exam types setup
+      _setupExamTypes();
+      _setupSubjects();
+      _setupUserInfoService(); // NEW: Add UserInfoService setup
 
       sl<ILogger>().info(
         'Question papers module initialized successfully',
         category: LogCategory.system,
         context: {
-          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow', 'exam_types'],
-          'useCasesRegistered': 14, // Updated count (12 + 2 exam type use cases)
-          'dataSourcesRegistered': 3, // Updated count (2 + 1 exam type data source)
+          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow', 'exam_types', 'subjects', 'user_info_service'],
+          'useCasesRegistered': 17,
+          'dataSourcesRegistered': 4,
+          'servicesRegistered': 1, // UserInfoService
           'platform': PlatformUtils.platformName,
         },
       );
@@ -323,6 +334,49 @@ class _QuestionPapersModule {
       );
       rethrow;
     }
+  }
+
+  // NEW: Setup UserInfoService
+  static void _setupUserInfoService() {
+    sl<ILogger>().debug('Setting up UserInfoService', category: LogCategory.paper);
+
+    // Register UserInfoService as singleton for caching efficiency
+    sl.registerLazySingleton<UserInfoService>(
+          () => UserInfoService(
+        sl<ILogger>(),
+        sl<AuthUseCase>(),
+      ),
+    );
+
+    sl<ILogger>().debug('UserInfoService registered successfully', category: LogCategory.paper);
+  }
+
+  static void _setupSubjects() {
+    sl<ILogger>().debug('Setting up subjects', category: LogCategory.paper);
+
+    // Data Sources
+    sl.registerLazySingleton<SubjectDataSource>(
+          () => SubjectDataSourceImpl(sl<ApiClient>(), sl<ILogger>()),
+    );
+
+    // Repositories
+    sl.registerLazySingleton<SubjectRepository>(
+          () => SubjectRepositoryImpl(sl<SubjectDataSource>(), sl<ILogger>()),
+    );
+
+    // Use Cases
+    sl.registerLazySingleton(() => GetSubjectsUseCase(sl<SubjectRepository>()));
+    sl.registerLazySingleton(() => GetSubjectsByGradeUseCase(sl<SubjectRepository>()));
+    sl.registerLazySingleton(() => GetSubjectByIdUseCase(sl<SubjectRepository>()));
+
+    // BLoC registration
+    sl.registerFactory<SubjectBloc>(
+          () => SubjectBloc(
+        getSubjectsUseCase: sl<GetSubjectsUseCase>(),
+        getSubjectsByGradeUseCase: sl<GetSubjectsByGradeUseCase>(),
+        getSubjectByIdUseCase: sl<GetSubjectByIdUseCase>(),
+      ),
+    );
   }
 
   static void _setupDataSources() {

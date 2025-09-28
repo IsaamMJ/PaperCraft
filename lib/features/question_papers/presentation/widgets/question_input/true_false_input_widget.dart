@@ -6,20 +6,37 @@ import '../../../domain/entities/question_entity.dart';
 class TrueFalseInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
+  final bool isAdmin;
 
   const TrueFalseInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isMobile,
+    required this.isAdmin,
   });
 
   @override
   State<TrueFalseInputWidget> createState() => _TrueFalseInputWidgetState();
 }
 
-class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
+class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
   bool _isOptional = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _questionController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _questionController.dispose();
+    super.dispose();
+  }
 
   bool get _isValid => _questionController.text.trim().isNotEmpty;
 
@@ -45,6 +62,8 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -58,11 +77,20 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
         ),
         const SizedBox(height: 12),
 
+        // Question input with Enter key navigation
         TextField(
           controller: _questionController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            FocusScope.of(context).unfocus();
+            if (_isValid) _addQuestion();
+          },
           maxLines: widget.isMobile ? 4 : 3,
+          style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: 'Enter your true/false statement...',
+            hintStyle: TextStyle(fontSize: widget.isMobile ? 14 : 12),
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
@@ -73,6 +101,7 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
+            contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
           ),
         ),
 
@@ -84,28 +113,50 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Row(
             children: [
               Icon(Icons.info_outline, color: AppColors.primary, size: 16),
               const SizedBox(width: 8),
-              Text('Students will choose: True or False',
-                  style: TextStyle(color: AppColors.primary, fontSize: 12)),
+              Text(
+                'Students will choose: True or False',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
         ),
 
         const SizedBox(height: 16),
 
-        CheckboxListTile(
-          value: _isOptional,
-          onChanged: (v) => setState(() => _isOptional = v ?? false),
-          title: const Text('Optional question'),
-          contentPadding: EdgeInsets.zero,
+        // Optional checkbox
+        InkWell(
+          onTap: () => setState(() => _isOptional = !_isOptional),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: _isOptional,
+                  onChanged: (v) => setState(() => _isOptional = v ?? false),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                Text(
+                  'Optional question',
+                  style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
+                ),
+              ],
+            ),
+          ),
         ),
 
         const SizedBox(height: 24),
 
+        // Action buttons
         Row(
           children: [
             Expanded(
@@ -114,7 +165,14 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: widget.isMobile ? 16 : 12),
+                  padding: EdgeInsets.symmetric(
+                    vertical: widget.isMobile ? 16 : 12,
+                  ),
+                  minimumSize: Size(0, widget.isMobile ? 52 : 44),
+                  textStyle: TextStyle(
+                    fontSize: widget.isMobile ? 16 : 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 child: const Text('Add Question'),
               ),
@@ -122,10 +180,34 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> {
             const SizedBox(width: 12),
             OutlinedButton(
               onPressed: _clear,
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(
+                  vertical: widget.isMobile ? 16 : 12,
+                  horizontal: widget.isMobile ? 20 : 16,
+                ),
+                minimumSize: Size(0, widget.isMobile ? 52 : 44),
+                textStyle: TextStyle(
+                  fontSize: widget.isMobile ? 16 : 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               child: const Text('Clear'),
             ),
           ],
         ),
+
+        // Validation hint
+        if (!_isValid && _questionController.text.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Please enter a statement',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+              ),
+            ),
+          ),
       ],
     );
   }

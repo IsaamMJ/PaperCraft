@@ -16,6 +16,8 @@ class QuestionPaperEntity extends Equatable {
   final PaperStatus status;
   final ExamTypeEntity examTypeEntity;
   final Map<String, List<Question>> questions;
+  final DateTime? examDate;
+
 
   // NEW: Grade and Section fields
   final int? gradeLevel;
@@ -48,6 +50,7 @@ class QuestionPaperEntity extends Equatable {
     this.reviewedAt,
     this.reviewedBy,
     this.rejectionReason,
+    this.examDate,
   });
 
   // Factory constructor for creating new drafts
@@ -60,6 +63,7 @@ class QuestionPaperEntity extends Equatable {
     required int gradeLevel,
     required List<String> selectedSections,
     Map<String, List<Question>>? questions,
+    DateTime? examDate,
   }) {
     return QuestionPaperEntity(
       id: const Uuid().v4(),
@@ -74,6 +78,7 @@ class QuestionPaperEntity extends Equatable {
       questions: questions ?? {},
       gradeLevel: gradeLevel,
       selectedSections: selectedSections,
+      examDate: examDate,
     );
   }
 
@@ -175,7 +180,7 @@ class QuestionPaperEntity extends Equatable {
   // NEW: Grade and section display helpers
   String get gradeDisplayName {
     if (gradeLevel == null) return 'No grade selected';
-    return 'Grade $gradeLevel';
+    return '$gradeLevel';  // <- Just return the number
   }
 
   String get sectionsDisplayName {
@@ -294,6 +299,7 @@ class QuestionPaperEntity extends Equatable {
     DateTime? reviewedAt,
     String? reviewedBy,
     String? rejectionReason,
+    DateTime? examDate,
   }) {
     return QuestionPaperEntity(
       id: id ?? this.id,
@@ -314,6 +320,7 @@ class QuestionPaperEntity extends Equatable {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      examDate: examDate ?? this.examDate,
     );
   }
   // Add this method to your QuestionPaperEntity class:
@@ -338,6 +345,6 @@ class QuestionPaperEntity extends Equatable {
   List<Object?> get props => [
     id, title, subject, examType, createdBy, createdAt, modifiedAt,
     status, examTypeEntity, questions, gradeLevel, selectedSections,
-    tenantId, userId, submittedAt, reviewedAt, reviewedBy, rejectionReason,
+    tenantId, userId, submittedAt, reviewedAt, reviewedBy, rejectionReason, examDate,
   ];
 }

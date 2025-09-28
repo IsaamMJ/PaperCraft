@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Add this import
+// Add this import
 
 /// App-wide color palette following Apple's design principles
 /// Supports both light and dark themes with semantic color naming

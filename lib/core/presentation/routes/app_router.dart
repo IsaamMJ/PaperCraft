@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 // Core dependencies
 import '../../../features/question_papers/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/grade_bloc.dart';
+import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
 import '../../../features/question_papers/presentation/pages/question_paper_edit_page.dart';
 import '../../../features/shared/presentation/main_scaffold_screen.dart';
 import '../../domain/interfaces/i_logger.dart';
@@ -30,7 +31,6 @@ import '../../../features/question_papers/presentation/pages/question_bank_page.
 
 // Widgets and routes
 import '../widgets/app_error_widget.dart';
-import '../widgets/bloc_provider.dart';
 import '../constants/app_messages.dart';
 import 'app_routes.dart';
 
@@ -200,6 +200,7 @@ class AppRouter {
       ),
 
       // Question paper routes
+      // Question paper routes
       GoRoute(
         path: '${AppRoutes.questionPaperView}/:${RouteParams.id}',
         builder: (context, state) {
@@ -208,6 +209,7 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
             ],
             child: QuestionPaperDetailPage(
               questionPaperId: id,
@@ -216,6 +218,7 @@ class AppRouter {
           );
         },
       ),
+
       GoRoute(
         path: '${AppRoutes.questionPaperEdit}/:${RouteParams.id}',
         builder: (context, state) {
@@ -224,33 +227,38 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
             ],
             child: QuestionPaperEditPage(questionPaperId: id),
           );
         },
       ),
+
       GoRoute(
         path: AppRoutes.questionBank,
         builder: (context, state) => MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
+            BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
           ],
           child: const QuestionBankPage(),
         ),
       ),
+
       GoRoute(
         path: AppRoutes.questionPaperCreate,
         builder: (context, state) => MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
+            BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
           ],
           child: const QuestionPaperCreatePage(),
         ),
       ),
 
-      // Admin routes
+// Admin routes
       GoRoute(
         path: AppRoutes.adminDashboard,
         builder: (context, state) {
@@ -259,11 +267,13 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
             ],
             child: const AdminDashboardPage(),
           );
         },
       ),
+
       GoRoute(
         path: '${AppRoutes.adminReview}/:${RouteParams.id}',
         builder: (context, state) {
@@ -275,6 +285,7 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
             ],
             child: PaperReviewPage(paperId: id),
           );

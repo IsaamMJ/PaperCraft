@@ -6,7 +6,7 @@ import '../../../domain/entities/question_entity.dart';
 class EssayInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
-
+  final bool isAdmin;
   final String? questionType;
 
   const EssayInputWidget({
@@ -14,6 +14,7 @@ class EssayInputWidget extends StatefulWidget {
     required this.onQuestionAdded,
     required this.isMobile,
     this.questionType,
+    required this.isAdmin,
   });
 
   @override
@@ -137,7 +138,6 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -155,9 +155,21 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
         ),
         const SizedBox(height: 12),
 
-        // Main question input
+        // Main question input with Enter key navigation
         TextField(
           controller: _questionController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) {
+            if (_showSubQuestions) {
+              // Move to sub-question field if expanded
+              FocusScope.of(context).nextFocus();
+            } else {
+              // Add question if valid
+              FocusScope.of(context).unfocus();
+              if (_isValid) _addQuestion();
+            }
+          },
           maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
@@ -230,9 +242,17 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
         if (_showSubQuestions) ...[
           const SizedBox(height: 16),
 
-          // Sub-question input
+          // Sub-question input with Enter key navigation
           TextField(
             controller: _subQuestionController,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              // Add sub-question and stay focused for more sub-questions
+              if (_subQuestionController.text.trim().isNotEmpty) {
+                _addSubQuestion();
+              }
+            },
             style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
             decoration: InputDecoration(
               hintText: 'Enter sub-question (e.g., "a) Explain the concept...")',
