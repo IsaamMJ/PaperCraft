@@ -38,6 +38,34 @@ class LoadSectionsByGrade extends GradeEvent {
   List<Object> get props => [gradeLevel];
 }
 
+// NEW CRUD EVENTS
+class CreateGrade extends GradeEvent {
+  final GradeEntity grade;
+
+  const CreateGrade(this.grade);
+
+  @override
+  List<Object> get props => [grade];
+}
+
+class UpdateGrade extends GradeEvent {
+  final GradeEntity grade;
+
+  const UpdateGrade(this.grade);
+
+  @override
+  List<Object> get props => [grade];
+}
+
+class DeleteGrade extends GradeEvent {
+  final String id;
+
+  const DeleteGrade(this.id);
+
+  @override
+  List<Object> get props => [id];
+}
+
 // =============== STATES ===============
 abstract class GradeState extends Equatable {
   const GradeState();
@@ -95,6 +123,34 @@ class SectionsLoaded extends GradeState {
   List<Object> get props => [gradeLevel, sections];
 }
 
+// NEW CRUD STATES
+class GradeCreated extends GradeState {
+  final GradeEntity grade;
+
+  const GradeCreated(this.grade);
+
+  @override
+  List<Object> get props => [grade];
+}
+
+class GradeUpdated extends GradeState {
+  final GradeEntity grade;
+
+  const GradeUpdated(this.grade);
+
+  @override
+  List<Object> get props => [grade];
+}
+
+class GradeDeleted extends GradeState {
+  final String id;
+
+  const GradeDeleted(this.id);
+
+  @override
+  List<Object> get props => [id];
+}
+
 class GradeError extends GradeState {
   final String message;
 
@@ -115,6 +171,10 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
     on<LoadGradeLevels>(_onLoadGradeLevels);
     on<LoadGradesByLevel>(_onLoadGradesByLevel);
     on<LoadSectionsByGrade>(_onLoadSectionsByGrade);
+    // NEW CRUD HANDLERS
+    on<CreateGrade>(_onCreateGrade);
+    on<UpdateGrade>(_onUpdateGrade);
+    on<DeleteGrade>(_onDeleteGrade);
   }
 
   Future<void> _onLoadGrades(LoadGrades event, Emitter<GradeState> emit) async {
@@ -157,6 +217,41 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
     result.fold(
           (failure) => emit(GradeError(failure.message)),
           (sections) => emit(SectionsLoaded(event.gradeLevel, sections)),
+    );
+  }
+
+  // =============== NEW CRUD HANDLERS ===============
+
+  Future<void> _onCreateGrade(CreateGrade event, Emitter<GradeState> emit) async {
+    emit(const GradeLoading(message: 'Creating grade...'));
+
+    final result = await _repository.createGrade(event.grade);
+
+    result.fold(
+          (failure) => emit(GradeError(failure.message)),
+          (grade) => emit(GradeCreated(grade)),
+    );
+  }
+
+  Future<void> _onUpdateGrade(UpdateGrade event, Emitter<GradeState> emit) async {
+    emit(const GradeLoading(message: 'Updating grade...'));
+
+    final result = await _repository.updateGrade(event.grade);
+
+    result.fold(
+          (failure) => emit(GradeError(failure.message)),
+          (grade) => emit(GradeUpdated(grade)),
+    );
+  }
+
+  Future<void> _onDeleteGrade(DeleteGrade event, Emitter<GradeState> emit) async {
+    emit(const GradeLoading(message: 'Deleting grade...'));
+
+    final result = await _repository.deleteGrade(event.id);
+
+    result.fold(
+          (failure) => emit(GradeError(failure.message)),
+          (_) => emit(GradeDeleted(event.id)),
     );
   }
 }

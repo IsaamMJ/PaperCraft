@@ -50,6 +50,15 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   }
 
   bool get _isValid {
+    // For missing_letters, require at least one underscore in each field
+    if (widget.questionType == 'missing_letters') {
+      return _controllers.every((controller) {
+        final text = controller.text.trim();
+        return text.isNotEmpty && text.contains('_');
+      });
+    }
+
+    // For other types, just check if not empty
     return _controllers.every((controller) => controller.text.trim().isNotEmpty);
   }
 
@@ -144,7 +153,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   String _getHintText() {
     switch (widget.questionType) {
       case 'missing_letters':
-        return 'e.g., BEA_TIFUL, C_T, H_USE';
+        return 'e.g., BEA_TIFUL, C_T, H_USE (must include _)';
       case 'true_false':
         return 'e.g., The sun rises in the east';
       case 'short_answers':
@@ -234,7 +243,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
               margin: const EdgeInsets.only(bottom: 16),
               child: TextField(
                 controller: _controllers[index],
-                textCapitalization: TextCapitalization.sentences,
+                textCapitalization: widget.questionType == 'missing_letters'
+                    ? TextCapitalization.characters
+                    : TextCapitalization.sentences,
                 textInputAction: index == widget.questionCount - 1
                     ? TextInputAction.done
                     : TextInputAction.next,
@@ -384,11 +395,14 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         ),
 
         // Validation hint
+        // Validation hint
         if (!_isValid && _controllers.any((c) => c.text.isNotEmpty))
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Please fill all ${widget.questionCount} fields before adding',
+              widget.questionType == 'missing_letters'
+                  ? 'Each word must contain at least one underscore (_) for missing letters'
+                  : 'Please fill all ${widget.questionCount} fields before adding',
               style: TextStyle(
                 color: AppColors.error,
                 fontSize: 12,

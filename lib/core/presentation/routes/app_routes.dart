@@ -2,12 +2,12 @@
 class AppRoutes {
   AppRoutes._();
 
-  // Authentication routes
   static const String login = '/login';
   static const String authCallback = '/auth/callback';
 
   // Main routes
   static const String home = '/';
+  static const String settings = '/settings'; // ADD THIS
 
   // Question paper routes
   static const String questionPaperCreate = '/papers/create';

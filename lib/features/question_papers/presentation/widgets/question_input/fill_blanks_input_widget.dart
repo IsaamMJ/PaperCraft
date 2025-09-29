@@ -7,12 +7,14 @@ class FillBlanksInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
   final bool isAdmin;
+  final String? title; // Add this
 
   const FillBlanksInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isAdmin,
     required this.isMobile,
+    this.title, // Add this
   });
 
   @override
@@ -84,7 +86,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Add Fill in the Blanks Question',
+          widget.title ?? 'Add Fill in the Blanks Question',
           style: TextStyle(
             fontSize: widget.isMobile ? 18 : 16,
             fontWeight: FontWeight.w600,

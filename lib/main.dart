@@ -249,7 +249,7 @@ Map<String, dynamic> _getAppContext() {
   };
 }
 
-/// Main application widget
+/// Main application widgets
 /// FIXED: Safe service locator access and removed double initialization
 class PaperCraftApp extends StatelessWidget {
   const PaperCraftApp({super.key});
@@ -319,7 +319,7 @@ class PaperCraftApp extends StatelessWidget {
     );
   }
 
-  /// Setup custom error widget builder
+  /// Setup custom error widgets builder
   void _setupErrorWidgetBuilder() {
     ErrorWidget.builder = (FlutterErrorDetails details) {
       AppLogger.addBreadcrumb(
@@ -397,7 +397,7 @@ class _CriticalErrorApp extends StatelessWidget {
   }
 }
 
-/// User-friendly error widget for widget build failures
+/// User-friendly error widgets for widgets build failures
 class _UserFriendlyErrorWidget extends StatelessWidget {
   const _UserFriendlyErrorWidget();
 
@@ -418,7 +418,7 @@ class _UserFriendlyErrorWidget extends StatelessWidget {
   }
 }
 
-/// Reusable error display widget
+/// Reusable error display widgets
 class _ErrorDisplay extends StatelessWidget {
   const _ErrorDisplay({
     required this.icon,

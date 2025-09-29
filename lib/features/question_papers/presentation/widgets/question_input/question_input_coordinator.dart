@@ -135,6 +135,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   Widget _buildHeader(bool isMobile) {
     final currentMarks = _getCurrentMarks();
     final totalMarks = widget.examType.calculatedTotalMarks;
+    final optionalMarks = _getOptionalMarks(); // Add this helper
 
     return Container(
       padding: EdgeInsets.fromLTRB(20, isMobile ? 16 : 20, 16, 16),
@@ -156,6 +157,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   ),
                 ),
               ),
+              // Mandatory marks counter
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -173,6 +175,25 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   ),
                 ),
               ),
+              // Optional marks indicator (if any)
+              if (optionalMarks > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '+$optionalMarks optional',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               IconButton(
                 onPressed: _isProcessing ? null : () => Navigator.pop(context),
@@ -197,12 +218,28 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     );
   }
 
+// Add this helper method
+  int _getOptionalMarks() {
+    int total = 0;
+    for (var section in widget.sections) {
+      final questions = _allQuestions[section.name] ?? [];
+      for (var question in questions) {
+        if (question.isOptional) {
+          total += question.marks;
+        }
+      }
+    }
+    return total;
+  }
+
   int _getCurrentMarks() {
     int total = 0;
     for (var section in widget.sections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
-        total += question.marks;
+        if (!question.isOptional) { // ✅ Only count mandatory questions
+          total += question.marks;
+        }
       }
     }
     return total;
@@ -222,15 +259,22 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
+          // No custom title - will use default "Add Fill in the Blanks Question"
+        );
+
+      case 'misc_grammar':
+        return FillBlanksInputWidget(
+          onQuestionAdded: _addQuestion,
+          isMobile: isMobile,
+          isAdmin: widget.isAdmin,
+          title: 'Add Grammar Question', // Custom title for grammar
         );
 
       case 'match_following':
-      // UPDATED: Pass requiredPairs parameter for matching questions
         return MatchingInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
-          requiredPairs: _currentSection.marksPerQuestion, // This is the number of pairs needed
-
+          requiredPairs: _currentSection.marksPerQuestion,
           isAdmin: widget.isAdmin,
         );
 
@@ -251,7 +295,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       case 'meanings':
       case 'opposites':
       case 'frame_sentences':
-      case 'misc_grammar':
       case 'long_answers':
       default:
         return EssayInputWidget(
@@ -366,8 +409,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   void _addQuestion(Question question) {
+    // Override the question type to match the current section type
+    final correctedQuestion = Question(
+      text: question.text,
+      type: _currentSection.type, // Use the section's actual type
+      marks: question.marks,
+      options: question.options,
+      subQuestions: question.subQuestions,
+      isOptional: question.isOptional,
+    );
+
     setState(() {
-      _allQuestions[_currentSection.name]!.add(question);
+      _allQuestions[_currentSection.name]!.add(correctedQuestion);
     });
     _showMessage('Question added', AppColors.success);
     _checkSectionCompletion();

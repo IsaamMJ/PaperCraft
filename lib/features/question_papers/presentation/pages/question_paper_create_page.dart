@@ -7,7 +7,6 @@ import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
-import '../../domain/services/subject_grade_service.dart';
 import '../../domain/services/paper_validation_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
@@ -101,11 +100,20 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     return 'Paper #${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
   }
   // Step validation with enhanced checks
+  // Step validation with enhanced checks
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
-        return _selectedGradeLevel != null &&
-            (_availableSections.isEmpty || _selectedSections.isNotEmpty);
+      // Both grade level AND sections must be properly selected
+        if (_selectedGradeLevel == null) return false;
+
+        // If sections are available, at least one must be selected
+        if (_availableSections.isNotEmpty && _selectedSections.isEmpty) return false;
+
+        // If sections are loading, step is not valid yet
+        if (_isSectionsLoading) return false;
+
+        return true;
       case 2:
         return _selectedExamType != null && _selectedExamDate != null;
       case 3:
@@ -140,8 +148,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       _selectedSections.clear();
       _selectedSubjects.clear();
       _availableSections.clear();
-
-      _isSectionsLoading = true;
+      _isSectionsLoading = true; // Start loading sections
     });
 
     // Load sections for the grade
@@ -163,13 +170,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   Future<void> _selectExamDate() async {
     final DateTime now = DateTime.now();
-    final DateTime firstDate = now;
+    final DateTime today = DateTime(now.year, now.month, now.day); // Start of today
     final DateTime lastDate = DateTime(now.year + 1);
 
     final DateTime? selectedDate = await showDatePicker(
       context: context,
-      initialDate: _selectedExamDate ?? now.add(const Duration(days: 7)), // Default to next week
-      firstDate: firstDate,
+      initialDate: _selectedExamDate ?? today.add(const Duration(days: 7)), // Default to next week
+      firstDate: today, // Cannot select past dates
       lastDate: lastDate,
       builder: (context, child) {
         return Theme(
@@ -192,6 +199,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       });
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {

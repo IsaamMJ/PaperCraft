@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:papercraft/features/question_papers/presentation/pages/pdf_preview_page.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
+import '../../domain/services/pdf_generation_service.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
 import '../bloc/question_paper_bloc.dart';
@@ -45,6 +48,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   bool _isSubmitting = false, _isPulling = false;
+  bool _isGeneratingPdf = false; // ADD THIS
 
   // Add user info service
   late final UserInfoService _userInfoService;
@@ -276,6 +280,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     );
   }
 
+
+
   Widget _buildOverview(QuestionPaperEntity paper) {
     return Container(
       width: double.infinity,
@@ -366,6 +372,19 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
   Widget _buildActions(QuestionPaperEntity paper) {
     final actions = <Widget>[];
+
+    // View as PDF button (visible for draft, submitted, AND approved papers)
+    if (paper.status == PaperStatus.draft ||
+        paper.status == PaperStatus.submitted ||
+        paper.status == PaperStatus.approved) {
+      actions.add(_buildActionBtn(
+          Icons.picture_as_pdf_rounded,
+          'View as PDF',
+          AppColors.accent,
+              () => _showPdfViewOptions(paper),
+          _isGeneratingPdf
+      ));
+    }
 
     if (paper.status == PaperStatus.draft && !widget.isViewOnly) {
       actions.add(_buildActionBtn(
@@ -585,6 +604,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     );
   }
 
+
   Widget _buildSection(int sectionNumber, String name, List<dynamic> questions) {
     return Column(
       children: [
@@ -671,11 +691,213 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
+  void _showPdfViewOptions(QuestionPaperEntity paper) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'View PDF',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              paper.title,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 20),
+            _buildPdfViewOption(
+              'Single Page Layout',
+              'One question paper per page',
+              Icons.description_rounded,
+              AppColors.primary,
+                  () => _viewPdf(paper, 'single'),
+            ),
+            const SizedBox(height: 10),
+            _buildPdfViewOption(
+              'Dual Layout',
+              'Two identical papers per page',
+              Icons.content_copy_rounded,
+              AppColors.accent,
+                  () => _viewPdf(paper, 'dual'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPdfViewOption(
+      String title,
+      String subtitle,
+      IconData icon,
+      Color color,
+      VoidCallback onTap,
+      ) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.pop(context);
+          onTap();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.all(14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _editPaper(QuestionPaperEntity paper) {
     try {
       context.go(AppRoutes.questionPaperEditWithId(paper.id));
     } catch (e) {
       _showMessage('Navigation failed. Please try again.', AppColors.error);
+    }
+  }
+
+  Future<void> _viewPdf(QuestionPaperEntity paper, String layoutType) async {
+    setState(() => _isGeneratingPdf = true);
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AppColors.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'Generating PDF...',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final pdfService = SimplePdfService();
+      final userStateService = sl<UserStateService>();
+      final schoolName = userStateService.schoolName;
+
+      // Generate PDF based on layout type
+      final pdfBytes = layoutType == 'single'
+          ? await pdfService.generateStudentPdf(
+        paper: paper,
+        schoolName: schoolName,
+      )
+          : await pdfService.generateDualLayoutPdf(
+        paper: paper,
+        schoolName: schoolName,
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Navigate to preview
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PdfPreviewPage(
+              pdfBytes: pdfBytes,
+              paperTitle: paper.title,
+              onDownload: () {}, // Empty callback since we don't need download
+              onGenerateDual: () {}, // Empty callback since we don't need dual
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted) Navigator.of(context).pop();
+
+      _showMessage('Failed to generate PDF: $e', AppColors.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+      }
     }
   }
 

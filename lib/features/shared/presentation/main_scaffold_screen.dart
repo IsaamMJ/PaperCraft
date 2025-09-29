@@ -12,6 +12,7 @@ import '../../authentication/presentation/bloc/auth_event.dart';
 import '../../authentication/presentation/bloc/auth_state.dart';
 import '../../home/presentation/pages/home_page.dart';
 import '../../question_papers/presentation/admin/admin_dashboard_page.dart';
+import '../../question_papers/presentation/admin/settings_screen.dart';
 import '../../question_papers/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_papers/presentation/pages/question_bank_page.dart';
 
@@ -23,7 +24,7 @@ class MainScaffoldPage extends StatefulWidget {
 }
 
 class _MainScaffoldPageState extends State<MainScaffoldPage>
-    with TickerProviderStateMixin, PerformanceOptimizationMixin {
+    with TickerProviderStateMixin {
 
   // State variables
   int _selectedIndex = 0;
@@ -292,23 +293,25 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<Widget> _getPages() {
     if (_isAdmin) {
-      // For admins: Admin Dashboard first, then Question Bank
+      // For admins: Admin Dashboard, Question Bank, Settings
       return [
         SharedBlocProvider(child: const AdminDashboardPage()),
         SharedBlocProvider(child: const QuestionBankPage()),
+        SharedBlocProvider(child: const SettingsPage()),
       ];
     } else {
-      // For teachers: Home and Question Bank
+      // For teachers: Home, Question Bank, Settings
       return [
         SharedBlocProvider(child: const HomePage()),
         SharedBlocProvider(child: const QuestionBankPage()),
+        SharedBlocProvider(child: const SettingsPage()),
       ];
     }
   }
 
   List<_NavItem> _getNavigationItems() {
     if (_isAdmin) {
-      // Admin navigation: Admin Dashboard first, then Question Bank
+      // Admin navigation: Admin Dashboard, Question Bank, Settings
       return [
         _NavItem(
           icon: Icons.admin_panel_settings_outlined,
@@ -322,9 +325,15 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           label: 'Bank',
           semanticLabel: 'Question bank',
         ),
+        _NavItem(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings,
+          label: 'Settings',
+          semanticLabel: 'Settings and preferences',
+        ),
       ];
     } else {
-      // Teacher navigation: Home + Question Bank
+      // Teacher navigation: Home, Question Bank, Settings
       return [
         _NavItem(
           icon: Icons.home_rounded,
@@ -337,6 +346,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           activeIcon: Icons.library_books,
           label: 'Bank',
           semanticLabel: 'Question bank',
+        ),
+        _NavItem(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings,
+          label: 'Settings',
+          semanticLabel: 'Settings and preferences',
         ),
       ];
     }
@@ -865,12 +880,14 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Admin Dashboard';
         case 1: return 'Question Bank';
+        case 2: return 'Settings';
         default: return 'Papercraft';
       }
     } else {
       switch (index) {
         case 0: return 'Home';
         case 1: return 'Question Bank';
+        case 2: return 'Settings';
         default: return 'Papercraft';
       }
     }
@@ -882,12 +899,14 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Manage papers and users';
         case 1: return 'Approved question papers';
+        case 2: return 'Preferences and account';
         default: return '';
       }
     } else {
       switch (index) {
         case 0: return 'Create and manage papers';
         case 1: return 'Approved question papers';
+        case 2: return 'Preferences and account';
         default: return '';
       }
     }

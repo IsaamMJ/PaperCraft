@@ -5,7 +5,7 @@ import '../routes/app_routes.dart';
 import '../constants/app_messages.dart';
 import '../constants/ui_constants.dart';
 
-/// Unified error widget for all error scenarios
+/// Unified error widgets for all error scenarios
 class AppErrorWidget extends StatelessWidget {
   const AppErrorWidget({
     super.key,
@@ -91,7 +91,7 @@ class AppErrorWidget extends StatelessWidget {
   }
 }
 
-/// Loading screen widget
+/// Loading screen widgets
 class AppLoadingWidget extends StatelessWidget {
   const AppLoadingWidget({
     super.key,
@@ -117,7 +117,7 @@ class AppLoadingWidget extends StatelessWidget {
   }
 }
 
-/// Simple message widget
+/// Simple message widgets
 class AppMessageWidget extends StatelessWidget {
   const AppMessageWidget({
     super.key,

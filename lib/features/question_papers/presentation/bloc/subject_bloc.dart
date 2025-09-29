@@ -1,7 +1,9 @@
 // features/question_papers/presentation/bloc/subject_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../domain/entities/subject_entity.dart';
+import '../../domain/repositories/subject_repository.dart';
 import '../../domain/usecases/get_subjects_usecase.dart';
 
 // =============== EVENTS ===============
@@ -32,6 +34,34 @@ class LoadSubjectById extends SubjectEvent {
 
   @override
   List<Object> get props => [subjectId];
+}
+
+// NEW CRUD EVENTS
+class CreateSubject extends SubjectEvent {
+  final SubjectEntity subject;
+
+  const CreateSubject(this.subject);
+
+  @override
+  List<Object> get props => [subject];
+}
+
+class UpdateSubject extends SubjectEvent {
+  final SubjectEntity subject;
+
+  const UpdateSubject(this.subject);
+
+  @override
+  List<Object> get props => [subject];
+}
+
+class DeleteSubject extends SubjectEvent {
+  final String id;
+
+  const DeleteSubject(this.id);
+
+  @override
+  List<Object> get props => [id];
 }
 
 // =============== STATES ===============
@@ -82,6 +112,34 @@ class SubjectLoaded extends SubjectState {
   List<Object?> get props => [subjectId, subject];
 }
 
+// NEW CRUD STATES
+class SubjectCreated extends SubjectState {
+  final SubjectEntity subject;
+
+  const SubjectCreated(this.subject);
+
+  @override
+  List<Object> get props => [subject];
+}
+
+class SubjectUpdated extends SubjectState {
+  final SubjectEntity subject;
+
+  const SubjectUpdated(this.subject);
+
+  @override
+  List<Object> get props => [subject];
+}
+
+class SubjectDeleted extends SubjectState {
+  final String id;
+
+  const SubjectDeleted(this.id);
+
+  @override
+  List<Object> get props => [id];
+}
+
 class SubjectError extends SubjectState {
   final String message;
 
@@ -108,6 +166,10 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
     on<LoadSubjects>(_onLoadSubjects);
     on<LoadSubjectsByGrade>(_onLoadSubjectsByGrade);
     on<LoadSubjectById>(_onLoadSubjectById);
+    // NEW CRUD HANDLERS
+    on<CreateSubject>(_onCreateSubject);
+    on<UpdateSubject>(_onUpdateSubject);
+    on<DeleteSubject>(_onDeleteSubject);
   }
 
   Future<void> _onLoadSubjects(LoadSubjects event, Emitter<SubjectState> emit) async {
@@ -116,14 +178,8 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
     final result = await _getSubjectsUseCase();
 
     result.fold(
-          (failure) {
-        print('🔍 DEBUG: SubjectBloc received failure: ${failure.runtimeType} - ${failure.message}');
-        emit(SubjectError(failure.message));
-      },
-          (subjects) {
-        print('🔍 DEBUG: SubjectBloc received subjects: ${subjects.length}');
-        emit(SubjectsLoaded(subjects));
-      },
+          (failure) => emit(SubjectError(failure.message)),
+          (subjects) => emit(SubjectsLoaded(subjects)),
     );
   }
 
@@ -146,6 +202,44 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
     result.fold(
           (failure) => emit(SubjectError(failure.message)),
           (subject) => emit(SubjectLoaded(event.subjectId, subject)),
+    );
+  }
+
+  // =============== NEW CRUD HANDLERS ===============
+
+  Future<void> _onCreateSubject(CreateSubject event, Emitter<SubjectState> emit) async {
+    emit(const SubjectLoading(message: 'Creating subject...'));
+
+    final subjectRepository = sl<SubjectRepository>();
+    final result = await subjectRepository.createSubject(event.subject);
+
+    result.fold(
+          (failure) => emit(SubjectError(failure.message)),
+          (subject) => emit(SubjectCreated(subject)),
+    );
+  }
+
+  Future<void> _onUpdateSubject(UpdateSubject event, Emitter<SubjectState> emit) async {
+    emit(const SubjectLoading(message: 'Updating subject...'));
+
+    final subjectRepository = sl<SubjectRepository>();
+    final result = await subjectRepository.updateSubject(event.subject);
+
+    result.fold(
+          (failure) => emit(SubjectError(failure.message)),
+          (subject) => emit(SubjectUpdated(subject)),
+    );
+  }
+
+  Future<void> _onDeleteSubject(DeleteSubject event, Emitter<SubjectState> emit) async {
+    emit(const SubjectLoading(message: 'Deleting subject...'));
+
+    final subjectRepository = sl<SubjectRepository>();
+    final result = await subjectRepository.deleteSubject(event.id);
+
+    result.fold(
+          (failure) => emit(SubjectError(failure.message)),
+          (_) => emit(SubjectDeleted(event.id)),
     );
   }
 }

@@ -8,6 +8,7 @@ import '../../domain/entities/subject_entity.dart';
 import '../../domain/repositories/subject_repository.dart';
 import '../../domain/services/subject_grade_service.dart';
 import '../datasources/subject_data_source.dart';
+import '../models/subject_model.dart';
 
 class SubjectRepositoryImpl implements SubjectRepository {
   final SubjectDataSource _dataSource;
@@ -24,14 +25,11 @@ class SubjectRepositoryImpl implements SubjectRepository {
     try {
       final tenantId = await _getTenantId();
 
-      // DEBUG: Print what we actually get
-      print('🔍 DEBUG: Tenant ID from UserStateService: $tenantId');
-      print('🔍 DEBUG: UserStateService.isAuthenticated: ${sl<UserStateService>().isAuthenticated}');
-      print('🔍 DEBUG: UserStateService.currentUser: ${sl<UserStateService>().currentUser?.id}');
-
       if (tenantId == null) {
-        _logger.warning('Failed to fetch subjects - no tenant ID', /*...*/);
-        print('🔍 DEBUG: Returning AuthFailure due to null tenant ID');
+        _logger.warning('Failed to fetch subjects - no tenant ID',
+            category: LogCategory.paper,
+            context: {'operation': 'get_subjects'}
+        );
         return Left(AuthFailure('User not authenticated'));
       }
 
@@ -151,6 +149,75 @@ class SubjectRepositoryImpl implements SubjectRepository {
           }
       );
       return Left(ServerFailure('Failed to get subject by ID: ${e.toString()}'));
+    }
+  }
+
+  // =============== NEW CRUD METHODS ===============
+
+  @override
+  Future<Either<Failure, SubjectEntity>> createSubject(SubjectEntity subject) async {
+    try {
+      final tenantId = await _getTenantId();
+      final userStateService = sl<UserStateService>();
+
+      if (tenantId == null) {
+        return Left(AuthFailure('User not authenticated'));
+      }
+
+      if (!userStateService.canManageUsers()) {
+        return Left(PermissionFailure('Admin privileges required'));
+      }
+
+      final subjectWithTenant = SubjectEntity(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        tenantId: tenantId,
+        name: subject.name,
+        description: subject.description,
+        isActive: true,
+        createdAt: DateTime.now(),
+      );
+
+      final model = SubjectModel.fromEntity(subjectWithTenant);
+      final createdModel = await _dataSource.createSubject(model);
+      return Right(createdModel.toEntity());
+    } catch (e, stackTrace) {
+      _logger.error('Failed to create subject', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to create subject: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SubjectEntity>> updateSubject(SubjectEntity subject) async {
+    try {
+      final userStateService = sl<UserStateService>();
+
+      if (!userStateService.canManageUsers()) {
+        return Left(PermissionFailure('Admin privileges required'));
+      }
+
+      final model = SubjectModel.fromEntity(subject);
+      final updatedModel = await _dataSource.updateSubject(model);
+      return Right(updatedModel.toEntity());
+    } catch (e, stackTrace) {
+      _logger.error('Failed to update subject', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to update subject: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteSubject(String id) async {
+    try {
+      final userStateService = sl<UserStateService>();
+
+      if (!userStateService.canManageUsers()) {
+        return Left(PermissionFailure('Admin privileges required'));
+      }
+
+      await _dataSource.deleteSubject(id);
+      return const Right(null);
+    } catch (e, stackTrace) {
+      _logger.error('Failed to delete subject', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to delete subject: ${e.toString()}'));
     }
   }
 }

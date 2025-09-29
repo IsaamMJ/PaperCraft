@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
+import '../../../features/question_papers/presentation/admin/settings_screen.dart';
 import '../../../features/question_papers/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/grade_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
@@ -185,6 +186,12 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => _AuthenticatedBuilder(
+          builder: (context, user) => const SettingsPage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.authCallback,

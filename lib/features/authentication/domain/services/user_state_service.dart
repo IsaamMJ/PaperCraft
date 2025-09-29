@@ -1,32 +1,39 @@
-// features/authentication/domain2/services/user_state_service.dart
+// features/authentication/domain/services/user_state_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../entities/user_entity.dart';
 import '../entities/user_role.dart';
+import '../entities/tenant_entity.dart';
 import '../usecases/auth_usecase.dart';
+import '../usecases/get_tenant_usecase.dart';
 
-/// Fast, in-memory user state service for managing authenticated user state
-/// This is a domain2 service that tracks current user and provides permission logic
+/// Enhanced user state service with tenant management
 class UserStateService extends ChangeNotifier {
   final ILogger _logger;
   UserEntity? _currentUser;
+  TenantEntity? _currentTenant;
 
   // SECURITY FIX: Periodic permission refresh
   Timer? _permissionRefreshTimer;
   final Duration _permissionRefreshInterval = const Duration(minutes: 45);
 
+  // Tenant loading state
+  bool _isTenantLoading = false;
+  String? _tenantLoadError;
+
   UserStateService(this._logger) {
     _logger.debug('UserStateService initialized', category: LogCategory.auth, context: {
       'serviceType': 'domain_service',
-      'responsibilities': ['user_state', 'permissions'],
+      'responsibilities': ['user_state', 'permissions', 'tenant_management'],
     });
     _startPermissionRefreshTimer();
   }
 
-  // Add refresh state flag
   bool _isRefreshing = false;
+
+  // =============== USER STATE GETTERS ===============
 
   /// Current authenticated user (null if not authenticated)
   UserEntity? get currentUser => _currentUser;
@@ -49,9 +56,165 @@ class UserStateService extends ChangeNotifier {
   /// Quick teacher check
   bool get isTeacher => currentRole == UserRole.teacher;
 
-  // =============== SECURITY FIX: PERIODIC PERMISSION REFRESH ===============
+  // =============== TENANT STATE GETTERS ===============
 
-  /// Start periodic permission refresh timer
+  /// Current tenant information
+  TenantEntity? get currentTenant => _currentTenant;
+
+  /// School/Tenant name for display purposes
+  String get currentTenantName => _currentTenant?.displayName ?? 'School';
+
+  /// School/Tenant name for PDF generation (fallback-safe)
+  String get schoolName => _currentTenant?.displayName ?? 'School';
+
+  /// Short school name for compact displays
+  String get shortSchoolName => _currentTenant?.shortName ?? 'School';
+
+  /// Check if tenant data is available
+  bool get hasTenantData => _currentTenant != null;
+
+  /// Check if tenant is currently being loaded
+  bool get isTenantLoading => _isTenantLoading;
+
+  /// Get tenant loading error (if any)
+  String? get tenantLoadError => _tenantLoadError;
+
+  // =============== USER STATE MANAGEMENT ===============
+
+  /// Update user state and load tenant data
+  void updateUser(UserEntity? user) async {
+    if (_currentUser != user) {
+      final previousUserId = _currentUser?.id;
+      final previousTenantId = _currentUser?.tenantId;
+
+      _currentUser = user;
+
+      _logger.debug('User state updated', category: LogCategory.auth, context: {
+        'previousUserId': previousUserId,
+        'newUserId': user?.id,
+        'newUserRole': user?.role.value,
+        'newTenantId': user?.tenantId,
+        'isAuthenticated': isAuthenticated,
+        'operation': 'update_user_state',
+      });
+
+      // Load tenant data if user has a tenant ID and it changed
+      if (user?.tenantId != null && user!.tenantId != previousTenantId) {
+        await _loadTenantData(user.tenantId!);
+      } else if (user?.tenantId == null) {
+        // Clear tenant data if user has no tenant ID
+        _clearTenantData();
+      }
+
+      notifyListeners();
+    }
+  }
+
+  /// Clear user state and tenant data
+  void clearUser() {
+    if (_currentUser != null) {
+      final clearedUserId = _currentUser!.id;
+      final clearedUserName = _currentUser!.fullName;
+
+      _currentUser = null;
+      _clearTenantData();
+
+      _logger.debug('User state cleared', category: LogCategory.auth, context: {
+        'clearedUserId': clearedUserId,
+        'clearedUserName': clearedUserName,
+        'isAuthenticated': false,
+        'operation': 'clear_user_state',
+      });
+
+      notifyListeners();
+    }
+  }
+
+  // =============== TENANT DATA MANAGEMENT ===============
+
+  /// Load tenant data by ID
+  Future<void> _loadTenantData(String tenantId) async {
+    if (_isTenantLoading) return; // Prevent concurrent loads
+
+    _isTenantLoading = true;
+    _tenantLoadError = null;
+    notifyListeners();
+
+    try {
+      _logger.debug('Loading tenant data', category: LogCategory.auth, context: {
+        'tenantId': tenantId,
+        'userId': currentUserId,
+        'operation': 'load_tenant',
+      });
+
+      final getTenantUseCase = sl<GetTenantUseCase>();
+      final result = await getTenantUseCase(tenantId);
+
+      result.fold(
+            (failure) {
+          _tenantLoadError = failure.message;
+          _logger.warning('Failed to load tenant data', category: LogCategory.auth, context: {
+            'tenantId': tenantId,
+            'error': failure.message,
+            'fallback': 'using_default_name',
+          });
+        },
+            (tenant) {
+          _currentTenant = tenant;
+
+          if (tenant != null) {
+            _logger.debug('Tenant data loaded successfully', category: LogCategory.auth, context: {
+              'tenantId': tenantId,
+              'tenantName': tenant.displayName,
+              'isActive': tenant.isActive,
+            });
+          } else {
+            _logger.warning('Tenant not found', category: LogCategory.auth, context: {
+              'tenantId': tenantId,
+              'reason': 'tenant_not_found',
+            });
+            _tenantLoadError = 'Tenant not found';
+          }
+        },
+      );
+    } catch (e, stackTrace) {
+      _tenantLoadError = 'Failed to load tenant: ${e.toString()}';
+      _logger.error('Exception loading tenant data',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'tenantId': tenantId},
+      );
+    } finally {
+      _isTenantLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Clear tenant data
+  void _clearTenantData() {
+    if (_currentTenant != null) {
+      final clearedTenantId = _currentTenant!.id;
+      _currentTenant = null;
+      _tenantLoadError = null;
+
+      _logger.debug('Tenant data cleared', category: LogCategory.auth, context: {
+        'clearedTenantId': clearedTenantId,
+        'operation': 'clear_tenant_data',
+      });
+    }
+  }
+
+  /// Force reload tenant data
+  Future<void> reloadTenantData() async {
+    if (currentTenantId != null) {
+      _currentTenant = null; // Clear existing data
+      await _loadTenantData(currentTenantId!);
+    }
+  }
+
+  // =============== PERIODIC REFRESH LOGIC ===============
+
   void _startPermissionRefreshTimer() {
     _permissionRefreshTimer?.cancel();
     _permissionRefreshTimer = Timer.periodic(_permissionRefreshInterval, (_) {
@@ -61,9 +224,6 @@ class UserStateService extends ChangeNotifier {
     });
   }
 
-
-  
-  /// Refresh user permissions from database
   Future<void> _refreshUserPermissions() async {
     if (!isAuthenticated || currentUserId == null || _isRefreshing) return;
 
@@ -75,7 +235,6 @@ class UserStateService extends ChangeNotifier {
         'currentRole': currentRole.value,
       });
 
-      // Get fresh user data from database
       final authUseCase = sl<AuthUseCase>();
       final result = await authUseCase.getCurrentUser();
 
@@ -88,9 +247,10 @@ class UserStateService extends ChangeNotifier {
         },
             (freshUser) {
           if (freshUser != null && freshUser.id == currentUserId) {
-            // SECURITY FIX: Check if permissions changed
             final oldRole = currentRole;
             final newRole = freshUser.role;
+            final oldTenantId = currentTenantId;
+            final newTenantId = freshUser.tenantId;
 
             if (oldRole != newRole) {
               _logger.warning('User role changed, updating permissions', category: LogCategory.auth, context: {
@@ -99,28 +259,33 @@ class UserStateService extends ChangeNotifier {
                 'newRole': newRole.value,
                 'securityUpdate': true,
               });
-
-              updateUser(freshUser);
             }
 
-            // Check if user was deactivated
+            // Check if tenant changed
+            if (oldTenantId != newTenantId) {
+              _logger.info('User tenant changed', category: LogCategory.auth, context: {
+                'userId': currentUserId,
+                'oldTenantId': oldTenantId,
+                'newTenantId': newTenantId,
+                'requiresTenantReload': true,
+              });
+            }
+
+            updateUser(freshUser);
+
             if (_currentUser!.isActive && !freshUser.isActive) {
               _logger.warning('User was deactivated, clearing state', category: LogCategory.auth, context: {
                 'userId': currentUserId,
                 'securityAction': 'account_deactivated',
               });
-
               clearUser();
-              // TODO: Trigger logout in AuthBloc
             }
           } else if (freshUser == null) {
             _logger.warning('User no longer exists, clearing state', category: LogCategory.auth, context: {
               'userId': currentUserId,
               'securityAction': 'user_deleted',
             });
-
             clearUser();
-            // TODO: Trigger logout in AuthBloc
           }
         },
       );
@@ -134,113 +299,64 @@ class UserStateService extends ChangeNotifier {
     }
   }
 
-  /// SECURITY FIX: Force permission refresh
   Future<void> forcePermissionRefresh() async {
     await _refreshUserPermissions();
   }
 
-  /// Update user state (called from AuthBloc)
-  void updateUser(UserEntity? user) {
-    if (_currentUser != user) {
-      final previousUserId = _currentUser?.id;
-      _currentUser = user;
+  // =============== PERMISSION METHODS (unchanged) ===============
 
-      _logger.debug('User state updated', category: LogCategory.auth, context: {
-        'previousUserId': previousUserId,
-        'newUserId': user?.id,
-        'newUserRole': user?.role.value,
-        'isAuthenticated': isAuthenticated,
-        'operation': 'update_user_state',
-      });
-
-      notifyListeners();
-    }
-  }
-
-  /// Clear user state (called on logout)
-  void clearUser() {
-    if (_currentUser != null) {
-      final clearedUserId = _currentUser!.id;
-      final clearedUserName = _currentUser!.fullName;
-
-      _currentUser = null;
-
-      _logger.debug('User state cleared', category: LogCategory.auth, context: {
-        'clearedUserId': clearedUserId,
-        'clearedUserName': clearedUserName,
-        'isAuthenticated': false,
-        'operation': 'clear_user_state',
-      });
-
-      notifyListeners();
-    }
-  }
-
-  // =============== PERMISSION METHODS (DOMAIN BUSINESS LOGIC) ===============
-
-  /// Can create question papers
   bool canCreatePapers() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.teacher || currentRole == UserRole.admin;
   }
 
-  /// Can approve/reject question papers
   bool canApprovePapers() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.admin;
   }
 
-  /// Can edit a specific paper (owner or admin)
   bool canEditPaper(String paperOwnerId) {
     if (!isAuthenticated || currentUserId == null) return false;
     return paperOwnerId == currentUserId || currentRole == UserRole.admin;
   }
 
-  /// Can delete a specific paper (owner or admin)
   bool canDeletePaper(String paperOwnerId) {
     if (!isAuthenticated || currentUserId == null) return false;
     return paperOwnerId == currentUserId || currentRole == UserRole.admin;
   }
 
-  /// Can view all papers in tenant (admin only)
   bool canViewAllPapers() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.admin;
   }
 
-  /// Can manage users and system settings
   bool canManageUsers() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.admin;
   }
 
-  /// Can view submitted papers for review
   bool canViewPapersForReview() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.admin;
   }
 
-  /// Can pull rejected papers back to edit
   bool canPullForEditing(String paperOwnerId) {
     if (!isAuthenticated || currentUserId == null) return false;
     return paperOwnerId == currentUserId || currentRole == UserRole.admin;
   }
 
-  /// Can access admin dashboard
   bool canAccessAdminDashboard() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.admin;
   }
 
-  /// Can access teacher dashboard
   bool canAccessTeacherDashboard() {
     if (!isAuthenticated) return false;
     return currentRole == UserRole.teacher || currentRole == UserRole.admin;
   }
 
-  // =============== VALIDATION METHODS ===============
+  // =============== VALIDATION METHODS (unchanged) ===============
 
-  /// Validate user permissions for a specific action
   PermissionResult validatePermission(PermissionType type, {String? paperOwnerId}) {
     if (!isAuthenticated) {
       _logger.warning('Permission denied - user not authenticated', category: LogCategory.auth, context: {
@@ -341,7 +457,6 @@ class UserStateService extends ChangeNotifier {
 
   // =============== UTILITY METHODS ===============
 
-  /// Get complete user information for debugging (JSON-safe)
   Map<String, dynamic> getUserInfo() {
     if (!isAuthenticated) {
       return {
@@ -360,6 +475,12 @@ class UserStateService extends ChangeNotifier {
       'email': user.email,
       'is_active': user.isActive,
       'is_authenticated': true,
+      'tenant_info': {
+        'has_tenant_data': hasTenantData,
+        'tenant_name': currentTenantName,
+        'is_tenant_loading': isTenantLoading,
+        'tenant_load_error': tenantLoadError,
+      },
       'permissions': {
         'can_create_papers': canCreatePapers(),
         'can_approve_papers': canApprovePapers(),
@@ -371,13 +492,11 @@ class UserStateService extends ChangeNotifier {
     };
   }
 
-  /// Debug method to print user info (safe for logging)
   void debugUserInfo() {
     final info = getUserInfo();
     _logger.debug('UserStateService debug info', category: LogCategory.auth, context: info);
   }
 
-  /// Get user info as JSON-safe string for logging
   String getUserInfoForLogging() {
     try {
       final info = getUserInfo();
@@ -397,9 +516,8 @@ class UserStateService extends ChangeNotifier {
   }
 }
 
-// =============== DOMAIN VALUE OBJECTS ===============
+// =============== DOMAIN VALUE OBJECTS (unchanged) ===============
 
-/// Permission types for authorization - domain2 concept
 enum PermissionType {
   createPaper,
   approvePaper,
@@ -409,7 +527,6 @@ enum PermissionType {
   manageUsers,
 }
 
-/// Result of permission validation - domain2 value object
 class PermissionResult {
   final bool isGranted;
   final String? message;
