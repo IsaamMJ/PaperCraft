@@ -1,10 +1,13 @@
 // features/authentication/domain/entities/tenant_entity.dart
-class TenantEntity {
+import 'package:equatable/equatable.dart';
+
+class TenantEntity extends Equatable {
   final String id;
   final String name;
   final String? address;
   final String? domain;
   final bool isActive;
+  final bool isInitialized; // NEW FIELD
   final DateTime createdAt;
 
   const TenantEntity({
@@ -13,30 +16,27 @@ class TenantEntity {
     this.address,
     this.domain,
     required this.isActive,
+    required this.isInitialized, // NEW FIELD
     required this.createdAt,
   });
 
-  // Business logic
-  bool get isValid => id.isNotEmpty && name.isNotEmpty && isActive;
+  /// Display name for UI
+  String get displayName => name;
 
-  String get displayName => name.trim();
-
+  /// Short name for compact displays
   String get shortName {
-    // Extract short name from full name (e.g., "Pearl Matriculation..." -> "Pearl")
-    final words = name.trim().split(' ');
-    return words.isNotEmpty ? words.first : name;
+    if (name.length <= 20) return name;
+    return '${name.substring(0, 17)}...';
   }
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is TenantEntity &&
-              runtimeType == other.runtimeType &&
-              id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-
-  @override
-  String toString() => 'TenantEntity(id: $id, name: $name, isActive: $isActive)';
+  List<Object?> get props => [
+    id,
+    name,
+    address,
+    domain,
+    isActive,
+    isInitialized, // NEW FIELD
+    createdAt,
+  ];
 }

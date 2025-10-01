@@ -249,49 +249,18 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<GradeModel> createGrade(GradeModel grade) async {
     try {
-      _logger.info('Creating new grade', category: LogCategory.storage, context: {
-        'tenantId': grade.tenantId,
-        'gradeName': grade.name,
-        'level': grade.level,
-        'section': grade.section,
-      });
-
       final response = await _apiClient.insert<GradeModel>(
         table: _tableName,
-        data: grade.toJson(),
+        data: grade.toJsonForInsert(), // Use INSERT-specific method
         fromJson: (json) => GradeModel.fromJson(json),
       );
 
       if (response.isSuccess) {
-        _logger.info('Grade created successfully', category: LogCategory.storage, context: {
-          'gradeId': response.data!.id,
-          'gradeName': grade.name,
-          'level': grade.level,
-        });
         return response.data!;
       } else {
-        _logger.error('Failed to create grade',
-          category: LogCategory.storage,
-          error: Exception('API Error: ${response.message}'),
-          context: {
-            'gradeName': grade.name,
-            'apiErrorType': response.errorType?.toString(),
-            'apiMessage': response.message,
-          },
-        );
         throw Exception(response.message ?? 'Failed to create grade');
       }
     } catch (e, stackTrace) {
-      _logger.error('Failed to create grade',
-        category: LogCategory.storage,
-        error: e,
-        stackTrace: stackTrace,
-        context: {
-          'gradeName': grade.name,
-          'level': grade.level,
-          'errorType': e.runtimeType.toString(),
-        },
-      );
       rethrow;
     }
   }
@@ -299,47 +268,19 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<GradeModel> updateGrade(GradeModel grade) async {
     try {
-      _logger.info('Updating grade', category: LogCategory.storage, context: {
-        'gradeId': grade.id,
-        'gradeName': grade.name,
-        'level': grade.level,
-      });
-
       final response = await _apiClient.update<GradeModel>(
         table: _tableName,
-        data: grade.toJson(),
+        data: grade.toJsonForUpdate(), // Use UPDATE-specific method
         filters: {'id': grade.id},
         fromJson: (json) => GradeModel.fromJson(json),
       );
 
       if (response.isSuccess) {
-        _logger.info('Grade updated successfully', category: LogCategory.storage, context: {
-          'gradeId': grade.id,
-          'gradeName': grade.name,
-        });
         return response.data!;
       } else {
-        _logger.error('Failed to update grade',
-          category: LogCategory.storage,
-          error: Exception('API Error: ${response.message}'),
-          context: {
-            'gradeId': grade.id,
-            'apiErrorType': response.errorType?.toString(),
-            'apiMessage': response.message,
-          },
-        );
         throw Exception(response.message ?? 'Failed to update grade');
       }
     } catch (e, stackTrace) {
-      _logger.error('Failed to update grade',
-        category: LogCategory.storage,
-        error: e,
-        stackTrace: stackTrace,
-        context: {
-          'gradeId': grade.id,
-          'errorType': e.runtimeType.toString(),
-        },
-      );
       rethrow;
     }
   }

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/constants/ui_constants.dart';
 
 class PdfPreviewPage extends StatelessWidget {
   final Uint8List pdfBytes;
@@ -17,146 +18,16 @@ class PdfPreviewPage extends StatelessWidget {
     required this.onGenerateDual,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('PDF Preview'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () => _showDownloadOptions(context),
-            icon: Icon(Icons.download_rounded),
-            tooltip: 'Download Options',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Paper info header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  paperTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'PDF Preview - This is how your paper will look when printed',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // PDF Viewer
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SfPdfViewer.memory(
-                  pdfBytes,
-                  enableDoubleTapZooming: true,
-                  enableTextSelection: false,
-                  canShowScrollHead: true,
-                  canShowScrollStatus: true,
-                ),
-              ),
-            ),
-          ),
-
-          // Bottom action bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.arrow_back, color: AppColors.textSecondary),
-                      label: Text('Back', style: TextStyle(color: AppColors.textSecondary)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: AppColors.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showDownloadOptions(context),
-                      icon: const Icon(Icons.download_rounded),
-                      label: const Text('Download'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showDownloadOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(24),
+        margin: EdgeInsets.all(UIConstants.paddingMedium),
+        padding: EdgeInsets.all(UIConstants.paddingLarge),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -164,42 +35,188 @@ class PdfPreviewPage extends StatelessWidget {
             Text(
               'Download Options',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: UIConstants.fontSizeXLarge,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 20),
-
+            SizedBox(height: UIConstants.spacing20),
             _DownloadOption(
               title: 'Single Page Layout',
               subtitle: 'Download this preview (one paper per page)',
               icon: Icons.description_rounded,
               color: AppColors.primary,
               onTap: () {
-                Navigator.pop(context); // Close modal
-                Navigator.pop(context); // Close preview
+                Navigator.pop(context);
+                Navigator.pop(context);
                 onDownload();
               },
             ),
-            const SizedBox(height: 12),
-
+            SizedBox(height: UIConstants.spacing12),
             _DownloadOption(
               title: 'Dual Layout',
               subtitle: 'Two identical papers per page (saves paper)',
               icon: Icons.content_copy_rounded,
               color: AppColors.accent,
               onTap: () {
-                Navigator.pop(context); // Close modal
-                Navigator.pop(context); // Close preview
+                Navigator.pop(context);
+                Navigator.pop(context);
                 onGenerateDual();
               },
             ),
-            const SizedBox(height: 16),
-
+            SizedBox(height: UIConstants.spacing16),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('PDF Preview'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: () => _showDownloadOptions(context),
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Download Options',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildPaperInfoHeader(),
+          _buildPdfViewer(),
+          _buildBottomActionBar(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaperInfoHeader() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            paperTitle,
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeLarge,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          SizedBox(height: UIConstants.spacing4),
+          Text(
+            'PDF Preview - This is how your paper will look when printed',
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeMedium,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPdfViewer() {
+    return Expanded(
+      child: Container(
+        margin: EdgeInsets.all(UIConstants.paddingMedium),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          child: SfPdfViewer.memory(
+            pdfBytes,
+            enableDoubleTapZooming: true,
+            enableTextSelection: false,
+            canShowScrollHead: true,
+            canShowScrollStatus: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(UIConstants.radiusXLarge),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back, color: AppColors.textSecondary),
+                label: Text(
+                  'Back',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    vertical: UIConstants.spacing12,
+                  ),
+                  side: BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: UIConstants.spacing12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _showDownloadOptions(context),
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Download'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    vertical: UIConstants.spacing12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -232,30 +249,30 @@ class _DownloadOption extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(UIConstants.paddingMedium),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 24),
-            const SizedBox(width: 16),
+            Icon(icon, size: UIConstants.iconMedium),
+            SizedBox(width: UIConstants.spacing16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeLarge,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: UIConstants.fontSizeSmall,
                       color: Colors.white.withOpacity(0.8),
                     ),
                   ),

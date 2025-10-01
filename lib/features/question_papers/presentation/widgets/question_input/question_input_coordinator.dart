@@ -2,10 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import 'package:papercraft/features/question_papers/presentation/widgets/question_input/question_list_widget.dart';
 import 'package:papercraft/features/question_papers/presentation/widgets/question_input/section_progress_widget.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../../../core/presentation/routes/app_routes.dart';
+import '../../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../domain/entities/exam_type_entity.dart';
 import '../../../domain/entities/paper_status.dart';
 import '../../../domain/entities/subject_entity.dart';
@@ -164,12 +167,12 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   color: currentMarks == totalMarks
                       ? AppColors.success.withOpacity(0.1)
                       : AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
                 child: Text(
                   '$currentMarks/$totalMarks marks',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: UIConstants.fontSizeMedium,
                     fontWeight: FontWeight.w600,
                     color: currentMarks == totalMarks ? AppColors.success : AppColors.primary,
                   ),
@@ -182,12 +185,12 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                   ),
                   child: Text(
                     '+$optionalMarks optional',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: UIConstants.fontSizeSmall,
                       fontWeight: FontWeight.w500,
                       color: AppColors.warning,
                     ),
@@ -312,7 +315,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     setState(() {
       _allQuestions[_currentSection.name]!.addAll(questions);
     });
-    _showMessage('${questions.length} questions added', AppColors.success);
+    UiHelpers.showSuccessMessage(context, '${questions.length} questions added');
     _checkSectionCompletion();
   }
 
@@ -348,7 +351,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: UIConstants.spacing12),
             ],
 
             // Complete paper action
@@ -422,7 +425,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     setState(() {
       _allQuestions[_currentSection.name]!.add(correctedQuestion);
     });
-    _showMessage('Question added', AppColors.success);
+    UiHelpers.showSuccessMessage(context, 'Question added');
     _checkSectionCompletion();
   }
 
@@ -430,7 +433,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     setState(() {
       _allQuestions[_currentSection.name]![index] = updatedQuestion;
     });
-    _showMessage('Question updated', AppColors.success);
+    UiHelpers.showSuccessMessage(context, 'Question updated');
   }
 
   void _removeQuestion(int index) {
@@ -529,7 +532,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   void _handleBlocState(BuildContext context, QuestionPaperState state) {
     if (state is QuestionPaperSuccess) {
-      _showMessage(state.message, AppColors.success);
+      UiHelpers.showSuccessMessage(context, state.message);
       if (state.actionType == 'save') {
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) context.go(AppRoutes.home);
@@ -538,7 +541,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     }
     if (state is QuestionPaperError) {
       setState(() => _isProcessing = false);
-      _showMessage(state.message, AppColors.error);
+      UiHelpers.showErrorMessage(context, state.message);
     }
   }
 
@@ -549,8 +552,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         content: Text(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(UIConstants.paddingMedium),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
       ),
     );
   }

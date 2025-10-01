@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class TrueFalseInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
@@ -75,7 +77,7 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Question input with Enter key navigation
         TextField(
@@ -94,25 +96,25 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Show True/False options
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Row(
@@ -123,19 +125,19 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
                 'Students will choose: True or False',
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontSize: 12,
+                  fontSize: UIConstants.fontSizeSmall,
                 ),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -154,7 +156,7 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -204,7 +206,7 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
               'Please enter a statement',
               style: TextStyle(
                 color: AppColors.error,
-                fontSize: 12,
+                fontSize: UIConstants.fontSizeSmall,
               ),
             ),
           ),

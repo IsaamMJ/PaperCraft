@@ -12,6 +12,7 @@ import 'core/infrastructure/config/environment_config.dart';
 import 'core/infrastructure/di/injection_container.dart';
 import 'core/infrastructure/feature_flags/feature_flags.dart';
 import 'core/infrastructure/logging/app_logger.dart';
+import 'core/presentation/constants/ui_constants.dart';
 import 'core/presentation/routes/app_router.dart';
 import 'firebase_options.dart';
 
@@ -443,22 +444,22 @@ class _ErrorDisplay extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 64, color: iconColor),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               title,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             Text(
               message,
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: UIConstants.spacing16),
               Text(
                 subtitle!,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: const TextStyle(fontSize: UIConstants.fontSizeSmall, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             ],

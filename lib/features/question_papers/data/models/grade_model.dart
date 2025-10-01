@@ -47,6 +47,27 @@ class GradeModel extends GradeEntity {
     );
   }
 
+  Map<String, dynamic> toJsonForInsert() {
+    return {
+      'tenant_id': tenantId,
+      'name': name,
+      'level': level,
+      'section': section,
+      'is_active': isActive,
+      // Omit 'id' and 'created_at'
+    };
+  }
+
+  Map<String, dynamic> toJsonForUpdate() {
+    return {
+      'name': name,
+      'level': level,
+      'section': section,
+      'is_active': isActive,
+      // Omit 'id', 'tenant_id', 'created_at'
+    };
+  }
+
   factory GradeModel.fromEntity(GradeEntity entity) {
     return GradeModel(
       id: entity.id,

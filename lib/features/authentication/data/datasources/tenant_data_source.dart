@@ -8,6 +8,8 @@ abstract class TenantDataSource {
   Future<TenantModel> updateTenant(TenantModel tenant);
   Future<List<TenantModel>> getActiveTenants();
   Future<bool> isTenantActive(String tenantId);
+
+  Future<void> markAsInitialized(String tenantId);
 }
 
 class TenantDataSourceImpl implements TenantDataSource {
@@ -16,6 +18,49 @@ class TenantDataSourceImpl implements TenantDataSource {
   static const String _tableName = 'tenants';
 
   TenantDataSourceImpl(this._apiClient, this._logger);
+
+  // In TenantDataSourceImpl class:
+
+  @override
+  Future<void> markAsInitialized(String tenantId) async {
+    try {
+      _logger.info('Marking tenant as initialized in database', category: LogCategory.auth, context: {
+        'tenantId': tenantId,
+      });
+
+      final response = await _apiClient.update<Map<String, dynamic>>(
+        table: _tableName,
+        data: {'is_initialized': true},
+        filters: {'id': tenantId},
+        fromJson: (json) => json,
+      );
+
+      if (!response.isSuccess) {
+        _logger.error('Failed to mark tenant as initialized',
+          category: LogCategory.auth,
+          error: Exception('API Error: ${response.message}'),
+          context: {
+            'tenantId': tenantId,
+            'apiErrorType': response.errorType?.toString(),
+            'apiMessage': response.message,
+          },
+        );
+        throw Exception(response.message ?? 'Failed to mark tenant as initialized');
+      }
+
+      _logger.info('Tenant marked as initialized in database', category: LogCategory.auth, context: {
+        'tenantId': tenantId,
+      });
+    } catch (e, stackTrace) {
+      _logger.error('Failed to mark tenant as initialized',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'tenantId': tenantId},
+      );
+      rethrow;
+    }
+  }
 
   @override
   Future<TenantModel?> getTenantById(String id) async {

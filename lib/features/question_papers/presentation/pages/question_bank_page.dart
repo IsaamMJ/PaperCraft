@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:papercraft/features/question_papers/presentation/pages/pdf_preview_page.dart';
 import 'dart:async';
+
+import '../../../../core/presentation/constants/ui_constants.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/subject_entity.dart';
@@ -123,7 +126,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       child: Column(
         children: [
           _buildSearchBar(),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           _buildFilterChips(),
         ],
       ),
@@ -134,14 +137,14 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.border.withOpacity(0.3)),
       ),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Search papers, subjects...',
-          hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 14),
+          hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: UIConstants.fontSizeMedium),
           prefixIcon: Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -152,7 +155,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-        style: const TextStyle(fontSize: 14),
+        style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
         onChanged: (query) => setState(() => _searchQuery = query),
       ),
     );
@@ -196,7 +199,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           label: 'Grade',
           value: _selectedGradeLevel,
           options: _availableGradeLevels.map((level) =>
-              DropdownMenuItem(value: level, child: Text('Grade $level', style: const TextStyle(fontSize: 14)))).toList(),
+              DropdownMenuItem(value: level, child: Text('Grade $level', style: const TextStyle(fontSize: UIConstants.fontSizeMedium)))).toList(),
           onChanged: (value) => setState(() => _selectedGradeLevel = value),
         );
       },
@@ -224,7 +227,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           label: 'Subject',
           value: _selectedSubjectId,
           options: _availableSubjects.map((subject) =>
-              DropdownMenuItem(value: subject.id, child: Text(subject.name, style: const TextStyle(fontSize: 14)))).toList(),
+              DropdownMenuItem(value: subject.id, child: Text(subject.name, style: const TextStyle(fontSize: UIConstants.fontSizeMedium)))).toList(),
           onChanged: (value) => setState(() => _selectedSubjectId = value),
         );
       },
@@ -247,7 +250,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       height: 32, // Reduced height for mobile
       decoration: BoxDecoration(
         color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(
           color: isSelected ? AppColors.primary : AppColors.border.withOpacity(0.5),
         ),
@@ -261,7 +264,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               label,
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12,
+                fontSize: UIConstants.fontSizeSmall,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -274,7 +277,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 text.length > 10 ? '${text.substring(0, 10)}...' : text,
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontSize: 12,
+                  fontSize: UIConstants.fontSizeSmall,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -283,13 +286,13 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           items: [
             DropdownMenuItem<T>(
               value: null,
-              child: Text('All ${label}s', style: const TextStyle(fontSize: 14)),
+              child: Text('All ${label}s', style: const TextStyle(fontSize: UIConstants.fontSizeMedium)),
             ),
             ...options,
           ],
           onChanged: onChanged,
           icon: Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary, size: 18),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         ),
       ),
     );
@@ -301,7 +304,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.primary.withOpacity(0.3)),
       ),
       child: Row(
@@ -316,7 +319,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             ),
           ),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(color: AppColors.primary, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -327,14 +330,14 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       height: 32,
       decoration: BoxDecoration(
         color: AppColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.error.withOpacity(0.3)),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onRetry,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
@@ -342,7 +345,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               children: [
                 Icon(Icons.error_outline, size: 14, color: AppColors.error),
                 const SizedBox(width: 4),
-                Text(label, style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(label, style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -359,7 +362,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: AppColors.error.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
           border: Border.all(color: AppColors.error.withOpacity(0.3)),
         ),
         child: Row(
@@ -367,7 +370,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           children: [
             Icon(Icons.clear_rounded, size: 14, color: AppColors.error),
             const SizedBox(width: 4),
-            Text('Clear', style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text('Clear', style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -379,7 +382,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
       child: TabBar(
         controller: _tabController,
@@ -392,11 +395,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         unselectedLabelColor: AppColors.textSecondary,
         indicator: BoxDecoration(
           color: AppColors.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         ),
         indicatorPadding: const EdgeInsets.all(4),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: UIConstants.fontSizeSmall),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: UIConstants.fontSizeSmall),
         dividerColor: Colors.transparent,
       ),
     );
@@ -406,7 +409,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     return BlocConsumer<QuestionPaperBloc, QuestionPaperState>(
       listener: (context, state) {
         if (state is QuestionPaperError) {
-          _showMessage(state.message, AppColors.error);
+          UiHelpers.showErrorMessage(context, state.message);
         } else if (state is QuestionPaperLoaded) {
           _loadUserNamesForPapers(state.approvedPapers);
         }
@@ -557,7 +560,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(UIConstants.paddingSmall),
                   decoration: BoxDecoration(
                     gradient: AppColors.accentGradient,
                     borderRadius: BorderRadius.circular(10),
@@ -575,11 +578,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.accent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
                   ),
                   child: Text(
                     '${papers.length}',
-                    style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -601,11 +604,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
   Widget _buildStatsHeader(int paperCount) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(UIConstants.paddingMedium),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.primary.withOpacity(0.1)),
       ),
       child: Row(
@@ -614,7 +617,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Icon(Icons.assessment, size: 18, color: AppColors.primary),
           ),
@@ -625,7 +628,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               children: [
                 Text(
                   '$paperCount Papers Available',
-                  style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   'Ready for download and preview',
@@ -639,7 +642,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
               ),
               child: Text(
                 'Filtered',
@@ -660,7 +663,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(UIConstants.paddingSmall),
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(10),
@@ -678,11 +681,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
                   ),
                   child: Text(
                     '${papers.length}',
-                    style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -711,7 +714,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -736,7 +739,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                       Text(
                         paper.title,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: UIConstants.fontSizeMedium,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                           height: 1.3,
@@ -744,7 +747,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: UIConstants.spacing4),
                       Text(
                         'by $creatorName',
                         style: TextStyle(
@@ -755,7 +758,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: UIConstants.spacing6),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
@@ -772,7 +775,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     _buildStatusBadge(),
-                    const SizedBox(height: 4),
+                    SizedBox(height: UIConstants.spacing4),
                     Text(
                       _formatDate(paper.reviewedAt ?? paper.createdAt),
                       style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
@@ -781,7 +784,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Row(
               children: [
                 Expanded(
@@ -810,7 +813,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
       ),
       child: Text(
         text,
@@ -824,7 +827,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: AppColors.success.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
       ),
       child: Text(
         'APPROVED',
@@ -887,13 +890,13 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       height: 32,
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Center(
             child: isLoading
                 ? SizedBox(
@@ -941,22 +944,22 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             height: 60,
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
             ),
             child: Icon(icon, size: 30, color: AppColors.primary),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
           Text(
             title,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: UIConstants.spacing6),
           Text(
             description,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
             style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
@@ -976,11 +979,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             height: 50,
             decoration: BoxDecoration(
               gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
             ),
             child: const Icon(Icons.library_books, color: Colors.white, size: 24),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
           SizedBox(
             width: 28,
             height: 28,
@@ -989,10 +992,10 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               valueColor: AlwaysStoppedAnimation(AppColors.primary),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Text(
             'Loading papers...',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -1013,18 +1016,18 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             ),
             child: Icon(Icons.library_books_outlined, size: 40, color: AppColors.primary),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
           Text(
             'No Papers Available',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: UIConstants.spacing6),
           Text(
             'Approved papers will appear here',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeMedium),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
             style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
@@ -1152,11 +1155,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(UIConstants.paddingMedium),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1169,20 +1172,20 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               'Preview PDF',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: UIConstants.spacing6),
             Text(
               paper.title,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             _buildPreviewOption(
               'Single Page Layout',
               'One question paper per page',
@@ -1198,7 +1201,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               AppColors.accent,
                   () => _previewPdf(paper, 'dual'),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
@@ -1231,7 +1234,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(title, style: const TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600)),
                   Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),
                 ],
               ),
@@ -1283,11 +1286,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(UIConstants.paddingMedium),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1300,20 +1303,20 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               'Download PDF',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: UIConstants.spacing6),
             Text(
               paper.title,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             _buildDownloadOption(
               'Single Page Layout',
               'One question paper per page',
@@ -1329,7 +1332,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               AppColors.accent,
                   () => _generatePdf(paper, 'dual'),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
@@ -1362,7 +1365,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(title, style: const TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600)),
                   Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),
                 ],
               ),
@@ -1498,7 +1501,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         content: Text(message, style: const TextStyle(fontSize: 13)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
       ),
     );
   }

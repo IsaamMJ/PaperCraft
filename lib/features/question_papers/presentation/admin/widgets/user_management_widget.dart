@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../../authentication/domain/entities/user_entity.dart';
 import '../../../../authentication/domain/entities/user_role.dart';
+
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../bloc/user_management_bloc.dart';
 
 class UserManagementWidget extends StatefulWidget {
@@ -26,15 +28,15 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     return BlocListener<UserManagementBloc, UserManagementState>(
       listener: _handleStateChanges,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with info
             _buildHeader(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             const Divider(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
 
             // Users List
             Expanded(
@@ -46,7 +48,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           Text(
                             state.message ?? 'Loading users...',
                             style: TextStyle(color: AppColors.textSecondary),
@@ -64,11 +66,11 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
                           Icon(Icons.error_outline,
                               size: 48,
                               color: AppColors.error),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           Text(state.message,
                               style: TextStyle(color: AppColors.error),
                               textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           ElevatedButton(
                             onPressed: () {
                               context.read<UserManagementBloc>().add(const LoadTenantUsers());
@@ -89,14 +91,14 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
                             Icon(Icons.people_outline,
                                 size: 48,
                                 color: AppColors.textTertiary),
-                            const SizedBox(height: 16),
+                            SizedBox(height: UIConstants.spacing16),
                             Text('No users in tenant',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 )),
-                            const SizedBox(height: 8),
+                            SizedBox(height: UIConstants.spacing8),
                             Text('Users will appear here once they sign up',
                                 style: TextStyle(color: AppColors.textTertiary),
                                 textAlign: TextAlign.center),
@@ -133,10 +135,10 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Row(
@@ -158,7 +160,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: UIConstants.spacing4),
                 Text(
                   'Manage users within your tenant. You can change roles, activate/deactivate accounts, and remove users.',
                   style: TextStyle(
@@ -185,7 +187,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
               color: _getRoleColor(role).withOpacity(0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -224,7 +226,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
           style: TextStyle(
             color: _getRoleColor(user.role),
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: UIConstants.fontSizeMedium,
           ),
         ),
       ),
@@ -252,7 +254,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
               Text(
                 'Joined ${_formatDate(user.createdAt)}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: UIConstants.fontSizeSmall,
                   color: AppColors.textTertiary,
                 ),
               ),
@@ -314,7 +316,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: isActive ? AppColors.success.withOpacity(0.1) : AppColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Text(
         isActive ? 'Active' : 'Inactive',

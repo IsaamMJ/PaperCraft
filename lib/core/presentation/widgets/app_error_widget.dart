@@ -36,36 +36,36 @@ class AppErrorWidget extends StatelessWidget {
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(UIConstants.largePadding),
+          padding: const EdgeInsets.all(UIConstants.paddingLarge),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: UIConstants.largeIconSize,
+                size: UIConstants.iconHuge,
                 color: color,
               ),
-              const SizedBox(height: UIConstants.defaultSpacing),
+              SizedBox(height: UIConstants.spacing16),
               Text(
                 title,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: UIConstants.fontSizeXXLarge, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: UIConstants.smallSpacing),
+              SizedBox(height: UIConstants.spacing8),
               Text(
                 message,
-                style: const TextStyle(fontSize: 16),
+                style: TextStyle(fontSize: UIConstants.fontSizeLarge),
                 textAlign: TextAlign.center,
               ),
               if (showError && error != null) ...[
-                const SizedBox(height: UIConstants.defaultSpacing),
+                SizedBox(height: UIConstants.spacing16),
                 Text(
                   '${AppMessages.errorPrefix}${error.toString()}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: UIConstants.fontSizeSmall, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
               ],
-              const SizedBox(height: UIConstants.largeSpacing),
+              SizedBox(height: UIConstants.spacing24),
               ElevatedButton.icon(
                 onPressed: onBackPressed ?? () => _handleBack(context),
                 icon: const Icon(Icons.arrow_back),
@@ -108,7 +108,7 @@ class AppLoadingWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(),
-            const SizedBox(height: UIConstants.defaultSpacing),
+            SizedBox(height: UIConstants.spacing16),
             Text(message),
           ],
         ),

@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/exam_type_entity.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/services/paper_validation_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
+
+import '../../../../core/presentation/constants/ui_constants.dart';
 import '../bloc/subject_bloc.dart';
 import '../widgets/question_input/question_input_dialog.dart';
 
@@ -104,16 +107,20 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
-      // Both grade level AND sections must be properly selected
+      // Grade level must be selected
         if (_selectedGradeLevel == null) return false;
 
-        // If sections are available, at least one must be selected
-        if (_availableSections.isNotEmpty && _selectedSections.isEmpty) return false;
-
-        // If sections are loading, step is not valid yet
+        // If sections are still loading, step is not valid yet
         if (_isSectionsLoading) return false;
 
+        // NEW LOGIC: If sections exist, at least one must be selected
+        // If no sections exist, that's fine - paper applies to all
+        if (_availableSections.isNotEmpty && _selectedSections.isEmpty) {
+          return false;
+        }
+
         return true;
+
       case 2:
         return _selectedExamType != null && _selectedExamDate != null;
       case 3:
@@ -148,14 +155,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       _selectedSections.clear();
       _selectedSubjects.clear();
       _availableSections.clear();
-      _isSectionsLoading = true; // Start loading sections
+      _isSectionsLoading = true;
     });
 
-    // Load sections for the grade
     context.read<GradeBloc>().add(LoadSectionsByGrade(gradeLevel));
-
-    // Load subjects - this should trigger the listener
-    context.read<SubjectBloc>().add(const LoadSubjects());
+    // Subject filtering happens in the BlocListener when sections load
   }
 
   void _onSectionToggled(String section, bool selected) {
@@ -214,13 +218,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             slivers: [
               _buildAppBar(),
               SliverPadding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(UIConstants.paddingMedium),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildProgressIndicator(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: UIConstants.spacing24),
                     _buildCurrentStep(),
-                    const SizedBox(height: 32),
+                    SizedBox(height: UIConstants.spacing32),
                     _buildNavigationButtons(),
                     const SizedBox(height: 100),
                   ]),
@@ -262,7 +266,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))
         ],
@@ -274,7 +278,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               Text(
                 'Step $_currentStep of $_totalSteps',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: UIConstants.fontSizeMedium,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
                 ),
@@ -283,13 +287,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               Text(
                 _getStepTitle(_currentStep),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: UIConstants.fontSizeMedium,
                   color: AppColors.textSecondary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -299,7 +303,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               minHeight: 6,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Row(
             children: List.generate(_totalSteps, (index) {
               final stepNumber = index + 1;
@@ -318,7 +322,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                           : isCompleted
                           ? AppColors.success.withOpacity(0.1)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Column(
                       children: [
@@ -327,7 +331,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                           size: 16,
                           color: isCompleted ? AppColors.success : AppColors.textTertiary,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: UIConstants.spacing4),
                         Text(
                           _getStepTitle(stepNumber),
                           style: TextStyle(
@@ -401,7 +405,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                     height: 60,
                     decoration: BoxDecoration(
                       color: AppColors.backgroundSecondary,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: const Center(child: CircularProgressIndicator()),
                   );
@@ -412,7 +416,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       border: Border.all(color: AppColors.error),
                     ),
                     child: Row(
@@ -425,7 +429,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                             children: [
                               Text('Failed to load grades',
                                   style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
-                              Text(state.message, style: TextStyle(color: AppColors.error, fontSize: 12)),
+                              Text(state.message, style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall)),
                             ],
                           ),
                         ),
@@ -451,9 +455,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                         labelText: 'Grade Level',
                         filled: true,
                         fillColor: AppColors.backgroundSecondary,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge), borderSide: BorderSide.none),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                           borderSide: BorderSide(color: AppColors.primary, width: 2),
                         ),
                         prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
@@ -469,12 +473,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
                     // Grade Selection Confirmation
                     if (_selectedGradeLevel != null) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: UIConstants.spacing16),
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: AppColors.success.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                         ),
                         child: Row(
                           children: [
@@ -485,15 +489,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: UIConstants.spacing24),
 
                       // Sections Selection - SINGLE INSTANCE
                       if (_isSectionsLoading) ...[
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(UIConstants.paddingMedium),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           ),
                           child: Row(
                             children: [
@@ -521,7 +525,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           ),
                           child: Row(
                             children: [
@@ -539,10 +543,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                       ] else ...[
                         Text('Select Sections',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                        const SizedBox(height: 8),
+                        SizedBox(height: UIConstants.spacing8),
                         Text('Choose which sections this paper will be for:',
-                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                        const SizedBox(height: 12),
+                            style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary)),
+                        SizedBox(height: UIConstants.spacing12),
 
                         Wrap(
                           spacing: 12,
@@ -566,16 +570,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                         ),
 
                         if (_selectedSections.isEmpty) ...[
-                          const SizedBox(height: 8),
+                          SizedBox(height: UIConstants.spacing8),
                           Text('Please select at least one section',
-                              style: TextStyle(color: AppColors.error, fontSize: 14)),
+                              style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium)),
                         ] else ...[
-                          const SizedBox(height: 8),
+                          SizedBox(height: UIConstants.spacing8),
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: AppColors.success.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                             ),
                             child: Row(
                               children: [
@@ -614,10 +618,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
           // Exam Type Selection
           Text('Exam Type',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text('Choose the type of examination:',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          const SizedBox(height: 12),
+              style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary)),
+          SizedBox(height: UIConstants.spacing12),
 
           BlocListener<QuestionPaperBloc, QuestionPaperState>(
             listener: (context, state) {
@@ -632,7 +636,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                     height: 120,
                     decoration: BoxDecoration(
                       color: AppColors.backgroundSecondary,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: const Center(
                       child: Column(
@@ -649,26 +653,26 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
                 if (state is QuestionPaperError) {
                   return Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(UIConstants.paddingMedium),
                     decoration: BoxDecoration(
                       color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       border: Border.all(color: AppColors.error),
                     ),
                     child: Column(
                       children: [
                         Icon(Icons.error_outline, color: AppColors.error, size: 32),
-                        const SizedBox(height: 8),
+                        SizedBox(height: UIConstants.spacing8),
                         Text(
                           'Failed to load exam types',
                           style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: UIConstants.spacing4),
                         Text(
                           state.message,
-                          style: TextStyle(color: AppColors.error, fontSize: 12),
+                          style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: UIConstants.spacing12),
                         ElevatedButton.icon(
                           onPressed: () {
                             context.read<QuestionPaperBloc>().add(const LoadExamTypes());
@@ -689,24 +693,24 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
                 if (examTypes.isEmpty) {
                   return Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(UIConstants.paddingMedium),
                     decoration: BoxDecoration(
                       color: AppColors.warning.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       border: Border.all(color: AppColors.warning),
                     ),
                     child: Column(
                       children: [
                         Icon(Icons.warning_amber, color: AppColors.warning, size: 32),
-                        const SizedBox(height: 8),
+                        SizedBox(height: UIConstants.spacing8),
                         Text(
                           'No exam types available',
                           style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: UIConstants.spacing4),
                         Text(
                           'Please contact your administrator to set up exam types.',
-                          style: TextStyle(color: AppColors.warning, fontSize: 12),
+                          style: TextStyle(color: AppColors.warning, fontSize: UIConstants.fontSizeSmall),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -723,12 +727,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: () => setState(() => _selectedExamType = type),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(UIConstants.paddingMedium),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                               border: Border.all(
                                 color: isSelected ? AppColors.primary : AppColors.border,
                                 width: isSelected ? 2 : 1,
@@ -763,7 +767,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                                           style: TextStyle(fontWeight: FontWeight.w600,
                                               color: isSelected ? AppColors.primary : AppColors.textPrimary)),
                                       Text('${type.formattedDuration} • ${type.calculatedTotalMarks} marks • ${type.sections.length} sections',
-                                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                          style: TextStyle(fontSize: UIConstants.fontSizeSmall, color: AppColors.textSecondary)),
                                     ],
                                   ),
                                 ),
@@ -781,20 +785,20 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
           // Exam Date Selection (appears after exam type is selected)
           if (_selectedExamType != null) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: UIConstants.spacing24),
             Text('Exam Date',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             Text('When will this exam be conducted?',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-            const SizedBox(height: 12),
+                style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary)),
+            SizedBox(height: UIConstants.spacing12),
 
             GestureDetector(
               onTap: _selectExamDate,
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(UIConstants.paddingMedium),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   border: Border.all(
                     color: _selectedExamDate != null ? AppColors.primary : AppColors.border,
                     width: _selectedExamDate != null ? 2 : 1,
@@ -832,12 +836,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             ),
 
             if (_selectedExamDate != null) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: UIConstants.spacing12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
                 child: Row(
                   children: [
@@ -877,7 +881,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                   height: 120,
                   decoration: BoxDecoration(
                     color: AppColors.backgroundSecondary,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: const Center(
                     child: Column(
@@ -895,26 +899,26 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               if (state is SubjectError) {
                 print('🔍 DEBUG: Showing error UI for: ${state.message}');
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
                   decoration: BoxDecoration(
                     color: AppColors.error.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     border: Border.all(color: AppColors.error),
                   ),
                   child: Column(
                     children: [
                       Icon(Icons.error_outline, color: AppColors.error, size: 32),
-                      const SizedBox(height: 8),
+                      SizedBox(height: UIConstants.spacing8),
                       Text(
                         'Failed to load subjects',
                         style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: UIConstants.spacing4),
                       Text(
                         state.message,
-                        style: TextStyle(color: AppColors.error, fontSize: 12),
+                        style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: UIConstants.spacing12),
                       ElevatedButton.icon(
                         onPressed: () {
                           print('🔍 DEBUG: Retry button pressed, loading all subjects');
@@ -933,33 +937,42 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               }
 
               // Get subjects directly from BLoC state
-              final subjectsToShow = state is SubjectsLoaded ? state.subjects : <SubjectEntity>[];
-              print('🔍 DEBUG: subjectsToShow length: ${subjectsToShow.length}');
+              final allSubjects = state is SubjectsLoaded ? state.subjects : <SubjectEntity>[];
+              print('🔍 DEBUG: Total subjects loaded: ${allSubjects.length}');
+
+              // Filter subjects based on selected grade level
+              final subjectsToShow = _selectedGradeLevel != null
+                  ? _filterSubjectsByGrade(allSubjects, _selectedGradeLevel!)
+                  : allSubjects;
+
+              print('🔍 DEBUG: Subjects after grade filtering: ${subjectsToShow.length}');
 
               if (subjectsToShow.isEmpty) {
                 print('🔍 DEBUG: No subjects to show, displaying empty state');
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     border: Border.all(color: AppColors.warning),
                   ),
                   child: Column(
                     children: [
                       Icon(Icons.warning_amber, color: AppColors.warning, size: 32),
-                      const SizedBox(height: 8),
+                      SizedBox(height: UIConstants.spacing8),
                       Text(
-                        'No subjects available',
+                        _selectedGradeLevel != null
+                            ? 'No subjects available for Grade $_selectedGradeLevel'
+                            : 'No subjects available',
                         style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: UIConstants.spacing4),
                       Text(
                         'Please contact your administrator to set up subjects.',
-                        style: TextStyle(color: AppColors.warning, fontSize: 12),
+                        style: TextStyle(color: AppColors.warning, fontSize: UIConstants.fontSizeSmall),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: UIConstants.spacing12),
                       ElevatedButton.icon(
                         onPressed: () {
                           print('🔍 DEBUG: Reload button pressed');
@@ -983,9 +996,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 children: [
                   Text(
                       'Select a subject:',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w500)
+                      style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary, fontWeight: FontWeight.w500)
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: UIConstants.spacing12),
 
                   // Subject selection with radio button style
                   Column(
@@ -997,12 +1010,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () => _onSubjectSelected(subject),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(UIConstants.paddingMedium),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                                 border: Border.all(
                                   color: isSelected ? AppColors.primary : AppColors.border,
                                   width: isSelected ? 2 : 1,
@@ -1040,11 +1053,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                                           ),
                                         ),
                                         if (subject.description != null && subject.description!.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
+                                          SizedBox(height: UIConstants.spacing4),
                                           Text(
                                             subject.description!,
                                             style: TextStyle(
-                                              fontSize: 12,
+                                              fontSize: UIConstants.fontSizeSmall,
                                               color: AppColors.textSecondary,
                                             ),
                                           ),
@@ -1062,16 +1075,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                   ),
 
                   if (_selectedSubjects.isEmpty) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: UIConstants.spacing12),
                     Text('Please select a subject',
-                        style: TextStyle(color: AppColors.error, fontSize: 14)),
+                        style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium)),
                   ] else ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: UIConstants.spacing12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       ),
                       child: Row(
                         children: [
@@ -1096,6 +1109,31 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
+// Add this helper method near other helper methods like _generateAutoTitle()
+  List<SubjectEntity> _filterSubjectsByGrade(List<SubjectEntity> subjects, int gradeLevel) {
+    return subjects.where((subject) {
+      // Elementary grades (1-5): Basic subjects only
+      if (gradeLevel <= 5) {
+        return ['Mathematics', 'English', 'Science', 'Social Studies', 'Hindi', 'Tamil', 'Physical Education']
+            .contains(subject.name);
+      }
+
+      // Middle school (6-8): Add more subjects, exclude advanced ones
+      if (gradeLevel <= 8) {
+        return !['Physics', 'Chemistry', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'Political Science']
+            .contains(subject.name);
+      }
+
+      // Grade 9-10: Most subjects except commerce/humanities specializations
+      if (gradeLevel <= 10) {
+        return !['Accountancy', 'Business Studies'].contains(subject.name);
+      }
+
+      // High school (11-12): All subjects available
+      return true;
+    }).toList();
+  }
+
 
   Widget _buildStep4() {
     return _buildStepCard(
@@ -1105,12 +1143,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               border: Border.all(color: AppColors.border),
             ),
             child: Column(
@@ -1118,7 +1156,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               children: [
                 Text(_generateAutoTitle(),
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                const SizedBox(height: 12),
+                SizedBox(height: UIConstants.spacing12),
                 _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
                 _buildPreviewRow(Icons.calendar_today, 'Exam Date',
                     _selectedExamDate != null ? _formatExamDate(_selectedExamDate!) : 'Not selected'),
@@ -1128,9 +1166,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 _buildPreviewRow(Icons.access_time_rounded, 'Duration', _selectedExamType!.formattedDuration),
                 _buildPreviewRow(Icons.grade_rounded, 'Total Marks', '${_selectedExamType!.calculatedTotalMarks}'),
                 _buildPreviewRow(Icons.subject_rounded, 'Subject', _selectedSubjects.map((s) => s.name).join(', ')),
-                const SizedBox(height: 12),
+                SizedBox(height: UIConstants.spacing12),
                 Text('Question Sections:', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                const SizedBox(height: 8),
+                SizedBox(height: UIConstants.spacing8),
                 ..._selectedExamType!.sections.map((section) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
@@ -1139,7 +1177,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text('${section.name} (${section.questions} questions × ${section.marksPerQuestion} marks)',
-                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                            style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary)),
                       ),
                     ],
                   ),
@@ -1147,7 +1185,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -1160,7 +1198,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
@@ -1186,19 +1224,19 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   Widget _buildStepCard(String title, String subtitle, Widget child) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text(subtitle, style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-          const SizedBox(height: 24),
+          SizedBox(height: UIConstants.spacing24),
           child,
         ],
       ),
@@ -1218,7 +1256,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 foregroundColor: AppColors.textSecondary,
                 side: BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
               ),
             ),
           ),
@@ -1234,7 +1272,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
                 disabledBackgroundColor: AppColors.textTertiary,
               ),
             ),
@@ -1249,7 +1287,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 foregroundColor: AppColors.textSecondary,
                 side: BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
               ),
             ),
           ),
@@ -1297,7 +1335,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             } else if (state is QuestionPaperError) {
               setState(() => _isCreating = false);
               Navigator.of(dialogContext).pop();
-              _showMessage(state.message, AppColors.error);
+              UiHelpers.showErrorMessage(context, state.message);
             }
           },
           child: QuestionInputDialog(
@@ -1334,7 +1372,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
       ),
     );
   }

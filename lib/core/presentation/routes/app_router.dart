@@ -5,10 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
+import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
+import '../../../features/question_papers/presentation/admin/exam_type_management_page.dart';
+import '../../../features/question_papers/presentation/admin/grade_management_page.dart';
 import '../../../features/question_papers/presentation/admin/settings_screen.dart';
+import '../../../features/question_papers/presentation/admin/subject_management_page.dart';
+import '../../../features/question_papers/presentation/admin/user_management_page.dart';
+import '../../../features/question_papers/presentation/bloc/exam_type_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/grade_bloc.dart';
 import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
+import '../../../features/question_papers/presentation/bloc/user_management_bloc.dart';
 import '../../../features/question_papers/presentation/pages/question_paper_edit_page.dart';
 import '../../../features/shared/presentation/main_scaffold_screen.dart';
 import '../../domain/interfaces/i_logger.dart';
@@ -31,6 +38,8 @@ import '../../../features/question_papers/presentation/pages/question_paper_crea
 import '../../../features/question_papers/presentation/pages/question_bank_page.dart';
 
 // Widgets and routes
+import '../constants/ui_constants.dart';
+import '../constants/app_colors.dart';
 import '../widgets/app_error_widget.dart';
 import '../constants/app_messages.dart';
 import 'app_routes.dart';
@@ -54,8 +63,6 @@ class AppRouter {
   }
 
   /// Handle authentication and authorization redirects
-
-
   static String? _handleRedirection(BuildContext context, GoRouterState state, AuthBloc authBloc) {
     final authState = authBloc.state;
     final currentLocation = state.matchedLocation;
@@ -163,8 +170,7 @@ class AppRouter {
   static QuestionPaperBloc _createQuestionPaperBloc() {
     return QuestionPaperBloc(
       saveDraftUseCase: sl(),
-
-      getExamTypesUseCase: sl(), // ADD THIS LINE
+      getExamTypesUseCase: sl(),
       submitPaperUseCase: sl(),
       getDraftsUseCase: sl(),
       getUserSubmissionsUseCase: sl(),
@@ -174,8 +180,8 @@ class AppRouter {
       deleteDraftUseCase: sl(),
       pullForEditingUseCase: sl(),
       getPaperByIdUseCase: sl(),
-      getAllPapersForAdminUseCase: sl(), // NEW
-      getApprovedPapersUseCase: sl(),    // NEW
+      getAllPapersForAdminUseCase: sl(),
+      getApprovedPapersUseCase: sl(),
     );
   }
 
@@ -207,7 +213,6 @@ class AppRouter {
       ),
 
       // Question paper routes
-      // Question paper routes
       GoRoute(
         path: '${AppRoutes.questionPaperView}/:${RouteParams.id}',
         builder: (context, state) {
@@ -216,7 +221,7 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
-              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: QuestionPaperDetailPage(
               questionPaperId: id,
@@ -234,7 +239,7 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
-              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: QuestionPaperEditPage(questionPaperId: id),
           );
@@ -247,7 +252,7 @@ class AppRouter {
           providers: [
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
-            BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+            BlocProvider(create: (_) => sl<SubjectBloc>()),
           ],
           child: const QuestionBankPage(),
         ),
@@ -259,13 +264,13 @@ class AppRouter {
           providers: [
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
-            BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+            BlocProvider(create: (_) => sl<SubjectBloc>()),
           ],
           child: const QuestionPaperCreatePage(),
         ),
       ),
 
-// Admin routes
+      // Admin routes
       GoRoute(
         path: AppRoutes.adminDashboard,
         builder: (context, state) {
@@ -274,11 +279,49 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
-              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: const AdminDashboardPage(),
           );
         },
+      ),
+
+      // Settings management routes
+      GoRoute(
+        path: AppRoutes.settingsSubjects,
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<SubjectBloc>(),
+          child: const SubjectManagementPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: AppRoutes.settingsGrades,
+        builder: (context, state) => BlocProvider(
+          create: (_) => GradeBloc(repository: sl()),
+          child: const GradeManagementPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: AppRoutes.settingsExamTypes,
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<ExamTypeBloc>(),
+          child: const ExamTypeManagementPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: AppRoutes.settingsUsers,
+        builder: (context, state) => BlocProvider(
+          create: (_) => UserManagementBloc(),
+          child: const UserManagementPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: AppRoutes.onboarding,
+        builder: (context, state) => const TenantOnboardingPage(),
       ),
 
       GoRoute(
@@ -292,7 +335,7 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
-              BlocProvider(create: (_) => sl<SubjectBloc>()), // ADD THIS
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: PaperReviewPage(paperId: id),
           );
@@ -334,7 +377,7 @@ class _OAuthCallbackPage extends StatefulWidget {
 
 class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   bool _isProcessing = true;
-  String _statusMessage = 'Processing authentication...';
+  String _statusMessage = AppMessages.processingAuth;
 
   @override
   void initState() {
@@ -386,7 +429,7 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
             });
 
         setState(() {
-          _statusMessage = 'Your email domain is not authorized for this application.';
+          _statusMessage = AppMessages.organizationNotAuthorized;
           _isProcessing = false;
         });
 
@@ -407,7 +450,7 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
       );
 
       setState(() {
-        _statusMessage = 'Authentication error occurred.';
+        _statusMessage = AppMessages.authFailedGeneric;
         _isProcessing = false;
       });
 
@@ -419,7 +462,7 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   }
 
   Future<Session?> _waitForSessionWithRetry() async {
-    const maxAttempts = 8; // Reduced attempts for faster feedback
+    const maxAttempts = 8;
     const baseDelay = Duration(milliseconds: 500);
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -445,28 +488,53 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) => _handleAuthState(context, state),
+      listener: _handleAuthState,
       child: Scaffold(
+        backgroundColor: AppColors.background,
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(UIConstants.paddingLarge),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_isProcessing) ...[
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: UIConstants.iconXLarge,
+                    height: UIConstants.iconXLarge,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    ),
+                  ),
+                  SizedBox(height: UIConstants.spacing24),
                 ],
                 Text(
                   _statusMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeLarge,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 if (!_isProcessing) ...[
-                  const SizedBox(height: 24),
+                  SizedBox(height: UIConstants.spacing24),
                   ElevatedButton(
                     onPressed: () => context.go(AppRoutes.login),
-                    child: const Text('Return to Login'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: UIConstants.spacing24,
+                        vertical: UIConstants.spacing12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                      ),
+                    ),
+                    child: Text(
+                      'Return to Login',
+                      style: TextStyle(fontSize: UIConstants.fontSizeMedium),
+                    ),
                   ),
                 ],
               ],
@@ -495,7 +563,7 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
             context: {'error': state.message}
         );
         setState(() {
-          _statusMessage = 'Authentication failed: ${state.message}';
+          _statusMessage = '${AppMessages.authFailedGeneric} ${state.message}';
           _isProcessing = false;
         });
 

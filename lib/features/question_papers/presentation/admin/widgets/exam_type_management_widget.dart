@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../domain/entities/exam_type_entity.dart';
 import '../../bloc/exam_type_bloc.dart';
 
@@ -40,14 +41,14 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
     return BlocListener<ExamTypeBloc, ExamTypeState>(
       listener: _handleStateChanges,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         child: Column(
           children: [
             // Add/Edit Form
             _buildForm(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             const Divider(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
 
             // Exam Types List
             Expanded(
@@ -65,11 +66,11 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                           Icon(Icons.error_outline,
                               size: 48,
                               color: AppColors.error),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           Text(state.message,
                               style: TextStyle(color: AppColors.error),
                               textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           ElevatedButton(
                             onPressed: () {
                               context.read<ExamTypeBloc>().add(const LoadExamTypes());
@@ -90,14 +91,14 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                             Icon(Icons.quiz_outlined,
                                 size: 48,
                                 color: AppColors.textTertiary),
-                            const SizedBox(height: 16),
+                            SizedBox(height: UIConstants.spacing16),
                             Text('No exam types yet',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 )),
-                            const SizedBox(height: 8),
+                            SizedBox(height: UIConstants.spacing8),
                             Text('Add your first exam type above',
                                 style: TextStyle(color: AppColors.textTertiary)),
                           ],
@@ -138,7 +139,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           TextFormField(
             controller: _nameController,
@@ -147,7 +148,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
               hintText: 'e.g., Quarterly Exam, Annual Exam',
               prefixIcon: Icon(Icons.quiz, color: AppColors.primary),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
             ),
             validator: (value) {
@@ -157,7 +158,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           Row(
             children: [
@@ -169,7 +170,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                     hintText: '180',
                     prefixIcon: Icon(Icons.timer, color: AppColors.primary),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                   ),
                   keyboardType: TextInputType.number,
@@ -193,7 +194,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                     hintText: '100',
                     prefixIcon: Icon(Icons.grade, color: AppColors.primary),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                   ),
                   keyboardType: TextInputType.number,
@@ -210,11 +211,11 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           // Sections Management
           _buildSectionsManagement(),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
 
           Row(
             children: [
@@ -265,14 +266,14 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: UIConstants.spacing8),
 
         if (_sections.isEmpty)
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.textTertiary.withOpacity(0.3)),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Center(
               child: Text(
@@ -366,7 +367,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: UIConstants.spacing8),
                   ...examType.sections.map((section) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
@@ -392,7 +393,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                       ],
                     ),
                   )).toList(),
-                  const SizedBox(height: 8),
+                  SizedBox(height: UIConstants.spacing8),
                 ],
               ),
             ),
@@ -441,7 +442,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                         hintText: 'e.g., Part A, MCQs',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: UIConstants.spacing12),
                     DropdownButtonFormField<String>(
                       value: selectedType,
                       decoration: const InputDecoration(
@@ -463,7 +464,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: UIConstants.spacing12),
                     Row(
                       children: [
                         Expanded(
@@ -487,7 +488,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: UIConstants.spacing12),
                     TextFormField(
                       controller: questionsToAnswerController,
                       decoration: const InputDecoration(

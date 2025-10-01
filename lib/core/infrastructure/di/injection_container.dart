@@ -8,6 +8,7 @@ import '../../../features/authentication/data/repositories/tenant_repository_imp
 import '../../../features/authentication/domain/repositories/tenant_repository.dart';
 import '../../../features/authentication/domain/usecases/get_tenant_usecase.dart';
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../../features/onboarding/domain/usecases/seed_tenant_usecase.dart';
 import '../../../features/question_papers/data/datasources/subject_data_source.dart';
 import '../../../features/question_papers/data/repositories/subject_repository_impl.dart';
 import '../../../features/question_papers/domain/repositories/subject_repository.dart';
@@ -238,6 +239,7 @@ class _NetworkModule {
 }
 
 /// Authentication layer dependencies
+/// Authentication layer dependencies
 class _AuthModule {
   static Future<void> setup() async {
     try {
@@ -263,6 +265,9 @@ class _AuthModule {
       // Setup tenant dependencies
       _setupTenantDependencies();
 
+      // ADD THIS NEW LINE - Setup onboarding dependencies
+      _setupOnboardingDependencies();
+
       // Use cases - Now includes logger dependency
       sl.registerLazySingleton<AuthUseCase>(
             () => AuthUseCase(sl<AuthRepository>(), sl<ILogger>()),
@@ -286,6 +291,7 @@ class _AuthModule {
           'authProvider': 'supabase_google_oauth',
           'redirectUrl': AuthConfig.redirectUrl,
           'tenantSupport': true,
+          'onboardingSupport': true, // ADD THIS
           'environment': EnvironmentConfig.current.name,
           'platform': PlatformUtils.platformName,
         },
@@ -305,6 +311,28 @@ class _AuthModule {
       rethrow;
     }
   }
+
+
+  // ADD THIS NEW METHOD
+  static void _setupOnboardingDependencies() {
+    sl<ILogger>().debug('Setting up onboarding dependencies', category: LogCategory.auth);
+
+    // Register SeedTenantUseCase
+    sl.registerLazySingleton<SeedTenantUseCase>(
+          () => SeedTenantUseCase(
+        sl<SubjectRepository>(),
+        sl<GradeRepository>(),
+        sl<ExamTypeRepository>(),
+        sl<ILogger>(),
+      ),
+    );
+
+    sl<ILogger>().debug('Onboarding dependencies registered successfully', category: LogCategory.auth, context: {
+      'useCase': 'SeedTenantUseCase',
+      'dependencies': ['SubjectRepository', 'GradeRepository', 'ExamTypeRepository'],
+    });
+  }
+
 
   // Setup tenant dependencies
   static void _setupTenantDependencies() {

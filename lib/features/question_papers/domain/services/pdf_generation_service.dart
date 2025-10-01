@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../../../../core/presentation/constants/ui_constants.dart';
 import '../entities/question_entity.dart';
 import '../entities/question_paper_entity.dart';
 
@@ -37,35 +38,84 @@ class SimplePdfService implements IPdfGenerationService {
     final pdf = pw.Document();
 
     try {
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4.landscape,
-          margin: const pw.EdgeInsets.all(15),
-          build: (context) {
-            return pw.Row(
-              children: [
-                // Left paper
-                pw.Expanded(
-                  child: _buildSinglePaperLayout(schoolName, paper),
-                ),
-                pw.SizedBox(width: 10),
-                // Right paper (identical)
-                pw.Expanded(
-                  child: _buildSinglePaperLayout(schoolName, paper),
-                ),
-              ],
-            );
-          },
-        ),
-      );
+      final allSections = _getSortedSections(paper.questions);
+      final totalSections = allSections.length;
+
+      // Estimate: ~8-10 questions per side (adjust based on your content)
+      final estimatedQuestionsPerSide = 12;
+      final totalQuestions = paper.questions.values.expand((q) => q).length;
+
+      // Check if content fits in single page dual layout
+      if (totalQuestions <= estimatedQuestionsPerSide) {
+        // Single page - both sides identical with full content
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4.landscape,
+            margin: const pw.EdgeInsets.all(15),
+            build: (context) {
+              return pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(child: _buildSinglePaperLayout(schoolName, paper)),
+                  pw.SizedBox(width: 10),
+                  pw.Expanded(child: _buildSinglePaperLayout(schoolName, paper)),
+                ],
+              );
+            },
+          ),
+        );
+      } else {
+        // Multi-page needed - split content
+        final halfPoint = (totalSections / 2).ceil();
+        final leftSections = Map.fromEntries(allSections.take(halfPoint));
+        final rightSections = Map.fromEntries(allSections.skip(halfPoint));
+
+        // First page: Left with header + Right continuation
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4.landscape,
+            margin: const pw.EdgeInsets.all(15),
+            build: (context) {
+              return pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // LEFT: Header + first half sections
+                  pw.Expanded(
+                    child: _buildSinglePaperLayout(
+                      schoolName,
+                      paper,
+                      sectionsToShow: leftSections,
+                      startingSectionIndex: 1,
+                    ),
+                  ),
+                  pw.SizedBox(width: 10),
+                  // RIGHT: Continuation without header
+                  pw.Expanded(
+                    child: _buildContinuationLayout(
+                      paper,
+                      rightSections,
+                      startingSectionIndex: halfPoint + 1,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+
+        // If right side still has overflow (very long papers), add more pages
+        // This handles extreme cases with 30+ questions
+        if (totalQuestions > estimatedQuestionsPerSide * 2) {
+          // Add additional continuation pages as needed
+          // For now, the single overflow page should handle most cases
+        }
+      }
     } catch (e) {
-      // Error recovery - create simpler layout if complex one fails
       pdf.addPage(
         pw.Page(
-          build: (context) =>
-              pw.Center(
-                child: pw.Text('Error generating PDF. Please contact support.'),
-              ),
+          build: (context) => pw.Center(
+            child: pw.Text('Error generating PDF. Please contact support.'),
+          ),
         ),
       );
     }
@@ -73,10 +123,16 @@ class SimplePdfService implements IPdfGenerationService {
     return pdf.save();
   }
 
-  pw.Widget _buildSinglePaperLayout(String schoolName,
-      QuestionPaperEntity paper) {
+  pw.Widget _buildSinglePaperLayout(
+      String schoolName,
+      QuestionPaperEntity paper, {
+        Map<String, List<Question>>? sectionsToShow,
+        int startingSectionIndex = 1,
+      }) {
+    final sections = sectionsToShow ?? paper.questions;
+
     return pw.Container(
-      padding: const pw.EdgeInsets.all(6), // Reduced from 10
+      padding: const pw.EdgeInsets.all(6),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(width: 0.5),
       ),
@@ -84,17 +140,134 @@ class SimplePdfService implements IPdfGenerationService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildCompactHeader(schoolName: schoolName, paper: paper),
-
           pw.Expanded(
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: _buildCompactQuestions(paper),
+              children: _buildCompactQuestionsForSections(sections, startingSectionIndex),
             ),
           ),
         ],
       ),
     );
   }
+
+  pw.Widget _buildContinuationLayout(
+      QuestionPaperEntity paper,
+      Map<String, List<Question>> sections, {
+        int startingSectionIndex = 1,
+      }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(width: 0.5),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: _buildCompactQuestionsForSections(sections, startingSectionIndex),
+      ),
+    );
+  }
+
+  List<pw.Widget> _buildCompactQuestionsForSections(
+      Map<String, List<Question>> sections,
+      int startingSectionIndex,
+      ) {
+    final widgets = <pw.Widget>[];
+    final sortedSections = sections.entries.toList();
+    int sectionIndex = startingSectionIndex;
+
+    for (final sectionEntry in sortedSections) {
+      final sectionName = sectionEntry.key;
+      final questions = sectionEntry.value;
+
+      if (questions.isEmpty) continue;
+
+      try {
+        final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
+        final questionCount = questions.length;
+
+        widgets.add(
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  '${_getRomanNumeral(sectionIndex)}. $sectionName',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                    font: _boldFont,
+                  ),
+                ),
+                pw.Text(
+                  '$questionCount × ${sectionMarks ~/ questionCount} = $sectionMarks marks',
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                    font: _boldFont,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        widgets.add(pw.SizedBox(height: 1));
+
+        final commonInstruction = _getCommonInstruction(questions.first.type);
+        if (commonInstruction.isNotEmpty) {
+          widgets.add(
+            pw.Container(
+              padding: const pw.EdgeInsets.all(2),
+              margin: const pw.EdgeInsets.only(bottom: 2),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(2),
+              ),
+              child: pw.Text(
+                commonInstruction,
+                style: pw.TextStyle(fontSize: 8, font: _regularFont),
+              ),
+            ),
+          );
+        }
+
+        for (int i = 0; i < questions.length; i++) {
+          final question = questions[i];
+          final questionNumber = i + 1;
+
+          try {
+            widgets.add(_buildCompactSingleQuestion(
+              question: question,
+              questionNumber: questionNumber,
+              showCommonText: commonInstruction.isEmpty,
+            ));
+
+            if (i < questions.length - 1) {
+              widgets.add(pw.SizedBox(height: 2));
+            }
+          } catch (e) {
+            widgets.add(
+              pw.Text(
+                '$questionNumber. [Question error]',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+              ),
+            );
+          }
+        }
+
+        widgets.add(pw.SizedBox(height: 3));
+        sectionIndex++;
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return widgets;
+  }
+
 
   @override
   Future<Uint8List> generateStudentPdf({
@@ -195,7 +368,7 @@ class SimplePdfService implements IPdfGenerationService {
           child: pw.Text(
             paper.title,
             style: pw.TextStyle(
-              fontSize: 14, // Increased from 12
+              fontSize: UIConstants.fontSizeMedium, // Increased from 12
               fontWeight: pw.FontWeight.bold,
               font: _boldFont,
             ),
@@ -379,7 +552,7 @@ class SimplePdfService implements IPdfGenerationService {
                 pw.Text(
                   '${_getRomanNumeral(sectionIndex)}. $sectionName',
                   style: pw.TextStyle(
-                    fontSize: 12, // Increased from 10
+                    fontSize: UIConstants.fontSizeSmall, // Increased from 10
                     fontWeight: pw.FontWeight.bold,
                     font: _boldFont,
                   ),

@@ -24,10 +24,6 @@ class PaperValidationService {
       errors.add('Grade level must be between 1 and 12');
     }
 
-    if (selectedSections.isEmpty) {
-      errors.add('At least one section must be selected');
-    }
-
     if (selectedSubjects.isEmpty) {
       errors.add('At least one subject must be selected');
     }

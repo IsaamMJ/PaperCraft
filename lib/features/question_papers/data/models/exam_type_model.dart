@@ -56,6 +56,31 @@ class ExamTypeModel extends ExamTypeEntity {
     );
   }
 
+  Map<String, dynamic> toJsonForInsert() {
+    return {
+      'tenant_id': tenantId,
+      'name': name,
+      'description': description,
+      'duration_minutes': durationMinutes,
+      'total_marks': totalMarks,
+      'total_sections': totalQuestions,
+      'sections': sections.map((s) => s.toJson()).toList(),
+      // Omit 'id' and 'created_at'
+    };
+  }
+
+  Map<String, dynamic> toJsonForUpdate() {
+    return {
+      'name': name,
+      'description': description,
+      'duration_minutes': durationMinutes,
+      'total_marks': totalMarks,
+      'total_sections': totalQuestions,
+      'sections': sections.map((s) => s.toJson()).toList(),
+      // Omit 'id', 'tenant_id', 'created_at'
+    };
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

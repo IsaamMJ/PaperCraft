@@ -2,9 +2,13 @@ import 'dart:core';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../../core/presentation/constants/ui_constants.dart';
 
 import '../../../core/infrastructure/di/injection_container.dart';
 import '../../../core/presentation/constants/app_colors.dart';
+import '../../../core/presentation/routes/app_routes.dart';
 import '../../authentication/domain/entities/user_role.dart';
 import '../../authentication/domain/services/user_state_service.dart';
 import '../../authentication/presentation/bloc/auth_bloc.dart';
@@ -54,6 +58,42 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     _logoutAnimationController.dispose();
     _userStateSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    if (!mounted) return;
+
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    // Only check for admins
+    if (!_userStateService.isAdmin) return;
+
+    final tenant = _userStateService.currentTenant;
+
+    // If tenant data is still loading, wait
+    if (tenant == null && _userStateService.isTenantLoading) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        _checkOnboardingStatus();
+      }
+      return;
+    }
+
+    // If tenant is not initialized, navigate to onboarding
+    if (tenant != null && !tenant.isInitialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go(AppRoutes.onboarding);
+        }
+      });
+    }
   }
 
   void _initializeServices() {
@@ -128,7 +168,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       barrierDismissible: !_isLoggingOut,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusXLarge)),
           title: Row(
             children: [
               Container(
@@ -136,7 +176,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 height: 32,
                 decoration: BoxDecoration(
                   gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
                 child: Center(
                   child: Text(
@@ -144,7 +184,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontSize: UIConstants.fontSizeMedium,
                     ),
                   ),
                 ),
@@ -166,7 +206,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     Text(
                       user.fullName,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: UIConstants.fontSizeMedium,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -185,12 +225,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 'Are you sure you want to sign out?',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: UIConstants.spacing8),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                 ),
                 child: Row(
@@ -206,7 +246,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                         'You will need to sign in again to access your papers.',
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 12,
+                          fontSize: UIConstants.fontSizeSmall,
                         ),
                       ),
                     ),
@@ -229,7 +269,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 backgroundColor: _isLoggingOut ? AppColors.textTertiary : AppColors.error,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
               ),
               child: _isLoggingOut
@@ -300,11 +340,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         SharedBlocProvider(child: const SettingsPage()),
       ];
     } else {
-      // For teachers: Home, Question Bank, Settings
+      // For teachers: Home, Question Bank ONLY (no Settings)
       return [
         SharedBlocProvider(child: const HomePage()),
         SharedBlocProvider(child: const QuestionBankPage()),
-        SharedBlocProvider(child: const SettingsPage()),
       ];
     }
   }
@@ -333,7 +372,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         ),
       ];
     } else {
-      // Teacher navigation: Home, Question Bank, Settings
+      // Teacher navigation: Home, Question Bank ONLY (no Settings)
       return [
         _NavItem(
           icon: Icons.home_rounded,
@@ -346,12 +385,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           activeIcon: Icons.library_books,
           label: 'Bank',
           semanticLabel: 'Question bank',
-        ),
-        _NavItem(
-          icon: Icons.settings_outlined,
-          activeIcon: Icons.settings,
-          label: 'Settings',
-          semanticLabel: 'Settings and preferences',
         ),
       ];
     }
@@ -431,7 +464,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           ),
           action: SnackBarAction(
             label: 'Retry',
@@ -458,16 +491,17 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: const Icon(
-                Icons.auto_awesome,
-                color: Colors.white,
-                size: 30,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.asset(
+                  'assets/images/roundedlogo.png',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: UIConstants.spacing24),
             SizedBox(
               width: 32,
               height: 32,
@@ -476,7 +510,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               'Loading your workspace...',
               style: TextStyle(
@@ -503,7 +537,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
               size: 64,
               color: AppColors.textTertiary,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               'Authentication Required',
               style: TextStyle(
@@ -512,7 +546,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             Text(
               'Please sign in to access your papers',
               style: TextStyle(
@@ -534,13 +568,14 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
-            child: const Icon(
-              Icons.auto_awesome,
-              color: Colors.white,
-              size: 18,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              child: Image.asset(
+                'assets/images/roundedlogo.png',
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -559,7 +594,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 Text(
                   _getPageSubtitle(_selectedIndex),  // Dynamic subtitle
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
@@ -594,7 +629,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     height: 32,
                     decoration: BoxDecoration(
                       gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.primary.withOpacity(0.3),
@@ -609,7 +644,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: UIConstants.fontSizeMedium,
                         ),
                       ),
                     ),
@@ -642,7 +677,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       decoration: BoxDecoration(
         gradient: isAdminRole ? AppColors.accentGradient : null,
         color: isAdminRole ? null : AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdminRole ? null : Border.all(
           color: AppColors.primary.withOpacity(0.2),
         ),
@@ -695,7 +730,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       gradient: isSelected ? AppColors.primaryGradient : null,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -705,11 +740,11 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                           color: isSelected ? Colors.white : AppColors.textSecondary,
                           size: 24,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: UIConstants.spacing4),
                         Text(
                           item.label,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: UIConstants.fontSizeSmall,
                             fontWeight: FontWeight.w600,
                             color: isSelected ? Colors.white : AppColors.textSecondary,
                           ),
@@ -734,7 +769,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(UIConstants.paddingLarge),
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
               ),
@@ -746,7 +781,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     height: 50,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Center(
                       child: Text(
@@ -759,7 +794,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: UIConstants.spacing16),
                   Text(
                     user.fullName,
                     style: const TextStyle(
@@ -769,16 +804,16 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: UIConstants.spacing4),
                   Text(
                     user.email ?? '',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
+                      fontSize: UIConstants.fontSizeMedium,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: UIConstants.spacing12),
                   _buildRoleBadge(user.role, false),
                 ],
               ),
@@ -796,7 +831,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         gradient: isSelected ? AppColors.primaryGradient : null,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                       ),
                       child: Semantics(
                         label: item.semanticLabel,
@@ -819,7 +854,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                             Navigator.pop(context);
                           },
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                           ),
                         ),
                       ),
@@ -864,7 +899,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     _showLogoutDialog(context, user);
                   },
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                 ),
               ),
@@ -887,7 +922,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Home';
         case 1: return 'Question Bank';
-        case 2: return 'Settings';
         default: return 'Papercraft';
       }
     }
@@ -906,7 +940,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Create and manage papers';
         case 1: return 'Approved question papers';
-        case 2: return 'Preferences and account';
         default: return '';
       }
     }

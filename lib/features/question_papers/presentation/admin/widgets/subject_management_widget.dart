@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/subject_entity.dart';
+
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../bloc/subject_bloc.dart';
 
 class SubjectManagementWidget extends StatefulWidget {
@@ -37,14 +39,14 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
     return BlocListener<SubjectBloc, SubjectState>(
       listener: _handleStateChanges,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         child: Column(
           children: [
             // Add/Edit Form
             _buildForm(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             const Divider(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
 
             // Subjects List
             Expanded(
@@ -62,11 +64,11 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
                           Icon(Icons.error_outline,
                               size: 48,
                               color: AppColors.error),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           Text(state.message,
                               style: TextStyle(color: AppColors.error),
                               textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           ElevatedButton(
                             onPressed: () {
                               context.read<SubjectBloc>().add(const LoadSubjects());
@@ -87,14 +89,14 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
                             Icon(Icons.subject_outlined,
                                 size: 48,
                                 color: AppColors.textTertiary),
-                            const SizedBox(height: 16),
+                            SizedBox(height: UIConstants.spacing16),
                             Text('No subjects yet',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 )),
-                            const SizedBox(height: 8),
+                            SizedBox(height: UIConstants.spacing8),
                             Text('Add your first subject above',
                                 style: TextStyle(color: AppColors.textTertiary)),
                           ],
@@ -135,7 +137,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           TextFormField(
             controller: _nameController,
@@ -144,7 +146,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
               hintText: 'e.g., Mathematics, Physics, English',
               prefixIcon: Icon(Icons.subject, color: AppColors.primary),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
             ),
             validator: (value) {
@@ -154,7 +156,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           TextFormField(
             controller: _descriptionController,
@@ -163,12 +165,12 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
               hintText: 'Brief description of the subject',
               prefixIcon: Icon(Icons.description, color: AppColors.primary),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
 
           Row(
             children: [

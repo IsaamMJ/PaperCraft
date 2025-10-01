@@ -1,8 +1,12 @@
-// features/question_papers/presentation/admin/paper_review_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
@@ -24,15 +28,13 @@ class PaperReviewPage extends StatefulWidget {
 }
 
 class _PaperReviewPageState extends State<PaperReviewPage> {
-  bool _isAdmin = false;
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _checkAdminStatus();
-    _loadPaper();
+    _checkAdminAndLoad();
   }
 
   @override
@@ -41,20 +43,17 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     super.dispose();
   }
 
-  void _checkAdminStatus() async {
+  void _checkAdminAndLoad() {
     final isAdmin = sl<UserStateService>().isAdmin;
-    if (mounted) {
-      setState(() => _isAdmin = isAdmin);
-
-      if (!isAdmin) {
-        context.go('/home');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Admin access required'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (!isAdmin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go(AppRoutes.home);
+          UiHelpers.showErrorMessage(context, 'Admin access required');
+        }
+      });
+    } else {
+      _loadPaper();
     }
   }
 
@@ -67,7 +66,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
       title: 'Approve Paper',
       content: 'Are you sure you want to approve "${paper.title}"?\n\nOnce approved, this paper will be available in the question bank.',
       confirmText: 'Approve',
-      confirmColor: Colors.green,
+      confirmColor: AppColors.success,
     );
 
     if (confirm == true && mounted) {
@@ -98,6 +97,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
         title: Text(title),
         content: Text(content),
         actions: [
@@ -110,6 +112,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: confirmColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
             ),
             child: Text(confirmText),
           ),
@@ -123,24 +128,35 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.description_outlined, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
+          Icon(
+            Icons.description_outlined,
+            size: UIConstants.iconHuge,
+            color: AppColors.textSecondary,
+          ),
+          SizedBox(height: UIConstants.spacing16),
           Text(
             'Paper Not Found',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: UIConstants.fontSizeXLarge,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+              color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text(
             'The requested paper could not be found.',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
           ElevatedButton(
-            onPressed: () => context.go('/admin/dashboard'),
+            onPressed: () => context.go(AppRoutes.adminDashboard),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
             child: const Text('Back to Dashboard'),
           ),
         ],
@@ -155,16 +171,10 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isAdmin) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Review Paper'),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 1,
         actions: [
@@ -179,28 +189,21 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         listener: (context, state) {
           if (state is QuestionPaperSuccess) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green,
-              ),
-            );
-            // Navigate back to dashboard after successful action
-            context.go('/admin/dashboard');
+            UiHelpers.showSuccessMessage(context, state.message);
+            context.go(AppRoutes.adminDashboard);
           } else if (state is QuestionPaperError) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
+            UiHelpers.showErrorMessage(context, state.message);
           }
         },
         child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
           builder: (context, state) {
             if (state is QuestionPaperLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+              );
             }
 
             if (state is QuestionPaperLoaded && state.currentPaper != null) {
@@ -224,20 +227,20 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         Expanded(
           child: SingleChildScrollView(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildPaperHeader(paper),
-                const SizedBox(height: 24),
+                SizedBox(height: UIConstants.spacing24),
                 _buildPaperInfo(paper),
-                const SizedBox(height: 24),
+                SizedBox(height: UIConstants.spacing24),
                 _buildQuestionsSection(paper),
                 if (paper.status.isRejected && paper.rejectionReason != null) ...[
-                  const SizedBox(height: 24),
+                  SizedBox(height: UIConstants.spacing24),
                   _buildRejectionFeedback(paper),
                 ],
-                const SizedBox(height: 100), // Space for fixed bottom actions
+                const SizedBox(height: 100),
               ],
             ),
           ),
@@ -249,9 +252,12 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildPaperHeader(QuestionPaperEntity paper) {
     return Card(
-      elevation: 2,
+      elevation: UIConstants.elevationMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(UIConstants.spacing20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -263,33 +269,41 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ),
                 PaperStatusBadge(status: paper.status),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Row(
               children: [
-                Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
+                Icon(
+                  Icons.person,
+                  size: UIConstants.iconSmall,
+                  color: AppColors.textSecondary,
+                ),
+                SizedBox(width: UIConstants.spacing4),
                 Text(
                   'Created by: ${paper.createdBy}',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                    fontSize: UIConstants.fontSizeMedium,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
+                SizedBox(width: UIConstants.spacing16),
+                Icon(
+                  Icons.schedule,
+                  size: UIConstants.iconSmall,
+                  color: AppColors.textSecondary,
+                ),
+                SizedBox(width: UIConstants.spacing4),
                 Text(
                   'Submitted: ${_formatDate(paper.submittedAt)}',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                    fontSize: UIConstants.fontSizeMedium,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -302,45 +316,51 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildPaperInfo(QuestionPaperEntity paper) {
     return Card(
-      elevation: 2,
+      elevation: UIConstants.elevationMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(UIConstants.spacing20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Paper Information',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: UIConstants.fontSizeXLarge,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             _buildInfoRow('Subject', paper.subject),
             _buildInfoRow('Exam Type', paper.examType),
             _buildInfoRow('Duration', paper.examTypeEntity.formattedDuration),
             _buildInfoRow('Total Questions', paper.totalQuestions.toString()),
             _buildInfoRow('Total Marks', paper.totalMarks.toString()),
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             Text(
               'Section Breakdown:',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: UIConstants.fontSizeMedium,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             ...paper.examTypeEntity.sections.map((section) {
               final sectionQuestions = paper.questions[section.name] ?? [];
               return Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 4),
+                padding: EdgeInsets.only(
+                  left: UIConstants.paddingMedium,
+                  bottom: UIConstants.spacing4,
+                ),
                 child: Text(
                   '• ${section.name}: ${sectionQuestions.length}/${section.questions} questions (${section.marksPerQuestion} marks each)',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                    fontSize: UIConstants.fontSizeSmall,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               );
@@ -353,7 +373,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: UIConstants.spacing4 / 2),
       child: Row(
         children: [
           SizedBox(
@@ -361,17 +381,17 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             child: Text(
               '$label:',
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+                fontSize: UIConstants.fontSizeMedium,
+                color: AppColors.textSecondary,
               ),
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: UIConstants.fontSizeMedium,
               fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -381,9 +401,12 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildQuestionsSection(QuestionPaperEntity paper) {
     return Card(
-      elevation: 2,
+      elevation: UIConstants.elevationMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(UIConstants.spacing20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -392,22 +415,22 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                 Text(
                   'Questions',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: UIConstants.fontSizeXLarge,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${paper.totalQuestions} questions • ${paper.totalMarks} marks',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                    fontSize: UIConstants.fontSizeMedium,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             ...paper.examTypeEntity.sections.map((section) {
               final questions = paper.questions[section.name] ?? [];
               if (questions.isEmpty) return const SizedBox.shrink();
@@ -426,40 +449,43 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: EdgeInsets.symmetric(
+            vertical: UIConstants.spacing12,
+            horizontal: UIConstants.paddingMedium,
+          ),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Text(
             sectionName,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: UIConstants.fontSizeLarge,
               fontWeight: FontWeight.w600,
-              color: Colors.blue.shade700,
+              color: AppColors.primary,
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
         ...questions.asMap().entries.map((entry) {
           final index = entry.key;
           final question = entry.value;
           return _buildQuestionCard(index + 1, question);
         }).toList(),
-        const SizedBox(height: 20),
+        SizedBox(height: UIConstants.spacing20),
       ],
     );
   }
 
   Widget _buildQuestionCard(int questionNumber, Question question) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: UIConstants.spacing12),
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.white,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+        color: AppColors.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,74 +493,83 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.spacing8,
+                  vertical: UIConstants.spacing4,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.backgroundSecondary,
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                 ),
                 child: Text(
                   'Q$questionNumber',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.spacing8,
+                  vertical: UIConstants.spacing4,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                 ),
                 child: Text(
                   '${question.marks} marks',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     fontWeight: FontWeight.w600,
-                    color: Colors.blue.shade700,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
               if (question.isOptional) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: UIConstants.spacing8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: UIConstants.spacing8,
+                    vertical: UIConstants.spacing4,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Text(
                     'Optional',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: UIConstants.fontSizeSmall,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange.shade700,
+                      color: AppColors.warning,
                     ),
                   ),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Text(
             question.text,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: UIConstants.fontSizeMedium,
               fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+              color: AppColors.textPrimary,
             ),
           ),
           if (question.options != null && question.options!.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             ...question.options!.asMap().entries.map((optionEntry) {
               final optionIndex = optionEntry.key;
               final option = optionEntry.value;
               final isCorrect = question.correctAnswer == option;
 
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: EdgeInsets.symmetric(vertical: UIConstants.spacing4 / 2),
                 child: Row(
                   children: [
                     Text(
@@ -542,7 +577,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     Expanded(
@@ -550,7 +585,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                         option,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isCorrect ? Colors.green.shade700 : Colors.grey[700],
+                          color: isCorrect ? AppColors.success : AppColors.textPrimary,
                           fontWeight: isCorrect ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
@@ -558,8 +593,8 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                     if (isCorrect)
                       Icon(
                         Icons.check_circle,
-                        size: 16,
-                        color: Colors.green.shade700,
+                        size: UIConstants.iconSmall,
+                        color: AppColors.success,
                       ),
                   ],
                 ),
@@ -567,26 +602,29 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             }).toList(),
           ],
           if (question.subQuestions.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Text(
               'Sub-questions:',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             ...question.subQuestions.asMap().entries.map((subEntry) {
               final subIndex = subEntry.key;
               final subQuestion = subEntry.value;
               return Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 4),
+                padding: EdgeInsets.only(
+                  left: UIConstants.paddingMedium,
+                  bottom: UIConstants.spacing4,
+                ),
                 child: Text(
                   '${subIndex + 1}. ${subQuestion.text} (${subQuestion.marks} marks)',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                    fontSize: UIConstants.fontSizeSmall,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               );
@@ -599,51 +637,54 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildRejectionFeedback(QuestionPaperEntity paper) {
     return Card(
-      elevation: 2,
-      color: Colors.red.shade50,
+      elevation: UIConstants.elevationMedium,
+      color: AppColors.error.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(UIConstants.spacing20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.red.shade700),
-                const SizedBox(width: 8),
+                Icon(Icons.info_outline, color: AppColors.error),
+                SizedBox(width: UIConstants.spacing8),
                 Text(
                   'Rejection Feedback',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: UIConstants.fontSizeLarge,
                     fontWeight: FontWeight.w600,
-                    color: Colors.red.shade700,
+                    color: AppColors.error,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(UIConstants.paddingMedium),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                border: Border.all(color: AppColors.error.withOpacity(0.3)),
               ),
               child: Text(
                 paper.rejectionReason!,
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[800],
+                  fontSize: UIConstants.fontSizeMedium,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
             if (paper.reviewedAt != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: UIConstants.spacing8),
               Text(
                 'Rejected on: ${_formatDate(paper.reviewedAt)}',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.red.shade600,
+                  fontSize: UIConstants.fontSizeSmall,
+                  color: AppColors.error,
                 ),
               ),
             ],
@@ -655,9 +696,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
 
   Widget _buildBottomActions(QuestionPaperEntity paper) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.3),
@@ -672,7 +713,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         isLoading: _isLoading,
         onApprove: () => _handleApprove(paper),
         onReject: () => _handleReject(paper),
-        onViewDetails: null, // Already on details page
+        onViewDetails: null,
       ),
     );
   }
@@ -682,25 +723,36 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text(
+          Icon(
+            Icons.error_outline,
+            size: UIConstants.iconHuge,
+            color: AppColors.error,
+          ),
+          SizedBox(height: UIConstants.spacing16),
+          Text(
             'Error Loading Paper',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: UIConstants.fontSizeXLarge,
               fontWeight: FontWeight.w600,
-              color: Colors.red,
+              color: AppColors.error,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text(
             message,
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
           ElevatedButton(
             onPressed: _loadPaper,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
             child: const Text('Retry'),
           ),
         ],
@@ -736,20 +788,25 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+      ),
       title: const Text('Reject Paper'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Paper: ${widget.paperTitle}'),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
           const Text('Please provide a reason for rejection:'),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           TextField(
             controller: _reasonController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Enter rejection reason...',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
             ),
             maxLines: 3,
           ),
@@ -768,8 +825,11 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
             }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            ),
           ),
           child: const Text('Reject'),
         ),

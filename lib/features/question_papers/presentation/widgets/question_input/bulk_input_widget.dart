@@ -1,7 +1,9 @@
 // features/question_papers/presentation/widgets/question_input/bulk_input_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../domain/entities/question_entity.dart';
+
 
 class BulkInputWidget extends StatefulWidget {
   final String questionType;
@@ -193,14 +195,14 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: UIConstants.spacing8),
 
         // Instructions with preview
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Column(
@@ -214,14 +216,14 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                     child: Text(
                       'Fill all ${widget.questionCount} fields to add questions',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: UIConstants.fontSizeSmall,
                         color: AppColors.primary,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: UIConstants.spacing6),
               Text(
                 _getInstructionPreview(),
                 style: TextStyle(
@@ -234,7 +236,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
           ),
         ),
 
-        const SizedBox(height: 20),
+        SizedBox(height: UIConstants.spacing20),
 
         // Question input fields with Enter key navigation
         Column(
@@ -268,11 +270,11 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                   filled: true,
                   fillColor: Colors.grey.shade50,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                   contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
@@ -282,7 +284,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                     height: widget.isMobile ? 28 : 24,
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Center(
                       child: Text(
@@ -309,7 +311,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
             color: _isValid
                 ? AppColors.success.withOpacity(0.1)
                 : AppColors.warning.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           ),
           child: Row(
             children: [
@@ -322,7 +324,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
               Text(
                 _getProgressText(),
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: UIConstants.fontSizeSmall,
                   color: _isValid ? AppColors.success : AppColors.warning,
                 ),
               ),
@@ -333,7 +335,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptionalAll = !_isOptionalAll),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -352,7 +354,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -405,7 +407,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                   : 'Please fill all ${widget.questionCount} fields before adding',
               style: TextStyle(
                 color: AppColors.error,
-                fontSize: 12,
+                fontSize: UIConstants.fontSizeSmall,
               ),
             ),
           ),

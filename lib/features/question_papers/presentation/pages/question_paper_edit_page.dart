@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/exam_type_entity.dart';
+
+import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/services/subject_grade_service.dart';
 import '../bloc/question_paper_bloc.dart';
@@ -100,6 +104,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _userStateService = sl<UserStateService>();
     _animController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -207,7 +212,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             _populateFormFromPaper(state.currentPaper!);
           }
           if (state is QuestionPaperSuccess) {
-            _showMessage(state.message, AppColors.success);
+            UiHelpers.showSuccessMessage(context, state.message);
             if (state.actionType == 'save') {
               setState(() => _isSaving = false);
               Future.delayed(const Duration(seconds: 1), () {
@@ -219,7 +224,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
           }
           if (state is QuestionPaperError) {
             setState(() => _isSaving = false);
-            _showMessage(state.message, AppColors.error);
+            UiHelpers.showErrorMessage(context, state.message);
           }
         },
         child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
@@ -242,36 +247,36 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   slivers: [
                     _buildAppBar(),
                     SliverPadding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(UIConstants.paddingMedium),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           _buildHeader(),
-                          const SizedBox(height: 24),
+                          SizedBox(height: UIConstants.spacing24),
                           _buildTitleSection(),
-                          const SizedBox(height: 20),
+                          SizedBox(height: UIConstants.spacing20),
                           _buildGradeSection(),
                           if (_selectedGradeLevel != null) ...[
-                            const SizedBox(height: 20),
+                            SizedBox(height: UIConstants.spacing20),
                             _buildSectionSelection(),
                           ],
                           if (_selectedGradeLevel != null &&
                               (_selectedSections.isNotEmpty || _availableSections.isEmpty)) ...[
-                            const SizedBox(height: 20),
+                            SizedBox(height: UIConstants.spacing20),
                             _buildExamTypeSection(),
                           ],
                           if (_selectedExamType != null) ...[
-                            const SizedBox(height: 20),
+                            SizedBox(height: UIConstants.spacing20),
                             _buildSubjectSection(),
                           ],
                           if (_currentPaper != null && _currentPaper!.questions.isNotEmpty) ...[
-                            const SizedBox(height: 20),
+                            SizedBox(height: UIConstants.spacing20),
                             _buildCurrentQuestionsSection(),
                           ],
                           if (_selectedExamType != null && _selectedSubjects.isNotEmpty) ...[
-                            const SizedBox(height: 20),
+                            SizedBox(height: UIConstants.spacing20),
                             _buildPreview(),
                           ],
-                          const SizedBox(height: 32),
+                          SizedBox(height: UIConstants.spacing32),
                           _buildActions(),
                           const SizedBox(height: 100),
                         ]),
@@ -315,7 +320,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 valueColor: AlwaysStoppedAnimation(AppColors.primary),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: UIConstants.spacing24),
             Text(
               'Loading paper details...',
               style: TextStyle(
@@ -354,11 +359,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               height: 80,
               decoration: BoxDecoration(
                 color: AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
               ),
               child: Icon(Icons.error_outline_rounded, size: 40, color: AppColors.error),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: UIConstants.spacing24),
             Text(
               'Failed to Load Paper',
               style: TextStyle(
@@ -367,13 +372,13 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             Text(
               error,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: UIConstants.spacing32),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -429,18 +434,18 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: UIConstants.spacing8),
         Text(
           'Update the details and content of your question paper',
           style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
         ),
         if (_currentPaper != null) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Row(
               children: [
@@ -476,11 +481,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             filled: true,
             fillColor: AppColors.backgroundSecondary,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
@@ -520,7 +525,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                     child: Row(
                       children: [
@@ -543,11 +548,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                         filled: true,
                         fillColor: AppColors.backgroundSecondary,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                           borderSide: BorderSide(color: AppColors.primary, width: 2),
                         ),
                         prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
@@ -574,7 +579,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                           style: TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                            fontSize: UIConstants.fontSizeMedium,
                           ),
                         ),
                       ),
@@ -606,7 +611,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   ),
                   child: Row(
                     children: [
@@ -649,7 +654,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
                       'Please select at least one section',
-                      style: TextStyle(color: AppColors.error, fontSize: 14),
+                      style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium),
                     ),
                   ),
               ],
@@ -673,11 +678,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () => setState(() => _selectedExamType = type),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     border: Border.all(
                       color: isSelected ? AppColors.primary : AppColors.border,
                       width: isSelected ? 2 : 1,
@@ -712,10 +717,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                                 fontSize: 16,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(height: UIConstants.spacing4),
                             Text(
                               '${type.formattedDuration} • ${type.calculatedTotalMarks} marks • ${type.sections.length} sections',
-                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                              style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -744,7 +749,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
                 children: [
@@ -763,12 +768,12 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             Text(
               'Available subjects for Grade $_selectedGradeLevel:',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: UIConstants.fontSizeMedium,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -800,7 +805,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
                   'Please select at least one subject',
-                  style: TextStyle(color: AppColors.error, fontSize: 14),
+                  style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium),
                 ),
               ),
           ],
@@ -828,7 +833,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 border: Border.all(color: AppColors.primary.withOpacity(0.1)),
               ),
               child: Column(
@@ -842,11 +847,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: UIConstants.spacing8),
                   Text(
                     '${questions.length} questions',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: UIConstants.fontSizeMedium,
                       color: AppColors.textSecondary,
                     ),
                   ),
@@ -854,7 +859,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               ),
             );
           }),
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           ElevatedButton.icon(
             onPressed: _editQuestions,
             icon: const Icon(Icons.edit_rounded),
@@ -874,12 +879,12 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       'Preview',
       'Here\'s how your updated paper will look',
       Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
@@ -893,7 +898,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             if (_selectedGradeLevel != null)
               _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
             if (_selectedSections.isNotEmpty)
@@ -910,7 +915,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 _selectedSubjects.map((s) => s.name).join(', '),
               ),
             if (_currentPaper != null && _currentPaper!.questions.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: UIConstants.spacing12),
               Text(
                 'Current Questions: ${_currentPaper!.totalQuestions}',
                 style: TextStyle(
@@ -919,9 +924,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Text('Sections:', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             ..._selectedExamType!.sections.map((section) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
@@ -938,7 +943,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   Expanded(
                     child: Text(
                       '${section.name} (${section.questions} questions × ${section.marksPerQuestion} marks)',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -979,7 +984,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               foregroundColor: AppColors.textSecondary,
               side: BorderSide(color: AppColors.border),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
             ),
           ),
         ),
@@ -1003,7 +1008,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
               disabledBackgroundColor: AppColors.textTertiary,
             ),
           ),
@@ -1017,7 +1022,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -1037,12 +1042,12 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: UIConstants.spacing4),
           Text(
             subtitle,
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
           child,
         ],
       ),
@@ -1065,7 +1070,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               _showSuccess();
             } else if (state is QuestionPaperError) {
               Navigator.of(dialogContext).pop();
-              _showMessage(state.message, AppColors.error);
+              UiHelpers.showErrorMessage(context, state.message);
             }
           },
           child: QuestionInputDialog(
@@ -1130,7 +1135,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
       ),
     );
   }

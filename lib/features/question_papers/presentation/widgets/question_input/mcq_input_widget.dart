@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class McqInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
@@ -105,7 +107,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Question input with Enter key navigation
         TextField(
@@ -121,18 +123,18 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Options with Enter key navigation
         Text(
@@ -143,7 +145,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         ..._optionControllers.asMap().entries.map((e) {
           final index = e.key;
@@ -175,11 +177,11 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   borderSide: BorderSide(color: AppColors.primary, width: 2),
                 ),
                 contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
@@ -189,7 +191,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
                   height: widget.isMobile ? 28 : 24,
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Center(
                     child: Text(
@@ -207,12 +209,12 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
           );
         }),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -231,7 +233,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -284,7 +286,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
                   : 'Please provide at least 2 options',
               style: TextStyle(
                 color: AppColors.error,
-                fontSize: 12,
+                fontSize: UIConstants.fontSizeSmall,
               ),
             ),
           ),

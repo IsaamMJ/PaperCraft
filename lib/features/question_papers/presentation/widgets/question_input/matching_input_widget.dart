@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class MatchingInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
@@ -126,14 +128,14 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Instructions
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Row(
@@ -144,7 +146,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                 child: Text(
                   'Create 1 matching question with $_pairCount pairs - students will match Column A to Column B',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     color: AppColors.primary,
                   ),
                 ),
@@ -153,7 +155,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Question instruction with Enter key navigation
         TextField(
@@ -169,25 +171,25 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
           ),
         ),
 
-        const SizedBox(height: 20),
+        SizedBox(height: UIConstants.spacing20),
 
         // Show required pairs count
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
           ),
           child: Row(
@@ -214,7 +216,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Column headers
         Row(
@@ -245,7 +247,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
           ],
         ),
 
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Matching pairs input with Enter key navigation
         Column(
@@ -267,16 +269,16 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           borderSide: BorderSide(color: AppColors.primary, width: 2),
                         ),
                         contentPadding: EdgeInsets.all(widget.isMobile ? 12 : 10),
                         prefixIcon: Container(
-                          margin: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.all(UIConstants.paddingSmall),
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
@@ -328,16 +330,16 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                           borderSide: BorderSide(color: AppColors.primary, width: 2),
                         ),
                         contentPadding: EdgeInsets.all(widget.isMobile ? 12 : 10),
                         prefixIcon: Container(
-                          margin: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.all(UIConstants.paddingSmall),
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
@@ -375,13 +377,13 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
           }
 
           return Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(UIConstants.paddingSmall),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: validPairs == _pairCount
                   ? AppColors.success.withOpacity(0.1)
                   : AppColors.warning.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Row(
               children: [
@@ -394,7 +396,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                 Text(
                   '$validPairs of $_pairCount pairs completed ${validPairs < _pairCount ? '(${_pairCount - validPairs} remaining)' : '✓'}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
                   ),
                 ),
@@ -406,7 +408,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -425,7 +427,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -469,12 +471,12 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         // Validation hints
         if (!_isValid && _questionController.text.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text(
             'Please complete all $_pairCount matching pairs',
             style: TextStyle(
               color: AppColors.error,
-              fontSize: 12,
+              fontSize: UIConstants.fontSizeSmall,
             ),
           ),
         ],

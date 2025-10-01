@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../domain/entities/question_paper_entity.dart';
 import 'paper_status_badge.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class PaperListTile extends StatelessWidget {
   final QuestionPaperEntity paper;
   final VoidCallback? onTap;
@@ -29,11 +31,11 @@ class PaperListTile extends StatelessWidget {
       ),
       elevation: isCompact ? 1 : 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         child: Padding(
           padding: EdgeInsets.all(isCompact ? 12 : 16),
           child: Column(
@@ -56,7 +58,7 @@ class PaperListTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (!isCompact) const SizedBox(height: 4),
+                        if (!isCompact) SizedBox(height: UIConstants.spacing4),
                         Text(
                           '${paper.subject} • ${paper.examType}',
                           style: TextStyle(
@@ -76,7 +78,7 @@ class PaperListTile extends StatelessWidget {
                         isCompact: isCompact,
                       ),
                       if (trailing != null) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: UIConstants.spacing8),
                         trailing!,
                       ],
                     ],
@@ -85,7 +87,7 @@ class PaperListTile extends StatelessWidget {
               ),
 
               if (!isCompact) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: UIConstants.spacing12),
 
                 // Metrics Row
                 Row(
@@ -109,7 +111,7 @@ class PaperListTile extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: UIConstants.spacing12),
 
                 // Footer Row
                 Row(
@@ -122,14 +124,14 @@ class PaperListTile extends StatelessWidget {
                             Text(
                               'Created by: ${paper.createdBy}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: UIConstants.fontSizeSmall,
                                 color: Colors.grey[600],
                               ),
                             ),
                           Text(
                             _getDateText(),
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: UIConstants.fontSizeSmall,
                               color: Colors.grey[600],
                             ),
                           ),
@@ -165,7 +167,7 @@ class PaperListTile extends StatelessWidget {
         Text(
           text,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: UIConstants.fontSizeSmall,
             color: Colors.grey[600],
           ),
         ),

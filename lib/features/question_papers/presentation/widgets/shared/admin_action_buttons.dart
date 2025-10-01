@@ -1,5 +1,6 @@
 // features/question_papers/presentation/widgets/shared/admin_action_buttons.dart
 import 'package:flutter/material.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../domain/entities/question_paper_entity.dart';
 
 class AdminActionButtons extends StatelessWidget {
@@ -106,7 +107,7 @@ class AdminActionButtons extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   ),
                 ),
               ),
@@ -122,7 +123,7 @@ class AdminActionButtons extends StatelessWidget {
                   side: BorderSide(color: Colors.red.shade600),
                   padding: EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   ),
                 ),
               ),
@@ -245,10 +246,10 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
               decoration: InputDecoration(
                 hintText: 'Enter specific feedback for the teacher...',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   borderSide: BorderSide(color: Colors.red.shade600, width: 2),
                 ),
               ),

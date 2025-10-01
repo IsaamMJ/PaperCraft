@@ -1,3 +1,4 @@
+// features/authentication/data/models/tenant_model.dart
 import '../../domain/entities/tenant_entity.dart';
 
 class TenantModel extends TenantEntity {
@@ -7,6 +8,7 @@ class TenantModel extends TenantEntity {
     super.address,
     super.domain,
     required super.isActive,
+    required super.isInitialized, // NEW FIELD
     required super.createdAt,
   });
 
@@ -17,6 +19,7 @@ class TenantModel extends TenantEntity {
       address: json['address'] as String?,
       domain: json['domain'] as String?,
       isActive: json['is_active'] as bool? ?? true,
+      isInitialized: json['is_initialized'] as bool? ?? false, // NEW FIELD with default
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -28,6 +31,7 @@ class TenantModel extends TenantEntity {
       'address': address,
       'domain': domain,
       'is_active': isActive,
+      'is_initialized': isInitialized, // NEW FIELD
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -39,6 +43,7 @@ class TenantModel extends TenantEntity {
       address: address,
       domain: domain,
       isActive: isActive,
+      isInitialized: isInitialized, // NEW FIELD
       createdAt: createdAt,
     );
   }
@@ -50,6 +55,7 @@ class TenantModel extends TenantEntity {
       address: entity.address,
       domain: entity.domain,
       isActive: entity.isActive,
+      isInitialized: entity.isInitialized, // NEW FIELD
       createdAt: entity.createdAt,
     );
   }

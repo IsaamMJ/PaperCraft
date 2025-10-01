@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class QuestionListWidget extends StatelessWidget {
   final String sectionName;
   final List<Question> questions;
@@ -34,7 +36,7 @@ class QuestionListWidget extends StatelessWidget {
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
         Container(
           constraints: BoxConstraints(maxHeight: isMobile ? 300 : 250), // Increased height for matching questions
           child: ListView.builder(
@@ -56,7 +58,7 @@ class QuestionListWidget extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -74,7 +76,7 @@ class QuestionListWidget extends StatelessWidget {
               child: Text(
                 '${index + 1}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: UIConstants.fontSizeSmall,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
                 ),
@@ -94,7 +96,7 @@ class QuestionListWidget extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: UIConstants.spacing8),
 
                 // SPECIAL HANDLING FOR MATCHING QUESTIONS
                 if (question.type == 'match_following' && question.options != null) ...[
@@ -112,7 +114,7 @@ class QuestionListWidget extends StatelessWidget {
                 ],
 
                 if (question.subQuestions.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: UIConstants.spacing4),
                   Text(
                     'Sub-questions: ${question.subQuestions.length}',
                     style: TextStyle(
@@ -122,7 +124,7 @@ class QuestionListWidget extends StatelessWidget {
                   ),
                 ],
 
-                const SizedBox(height: 4),
+                SizedBox(height: UIConstants.spacing4),
                 Row(
                   children: [
                     Text(
@@ -169,7 +171,7 @@ class QuestionListWidget extends StatelessWidget {
                 ),
                 color: AppColors.primary,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: UIConstants.spacing4),
               IconButton(
                 onPressed: () => _showDeleteConfirmation(context, index),
                 icon: const Icon(Icons.delete_outline, size: 16),
@@ -196,10 +198,10 @@ class QuestionListWidget extends StatelessWidget {
     List<String> rightColumn = options.sublist(separatorIndex + 1);
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(UIConstants.paddingSmall),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
         border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Column(
@@ -232,7 +234,7 @@ class QuestionListWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: UIConstants.spacing6),
           // Display pairs
           ...List.generate(
             leftColumn.length.compareTo(rightColumn.length) <= 0
@@ -326,15 +328,15 @@ class QuestionListWidget extends StatelessWidget {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: UIConstants.spacing16),
 
                 // Show note for matching questions
                 if (question.type == 'match_following') ...[
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(UIConstants.paddingSmall),
                     decoration: BoxDecoration(
                       color: AppColors.warning.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Row(
                       children: [
@@ -343,20 +345,20 @@ class QuestionListWidget extends StatelessWidget {
                         Expanded(
                           child: Text(
                             'Matching pairs cannot be edited here. Delete and recreate if needed.',
-                            style: TextStyle(fontSize: 12, color: AppColors.warning),
+                            style: TextStyle(fontSize: UIConstants.fontSizeSmall, color: AppColors.warning),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: UIConstants.spacing16),
                 ],
 
                 // MCQ options with Enter key navigation
                 if (optionControllers != null) ...[
                   const Text('Options:',
                       style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: UIConstants.spacing8),
                   ...optionControllers.asMap().entries.map((e) {
                     final optionIndex = e.key;
                     final optionController = e.value;
@@ -394,7 +396,7 @@ class QuestionListWidget extends StatelessWidget {
                       ),
                     );
                   }).toList(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: UIConstants.spacing16),
                 ],
 
                 // Optional checkbox

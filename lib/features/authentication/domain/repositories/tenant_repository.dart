@@ -15,4 +15,6 @@ abstract class TenantRepository {
 
   /// Check if tenant exists and is active
   Future<Either<Failure, bool>> isTenantActive(String tenantId);
+
+  Future<Either<Failure, void>> markAsInitialized(String tenantId);
 }

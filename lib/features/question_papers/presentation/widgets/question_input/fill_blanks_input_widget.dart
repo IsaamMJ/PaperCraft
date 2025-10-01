@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class FillBlanksInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
@@ -93,14 +95,14 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Instructions
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
           ),
           child: Row(
@@ -111,7 +113,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
                 child: Text(
                   'Use underscores (___) to mark blanks in your question',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     color: AppColors.primary,
                   ),
                 ),
@@ -120,7 +122,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Question input with Enter key navigation
         TextField(
@@ -139,11 +141,11 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
@@ -152,12 +154,12 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
         // Show detected blanks
         if (_extractedBlanks.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: UIConstants.spacing12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.success.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               border: Border.all(color: AppColors.success.withOpacity(0.3)),
             ),
             child: Column(
@@ -166,12 +168,12 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
                 Text(
                   'Detected ${_extractedBlanks.length} blank(s):',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: UIConstants.fontSizeSmall,
                     fontWeight: FontWeight.w600,
                     color: AppColors.success,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: UIConstants.spacing4),
                 Wrap(
                   spacing: 8,
                   children: _extractedBlanks.map((blank) => Chip(
@@ -185,12 +187,12 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
           ),
         ],
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -209,7 +211,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -253,12 +255,12 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
         // Validation hints
         if (!_isValid && _questionController.text.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           Text(
             'Add blanks using underscores (___) in your question',
             style: TextStyle(
               color: AppColors.error,
-              fontSize: 12,
+              fontSize: UIConstants.fontSizeSmall,
             ),
           ),
         ],

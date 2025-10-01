@@ -27,9 +27,9 @@ class GetTenantUseCase {
           return const Left(AuthFailure('Tenant not found', code: 'TENANT_NOT_FOUND'));
         }
 
-        // Additional business logic validation using the entity's isValid property
-        if (!tenant.isValid) {
-          return const Left(AuthFailure('Tenant account is inactive or invalid', code: 'TENANT_INVALID'));
+        // Check if tenant is active - FIXED
+        if (!tenant.isActive) {
+          return const Left(AuthFailure('Tenant account is inactive', code: 'TENANT_INACTIVE'));
         }
 
         return Right(tenant);

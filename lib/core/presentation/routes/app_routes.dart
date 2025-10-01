@@ -15,6 +15,14 @@ class AppRoutes {
   static const String questionPaperEdit = '/papers/edit';
   static const String questionBank = '/papers/bank';
 
+  static const String onboarding = '/onboarding';
+
+  // Settings sub-routes
+  static const String settingsSubjects = '/settings/subjects';
+  static const String settingsGrades = '/settings/grades';
+  static const String settingsExamTypes = '/settings/exam-types';
+  static const String settingsUsers = '/settings/users';
+
   // Admin routes
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';

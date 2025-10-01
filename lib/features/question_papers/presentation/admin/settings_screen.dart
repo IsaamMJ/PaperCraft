@@ -1,22 +1,18 @@
-// features/settings/presentation/pages/settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:papercraft/features/question_papers/presentation/admin/widgets/exam_type_management_widget.dart';
-import 'package:papercraft/features/question_papers/presentation/admin/widgets/grade_management_widget.dart';
-import 'package:papercraft/features/question_papers/presentation/admin/widgets/subject_management_widget.dart';
-import 'package:papercraft/features/question_papers/presentation/admin/widgets/user_management_widget.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../question_papers/presentation/bloc/subject_bloc.dart';
-import '../../../question_papers/presentation/bloc/grade_bloc.dart';
-import '../../../question_papers/presentation/bloc/exam_type_bloc.dart';
-import '../bloc/user_management_bloc.dart';
+import '../../domain/repositories/exam_type_repository.dart';
+import '../../domain/repositories/grade_repository.dart';
+import '../../domain/repositories/subject_repository.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -26,12 +22,149 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late UserStateService _userStateService;
+  late final UserStateService _userStateService;
+
+  // Count state
+  int? _subjectCount;
+  int? _gradeCount;
+  int? _examTypeCount;
+  int? _userCount;
+  bool _isLoadingCounts = false;
 
   @override
   void initState() {
     super.initState();
     _userStateService = sl<UserStateService>();
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    if (!_userStateService.isAdmin) return;
+
+    setState(() => _isLoadingCounts = true);
+
+    try {
+      // Load counts in parallel
+      final results = await Future.wait([
+        sl<SubjectRepository>().getSubjects(),
+        sl<GradeRepository>().getGrades(),
+        sl<ExamTypeRepository>().getExamTypes(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _subjectCount = results[0].fold((_) => 0, (list) => list.length);
+          _gradeCount = results[1].fold((_) => 0, (list) => list.length);
+          _examTypeCount = results[2].fold((_) => 0, (list) => list.length);
+          _isLoadingCounts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCounts = false);
+      }
+    }
+  }
+
+  int? _getSubjectCount() => _subjectCount;
+  int? _getGradeCount() => _gradeCount;
+  int? _getExamTypeCount() => _examTypeCount;
+  int? _getUserCount() => _userCount;
+
+  void _showSupportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.support_agent, color: AppColors.primary),
+            SizedBox(width: UIConstants.spacing12),
+            const Text('Help & Support'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('For support and assistance, please contact:'),
+            SizedBox(height: UIConstants.spacing16),
+            Container(
+              padding: EdgeInsets.all(UIConstants.spacing12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.email, color: AppColors.primary),
+                  SizedBox(width: UIConstants.spacing12),
+                  Expanded(
+                    child: Text(
+                      'isaam.mj@gmail.com',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: UIConstants.fontSizeLarge,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSignOutDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: AppColors.error),
+            SizedBox(width: UIConstants.spacing12),
+            const Text('Sign Out'),
+          ],
+        ),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<AuthBloc>().add(const AuthSignOut());
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -45,38 +178,24 @@ class _SettingsPageState extends State<SettingsPage> {
         final user = authState.user;
         final isAdmin = _userStateService.isAdmin;
 
-        // SECURITY: Only show settings to admin users
         if (!isAdmin) {
           return _buildUnauthorizedView();
         }
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: AppBar(
-            title: const Text('Settings'),
-            backgroundColor: AppColors.surface,
-            foregroundColor: AppColors.textPrimary,
-            elevation: 0,
-            automaticallyImplyLeading: false, // Remove back button since this is a main tab
-          ),
+
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Profile Section
                 _buildProfileSection(user),
-                const SizedBox(height: 24),
-
-                // Management Sections
+                SizedBox(height: UIConstants.spacing24),
                 _buildManagementSection(),
-                const SizedBox(height: 24),
-
-                // About Section (Simplified)
+                SizedBox(height: UIConstants.spacing24),
                 _buildAboutSection(),
-                const SizedBox(height: 24),
-
-                // Danger Zone
+                SizedBox(height: UIConstants.spacing24),
                 _buildDangerZone(),
                 const SizedBox(height: 100),
               ],
@@ -99,29 +218,29 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(UIConstants.paddingLarge),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.admin_panel_settings_outlined,
-                size: 64,
+                size: UIConstants.iconHuge,
                 color: AppColors.textTertiary,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: UIConstants.spacing16),
               Text(
                 'Admin Access Required',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: UIConstants.fontSizeXXLarge,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: UIConstants.spacing8),
               Text(
                 'Only administrators can access settings',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: UIConstants.fontSizeLarge,
                   color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
@@ -139,7 +258,7 @@ class _SettingsPageState extends State<SettingsPage> {
       icon: Icons.person_outline,
       children: [
         _buildProfileTile(user),
-        const SizedBox(height: 8),
+        SizedBox(height: UIConstants.spacing8),
         _buildInfoTile(
           title: 'Email',
           subtitle: user.email ?? 'No email',
@@ -147,7 +266,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         _buildInfoTile(
           title: 'Role',
-          subtitle: _getRoleDisplayName(user.role),
+          subtitle: user.role.displayName,
           icon: Icons.admin_panel_settings_outlined,
           trailing: _buildRoleBadge(user.role),
         ),
@@ -170,60 +289,97 @@ class _SettingsPageState extends State<SettingsPage> {
       title: 'Management',
       icon: Icons.settings_outlined,
       children: [
-        _buildActionTile(
+        _buildNavigationTile(
           title: 'Manage Subjects',
           subtitle: 'Add, edit, or remove subjects',
           icon: Icons.subject_outlined,
-          onTap: () => _showManagementDialog('Subjects', _createSubjectManagementWidget()),
+          route: AppRoutes.settingsSubjects,
+          count: _getSubjectCount(),
         ),
-        _buildActionTile(
+        _buildNavigationTile(
           title: 'Manage Grades',
           subtitle: 'Configure grade levels and sections',
           icon: Icons.school_outlined,
-          onTap: () => _showManagementDialog('Grades', _createGradeManagementWidget()),
+          route: AppRoutes.settingsGrades,
+          count: _getGradeCount(),
         ),
-        _buildActionTile(
+        _buildNavigationTile(
           title: 'Manage Exam Types',
           subtitle: 'Configure exam formats and sections',
           icon: Icons.quiz_outlined,
-          onTap: () => _showManagementDialog('Exam Types', _createExamTypeManagementWidget()),
+          route: AppRoutes.settingsExamTypes,
+          count: _getExamTypeCount(),
         ),
-        _buildActionTile(
+        _buildNavigationTile(
           title: 'Manage Users',
           subtitle: 'Manage users in your tenant',
           icon: Icons.people_outline,
-          onTap: () => _showManagementDialog('Users', _createUserManagementWidget()),
+          route: AppRoutes.settingsUsers,
+          count: _getUserCount(),
         ),
       ],
     );
   }
 
-  // FIXED: Create properly provided widgets for each management type
-  Widget _createSubjectManagementWidget() {
-    return BlocProvider(
-      create: (context) => sl<SubjectBloc>(),
-      child: const SubjectManagementWidget(),
-    );
-  }
-
-  Widget _createGradeManagementWidget() {
-    return BlocProvider(
-      create: (context) => sl<GradeBloc>(),
-      child: const GradeManagementWidget(),
-    );
-  }
-
-  Widget _createExamTypeManagementWidget() {
-    return BlocProvider(
-      create: (context) => sl<ExamTypeBloc>(),
-      child: const ExamTypeManagementWidget(),
-    );
-  }
-
-  Widget _createUserManagementWidget() {
-    return BlocProvider(
-      create: (context) => UserManagementBloc(),
-      child: const UserManagementWidget(),
+  Widget _buildNavigationTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String route,
+    int? count,
+  }) {
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+        UIConstants.spacing20,
+        0,
+        UIConstants.spacing20,
+        UIConstants.spacing8,
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.textSecondary),
+        title: Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (count != null) ...[
+              SizedBox(width: UIConstants.spacing8),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.spacing8,
+                  vertical: UIConstants.spacing4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: AppColors.textTertiary,
+        ),
+        onTap: () => context.push(route),
+        dense: true,
+      ),
     );
   }
 
@@ -236,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'Help & Support',
           subtitle: 'Get help with using the app',
           icon: Icons.help_outline,
-          onTap: () => _showSupportDialog(),
+          onTap: _showSupportDialog,
         ),
       ],
     );
@@ -269,7 +425,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -282,19 +438,19 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(UIConstants.spacing20),
             child: Row(
               children: [
                 Icon(
                   icon,
                   color: titleColor ?? AppColors.primary,
-                  size: 20,
+                  size: UIConstants.iconMedium,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: UIConstants.spacing12),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: UIConstants.fontSizeXLarge,
                     fontWeight: FontWeight.w600,
                     color: titleColor ?? AppColors.textPrimary,
                   ),
@@ -310,11 +466,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildProfileTile(dynamic user) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.fromLTRB(
+        UIConstants.spacing20,
+        0,
+        UIConstants.spacing20,
+        UIConstants.spacing16,
+      ),
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
       child: Row(
         children: [
@@ -323,39 +484,39 @@ class _SettingsPageState extends State<SettingsPage> {
             height: 50,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
             ),
             child: Center(
               child: Text(
                 user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: UIConstants.fontSizeXXLarge,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: UIConstants.spacing16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   user.fullName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: UIConstants.fontSizeXLarge,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: UIConstants.spacing4),
                 Text(
-                  _getRoleDisplayName(user.role),
+                  user.role.displayName,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
+                    fontSize: UIConstants.fontSizeMedium,
                   ),
                 ),
               ],
@@ -373,7 +534,12 @@ class _SettingsPageState extends State<SettingsPage> {
     Widget? trailing,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      margin: EdgeInsets.fromLTRB(
+        UIConstants.spacing20,
+        0,
+        UIConstants.spacing20,
+        UIConstants.spacing8,
+      ),
       child: ListTile(
         leading: Icon(icon, color: AppColors.textSecondary),
         title: Text(
@@ -402,7 +568,12 @@ class _SettingsPageState extends State<SettingsPage> {
     Color? iconColor,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      margin: EdgeInsets.fromLTRB(
+        UIConstants.spacing20,
+        0,
+        UIConstants.spacing20,
+        UIConstants.spacing8,
+      ),
       child: ListTile(
         leading: Icon(icon, color: iconColor ?? AppColors.textSecondary),
         title: Text(
@@ -429,17 +600,20 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildRoleBadge(UserRole role) {
     final isAdminRole = role == UserRole.admin;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: UIConstants.spacing8,
+        vertical: UIConstants.spacing4,
+      ),
       decoration: BoxDecoration(
         gradient: isAdminRole ? AppColors.accentGradient : null,
         color: isAdminRole ? null : AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: isAdminRole ? null : Border.all(
-          color: AppColors.primary.withOpacity(0.2),
-        ),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: isAdminRole
+            ? null
+            : Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Text(
-        _getRoleDisplayName(role),
+        role.displayName,
         style: TextStyle(
           color: isAdminRole ? Colors.white : AppColors.primary,
           fontWeight: FontWeight.w700,
@@ -447,148 +621,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-  }
-
-  void _showManagementDialog(String title, Widget content) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.8,
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-                // Content
-                Expanded(
-                  child: content,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showSupportDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(Icons.support_agent, color: AppColors.primary),
-              const SizedBox(width: 12),
-              const Text('Help & Support'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('For support and assistance, please contact:'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.email, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'isaam.mj@gmail.com',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showSignOutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(Icons.logout, color: AppColors.error),
-              const SizedBox(width: 12),
-              const Text('Sign Out'),
-            ],
-          ),
-          content: const Text('Are you sure you want to sign out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                context.read<AuthBloc>().add(const AuthSignOut());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Sign Out'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  String _getRoleDisplayName(UserRole role) {
-    return role.displayName;
   }
 
   String _formatDate(DateTime? date) {

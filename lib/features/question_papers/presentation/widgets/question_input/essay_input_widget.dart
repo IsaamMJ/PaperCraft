@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class EssayInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
@@ -153,7 +155,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: UIConstants.spacing12),
 
         // Main question input with Enter key navigation
         TextField(
@@ -178,28 +180,28 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
               borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Sub-questions section
         InkWell(
           onTap: () => setState(() => _showSubQuestions = !_showSubQuestions),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
             ),
             child: Row(
               children: [
@@ -223,7 +225,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Text(
                       '${_subQuestions.length}',
@@ -240,7 +242,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
         ),
 
         if (_showSubQuestions) ...[
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
           // Sub-question input with Enter key navigation
           TextField(
@@ -260,11 +262,11 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
               filled: true,
               fillColor: Colors.grey.shade50,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 borderSide: BorderSide(color: AppColors.primary, width: 2),
               ),
               contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
@@ -283,7 +285,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
 
           // Display sub-questions
           if (_subQuestions.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: UIConstants.spacing12),
             Text(
               'Sub-questions:',
               style: TextStyle(
@@ -292,7 +294,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: UIConstants.spacing8),
             ..._subQuestions.asMap().entries.map((e) {
               final index = e.key;
               final subQuestion = e.value;
@@ -303,7 +305,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                 padding: EdgeInsets.all(widget.isMobile ? 12 : 10),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: Row(
@@ -349,12 +351,12 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
           ],
         ],
 
-        const SizedBox(height: 16),
+        SizedBox(height: UIConstants.spacing16),
 
         // Optional checkbox
         InkWell(
           onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -373,7 +375,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
           ),
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: UIConstants.spacing24),
 
         // Action buttons
         Row(
@@ -423,7 +425,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
               'Please enter a question',
               style: TextStyle(
                 color: AppColors.error,
-                fontSize: 12,
+                fontSize: UIConstants.fontSizeSmall,
               ),
             ),
           ),

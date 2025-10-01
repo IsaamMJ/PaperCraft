@@ -22,6 +22,25 @@ class SubjectModel extends SubjectEntity {
     );
   }
 
+  Map<String, dynamic> toJsonForInsert() {
+    return {
+      'tenant_id': tenantId,
+      'name': name,
+      'description': description,
+      'is_active': isActive,
+      // Omit 'id' and 'created_at' - let database generate
+    };
+  }
+
+  Map<String, dynamic> toJsonForUpdate() {
+    return {
+      'name': name,
+      'description': description,
+      'is_active': isActive,
+      // Omit 'id', 'tenant_id', 'created_at' - these shouldn't change
+    };
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

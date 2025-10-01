@@ -108,68 +108,54 @@ class ExamTypeRepositoryImpl implements ExamTypeRepository {
       final tenantId = await _getTenantId();
       final userStateService = sl<UserStateService>();
 
-      _logger.info('Creating exam type', category: LogCategory.examtype, context: {
-        'examTypeName': examType.name,
-        'tenantId': tenantId,
-        'operation': 'create_exam_type',
-      });
-
       if (tenantId == null) {
-        _logger.warning('Failed to create exam type - no tenant ID',
-            category: LogCategory.examtype,
-            context: {
-              'examTypeName': examType.name,
-              'operation': 'create_exam_type',
-            }
-        );
         return Left(AuthFailure('User not authenticated'));
       }
 
       if (!userStateService.canApprovePapers()) {
-        _logger.warning('Failed to create exam type - insufficient permissions',
-            category: LogCategory.examtype,
-            context: {
-              'examTypeName': examType.name,
-              'userRole': userStateService.currentRole.toString(),
-              'operation': 'create_exam_type',
-            }
-        );
         return Left(PermissionFailure('Admin privileges required to create exam types'));
       }
 
-      // Ensure tenant ID is set
+      // Validate exam type name
+      if (examType.name.trim().isEmpty) {
+        return Left(ValidationFailure('Exam type name cannot be empty'));
+      }
+
+      // Validate sections
+      if (examType.sections.isEmpty) {
+        return Left(ValidationFailure('At least one section is required'));
+      }
+
+      for (final section in examType.sections) {
+        if (section.questions < 1) {
+          return Left(ValidationFailure('Section "${section.name}" must have at least 1 question'));
+        }
+        if (section.marksPerQuestion < 1) {
+          return Left(ValidationFailure('Section "${section.name}" must have marks greater than 0'));
+        }
+        if (section.questionsToAnswer != null && section.questionsToAnswer! > section.questions) {
+          return Left(ValidationFailure('Section "${section.name}" cannot require more answers than questions provided'));
+        }
+      }
+
       final examTypeWithTenant = ExamTypeEntity(
-        id: examType.id,
+        id: '', // Empty - database will generate
         tenantId: tenantId,
-        name: examType.name,
+        name: examType.name.trim(),
         durationMinutes: examType.durationMinutes,
         totalMarks: examType.totalMarks,
-        totalQuestions: examType.totalQuestions,
+        totalQuestions: examType.sections.length,
         sections: examType.sections,
       );
 
       final model = ExamTypeModel.fromEntity(examTypeWithTenant);
       final createdModel = await _dataSource.createExamType(model);
-      final createdEntity = createdModel.toEntity();
-
-      _logger.info('Exam type created successfully', category: LogCategory.examtype, context: {
-        'examTypeId': createdEntity.id,
-        'examTypeName': createdEntity.name,
-        'tenantId': tenantId,
-        'operation': 'create_exam_type',
-      });
-
-      return Right(createdEntity);
+      return Right(createdModel.toEntity());
     } catch (e, stackTrace) {
       _logger.error('Failed to create exam type',
           category: LogCategory.examtype,
           error: e,
-          stackTrace: stackTrace,
-          context: {
-            'examTypeName': examType.name,
-            'operation': 'create_exam_type',
-          }
-      );
+          stackTrace: stackTrace);
       return Left(ServerFailure('Failed to create exam type: ${e.toString()}'));
     }
   }

@@ -152,15 +152,33 @@ class AuthDataSource {
 // Add this method to your existing AuthDataSource class:
 
   // Add this to AuthDataSource class
-  Future<Either<AuthFailure, String>> _createPersonalTenant(String userEmail, String userName) async {
+  Future<Either<AuthFailure, String>> _createPersonalTenant(String userId, String userEmail, String userName) async {
     try {
-      _logger.debug('Creating personal tenant', category: LogCategory.auth, context: {
+      _logger.debug('Creating or finding personal tenant', category: LogCategory.auth, context: {
+        'userId': userId,
         'userEmail': userEmail,
-        'userName': userName,
       });
 
-      // Generate tenant name for personal workspace
-      final tenantName = _generateTenantName(userName, userEmail);
+      // CRITICAL: Check if user already has a personal tenant
+      final existingTenantResult = await _findPersonalTenant(userId);
+
+      final existingTenantId = await existingTenantResult.fold(
+            (failure) => throw failure,
+            (tenantId) => tenantId,
+      );
+
+      // If tenant exists, return it
+      if (existingTenantId != null) {
+        _logger.info('Personal tenant already exists, reusing', category: LogCategory.auth, context: {
+          'userId': userId,
+          'tenantId': existingTenantId,
+          'userEmail': userEmail,
+        });
+        return Right(existingTenantId);
+      }
+
+      // Generate unique tenant name with user ID to prevent collisions
+      final tenantName = _generateTenantName(userId, userName, userEmail);
 
       final response = await _apiClient.insert<Map<String, dynamic>>(
         table: 'tenants',
@@ -178,6 +196,7 @@ class AuthDataSource {
         _logger.info('Personal tenant created successfully', category: LogCategory.auth, context: {
           'tenantId': tenantId,
           'tenantName': tenantName,
+          'userId': userId,
           'userEmail': userEmail,
         });
 
@@ -190,21 +209,62 @@ class AuthDataSource {
         category: LogCategory.auth,
         error: e,
         stackTrace: stackTrace,
-        context: {'userEmail': userEmail},
+        context: {'userId': userId, 'userEmail': userEmail},
       );
       return Left(AuthFailure('Failed to create personal tenant: ${e.toString()}'));
     }
   }
 
-  String _generateTenantName(String userName, String userEmail) {
-    // Clean up the user name for tenant naming
+  Future<Either<AuthFailure, String?>> _findPersonalTenant(String userId) async {
+    try {
+      _logger.debug('Looking for existing personal tenant', category: LogCategory.auth, context: {
+        'userId': userId,
+      });
+
+      // Query profiles table to find tenant_id for this user
+      final response = await _apiClient.selectSingle<Map<String, dynamic>>(
+        table: 'profiles',
+        fromJson: (json) => json,
+        filters: {'id': userId},
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final tenantId = response.data!['tenant_id'] as String?;
+
+        if (tenantId != null) {
+          _logger.debug('Found existing tenant for user', category: LogCategory.auth, context: {
+            'userId': userId,
+            'tenantId': tenantId,
+          });
+          return Right(tenantId);
+        }
+      }
+
+      _logger.debug('No existing tenant found for user', category: LogCategory.auth, context: {
+        'userId': userId,
+      });
+      return const Right(null);
+    } catch (e, stackTrace) {
+      _logger.error('Exception finding personal tenant',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'userId': userId},
+      );
+      return Left(AuthFailure('Failed to find personal tenant: ${e.toString()}'));
+    }
+  }
+
+  String _generateTenantName(String userId, String userName, String userEmail) {
+    // Use userId suffix to ensure uniqueness even if names collide
+    final userIdSuffix = userId.substring(0, 8); // First 8 chars of UUID
+
     final cleanName = userName.trim();
     if (cleanName.isNotEmpty) {
-      return "$cleanName's Workspace";
+      return "$cleanName's Workspace ($userIdSuffix)";
     } else {
-      // Fallback to email prefix if name is empty
       final emailPrefix = userEmail.split('@').first;
-      return "${emailPrefix}'s Workspace";
+      return "${emailPrefix}'s Workspace ($userIdSuffix)";
     }
   }
 
@@ -523,6 +583,12 @@ class AuthDataSource {
       final email = user.email!;
       final domain = _extractDomain(email);
 
+      print('🔍 DEBUG 1: Starting auto-assign');
+      print('  - Email: $email');
+      print('  - Domain: $domain');
+      print('  - UserId: ${user.id}');
+      print('  - UserName: ${profile.fullName}');
+
       _logger.info('Auto-assigning tenant based on domain', category: LogCategory.auth, context: {
         'userId': user.id,
         'email': email,
@@ -532,32 +598,54 @@ class AuthDataSource {
       String? tenantId;
 
       if (domain == 'pearlmatricschool.com') {
+        print('🔍 DEBUG 2: School domain detected');
         // School user - find existing school tenant
         final schoolTenantResult = await _findSchoolTenant(domain);
 
         final schoolTenantId = await schoolTenantResult.fold(
-              (failure) => throw failure,
-              (foundTenantId) => foundTenantId,
+              (failure) {
+            print('❌ DEBUG 3A: School tenant search failed: ${failure.message}');
+            throw failure;
+          },
+              (foundTenantId) {
+            print('✅ DEBUG 3B: School tenant result: $foundTenantId');
+            return foundTenantId;
+          },
         );
 
         if (schoolTenantId != null) {
           tenantId = schoolTenantId;
+          print('✅ DEBUG 4: Using school tenant: $tenantId');
           _logger.info('Assigning user to school tenant', category: LogCategory.auth, context: {
             'userId': user.id,
             'tenantId': tenantId,
             'tenantType': 'school',
           });
         } else {
+          print('❌ DEBUG 4: No school tenant found');
           return const Left(AuthFailure('School tenant not found - please contact administrator'));
         }
       } else if (domain == 'gmail.com') {
-        // Individual user - create personal tenant
-        final personalTenantResult = await _createPersonalTenant(email, profile.fullName);
+        print('🔍 DEBUG 2: Gmail domain detected - creating personal tenant');
+
+        // Individual user - create or find personal tenant
+        final personalTenantResult = await _createPersonalTenant(user.id, email, profile.fullName);
+
+        print('🔍 DEBUG 3: Personal tenant creation result: ${personalTenantResult.isRight() ? "SUCCESS" : "FAILED"}');
 
         tenantId = await personalTenantResult.fold(
-              (failure) => throw failure,
-              (createdTenantId) => createdTenantId,
+              (failure) {
+            print('❌ DEBUG 4A: Personal tenant creation FAILED');
+            print('   Error: ${failure.message}');
+            throw failure;
+          },
+              (createdTenantId) {
+            print('✅ DEBUG 4B: Personal tenant created: $createdTenantId');
+            return createdTenantId;
+          },
         );
+
+        print('✅ DEBUG 5: TenantId assigned: $tenantId');
 
         _logger.info('Created personal tenant for user', category: LogCategory.auth, context: {
           'userId': user.id,
@@ -565,28 +653,51 @@ class AuthDataSource {
           'tenantType': 'personal',
         });
       } else {
+        print('❌ DEBUG 2: Unsupported domain: $domain');
         return Left(AuthFailure('Unsupported email domain: $domain'));
       }
-// Ensure tenantId is not null before assignment
+
+      // Ensure tenantId is not null before assignment
       if (tenantId == null) {
+        print('❌ DEBUG 6: TenantId is NULL');
         return const Left(AuthFailure('Failed to determine tenant ID'));
       }
 
-// Assign user to the tenant
+      print('🔍 DEBUG 7: Assigning user to tenant...');
+      print('  - UserId: ${user.id}');
+      print('  - TenantId: $tenantId');
+
+      // Assign user to the tenant
       final assignResult = await _assignUserToTenant(user.id, tenantId);
 
       await assignResult.fold(
-            (failure) => throw failure,
-            (_) => Future.value(),
+            (failure) {
+          print('❌ DEBUG 8A: User assignment FAILED');
+          print('   Error: ${failure.message}');
+          throw failure;
+        },
+            (_) {
+          print('✅ DEBUG 8B: User assigned successfully');
+          return Future.value();
+        },
       );
+
+      print('🔍 DEBUG 9: Fetching updated profile...');
 
       // Fetch updated profile with tenant assignment
       final updatedProfileResult = await _getUserProfile(user.id);
 
       return updatedProfileResult.fold(
-            (failure) => Left(failure),
+            (failure) {
+          print('❌ DEBUG 10A: Profile fetch FAILED');
+          print('   Error: ${failure.message}');
+          return Left(failure);
+        },
             (updatedProfile) {
           if (updatedProfile != null) {
+            print('✅ DEBUG 10B: Profile fetched successfully');
+            print('   TenantId in profile: ${updatedProfile.tenantId}');
+
             _logger.info('Tenant auto-assignment completed successfully', category: LogCategory.auth, context: {
               'userId': user.id,
               'tenantId': tenantId,
@@ -594,12 +705,16 @@ class AuthDataSource {
             });
             return Right(updatedProfile);
           } else {
+            print('❌ DEBUG 10C: Profile is NULL');
             return const Left(AuthFailure('Failed to fetch updated profile after tenant assignment'));
           }
         },
       );
 
     } catch (e, stackTrace) {
+      print('💥 DEBUG EXCEPTION: $e');
+      print('   StackTrace: $stackTrace');
+
       _logger.error('Exception during auto tenant assignment',
         category: LogCategory.auth,
         error: e,

@@ -4,6 +4,8 @@ import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/exam_type_entity.dart';
 import '../../../domain/entities/question_entity.dart';
 
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 class SectionProgressWidget extends StatelessWidget {
   final int currentSection;
   final List<ExamSectionEntity> sections;
@@ -24,10 +26,10 @@ class SectionProgressWidget extends StatelessWidget {
     final progress = (mandatoryCount / section.questions).clamp(0.0, 1.0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
       child: Column(
         children: [
@@ -37,7 +39,7 @@ class SectionProgressWidget extends StatelessWidget {
               Text(
                 'Section ${currentSection + 1} of ${sections.length}',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: UIConstants.fontSizeMedium,
                   fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
@@ -45,14 +47,14 @@ class SectionProgressWidget extends StatelessWidget {
               Text(
                 '$mandatoryCount/${section.questions} questions',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: UIConstants.fontSizeMedium,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: UIConstants.spacing8),
           LinearProgressIndicator(
             value: progress,
             backgroundColor: Colors.grey.shade300,
@@ -62,7 +64,7 @@ class SectionProgressWidget extends StatelessWidget {
             minHeight: 6,
           ),
           if (sections.length > 1) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: UIConstants.spacing16),
             _buildSectionOverview(),
           ],
         ],
@@ -90,7 +92,7 @@ class SectionProgressWidget extends StatelessWidget {
                   : isCompleted
                   ? AppColors.success.withOpacity(0.1)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Column(
               children: [
@@ -99,7 +101,7 @@ class SectionProgressWidget extends StatelessWidget {
                   size: 16,
                   color: isCompleted ? AppColors.success : AppColors.textTertiary,
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: UIConstants.spacing4),
                 Text(
                   section.name,
                   style: TextStyle(

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../domain/entities/grade_entity.dart';
 import '../../bloc/grade_bloc.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
+
 
 class GradeManagementWidget extends StatefulWidget {
   const GradeManagementWidget({super.key});
@@ -39,14 +41,14 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
     return BlocListener<GradeBloc, GradeState>(
       listener: _handleStateChanges,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         child: Column(
           children: [
             // Add/Edit Form
             _buildForm(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
             const Divider(),
-            const SizedBox(height: 20),
+            SizedBox(height: UIConstants.spacing20),
 
             // Grades List
             Expanded(
@@ -64,11 +66,11 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
                           Icon(Icons.error_outline,
                               size: 48,
                               color: AppColors.error),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           Text(state.message,
                               style: TextStyle(color: AppColors.error),
                               textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
+                          SizedBox(height: UIConstants.spacing16),
                           ElevatedButton(
                             onPressed: () {
                               context.read<GradeBloc>().add(const LoadGrades());
@@ -89,14 +91,14 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
                             Icon(Icons.school_outlined,
                                 size: 48,
                                 color: AppColors.textTertiary),
-                            const SizedBox(height: 16),
+                            SizedBox(height: UIConstants.spacing16),
                             Text('No grades yet',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 )),
-                            const SizedBox(height: 8),
+                            SizedBox(height: UIConstants.spacing8),
                             Text('Add your first grade above',
                                 style: TextStyle(color: AppColors.textTertiary)),
                           ],
@@ -144,26 +146,36 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing16),
 
+          // Level Selection
           Row(
             children: [
               Expanded(
-                flex: 2,
-                child: TextFormField(
-                  controller: _nameController,
+                child: DropdownButtonFormField<int>(
+                  value: _editingGrade?.level,
                   decoration: InputDecoration(
-                    labelText: 'Grade Name',
-                    hintText: 'e.g., Grade 1, Class 10',
-                    prefixIcon: Icon(Icons.school, color: AppColors.primary),
+                    labelText: 'Grade Level',
+                    prefixIcon: Icon(Icons.format_list_numbered, color: AppColors.primary),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                   ),
+                  items: List.generate(12, (index) => index + 1)
+                      .map((level) => DropdownMenuItem(
+                    value: level,
+                    child: Text('Grade $level'),
+                  ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _levelController.text = value.toString();
+                      // Auto-generate name preview
+                      _nameController.text = 'Grade $value';
+                    });
+                  },
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Grade name is required';
-                    }
+                    if (value == null) return 'Please select a grade level';
                     return null;
                   },
                 ),
@@ -171,23 +183,22 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextFormField(
-                  controller: _levelController,
+                  controller: _sectionController,
                   decoration: InputDecoration(
-                    labelText: 'Level',
-                    hintText: '1-12',
-                    prefixIcon: Icon(Icons.format_list_numbered, color: AppColors.primary),
+                    labelText: 'Section (Optional)',
+                    hintText: 'A, B, C...',
+                    prefixIcon: Icon(Icons.group, color: AppColors.primary),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                   ),
-                  keyboardType: TextInputType.number,
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 1,
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Level required';
-                    }
-                    final level = int.tryParse(value.trim());
-                    if (level == null || level < 1 || level > 12) {
-                      return 'Level must be 1-12';
+                    if (value != null && value.isNotEmpty) {
+                      if (!RegExp(r'^[A-Za-z]$').hasMatch(value)) {
+                        return 'Must be A-Z';
+                      }
                     }
                     return null;
                   },
@@ -195,20 +206,39 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: UIConstants.spacing12),
 
-          TextFormField(
-            controller: _sectionController,
-            decoration: InputDecoration(
-              labelText: 'Section (Optional)',
-              hintText: 'e.g., A, B, C',
-              prefixIcon: Icon(Icons.group, color: AppColors.primary),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+          // Name Preview (Read-only)
+          Container(
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.preview, color: AppColors.primary, size: 20),
+                SizedBox(width: UIConstants.spacing8),
+                Text(
+                  'Display Name: ',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: UIConstants.fontSizeMedium,
+                  ),
+                ),
+                Text(
+                  _getPreviewName(),
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: UIConstants.fontSizeMedium,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: UIConstants.spacing20),
 
           Row(
             children: [
@@ -237,6 +267,17 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
     );
   }
 
+  String _getPreviewName() {
+    final level = _levelController.text.isEmpty ? '?' : _levelController.text;
+    final section = _sectionController.text.trim().toUpperCase();
+
+    if (section.isEmpty) {
+      return 'Grade $level';
+    } else {
+      return 'Grade $level-$section';
+    }
+  }
+
   Widget _buildGradeLevelSection(int level, List<GradeEntity> grades) {
     // Sort grades by section
     grades.sort((a, b) {
@@ -252,7 +293,7 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -343,16 +384,17 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
   void _submitForm() {
     if (!_formKey.currentState!.validate()) return;
 
-    final name = _nameController.text.trim();
     final level = int.parse(_levelController.text.trim());
-    final section = _sectionController.text.trim();
+    final section = _sectionController.text.trim().toUpperCase();
+
+    // Name is auto-generated - no manual input
+    final name = 'Grade $level';
 
     if (_editingGrade == null) {
-      // Create new grade
       final newGrade = GradeEntity(
-        id: '', // Will be generated by the backend
-        tenantId: '', // Will be set by the repository
-        name: name,
+        id: '', // Will be generated by database
+        tenantId: '', // Will be set by repository
+        name: name, // Auto-generated
         level: level,
         section: section.isEmpty ? null : section,
         isActive: true,
@@ -361,11 +403,10 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
 
       context.read<GradeBloc>().add(CreateGrade(newGrade));
     } else {
-      // Update existing grade
       final updatedGrade = GradeEntity(
         id: _editingGrade!.id,
         tenantId: _editingGrade!.tenantId,
-        name: name,
+        name: name, // Auto-generated
         level: level,
         section: section.isEmpty ? null : section,
         isActive: _editingGrade!.isActive,

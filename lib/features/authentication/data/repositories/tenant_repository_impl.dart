@@ -15,6 +15,34 @@ class TenantRepositoryImpl implements TenantRepository {
 
   TenantRepositoryImpl(this._dataSource, this._logger);
 
+  // In tenant_repository_impl.dart, add this method:
+
+  @override
+  Future<Either<Failure, void>> markAsInitialized(String tenantId) async {
+    try {
+      _logger.info('Marking tenant as initialized', category: LogCategory.auth, context: {
+        'tenantId': tenantId,
+        'operation': 'mark_initialized',
+      });
+
+      await _dataSource.markAsInitialized(tenantId);
+
+      _logger.info('Tenant marked as initialized successfully', category: LogCategory.auth, context: {
+        'tenantId': tenantId,
+      });
+
+      return const Right(null);
+    } catch (e, stackTrace) {
+      _logger.error('Failed to mark tenant as initialized',
+          category: LogCategory.auth,
+          error: e,
+          stackTrace: stackTrace,
+          context: {'tenantId': tenantId}
+      );
+      return Left(ServerFailure('Failed to mark tenant as initialized: ${e.toString()}'));
+    }
+  }
+
   @override
   Future<Either<Failure, TenantEntity?>> getTenantById(String id) async {
     try {

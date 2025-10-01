@@ -168,20 +168,24 @@ class SubjectRepositoryImpl implements SubjectRepository {
         return Left(PermissionFailure('Admin privileges required'));
       }
 
+      // Create entity with tenant ID but WITHOUT generating ID
       final subjectWithTenant = SubjectEntity(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: '', // Empty - database will generate
         tenantId: tenantId,
-        name: subject.name,
-        description: subject.description,
+        name: subject.name.trim(), // Trim whitespace
+        description: subject.description?.trim(),
         isActive: true,
-        createdAt: DateTime.now(),
+        createdAt: DateTime.now(), // This will be ignored anyway
       );
 
       final model = SubjectModel.fromEntity(subjectWithTenant);
       final createdModel = await _dataSource.createSubject(model);
       return Right(createdModel.toEntity());
     } catch (e, stackTrace) {
-      _logger.error('Failed to create subject', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      _logger.error('Failed to create subject',
+          category: LogCategory.paper,
+          error: e,
+          stackTrace: stackTrace);
       return Left(ServerFailure('Failed to create subject: ${e.toString()}'));
     }
   }

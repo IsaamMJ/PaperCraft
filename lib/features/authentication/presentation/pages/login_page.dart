@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/constants/app_messages.dart';
+import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/presentation/constants/app_assets.dart';
+import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -24,11 +28,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: Duration(milliseconds: UIConstants.durationSlow + 200),
       vsync: this,
     );
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: Duration(milliseconds: UIConstants.durationSlow),
       vsync: this,
     );
 
@@ -42,7 +46,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
     // Start animations
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(Duration(milliseconds: UIConstants.durationFast), () {
       if (mounted) {
         _fadeController.forward();
         _slideController.forward();
@@ -71,13 +75,30 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       context: context,
       barrierDismissible: true,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Sign In Failed', style: TextStyle(fontWeight: FontWeight.w600)),
-        content: Text(message, style: TextStyle(color: AppColors.textSecondary)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        title: const Text(
+          AppMessages.authFailedGeneric,
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: UIConstants.fontSizeMedium,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Try Again', style: TextStyle(color: AppColors.primary)),
+            child: Text(
+              AppMessages.goBack,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: UIConstants.fontSizeMedium,
+              ),
+            ),
           ),
         ],
       ),
@@ -133,10 +154,11 @@ class _ResponsiveLoginLayout extends StatelessWidget {
     required this.onSignIn,
   });
 
-  // Responsive breakpoints
-  bool get isMobile => constraints.maxWidth < 600;
-  bool get isTablet => constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
-  bool get isDesktop => constraints.maxWidth >= 1024;
+  // Responsive breakpoints using UiHelpers
+  bool get isMobile => constraints.maxWidth < UIConstants.breakpointMobile;
+  bool get isTablet => constraints.maxWidth >= UIConstants.breakpointMobile &&
+      constraints.maxWidth < UIConstants.breakpointDesktop;
+  bool get isDesktop => constraints.maxWidth >= UIConstants.breakpointDesktop;
   bool get isVeryWide => constraints.maxWidth >= 1440;
   bool get isShortScreen => constraints.maxHeight < 600;
 
@@ -151,12 +173,12 @@ class _ResponsiveLoginLayout extends StatelessWidget {
   EdgeInsets get padding {
     if (isMobile) {
       return EdgeInsets.symmetric(
-        horizontal: constraints.maxWidth * 0.08, // 8% of screen width
-        vertical: isShortScreen ? 16 : 24,
+        horizontal: constraints.maxWidth * 0.08,
+        vertical: isShortScreen ? UIConstants.paddingMedium : UIConstants.paddingLarge,
       );
     }
-    if (isTablet) return const EdgeInsets.all(48);
-    return const EdgeInsets.all(64);
+    if (isTablet) return EdgeInsets.all(UIConstants.paddingLarge * 2);
+    return EdgeInsets.all(UIConstants.paddingLarge * 2.67); // 64
   }
 
   double get logoSize {
@@ -172,9 +194,9 @@ class _ResponsiveLoginLayout extends StatelessWidget {
   }
 
   double get subtitleFontSize {
-    if (isMobile) return 16;
-    if (isTablet) return 18;
-    return 20;
+    if (isMobile) return UIConstants.fontSizeLarge;
+    if (isTablet) return UIConstants.fontSizeXLarge;
+    return UIConstants.fontSizeXXLarge;
   }
 
   double get buttonHeight {
@@ -210,7 +232,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
         Expanded(
           child: _buildActionSection(),
         ),
-        if (!isMobile) const SizedBox(height: 24),
+        if (!isMobile) SizedBox(height: UIConstants.spacing24),
         _buildFooter(),
       ],
     );
@@ -255,14 +277,15 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Image.asset(
-                'assets/images/roundedlogo.png',
-                width: 200,
-                height: 100,
-                fit: BoxFit.contain,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(logoSize * 0.25),
+                child: Image.asset(
+                  AppAssets.logoRounded,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
-            SizedBox(height: isShortScreen ? 20 : 32),
+            SizedBox(height: isShortScreen ? UIConstants.spacing20 : UIConstants.spacing32),
             Text(
               'Papercraft',
               style: TextStyle(
@@ -272,7 +295,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 letterSpacing: -0.5,
               ),
             ),
-            SizedBox(height: isShortScreen ? 8 : 12),
+            SizedBox(height: isShortScreen ? UIConstants.spacing8 : UIConstants.spacing12),
             Text(
               'Create, organize, and manage\nyour question papers easily',
               textAlign: TextAlign.center,
@@ -299,12 +322,12 @@ class _ResponsiveLoginLayout extends StatelessWidget {
             onPressed: onSignIn,
             height: buttonHeight,
           ),
-          SizedBox(height: isShortScreen ? 16 : 24),
+          SizedBox(height: isShortScreen ? UIConstants.spacing16 : UIConstants.spacing24),
           Text(
             'Currently supporting Google sign-in.\nMore providers coming soon.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: isMobile ? 13 : 14,
+              fontSize: isMobile ? UIConstants.fontSizeSmall + 1 : UIConstants.fontSizeMedium,
               color: AppColors.textTertiary,
               height: 1.4,
             ),
@@ -319,7 +342,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
       'By continuing, you agree to our Terms of Service\nand Privacy Policy',
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: isMobile ? 12 : 13,
+        fontSize: isMobile ? UIConstants.fontSizeSmall : UIConstants.fontSizeSmall + 1,
         color: AppColors.textTertiary,
         height: 1.3,
       ),
@@ -335,18 +358,18 @@ class _LoadingIndicator extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: 24,
-          height: 24,
+          width: UIConstants.iconLarge,
+          height: UIConstants.iconLarge,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
             valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
           ),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: UIConstants.spacing20),
         Text(
-          'Signing you in...',
+          AppMessages.processingAuth,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: UIConstants.fontSizeMedium + 1,
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
@@ -374,11 +397,12 @@ class _SignInButtonState extends State<_SignInButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+    final isDesktop = UiHelpers.isDesktop(context);
+    final borderRadius = isDesktop ? UIConstants.radiusXXLarge : UIConstants.radiusLarge;
 
     return AnimatedScale(
       scale: _isPressed ? 0.96 : 1.0,
-      duration: const Duration(milliseconds: 100),
+      duration: Duration(milliseconds: UIConstants.durationVeryFast),
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) => setState(() => _isPressed = false),
@@ -387,12 +411,12 @@ class _SignInButtonState extends State<_SignInButton> {
           width: double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(isDesktop ? 20 : 16),
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: AppColors.overlayLight.withOpacity(0.8),
                 blurRadius: isDesktop ? 15 : 10,
                 offset: const Offset(0, 4),
               ),
@@ -402,32 +426,37 @@ class _SignInButtonState extends State<_SignInButton> {
             color: Colors.transparent,
             child: InkWell(
               onTap: widget.onPressed,
-              borderRadius: BorderRadius.circular(isDesktop ? 20 : 16),
+              borderRadius: BorderRadius.circular(borderRadius),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 24 : 20),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? UIConstants.spacing24 : UIConstants.spacing20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 24,
-                      height: 24,
+                      width: UIConstants.iconLarge,
+                      height: UIConstants.iconLarge,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(UIConstants.radiusSmall - 2),
+                        color: AppColors.surface,
                       ),
                       child: Image.network(
-                        'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg',
-                        width: 20,
-                        height: 20,
-                        errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.g_mobiledata, color: Colors.blue, size: 20),
+                        AppAssets.googleIcon,
+                        width: UIConstants.iconMedium,
+                        height: UIConstants.iconMedium,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.g_mobiledata,
+                          color: AppColors.primary,
+                          size: UIConstants.iconMedium,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: UIConstants.spacing16),
                     Text(
                       'Continue with Google',
                       style: TextStyle(
-                        fontSize: isDesktop ? 17 : 16,
+                        fontSize: isDesktop ? UIConstants.fontSizeXLarge - 1 : UIConstants.fontSizeLarge,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),

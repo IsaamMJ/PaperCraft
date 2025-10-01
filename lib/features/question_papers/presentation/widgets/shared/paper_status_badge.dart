@@ -1,5 +1,6 @@
 // features/question_papers/presentation/widgets/shared/paper_status_badge.dart
 import 'package:flutter/material.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../domain/entities/paper_status.dart';
 
 class PaperStatusBadge extends StatelessWidget {
@@ -21,7 +22,7 @@ class PaperStatusBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: _getBackgroundColor(),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: Border.all(
           color: _getBorderColor(),
           width: 1,

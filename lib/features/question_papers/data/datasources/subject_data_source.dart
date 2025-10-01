@@ -153,46 +153,24 @@ class SubjectDataSourceImpl implements SubjectDataSource {
       _logger.info('Creating new subject', category: LogCategory.storage, context: {
         'tenantId': subject.tenantId,
         'subjectName': subject.name,
-        'operation': 'create_subject',
       });
 
       final response = await _apiClient.insert<SubjectModel>(
         table: _tableName,
-        data: subject.toJson(),
+        data: subject.toJsonForInsert(), // Use INSERT-specific method
         fromJson: (json) => SubjectModel.fromJson(json),
       );
 
       if (response.isSuccess) {
-        _logger.info('Subject created successfully', category: LogCategory.storage, context: {
-          'subjectId': response.data!.id,
-          'subjectName': subject.name,
-          'operation': 'create_subject',
-        });
         return response.data!;
       } else {
-        _logger.error('Failed to create subject',
-          category: LogCategory.storage,
-          error: Exception('API Error: ${response.message}'),
-          context: {
-            'subjectName': subject.name,
-            'apiErrorType': response.errorType?.toString(),
-            'apiMessage': response.message,
-            'operation': 'create_subject',
-          },
-        );
         throw Exception(response.message ?? 'Failed to create subject');
       }
     } catch (e, stackTrace) {
       _logger.error('Failed to create subject',
-        category: LogCategory.storage,
-        error: e,
-        stackTrace: stackTrace,
-        context: {
-          'subjectName': subject.name,
-          'errorType': e.runtimeType.toString(),
-          'operation': 'create_subject',
-        },
-      );
+          category: LogCategory.storage,
+          error: e,
+          stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -200,50 +178,19 @@ class SubjectDataSourceImpl implements SubjectDataSource {
   @override
   Future<SubjectModel> updateSubject(SubjectModel subject) async {
     try {
-      _logger.info('Updating subject', category: LogCategory.storage, context: {
-        'subjectId': subject.id,
-        'subjectName': subject.name,
-        'operation': 'update_subject',
-      });
-
       final response = await _apiClient.update<SubjectModel>(
         table: _tableName,
-        data: subject.toJson(),
+        data: subject.toJsonForUpdate(), // Use UPDATE-specific method
         filters: {'id': subject.id},
         fromJson: (json) => SubjectModel.fromJson(json),
       );
 
       if (response.isSuccess) {
-        _logger.info('Subject updated successfully', category: LogCategory.storage, context: {
-          'subjectId': subject.id,
-          'subjectName': subject.name,
-          'operation': 'update_subject',
-        });
         return response.data!;
       } else {
-        _logger.error('Failed to update subject',
-          category: LogCategory.storage,
-          error: Exception('API Error: ${response.message}'),
-          context: {
-            'subjectId': subject.id,
-            'apiErrorType': response.errorType?.toString(),
-            'apiMessage': response.message,
-            'operation': 'update_subject',
-          },
-        );
         throw Exception(response.message ?? 'Failed to update subject');
       }
     } catch (e, stackTrace) {
-      _logger.error('Failed to update subject',
-        category: LogCategory.storage,
-        error: e,
-        stackTrace: stackTrace,
-        context: {
-          'subjectId': subject.id,
-          'errorType': e.runtimeType.toString(),
-          'operation': 'update_subject',
-        },
-      );
       rethrow;
     }
   }

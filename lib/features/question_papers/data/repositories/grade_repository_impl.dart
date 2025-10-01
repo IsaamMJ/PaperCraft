@@ -133,13 +133,26 @@ class GradeRepositoryImpl implements GradeRepository {
         return Left(PermissionFailure('Admin privileges required'));
       }
 
-      // Generate ID and ensure tenant ID is set
+      // Validate level range
+      if (grade.level < 1 || grade.level > 12) {
+        return Left(ValidationFailure('Grade level must be between 1 and 12'));
+      }
+
+      // Trim and validate section
+      final section = grade.section?.trim().toUpperCase();
+      if (section != null && section.isNotEmpty && !RegExp(r'^[A-Z]$').hasMatch(section)) {
+        return Left(ValidationFailure('Section must be a single letter (A-Z)'));
+      }
+
+      // Auto-generate standardized name
+      final standardizedName = 'Grade ${grade.level}';
+
       final gradeWithTenant = GradeEntity(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: '', // Empty - database will generate
         tenantId: tenantId,
-        name: grade.name,
+        name: standardizedName, // Auto-generated
         level: grade.level,
-        section: grade.section,
+        section: section,
         isActive: true,
         createdAt: DateTime.now(),
       );
@@ -148,7 +161,10 @@ class GradeRepositoryImpl implements GradeRepository {
       final createdModel = await _dataSource.createGrade(model);
       return Right(createdModel.toEntity());
     } catch (e, stackTrace) {
-      _logger.error('Failed to create grade', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      _logger.error('Failed to create grade',
+          category: LogCategory.paper,
+          error: e,
+          stackTrace: stackTrace);
       return Left(ServerFailure('Failed to create grade: ${e.toString()}'));
     }
   }

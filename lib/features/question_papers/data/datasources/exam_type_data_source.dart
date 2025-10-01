@@ -117,37 +117,18 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
   @override
   Future<ExamTypeModel> createExamType(ExamTypeModel examType) async {
     try {
-      _logger.info('Creating new exam type', category: LogCategory.examtype, context: {
-        'examTypeName': examType.name,
-        'tenantId': examType.tenantId,
-        'operation': 'create_exam_type',
-      });
-
       final response = await _supabaseClient
           .from('exam_types')
-          .insert(examType.toJson())
+          .insert(examType.toJsonForInsert()) // Use INSERT-specific method
           .select()
           .single();
-
-      _logger.info('Exam type created successfully', category: LogCategory.examtype, context: {
-        'examTypeId': response['id'],
-        'examTypeName': examType.name,
-        'tenantId': examType.tenantId,
-        'operation': 'create_exam_type',
-      });
 
       return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to create exam type',
           category: LogCategory.examtype,
           error: e,
-          stackTrace: stackTrace,
-          context: {
-            'examTypeName': examType.name,
-            'tenantId': examType.tenantId,
-            'operation': 'create_exam_type',
-          }
-      );
+          stackTrace: stackTrace);
       throw Exception('Failed to create exam type: ${e.toString()}');
     }
   }
@@ -155,36 +136,15 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
   @override
   Future<ExamTypeModel> updateExamType(ExamTypeModel examType) async {
     try {
-      _logger.info('Updating exam type', category: LogCategory.examtype, context: {
-        'examTypeId': examType.id,
-        'examTypeName': examType.name,
-        'operation': 'update_exam_type',
-      });
-
       final response = await _supabaseClient
           .from('exam_types')
-          .update(examType.toJson())
+          .update(examType.toJsonForUpdate()) // Use UPDATE-specific method
           .eq('id', examType.id)
           .select()
           .single();
 
-      _logger.info('Exam type updated successfully', category: LogCategory.examtype, context: {
-        'examTypeId': examType.id,
-        'examTypeName': examType.name,
-        'operation': 'update_exam_type',
-      });
-
       return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
-      _logger.error('Failed to update exam type',
-          category: LogCategory.examtype,
-          error: e,
-          stackTrace: stackTrace,
-          context: {
-            'examTypeId': examType.id,
-            'operation': 'update_exam_type',
-          }
-      );
       throw Exception('Failed to update exam type: ${e.toString()}');
     }
   }
