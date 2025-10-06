@@ -5,6 +5,7 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/date_utils.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -277,7 +278,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         _buildInfoTile(
           title: 'Joined',
-          subtitle: _formatDate(user.createdAt),
+          subtitle: AppDateUtils.formatShortDate(user.createdAt),
           icon: Icons.calendar_today_outlined,
         ),
       ],
@@ -623,8 +624,5 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'Unknown';
-    return '${date.day}/${date.month}/${date.year}';
-  }
+
 }

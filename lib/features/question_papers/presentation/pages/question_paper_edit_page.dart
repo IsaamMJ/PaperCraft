@@ -8,18 +8,17 @@ import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/exam_type_entity.dart';
-
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/services/subject_grade_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/grade_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
+import '../bloc/subject_bloc.dart';
 import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperEditPage extends StatelessWidget {
   final String questionPaperId;
-
 
   const QuestionPaperEditPage({
     super.key,
@@ -47,12 +46,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
-
   late UserStateService _userStateService;
 
   // Form controllers and state
   final _titleController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
 
   // Grade and Section Selection
   List<int> _availableGradeLevels = [];
@@ -60,51 +57,26 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   List<String> _availableSections = [];
   List<String> _selectedSections = [];
 
-  // Exam type and subjects
+  // Exam type and subjects - Loaded from BLoC
   ExamTypeEntity? _selectedExamType;
   List<SubjectEntity> _selectedSubjects = [];
   List<SubjectEntity> _filteredSubjects = [];
+
+  // Store data loaded from BLoCs
+  List<ExamTypeEntity> _availableExamTypes = [];
+  List<SubjectEntity> _availableSubjects = [];
 
   // Paper being edited
   QuestionPaperEntity? _currentPaper;
   bool _isLoaded = false;
   bool _isSaving = false;
 
-  // Mock data (same as create page - replace with actual data)
-  final _examTypes = [
-    ExamTypeEntity(
-      id: '1', tenantId: 'tenant1', name: 'Midterm Exam',
-      durationMinutes: 90, totalMarks: 100,
-      sections: [
-        ExamSectionEntity(name: 'Multiple Choice', type: 'multiple_choice', questions: 10, marksPerQuestion: 2),
-        ExamSectionEntity(name: 'Short Answer', type: 'short_answer', questions: 5, marksPerQuestion: 6),
-      ],
-    ),
-    ExamTypeEntity(
-      id: '2', tenantId: 'tenant1', name: 'Final Exam',
-      durationMinutes: 120, totalMarks: 150,
-      sections: [
-        ExamSectionEntity(name: 'Multiple Choice', type: 'multiple_choice', questions: 15, marksPerQuestion: 3),
-        ExamSectionEntity(name: 'Essay Questions', type: 'short_answer', questions: 3, marksPerQuestion: 35),
-      ],
-    ),
-  ];
-
-  final _subjects = [
-    SubjectEntity(id: '1', tenantId: 'tenant1', name: 'Mathematics', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '2', tenantId: 'tenant1', name: 'Physics', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '3', tenantId: 'tenant1', name: 'Chemistry', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '4', tenantId: 'tenant1', name: 'Biology', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '5', tenantId: 'tenant1', name: 'English', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '6', tenantId: 'tenant1', name: 'Computer Science', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '7', tenantId: 'tenant1', name: 'Economics', isActive: true, createdAt: DateTime.now()),
-    SubjectEntity(id: '8', tenantId: 'tenant1', name: 'Psychology', isActive: true, createdAt: DateTime.now()),
-  ];
-
   @override
   void initState() {
     super.initState();
+
     _userStateService = sl<UserStateService>();
+
     _animController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -113,11 +85,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
 
-    // Initialize with all subjects
-    _filteredSubjects = _subjects;
-
-    // Load the paper and grade levels
+    // Load all required data from BLoCs
     context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId));
+    context.read<QuestionPaperBloc>().add(const LoadExamTypes());
+    context.read<SubjectBloc>().add(const LoadSubjects());
     context.read<GradeBloc>().add(const LoadGradeLevels());
 
     Future.delayed(const Duration(milliseconds: 200), () {
@@ -133,7 +104,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _populateFormFromPaper(QuestionPaperEntity paper) {
-    if (_isLoaded) return; // Prevent multiple population
+    if (_isLoaded) return;
 
     setState(() {
       _currentPaper = paper;
@@ -141,21 +112,28 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       _selectedGradeLevel = paper.gradeLevel;
       _selectedSections = List.from(paper.selectedSections);
 
-      // Find matching exam type
-      _selectedExamType = _examTypes.firstWhere(
-            (examType) => examType.name == paper.examType,
-        orElse: () => _examTypes.first,
-      );
-
-      // Filter subjects based on grade level
-      if (_selectedGradeLevel != null) {
-        _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(_subjects, _selectedGradeLevel!);
+      // Find matching exam type from LOADED data
+      if (_availableExamTypes.isNotEmpty) {
+        _selectedExamType = _availableExamTypes.firstWhere(
+              (examType) => examType.name == paper.examType,
+          orElse: () => _availableExamTypes.first,
+        );
       }
 
-      // Find matching subjects
-      _selectedSubjects = _subjects.where(
-            (subject) => subject.name == paper.subject,
-      ).toList();
+      // Filter subjects based on grade level from LOADED data
+      if (_selectedGradeLevel != null && _availableSubjects.isNotEmpty) {
+        _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
+            _availableSubjects,
+            _selectedGradeLevel!
+        );
+      }
+
+      // Find matching subjects from LOADED data
+      if (_availableSubjects.isNotEmpty) {
+        _selectedSubjects = _availableSubjects.where(
+              (subject) => subject.name == paper.subject,
+        ).toList();
+      }
 
       _isLoaded = true;
     });
@@ -184,11 +162,15 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       _selectedSubjects.clear();
       _availableSections.clear();
 
-      // Filter subjects based on grade level
-      _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(_subjects, gradeLevel);
+      // Filter subjects from LOADED data
+      if (_availableSubjects.isNotEmpty) {
+        _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
+            _availableSubjects,
+            gradeLevel
+        );
+      }
     });
 
-    // Load sections for this grade level
     context.read<GradeBloc>().add(LoadSectionsByGrade(gradeLevel));
   }
 
@@ -206,27 +188,71 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: BlocListener<QuestionPaperBloc, QuestionPaperState>(
-        listener: (context, state) {
-          if (state is QuestionPaperLoaded && state.currentPaper != null) {
-            _populateFormFromPaper(state.currentPaper!);
-          }
-          if (state is QuestionPaperSuccess) {
-            UiHelpers.showSuccessMessage(context, state.message);
-            if (state.actionType == 'save') {
-              setState(() => _isSaving = false);
-              Future.delayed(const Duration(seconds: 1), () {
-                if (mounted) {
-                  context.go(AppRoutes.home);
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<QuestionPaperBloc, QuestionPaperState>(
+            listener: (context, state) {
+              if (state is QuestionPaperLoaded) {
+                // Load paper data
+                if (state.currentPaper != null && !_isLoaded) {
+                  _populateFormFromPaper(state.currentPaper!);
                 }
-              });
-            }
-          }
-          if (state is QuestionPaperError) {
-            setState(() => _isSaving = false);
-            UiHelpers.showErrorMessage(context, state.message);
-          }
-        },
+
+                // Load exam types when available
+                if (state.examTypes.isNotEmpty) {
+                  setState(() {
+                    _availableExamTypes = state.examTypes;
+                    // Re-populate if paper is already loaded
+                    if (_currentPaper != null && _selectedExamType == null) {
+                      _selectedExamType = _availableExamTypes.firstWhere(
+                            (examType) => examType.name == _currentPaper!.examType,
+                        orElse: () => _availableExamTypes.first,
+                      );
+                    }
+                  });
+                }
+              }
+
+              if (state is QuestionPaperSuccess) {
+                UiHelpers.showSuccessMessage(context, state.message);
+                if (state.actionType == 'save') {
+                  setState(() => _isSaving = false);
+                  Future.delayed(const Duration(seconds: 1), () {
+                    if (mounted) context.go(AppRoutes.home);
+                  });
+                }
+              }
+
+              if (state is QuestionPaperError) {
+                setState(() => _isSaving = false);
+                UiHelpers.showErrorMessage(context, state.message);
+              }
+            },
+          ),
+
+          BlocListener<SubjectBloc, SubjectState>(
+            listener: (context, state) {
+              if (state is SubjectsLoaded) {
+                setState(() {
+                  _availableSubjects = state.subjects;
+                  // Re-filter if grade is already selected
+                  if (_selectedGradeLevel != null) {
+                    _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
+                        _availableSubjects,
+                        _selectedGradeLevel!
+                    );
+                  }
+                  // Re-populate selected subjects if paper is loaded
+                  if (_currentPaper != null && _selectedSubjects.isEmpty) {
+                    _selectedSubjects = _availableSubjects.where(
+                          (subject) => subject.name == _currentPaper!.subject,
+                    ).toList();
+                  }
+                });
+              }
+            },
+          ),
+        ],
         child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
           builder: (context, state) {
             if (state is QuestionPaperLoading) {
@@ -472,31 +498,23 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     return _buildCard(
       'Paper Title',
       'Update the title of your question paper',
-      Form(
-        key: _formKey,
-        child: TextFormField(
-          controller: _titleController,
-          decoration: InputDecoration(
-            hintText: 'e.g., Mathematics Midterm Exam 2024',
-            filled: true,
-            fillColor: AppColors.backgroundSecondary,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              borderSide: BorderSide(color: AppColors.primary, width: 2),
-            ),
-            prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
+      TextFormField(
+        controller: _titleController,
+        decoration: InputDecoration(
+          hintText: 'e.g., Mathematics Midterm Exam 2024',
+          filled: true,
+          fillColor: AppColors.backgroundSecondary,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+            borderSide: BorderSide.none,
           ),
-          validator: (value) {
-            if (value?.trim().isEmpty ?? true) return 'Please enter a paper title';
-            if (value!.trim().length < 3) return 'Title must be at least 3 characters';
-            return null;
-          },
-          onChanged: (_) => setState(() {}),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+            borderSide: BorderSide(color: AppColors.primary, width: 2),
+          ),
+          prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
         ),
+        onChanged: (_) => setState(() {}),
       ),
     );
   }
@@ -569,7 +587,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                           _onGradeSelected(value);
                         }
                       },
-                      validator: (value) => value == null ? 'Please select a grade level' : null,
                     ),
                     if (_selectedGradeLevel != null)
                       Padding(
@@ -666,11 +683,24 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   Widget _buildExamTypeSection() {
+    if (_availableExamTypes.isEmpty) {
+      return _buildCard(
+        'Exam Type',
+        'Choose the type of exam you want to create',
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
     return _buildCard(
       'Exam Type',
       'Choose the type of exam you want to create',
       Column(
-        children: _examTypes.map((type) {
+        children: _availableExamTypes.map((type) {
           final isSelected = _selectedExamType?.id == type.id;
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -757,7 +787,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'No subjects available for Grade $_selectedGradeLevel',
+                      _availableSubjects.isEmpty
+                          ? 'Loading subjects...'
+                          : 'No subjects available for Grade $_selectedGradeLevel',
                       style: TextStyle(color: AppColors.warning),
                     ),
                   ),
@@ -1054,7 +1086,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     );
   }
 
-
   void _editQuestions() {
     if (_currentPaper == null || _selectedExamType == null) return;
 
@@ -1083,7 +1114,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             existingQuestions: _currentPaper?.questions,
             isEditing: true,
             existingPaperId: _currentPaper?.id,
-            isAdmin: _userStateService.isAdmin, // FIXED: Added this line
+            isAdmin: _userStateService.isAdmin,
             onPaperCreated: (_) {},
           ),
         ),
@@ -1091,13 +1122,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     );
   }
 
-
   void _saveChanges() {
     if (!_canSave || _isSaving || _currentPaper == null) return;
 
     setState(() => _isSaving = true);
 
-    // Create updated paper entity
     final updatedPaper = _currentPaper!.copyWith(
       title: _titleController.text.trim(),
       gradeLevel: _selectedGradeLevel,
@@ -1108,7 +1137,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       modifiedAt: DateTime.now(),
     );
 
-    // Save the updated paper
     context.read<QuestionPaperBloc>().add(SaveDraft(updatedPaper));
   }
 

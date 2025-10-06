@@ -1,10 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Add internet permission for Crashlytics to send reports -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- Explicitly remove AD_ID permissions since we're not using ads -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove"/>
 
     <application
         android:label="papercraft"
@@ -52,7 +61,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.pearl.papercraft.dev" />
+                <data
+                    android:scheme="com.pearl.papercraft.dev"
+                    android:host="login-callback" />
             </intent-filter>
 
             <!-- OAuth callback intent filter for staging environment -->
@@ -60,7 +71,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.pearl.papercraft.staging" />
+                <data
+                    android:scheme="com.pearl.papercraft.staging"
+                    android:host="login-callback" />
             </intent-filter>
 
             <!-- OAuth callback intent filter for prod environment -->
@@ -68,7 +81,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.pearl.papercraft" />
+                <data
+                    android:scheme="com.pearl.papercraft"
+                    android:host="login-callback" />
             </intent-filter>
 
         </activity>

@@ -586,6 +586,21 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
   Widget _buildQuestions(QuestionPaperEntity paper) {
     // Use ordered sections for questions display
+    if (paper.questions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(UIConstants.paddingLarge),
+          child: Text(
+            'No questions added yet',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: UIConstants.fontSizeMedium,
+            ),
+          ),
+        ),
+      );
+    }
+
     final orderedSections = SectionOrderingHelper.getOrderedSections(paper.examTypeEntity, paper.questions);
 
     return Container(

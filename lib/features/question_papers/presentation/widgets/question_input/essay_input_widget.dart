@@ -74,12 +74,6 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
     setState(() => _subQuestions.removeAt(index));
   }
 
-  // Public method that can be called from coordinator
-  void addQuestion() {
-    if (_isValid) {
-      _addQuestion();
-    }
-  }
 
   String _getTitle() {
     switch (widget.questionType) {

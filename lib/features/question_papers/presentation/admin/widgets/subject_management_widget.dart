@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/utils/date_utils.dart';
 import '../../../domain/entities/subject_entity.dart';
 
 import '../../../../../core/presentation/constants/ui_constants.dart';
@@ -218,7 +219,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
         subtitle: subject.description != null && subject.description!.isNotEmpty
             ? Text(subject.description!)
             : Text(
-          'Added ${_formatDate(subject.createdAt)}',
+          'Added ${AppDateUtils.formatShortDate(subject.createdAt)}',
           style: TextStyle(color: AppColors.textTertiary),
         ),
         trailing: Row(
@@ -352,7 +353,5 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+
 }

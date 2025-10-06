@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/utils/date_utils.dart';
 import '../../../domain/entities/grade_entity.dart';
 import '../../bloc/grade_bloc.dart';
 import '../../../../../core/presentation/constants/ui_constants.dart';
@@ -330,7 +331,7 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        'Added ${_formatDate(grade.createdAt)}',
+        'Added ${AppDateUtils.formatShortDate(grade.createdAt)}',
         style: TextStyle(color: AppColors.textTertiary),
       ),
       trailing: Row(
@@ -468,7 +469,5 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+
 }

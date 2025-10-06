@@ -80,12 +80,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     setState(() => _isRefreshing = true);
 
     try {
-      // Simplified refresh - just trigger all loads and wait
       _loadInitialData();
-
-      // Wait a reasonable amount of time for the data to load
       await Future.delayed(const Duration(seconds: 2));
-
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);
@@ -126,7 +122,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       child: Column(
         children: [
           _buildSearchBar(),
-          SizedBox(height: UIConstants.spacing12),
+          const SizedBox(height: UIConstants.spacing12),
           _buildFilterChips(),
         ],
       ),
@@ -247,7 +243,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     }
 
     return Container(
-      height: 32, // Reduced height for mobile
+      height: 32,
       decoration: BoxDecoration(
         color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
@@ -456,21 +452,35 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     final currentMonth = DateTime(now.year, now.month);
     final previousMonth = DateTime(now.year, now.month - 1);
 
+    // Performance optimization: early return if no filters
+    final hasSearchQuery = _searchQuery.isNotEmpty;
+    final hasGradeFilter = _selectedGradeLevel != null;
+    final hasSubjectFilter = _selectedSubjectId != null;
+    final searchLower = hasSearchQuery ? _searchQuery.toLowerCase() : '';
+
     return papers.where((paper) {
       if (!paper.status.isApproved) return false;
 
-      final matchesSearch = _searchQuery.isEmpty ||
-          paper.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          paper.subject.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          paper.createdBy.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (_userNamesCache[paper.createdBy]?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+      // Check filters first (faster checks)
+      if (hasGradeFilter && paper.gradeLevel != _selectedGradeLevel) return false;
 
-      final matchesGrade = _selectedGradeLevel == null || paper.gradeLevel == _selectedGradeLevel;
-      final matchesSubject = _selectedSubjectId == null ||
-          _availableSubjects.any((subject) => subject.id == _selectedSubjectId && subject.name == paper.subject);
+      if (hasSubjectFilter && !_availableSubjects.any(
+              (subject) => subject.id == _selectedSubjectId && subject.name == paper.subject
+      )) return false;
 
-      if (!matchesSearch || !matchesGrade || !matchesSubject) return false;
+      // Search check (more expensive)
+      if (hasSearchQuery) {
+        final titleMatches = paper.title.toLowerCase().contains(searchLower);
+        final subjectMatches = paper.subject.toLowerCase().contains(searchLower);
+        final creatorMatches = paper.createdBy.toLowerCase().contains(searchLower);
+        final userNameMatches = _userNamesCache[paper.createdBy]?.toLowerCase().contains(searchLower) ?? false;
 
+        if (!titleMatches && !subjectMatches && !creatorMatches && !userNameMatches) {
+          return false;
+        }
+      }
+
+      // Period check
       final paperDate = paper.reviewedAt ?? paper.createdAt;
       final paperMonth = DateTime(paperDate.year, paperDate.month);
 
@@ -595,6 +605,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             delegate: SliverChildBuilderDelegate(
                   (context, index) => _buildModernPaperCard(papers[index]),
               childCount: papers.length,
+              addAutomaticKeepAlives: true,
+              addRepaintBoundaries: true,
             ),
           ),
         ),
@@ -698,6 +710,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             delegate: SliverChildBuilderDelegate(
                   (context, index) => _buildModernPaperCard(papers[index]),
               childCount: papers.length,
+              addAutomaticKeepAlives: true,
+              addRepaintBoundaries: true,
             ),
           ),
         ),
@@ -711,6 +725,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     final creatorName = _userNamesCache[paper.createdBy] ?? 'Loading...';
 
     return Container(
+      key: ValueKey(paper.id),
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -747,7 +762,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: UIConstants.spacing4),
+                      const SizedBox(height: UIConstants.spacing4),
                       Text(
                         'by $creatorName',
                         style: TextStyle(
@@ -758,7 +773,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: UIConstants.spacing6),
+                      const SizedBox(height: UIConstants.spacing6),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
@@ -775,7 +790,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     _buildStatusBadge(),
-                    SizedBox(height: UIConstants.spacing4),
+                    const SizedBox(height: UIConstants.spacing4),
                     Text(
                       _formatDate(paper.reviewedAt ?? paper.createdAt),
                       style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
@@ -784,7 +799,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 ),
               ],
             ),
-            SizedBox(height: UIConstants.spacing12),
+            const SizedBox(height: UIConstants.spacing12),
             Row(
               children: [
                 Expanded(
@@ -948,18 +963,18 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             ),
             child: Icon(icon, size: 30, color: AppColors.primary),
           ),
-          SizedBox(height: UIConstants.spacing20),
+          const SizedBox(height: UIConstants.spacing20),
           Text(
             title,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
-          SizedBox(height: UIConstants.spacing6),
+          const SizedBox(height: UIConstants.spacing6),
           Text(
             description,
             style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: UIConstants.spacing12),
+          const SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
             style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
@@ -983,7 +998,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             ),
             child: const Icon(Icons.library_books, color: Colors.white, size: 24),
           ),
-          SizedBox(height: UIConstants.spacing20),
+          const SizedBox(height: UIConstants.spacing20),
           SizedBox(
             width: 28,
             height: 28,
@@ -992,7 +1007,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               valueColor: AlwaysStoppedAnimation(AppColors.primary),
             ),
           ),
-          SizedBox(height: UIConstants.spacing12),
+          const SizedBox(height: UIConstants.spacing12),
           Text(
             'Loading papers...',
             style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w500),
@@ -1016,18 +1031,18 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             ),
             child: Icon(Icons.library_books_outlined, size: 40, color: AppColors.primary),
           ),
-          SizedBox(height: UIConstants.spacing20),
+          const SizedBox(height: UIConstants.spacing20),
           Text(
             'No Papers Available',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
-          SizedBox(height: UIConstants.spacing6),
+          const SizedBox(height: UIConstants.spacing6),
           Text(
             'Approved papers will appear here',
             style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeMedium),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: UIConstants.spacing12),
+          const SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
             style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
@@ -1118,16 +1133,13 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
   String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
 
-  // Load user names for all papers
   Future<void> _loadUserNamesForPapers(List<QuestionPaperEntity> papers) async {
     final userIds = papers.map((paper) => paper.createdBy).toSet().toList();
     final uncachedIds = userIds.where((id) => !_userNamesCache.containsKey(id)).toList();
 
     if (uncachedIds.isNotEmpty) {
       try {
-        print('Loading user names for IDs: $uncachedIds'); // Debug
         final userNames = await _userInfoService.getUserFullNames(uncachedIds);
-        print('Loaded user names: $userNames'); // Debug
 
         if (mounted) {
           setState(() {
@@ -1135,9 +1147,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           });
         }
       } catch (e) {
-        print('Failed to load user names: $e'); // Debug
-
-        // Fallback: set user IDs as display names
         if (mounted) {
           setState(() {
             for (final id in uncachedIds) {
@@ -1149,7 +1158,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     }
   }
 
-  // PDF Generation and Preview methods
   void _showPreviewOptions(QuestionPaperEntity paper) {
     showModalBottomSheet(
       context: context,
@@ -1172,12 +1180,12 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: UIConstants.spacing16),
+            const SizedBox(height: UIConstants.spacing16),
             Text(
               'Preview PDF',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
-            SizedBox(height: UIConstants.spacing6),
+            const SizedBox(height: UIConstants.spacing6),
             Text(
               paper.title,
               style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
@@ -1185,7 +1193,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: UIConstants.spacing20),
+            const SizedBox(height: UIConstants.spacing20),
             _buildPreviewOption(
               'Single Page Layout',
               'One question paper per page',
@@ -1201,7 +1209,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               AppColors.accent,
                   () => _previewPdf(paper, 'dual'),
             ),
-            SizedBox(height: UIConstants.spacing12),
+            const SizedBox(height: UIConstants.spacing12),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
@@ -1303,12 +1311,12 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: UIConstants.spacing16),
+            const SizedBox(height: UIConstants.spacing16),
             Text(
               'Download PDF',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
-            SizedBox(height: UIConstants.spacing6),
+            const SizedBox(height: UIConstants.spacing6),
             Text(
               paper.title,
               style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
@@ -1316,7 +1324,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: UIConstants.spacing20),
+            const SizedBox(height: UIConstants.spacing20),
             _buildDownloadOption(
               'Single Page Layout',
               'One question paper per page',
@@ -1332,7 +1340,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               AppColors.accent,
                   () => _generatePdf(paper, 'dual'),
             ),
-            SizedBox(height: UIConstants.spacing12),
+            const SizedBox(height: UIConstants.spacing12),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
@@ -1415,7 +1423,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               await savedFile.writeAsBytes(pdfBytes);
             }
           } catch (e) {
-            // Handle error
+            // Fallback handled below
           }
         }
       } else {

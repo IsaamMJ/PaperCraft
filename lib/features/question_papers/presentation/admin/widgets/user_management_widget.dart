@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/utils/date_utils.dart';
 import '../../../../authentication/domain/entities/user_entity.dart';
 import '../../../../authentication/domain/entities/user_role.dart';
 
@@ -252,7 +253,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
               _buildStatusBadge(user.isActive),
               const SizedBox(width: 8),
               Text(
-                'Joined ${_formatDate(user.createdAt)}',
+                'Joined ${AppDateUtils.formatShortDate(user.createdAt)}',
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeSmall,
                   color: AppColors.textTertiary,
@@ -477,7 +478,5 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+
 }

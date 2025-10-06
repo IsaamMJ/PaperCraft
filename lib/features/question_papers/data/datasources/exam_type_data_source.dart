@@ -5,10 +5,8 @@ import '../models/exam_type_model.dart';
 
 abstract class ExamTypeDataSource {
   Future<List<ExamTypeModel>> getExamTypes(String tenantId);
+  Future<List<ExamTypeModel>> getExamTypesBySubject(String tenantId, String subjectId);  // ADDED
   Future<ExamTypeModel?> getExamTypeById(String id);
-  Future<ExamTypeModel> createExamType(ExamTypeModel examType);
-  Future<ExamTypeModel> updateExamType(ExamTypeModel examType);
-  Future<void> deleteExamType(String id);
 }
 
 class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
@@ -20,53 +18,48 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
   @override
   Future<List<ExamTypeModel>> getExamTypes(String tenantId) async {
     try {
-      _logger.debug('Fetching exam types for tenant', category: LogCategory.examtype, context: {
-        'tenantId': tenantId,
-        'operation': 'get_exam_types',
-      });
+      final response = await _supabaseClient
+          .from('exam_types')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)  // ADDED
+          .order('name');
 
-      // ADD DEBUG LOGGING
-      print('=== DEBUG: Exam Types Query ===');
-      print('Tenant ID: $tenantId');
-      print('Query: SELECT * FROM exam_types WHERE tenant_id = $tenantId');
-      print('===============================');
+      return response.map((json) => ExamTypeModel.fromJson(json)).toList();
+    } catch (e, stackTrace) {
+      _logger.error('Failed to fetch exam types',
+          category: LogCategory.examtype,
+          error: e,
+          stackTrace: stackTrace);
+      throw Exception('Failed to fetch exam types: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<ExamTypeModel>> getExamTypesBySubject(
+      String tenantId,
+      String subjectId,
+      ) async {
+    try {
+      _logger.debug('Fetching exam types by subject', category: LogCategory.examtype, context: {
+        'tenantId': tenantId,
+        'subjectId': subjectId,
+      });
 
       final response = await _supabaseClient
           .from('exam_types')
           .select('*')
           .eq('tenant_id', tenantId)
+          .eq('subject_id', subjectId)
+          .eq('is_active', true)
           .order('name');
-
-      // ADD MORE DEBUG
-      print('=== DEBUG: Query Response ===');
-      print('Response length: ${response.length}');
-      print('Response data: $response');
-      print('=============================');
-
-      _logger.info('Exam types fetched successfully', category: LogCategory.examtype, context: {
-        'tenantId': tenantId,
-        'count': response.length,
-        'operation': 'get_exam_types',
-      });
 
       return response.map((json) => ExamTypeModel.fromJson(json)).toList();
     } catch (e, stackTrace) {
-
-      // ADD ERROR DEBUG
-      print('=== DEBUG: Query Error ===');
-      print('Error: $e');
-      print('Stack trace: $stackTrace');
-      print('==========================');
-
-      _logger.error('Failed to fetch exam types',
+      _logger.error('Failed to fetch exam types by subject',
           category: LogCategory.examtype,
           error: e,
-          stackTrace: stackTrace,
-          context: {
-            'tenantId': tenantId,
-            'operation': 'get_exam_types',
-          }
-      );
+          stackTrace: stackTrace);
       throw Exception('Failed to fetch exam types: ${e.toString()}');
     }
   }
@@ -74,109 +67,20 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
   @override
   Future<ExamTypeModel?> getExamTypeById(String id) async {
     try {
-      _logger.debug('Fetching exam type by ID', category: LogCategory.examtype, context: {
-        'examTypeId': id,
-        'operation': 'get_exam_type_by_id',
-      });
-
       final response = await _supabaseClient
           .from('exam_types')
           .select('*')
           .eq('id', id)
           .maybeSingle();
 
-      if (response == null) {
-        _logger.debug('Exam type not found', category: LogCategory.examtype, context: {
-          'examTypeId': id,
-          'operation': 'get_exam_type_by_id',
-        });
-        return null;
-      }
-
-      _logger.debug('Exam type found', category: LogCategory.examtype, context: {
-        'examTypeId': id,
-        'examTypeName': response['name'],
-        'operation': 'get_exam_type_by_id',
-      });
-
+      if (response == null) return null;
       return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch exam type by ID',
           category: LogCategory.examtype,
           error: e,
-          stackTrace: stackTrace,
-          context: {
-            'examTypeId': id,
-            'operation': 'get_exam_type_by_id',
-          }
-      );
-      throw Exception('Failed to fetch exam type: ${e.toString()}');
-    }
-  }
-
-  @override
-  Future<ExamTypeModel> createExamType(ExamTypeModel examType) async {
-    try {
-      final response = await _supabaseClient
-          .from('exam_types')
-          .insert(examType.toJsonForInsert()) // Use INSERT-specific method
-          .select()
-          .single();
-
-      return ExamTypeModel.fromJson(response);
-    } catch (e, stackTrace) {
-      _logger.error('Failed to create exam type',
-          category: LogCategory.examtype,
-          error: e,
           stackTrace: stackTrace);
-      throw Exception('Failed to create exam type: ${e.toString()}');
-    }
-  }
-
-  @override
-  Future<ExamTypeModel> updateExamType(ExamTypeModel examType) async {
-    try {
-      final response = await _supabaseClient
-          .from('exam_types')
-          .update(examType.toJsonForUpdate()) // Use UPDATE-specific method
-          .eq('id', examType.id)
-          .select()
-          .single();
-
-      return ExamTypeModel.fromJson(response);
-    } catch (e, stackTrace) {
-      throw Exception('Failed to update exam type: ${e.toString()}');
-    }
-  }
-
-  @override
-  Future<void> deleteExamType(String id) async {
-    try {
-      _logger.info('Deleting exam type', category: LogCategory.examtype, context: {
-        'examTypeId': id,
-        'operation': 'delete_exam_type',
-      });
-
-      await _supabaseClient
-          .from('exam_types')
-          .delete()
-          .eq('id', id);
-
-      _logger.info('Exam type deleted successfully', category: LogCategory.examtype, context: {
-        'examTypeId': id,
-        'operation': 'delete_exam_type',
-      });
-    } catch (e, stackTrace) {
-      _logger.error('Failed to delete exam type',
-          category: LogCategory.examtype,
-          error: e,
-          stackTrace: stackTrace,
-          context: {
-            'examTypeId': id,
-            'operation': 'delete_exam_type',
-          }
-      );
-      throw Exception('Failed to delete exam type: ${e.toString()}');
+      throw Exception('Failed to fetch exam type: ${e.toString()}');
     }
   }
 }

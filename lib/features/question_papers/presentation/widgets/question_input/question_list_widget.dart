@@ -190,12 +190,14 @@ class QuestionListWidget extends StatelessWidget {
 
   // NEW METHOD: Build matching pairs display
   Widget _buildMatchingPairs(List<String> options) {
-    // Find the separator to split left and right columns
-    int separatorIndex = options.indexOf('---SEPARATOR---');
+    final separatorIndex = options.indexOf('---SEPARATOR---');
     if (separatorIndex == -1) return const SizedBox.shrink();
 
-    List<String> leftColumn = options.sublist(0, separatorIndex);
-    List<String> rightColumn = options.sublist(separatorIndex + 1);
+    final leftColumn = options.sublist(0, separatorIndex);
+    final rightColumn = options.sublist(separatorIndex + 1);
+    final pairCount = leftColumn.length < rightColumn.length
+        ? leftColumn.length
+        : rightColumn.length;
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingSmall),
@@ -208,7 +210,7 @@ class QuestionListWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
+            children: const [
               Expanded(
                 child: Text(
                   'Column A',
@@ -220,7 +222,7 @@ class QuestionListWidget extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Text(
                   'Column B',
@@ -234,46 +236,41 @@ class QuestionListWidget extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: UIConstants.spacing6),
-          // Display pairs
-          ...List.generate(
-            leftColumn.length.compareTo(rightColumn.length) <= 0
-                ? leftColumn.length
-                : rightColumn.length,
-                (pairIndex) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pairIndex < leftColumn.length ? leftColumn[pairIndex] : '',
-                        style: const TextStyle(fontSize: 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          const SizedBox(height: UIConstants.spacing6),
+          // ✅ Pre-calculate pair count
+          ...List.generate(pairCount, (pairIndex) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      leftColumn[pairIndex],
+                      style: const TextStyle(fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(
-                        Icons.arrow_forward,
-                        size: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 12,
+                      color: AppColors.textSecondary,
                     ),
-                    Expanded(
-                      child: Text(
-                        pairIndex < rightColumn.length ? rightColumn[pairIndex] : '',
-                        style: const TextStyle(fontSize: 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      rightColumn[pairIndex],
+                      style: const TextStyle(fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

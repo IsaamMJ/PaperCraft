@@ -5,143 +5,89 @@ class ExamTypeModel extends ExamTypeEntity {
   const ExamTypeModel({
     required super.id,
     required super.tenantId,
+    required super.subjectId,  // ADDED
     required super.name,
+    super.description,
     super.durationMinutes,
     super.totalMarks,
-    super.totalQuestions,
+    super.totalSections,
     super.sections,
-    this.description,
+    super.isActive,
     this.createdAt,
   });
 
-  final String? description;
   final DateTime? createdAt;
 
   factory ExamTypeModel.fromJson(Map<String, dynamic> json) {
     List<ExamSectionEntity> parsedSections = [];
 
-    if (json['sections'] != null) {
-      if (json['sections'] is String) {
-        // Handle case where sections might be stored as JSON string
-        try {
-          final sectionsJson = json['sections'];
-          if (sectionsJson is List) {
-            parsedSections = (sectionsJson as List<dynamic>)
-                .map((section) => ExamSectionEntity.fromJson(section as Map<String, dynamic>))
-                .toList();
-          }
-        } catch (e) {
-          // If parsing fails, leave sections empty
-          parsedSections = [];
-        }
-      } else if (json['sections'] is List) {
-        parsedSections = (json['sections'] as List<dynamic>)
-            .map((section) => ExamSectionEntity.fromJson(section as Map<String, dynamic>))
-            .toList();
-      }
+    if (json['sections'] != null && json['sections'] is List) {
+      parsedSections = (json['sections'] as List<dynamic>)
+          .map((section) => ExamSectionEntity.fromJson(section as Map<String, dynamic>))
+          .toList();
     }
 
     return ExamTypeModel(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
+      subjectId: json['subject_id'] as String,  // ADDED
       name: json['name'] as String,
       description: json['description'] as String?,
       durationMinutes: json['duration_minutes'] as int?,
       totalMarks: json['total_marks'] as int?,
-      totalQuestions: json['total_sections'] as int?, // Note: this maps to total_sections in DB
+      totalSections: json['total_sections'] as int?,
       sections: parsedSections,
+      isActive: json['is_active'] as bool? ?? true,  // ADDED
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
     );
   }
 
-  Map<String, dynamic> toJsonForInsert() {
-    return {
-      'tenant_id': tenantId,
-      'name': name,
-      'description': description,
-      'duration_minutes': durationMinutes,
-      'total_marks': totalMarks,
-      'total_sections': totalQuestions,
-      'sections': sections.map((s) => s.toJson()).toList(),
-      // Omit 'id' and 'created_at'
-    };
-  }
-
-  Map<String, dynamic> toJsonForUpdate() {
-    return {
-      'name': name,
-      'description': description,
-      'duration_minutes': durationMinutes,
-      'total_marks': totalMarks,
-      'total_sections': totalQuestions,
-      'sections': sections.map((s) => s.toJson()).toList(),
-      // Omit 'id', 'tenant_id', 'created_at'
-    };
-  }
-
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'tenant_id': tenantId,
+      'subject_id': subjectId,  // ADDED
       'name': name,
       'description': description,
       'duration_minutes': durationMinutes,
       'total_marks': totalMarks,
-      'total_sections': totalQuestions,
-      'sections': sections.map((section) => section.toJson()).toList(),
+      'total_sections': totalSections,
+      'sections': sections.map((s) => s.toJson()).toList(),
+      'is_active': isActive,  // ADDED
       'created_at': createdAt?.toIso8601String(),
     };
-  }
-
-  factory ExamTypeModel.fromEntity(ExamTypeEntity entity) {
-    return ExamTypeModel(
-      id: entity.id,
-      tenantId: entity.tenantId,
-      name: entity.name,
-      durationMinutes: entity.durationMinutes,
-      totalMarks: entity.totalMarks,
-      totalQuestions: entity.totalQuestions,
-      sections: entity.sections,
-      description: null,
-      createdAt: null,
-    );
   }
 
   ExamTypeEntity toEntity() {
     return ExamTypeEntity(
       id: id,
       tenantId: tenantId,
+      subjectId: subjectId,  // ADDED
       name: name,
+      description: description,
       durationMinutes: durationMinutes,
       totalMarks: totalMarks,
-      totalQuestions: totalQuestions,
+      totalSections: totalSections,
       sections: sections,
+      isActive: isActive,  // ADDED
     );
   }
 
-  ExamTypeModel copyWith({
-    String? id,
-    String? tenantId,
-    String? name,
-    String? description,
-    int? durationMinutes,
-    int? totalMarks,
-    int? totalQuestions,
-    List<ExamSectionEntity>? sections,
-    DateTime? createdAt,
-  }) {
+  factory ExamTypeModel.fromEntity(ExamTypeEntity entity) {
     return ExamTypeModel(
-      id: id ?? this.id,
-      tenantId: tenantId ?? this.tenantId,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
-      totalMarks: totalMarks ?? this.totalMarks,
-      totalQuestions: totalQuestions ?? this.totalQuestions,
-      sections: sections ?? this.sections,
-      createdAt: createdAt ?? this.createdAt,
+      id: entity.id,
+      tenantId: entity.tenantId,
+      subjectId: entity.subjectId,  // ADDED
+      name: entity.name,
+      description: entity.description,
+      durationMinutes: entity.durationMinutes,
+      totalMarks: entity.totalMarks,
+      totalSections: entity.totalSections,
+      sections: entity.sections,
+      isActive: entity.isActive,  // ADDED
+      createdAt: null,
     );
   }
 }

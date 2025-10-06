@@ -64,12 +64,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
     setState(() => _isOptional = false);
   }
 
-  // Public method that can be called from coordinator
-  void addQuestion() {
-    if (_isValid) {
-      _addQuestion();
-    }
-  }
+
 
   void _addQuestion() {
     if (!_isValid) return;

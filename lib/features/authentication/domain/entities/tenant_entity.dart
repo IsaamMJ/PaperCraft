@@ -1,4 +1,3 @@
-// features/authentication/domain/entities/tenant_entity.dart
 import 'package:equatable/equatable.dart';
 
 class TenantEntity extends Equatable {
@@ -7,7 +6,8 @@ class TenantEntity extends Equatable {
   final String? address;
   final String? domain;
   final bool isActive;
-  final bool isInitialized; // NEW FIELD
+  final bool isInitialized;
+  final String currentAcademicYear; // ADD THIS
   final DateTime createdAt;
 
   const TenantEntity({
@@ -16,14 +16,13 @@ class TenantEntity extends Equatable {
     this.address,
     this.domain,
     required this.isActive,
-    required this.isInitialized, // NEW FIELD
+    required this.isInitialized,
+    required this.currentAcademicYear, // ADD THIS
     required this.createdAt,
   });
 
-  /// Display name for UI
   String get displayName => name;
 
-  /// Short name for compact displays
   String get shortName {
     if (name.length <= 20) return name;
     return '${name.substring(0, 17)}...';
@@ -36,7 +35,8 @@ class TenantEntity extends Equatable {
     address,
     domain,
     isActive,
-    isInitialized, // NEW FIELD
+    isInitialized,
+    currentAcademicYear, // ADD THIS
     createdAt,
   ];
 }

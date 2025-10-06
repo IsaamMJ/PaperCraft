@@ -6,6 +6,7 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/date_utils.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
@@ -75,6 +76,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return completer.future.timeout(
       const Duration(seconds: 10),
       onTimeout: () {
+        subscription.cancel();
         if (mounted) setState(() => _isRefreshing = false);
       },
     );
@@ -127,11 +129,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ),
               child: Icon(icon, color: confirmColor, size: 20),
             ),
-            SizedBox(width: UIConstants.spacing12),
+            const SizedBox(width: UIConstants.spacing12),
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: UIConstants.fontSizeLarge,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -142,12 +144,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         ),
         content: Text(
           content,
-          style: TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
+            child: const Text(
               'Cancel',
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -198,10 +200,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 color: AppColors.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
-              child: Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
+              child: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
             ),
-            SizedBox(width: UIConstants.spacing12),
-            Expanded(
+            const SizedBox(width: UIConstants.spacing12),
+            const Expanded(
               child: Text(
                 'Reject Paper',
                 style: TextStyle(fontSize: UIConstants.fontSizeLarge),
@@ -214,7 +216,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: EdgeInsets.all(UIConstants.spacing12),
+              padding: const EdgeInsets.all(UIConstants.spacing12),
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
@@ -224,12 +226,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
-            SizedBox(height: UIConstants.spacing16),
+            const SizedBox(height: UIConstants.spacing16),
             const Text(
               'Rejection reason:',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
-            SizedBox(height: UIConstants.spacing8),
+            const SizedBox(height: UIConstants.spacing8),
             TextField(
               controller: controller,
               decoration: InputDecoration(
@@ -237,7 +239,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
-                contentPadding: EdgeInsets.all(UIConstants.spacing12),
+                contentPadding: const EdgeInsets.all(UIConstants.spacing12),
               ),
               maxLines: 3,
             ),
@@ -246,7 +248,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               'Cancel',
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -268,12 +270,26 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   List<QuestionPaperEntity> _filterPapers(List<QuestionPaperEntity> papers) {
+    // Performance optimization: early return if no filters applied
+    if (_searchQuery.isEmpty && _selectedSubject.isEmpty) {
+      return papers;
+    }
+
+    // Calculate lowercase once instead of for each paper
+    final searchLower = _searchQuery.toLowerCase();
+
     return papers.where((paper) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          paper.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          paper.createdBy.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesSubject = _selectedSubject.isEmpty || paper.subject == _selectedSubject;
-      return matchesSearch && matchesSubject;
+      // Check subject first (faster check)
+      if (_selectedSubject.isNotEmpty && paper.subject != _selectedSubject) {
+        return false;
+      }
+
+      // Early return if no search query
+      if (_searchQuery.isEmpty) return true;
+
+      // Only calculate lowercase once per paper
+      return paper.title.toLowerCase().contains(searchLower) ||
+          paper.createdBy.toLowerCase().contains(searchLower);
     }).toList();
   }
 
@@ -294,11 +310,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           children: [
             _buildSearchAndFilters(),
             Container(
-              padding: EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: UIConstants.paddingMedium,
                 vertical: UIConstants.spacing12,
               ),
-              child: Text(
+              child: const Text(
                 'All Papers',
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeXXLarge,
@@ -349,7 +365,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search papers...',
-                prefixIcon: Icon(
+                prefixIcon: const Icon(
                   Icons.search,
                   color: AppColors.textSecondary,
                   size: UIConstants.iconMedium,
@@ -357,11 +373,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                   onPressed: () => setState(() => _searchQuery = ''),
-                  icon: Icon(Icons.clear, size: UIConstants.iconSmall),
+                  icon: const Icon(Icons.clear, size: UIConstants.iconSmall),
                 )
                     : null,
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: UIConstants.paddingMedium,
                   vertical: UIConstants.spacing12,
                 ),
@@ -369,7 +385,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               onChanged: (value) => setState(() => _searchQuery = value),
             ),
           ),
-          SizedBox(height: UIConstants.spacing12),
+          const SizedBox(height: UIConstants.spacing12),
           Row(
             children: [
               Expanded(
@@ -381,14 +397,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
               if (_selectedSubject.isNotEmpty || _searchQuery.isNotEmpty) ...[
-                SizedBox(width: UIConstants.spacing8),
+                const SizedBox(width: UIConstants.spacing8),
                 GestureDetector(
                   onTap: () => setState(() {
                     _selectedSubject = '';
                     _searchQuery = '';
                   }),
                   child: Container(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: UIConstants.spacing12,
                       vertical: UIConstants.spacing8,
                     ),
@@ -396,7 +412,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       color: AppColors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
@@ -447,10 +463,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         child: DropdownButton<String>(
           value: value.isEmpty ? null : value,
           hint: Padding(
-            padding: EdgeInsets.symmetric(horizontal: UIConstants.spacing12),
+            padding: const EdgeInsets.symmetric(horizontal: UIConstants.spacing12),
             child: Text(
               label,
-              style: TextStyle(fontSize: UIConstants.fontSizeMedium),
+              style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
             ),
           ),
           items: [
@@ -459,9 +475,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 DropdownMenuItem(value: option, child: Text(option))),
           ],
           onChanged: onChanged,
-          icon: Icon(Icons.keyboard_arrow_down, size: UIConstants.iconSmall),
+          icon: const Icon(Icons.keyboard_arrow_down, size: UIConstants.iconSmall),
           isExpanded: true,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: UIConstants.fontSizeMedium,
             color: AppColors.textPrimary,
           ),
@@ -492,13 +508,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   child: _buildStatsHeader('All Papers', filteredPapers.length),
                 ),
                 SliverPadding(
-                  padding: EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: UIConstants.paddingMedium,
                   ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                           (context, index) => _buildPaperCard(filteredPapers[index]),
                       childCount: filteredPapers.length,
+                      addAutomaticKeepAlives: true,
+                      addRepaintBoundaries: true,
                     ),
                   ),
                 ),
@@ -527,8 +545,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _buildStatsHeader(String title, int count) {
     return Container(
-      margin: EdgeInsets.all(UIConstants.paddingMedium),
-      padding: EdgeInsets.all(UIConstants.paddingMedium),
+      margin: const EdgeInsets.all(UIConstants.paddingMedium),
+      padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
@@ -537,31 +555,31 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(UIConstants.paddingSmall),
+            padding: const EdgeInsets.all(UIConstants.paddingSmall),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.assignment,
               size: UIConstants.iconMedium,
               color: AppColors.primary,
             ),
           ),
-          SizedBox(width: UIConstants.spacing12),
+          const SizedBox(width: UIConstants.spacing12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '$count Papers in $title',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: UIConstants.fontSizeLarge,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                Text(
+                const Text(
                   'Manage and review submissions',
                   style: TextStyle(
                     fontSize: UIConstants.fontSizeSmall,
@@ -581,7 +599,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     final isSmallScreen = screenWidth < 600;
 
     return Container(
-      margin: EdgeInsets.only(bottom: UIConstants.spacing12),
+      key: ValueKey(paper.id),
+      margin: const EdgeInsets.only(bottom: UIConstants.spacing12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
@@ -594,7 +613,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(UIConstants.paddingMedium),
+        padding: const EdgeInsets.all(UIConstants.paddingMedium),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -617,7 +636,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: UIConstants.spacing8),
+                      const SizedBox(height: UIConstants.spacing8),
                       Wrap(
                         spacing: UIConstants.spacing8,
                         runSpacing: UIConstants.spacing4,
@@ -626,14 +645,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           _buildStatusTag(paper),
                         ],
                       ),
-                      SizedBox(height: UIConstants.spacing8),
+                      const SizedBox(height: UIConstants.spacing8),
                       FutureBuilder<String>(
                         future: _getUserName(paper.createdBy),
                         builder: (context, snapshot) {
                           final displayName = snapshot.data ?? 'Loading...';
                           return Text(
                             'Created by $displayName',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: UIConstants.fontSizeSmall,
                               color: AppColors.textSecondary,
                             ),
@@ -644,22 +663,22 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
                 ),
                 Text(
-                  _formatDate(paper.createdAt),
-                  style: TextStyle(
+                  AppDateUtils.formatShortDate(paper.createdAt),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
-                ),
+                )
               ],
             ),
-            SizedBox(height: UIConstants.spacing12),
+            const SizedBox(height: UIConstants.spacing12),
             Row(
               children: [
                 if (!isSmallScreen) ...[
                   _buildMetric(Icons.quiz, '${paper.totalQuestions}', 'Questions'),
-                  SizedBox(width: UIConstants.spacing16),
+                  const SizedBox(width: UIConstants.spacing16),
                   _buildMetric(Icons.grade, '${paper.totalMarks}', 'Marks'),
-                  SizedBox(width: UIConstants.spacing16),
+                  const SizedBox(width: UIConstants.spacing16),
                   _buildMetric(
                     Icons.timer,
                     paper.examTypeEntity.formattedDuration,
@@ -693,7 +712,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _buildTag(String text, Color color) {
     return Container(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: UIConstants.spacing8,
         vertical: UIConstants.spacing4,
       ),
@@ -733,13 +752,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: AppColors.textSecondary),
-        SizedBox(width: UIConstants.spacing4),
+        const SizedBox(width: UIConstants.spacing4),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -747,7 +766,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             Text(
               label,
-              style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -765,13 +784,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               () => _handleViewDetails(paper.id),
         ),
         if (paper.status.isSubmitted) ...[
-          SizedBox(width: UIConstants.spacing8),
+          const SizedBox(width: UIConstants.spacing8),
           _buildActionButton(
             Icons.check,
             AppColors.success,
                 () => _handleApprove(paper.id),
           ),
-          SizedBox(width: UIConstants.spacing8),
+          const SizedBox(width: UIConstants.spacing8),
           _buildActionButton(
             Icons.close,
             AppColors.error,
@@ -802,7 +821,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildLoading() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -838,14 +857,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.description_outlined,
                   size: 40,
                   color: AppColors.primary,
                 ),
               ),
-              SizedBox(height: UIConstants.spacing24),
-              Text(
+              const SizedBox(height: UIConstants.spacing24),
+              const Text(
                 'No Papers Found',
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeXLarge,
@@ -853,12 +872,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: UIConstants.spacing8),
+              const SizedBox(height: UIConstants.spacing8),
               Text(
                 (_searchQuery.isNotEmpty || _selectedSubject.isNotEmpty)
                     ? 'No papers match your current filters'
                     : 'No papers have been submitted yet\nPull down to refresh',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: UIConstants.fontSizeMedium,
                 ),
@@ -887,10 +906,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   color: AppColors.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
-                child: Icon(Icons.error_outline, size: 40, color: AppColors.error),
+                child: const Icon(Icons.error_outline, size: 40, color: AppColors.error),
               ),
-              SizedBox(height: UIConstants.spacing24),
-              Text(
+              const SizedBox(height: UIConstants.spacing24),
+              const Text(
                 'Error',
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeXLarge,
@@ -898,13 +917,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   color: AppColors.error,
                 ),
               ),
-              SizedBox(height: UIConstants.spacing8),
+              const SizedBox(height: UIConstants.spacing8),
               Text(
                 message,
-                style: TextStyle(color: AppColors.textSecondary),
+                style: const TextStyle(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: UIConstants.spacing24),
+              const SizedBox(height: UIConstants.spacing24),
               ElevatedButton(
                 onPressed: _loadInitialData,
                 style: ElevatedButton.styleFrom(
@@ -922,6 +941,4 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       ),
     );
   }
-
-  String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
 }

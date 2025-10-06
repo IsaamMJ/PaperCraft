@@ -1,12 +1,9 @@
-// Fixed auth_data_source.dart - Simplified and working version
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/config/auth_config.dart';
-import '../../../../core/infrastructure/config/environment.dart';
-import '../../../../core/infrastructure/config/environment_config.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../../../core/infrastructure/utils/platform_utils.dart';
 import '../../domain/failures/auth_failures.dart';
@@ -30,7 +27,6 @@ class AuthDataSource {
       if (session?.user == null) {
         _logger.authEvent('initialize_no_session', 'system', context: {
           'hasSession': false,
-          'reason': 'no_current_session',
         });
         return const Right(null);
       }
@@ -40,14 +36,12 @@ class AuthDataSource {
         'userEmail': session.user.email,
       });
 
-      // Simple profile fetch - no complex retry logic
       final userResult = await _getUserProfile(session.user.id);
 
       return userResult.fold(
             (failure) {
           _logger.authError('User profile fetch failed', failure, context: {
             'userId': session.user.id,
-            'failure': failure.message,
           });
           return Left(failure);
         },
@@ -56,7 +50,6 @@ class AuthDataSource {
             _logger.authEvent('initialize_success', userModel.id, context: {
               'fullName': userModel.fullName,
               'role': userModel.role,
-              'isActive': userModel.isActive,
             });
             return Right(userModel);
           } else if (userModel != null && !userModel.isActive) {
@@ -69,7 +62,6 @@ class AuthDataSource {
     } catch (e, stackTrace) {
       _logger.authError('Initialize failed with exception', e, context: {
         'errorType': e.runtimeType.toString(),
-        'operation': 'initialize',
       });
       return Left(AuthFailure('Initialization failed: ${e.toString()}'));
     }
@@ -77,6 +69,10 @@ class AuthDataSource {
 
   Future<Either<AuthFailure, UserModel>> signInWithGoogle() async {
     final operationId = DateTime.now().millisecondsSinceEpoch.toString();
+
+
+    print('🔍 ACTUAL REDIRECT URL: ${AuthConfig.redirectUrl}');
+    print('🔍 Platform: ${PlatformUtils.platformName}, kIsWeb: $kIsWeb');
 
     _logger.authEvent('google_signin_started', 'pending', context: {
       'redirectTo': AuthConfig.redirectUrl,
@@ -86,7 +82,6 @@ class AuthDataSource {
     });
 
     try {
-      // Start the OAuth flow
       final bool launched = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: AuthConfig.redirectUrl,
@@ -100,7 +95,6 @@ class AuthDataSource {
       if (!launched) {
         _logger.authError('OAuth launch failed', null, context: {
           'operationId': operationId,
-          'reason': 'failed_to_launch',
         });
         return const Left(AuthFailure('Failed to start OAuth flow'));
       }
@@ -115,21 +109,7 @@ class AuthDataSource {
         return const Left(AuthFailure('Authentication was cancelled or failed'));
       }
 
-      // SECURITY FIX: Validate email domain after OAuth
-      final email = session!.user.email;
-      if (email == null || !_isAllowedDomain(email)) {
-        _logger.authError('Unauthorized domain attempted signin', null, context: {
-          'email': email,
-          'operationId': operationId,
-          'securityViolation': true,
-        });
-
-        // Sign out the unauthorized user
-        await _signOut();
-        return Left(UnauthorizedDomainFailure(_extractDomain(email ?? 'unknown')));
-      }
-
-      return await _processSuccessfulOAuth(session, operationId);
+      return await _processSuccessfulOAuth(session!, operationId);
 
     } catch (e, stackTrace) {
       _logger.authError('Unexpected sign-in error', e, context: {
@@ -140,279 +120,18 @@ class AuthDataSource {
     }
   }
 
-  bool _isAllowedDomain(String email) {
-    final allowedDomains = _getAllowedDomains();
-    final domain = _extractDomain(email);
-    return allowedDomains.contains(domain.toLowerCase());
-  }
-
-  // Add this method to your AuthDataSource class
-// features/authentication/data/datasources/auth_data_source.dart
-
-// Add this method to your existing AuthDataSource class:
-
-  // Add this to AuthDataSource class
-  Future<Either<AuthFailure, String>> _createPersonalTenant(String userId, String userEmail, String userName) async {
-    try {
-      _logger.debug('Creating or finding personal tenant', category: LogCategory.auth, context: {
-        'userId': userId,
-        'userEmail': userEmail,
-      });
-
-      // CRITICAL: Check if user already has a personal tenant
-      final existingTenantResult = await _findPersonalTenant(userId);
-
-      final existingTenantId = await existingTenantResult.fold(
-            (failure) => throw failure,
-            (tenantId) => tenantId,
-      );
-
-      // If tenant exists, return it
-      if (existingTenantId != null) {
-        _logger.info('Personal tenant already exists, reusing', category: LogCategory.auth, context: {
-          'userId': userId,
-          'tenantId': existingTenantId,
-          'userEmail': userEmail,
-        });
-        return Right(existingTenantId);
-      }
-
-      // Generate unique tenant name with user ID to prevent collisions
-      final tenantName = _generateTenantName(userId, userName, userEmail);
-
-      final response = await _apiClient.insert<Map<String, dynamic>>(
-        table: 'tenants',
-        data: {
-          'name': tenantName,
-          'domain': null, // Personal tenants don't have domains
-          'is_active': true,
-        },
-        fromJson: (json) => json,
-      );
-
-      if (response.isSuccess && response.data != null) {
-        final tenantId = response.data!['id'] as String;
-
-        _logger.info('Personal tenant created successfully', category: LogCategory.auth, context: {
-          'tenantId': tenantId,
-          'tenantName': tenantName,
-          'userId': userId,
-          'userEmail': userEmail,
-        });
-
-        return Right(tenantId);
-      } else {
-        return Left(AuthFailure(response.message ?? 'Failed to create personal tenant'));
-      }
-    } catch (e, stackTrace) {
-      _logger.error('Exception creating personal tenant',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'userId': userId, 'userEmail': userEmail},
-      );
-      return Left(AuthFailure('Failed to create personal tenant: ${e.toString()}'));
-    }
-  }
-
-  Future<Either<AuthFailure, String?>> _findPersonalTenant(String userId) async {
-    try {
-      _logger.debug('Looking for existing personal tenant', category: LogCategory.auth, context: {
-        'userId': userId,
-      });
-
-      // Query profiles table to find tenant_id for this user
-      final response = await _apiClient.selectSingle<Map<String, dynamic>>(
-        table: 'profiles',
-        fromJson: (json) => json,
-        filters: {'id': userId},
-      );
-
-      if (response.isSuccess && response.data != null) {
-        final tenantId = response.data!['tenant_id'] as String?;
-
-        if (tenantId != null) {
-          _logger.debug('Found existing tenant for user', category: LogCategory.auth, context: {
-            'userId': userId,
-            'tenantId': tenantId,
-          });
-          return Right(tenantId);
-        }
-      }
-
-      _logger.debug('No existing tenant found for user', category: LogCategory.auth, context: {
-        'userId': userId,
-      });
-      return const Right(null);
-    } catch (e, stackTrace) {
-      _logger.error('Exception finding personal tenant',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'userId': userId},
-      );
-      return Left(AuthFailure('Failed to find personal tenant: ${e.toString()}'));
-    }
-  }
-
-  String _generateTenantName(String userId, String userName, String userEmail) {
-    // Use userId suffix to ensure uniqueness even if names collide
-    final userIdSuffix = userId.substring(0, 8); // First 8 chars of UUID
-
-    final cleanName = userName.trim();
-    if (cleanName.isNotEmpty) {
-      return "$cleanName's Workspace ($userIdSuffix)";
-    } else {
-      final emailPrefix = userEmail.split('@').first;
-      return "${emailPrefix}'s Workspace ($userIdSuffix)";
-    }
-  }
-
-  Future<Either<AuthFailure, String?>> _findSchoolTenant(String domain) async {
-    try {
-      _logger.debug('Looking for school tenant by domain', category: LogCategory.auth, context: {
-        'domain': domain,
-      });
-
-      final response = await _apiClient.selectSingle<Map<String, dynamic>>(
-        table: 'tenants',
-        fromJson: (json) => json,
-        filters: {'domain': domain, 'is_active': true},
-      );
-
-      if (response.isSuccess && response.data != null) {
-        final tenantId = response.data!['id'] as String;
-        final tenantName = response.data!['name'] as String;
-
-        _logger.debug('School tenant found', category: LogCategory.auth, context: {
-          'tenantId': tenantId,
-          'tenantName': tenantName,
-          'domain': domain,
-        });
-
-        return Right(tenantId);
-      } else {
-        _logger.warning('No school tenant found for domain', category: LogCategory.auth, context: {
-          'domain': domain,
-        });
-        return const Right(null);
-      }
-    } catch (e, stackTrace) {
-      _logger.error('Exception finding school tenant',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'domain': domain},
-      );
-      return Left(AuthFailure('Failed to find school tenant: ${e.toString()}'));
-    }
-  }
-
-  Future<Either<AuthFailure, void>> _assignUserToTenant(String userId, String tenantId) async {
-    try {
-      _logger.debug('Assigning user to tenant', category: LogCategory.auth, context: {
-        'userId': userId,
-        'tenantId': tenantId,
-      });
-
-      final response = await _apiClient.update<Map<String, dynamic>>(
-        table: 'profiles',
-        data: {'tenant_id': tenantId},
-        filters: {'id': userId},
-        fromJson: (json) => json,
-      );
-
-      if (response.isSuccess) {
-        _logger.info('User assigned to tenant successfully', category: LogCategory.auth, context: {
-          'userId': userId,
-          'tenantId': tenantId,
-        });
-        return const Right(null);
-      } else {
-        return Left(AuthFailure(response.message ?? 'Failed to assign user to tenant'));
-      }
-    } catch (e, stackTrace) {
-      _logger.error('Exception assigning user to tenant',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'userId': userId, 'tenantId': tenantId},
-      );
-      return Left(AuthFailure('Failed to assign user to tenant: ${e.toString()}'));
-    }
-  }
-
-  Future<Either<AuthFailure, UserModel?>> getUserProfileById(String userId) async {
-    try {
-      _logger.debug('Fetching user profile by ID from API', category: LogCategory.auth, context: {
-        'targetUserId': userId,
-      });
-
-      final response = await _apiClient.selectSingle<UserModel>(
-        table: 'profiles',
-        fromJson: UserModel.fromJson,
-        filters: {'id': userId},
-      );
-
-      if (response.isSuccess) {
-        final userModel = response.data;
-
-        if (userModel != null) {
-          _logger.debug('User profile found by ID', category: LogCategory.auth, context: {
-            'targetUserId': userId,
-            'userFullName': userModel.fullName,
-            'userEmail': userModel.email,
-          });
-        } else {
-          _logger.debug('User profile not found by ID', category: LogCategory.auth, context: {
-            'targetUserId': userId,
-          });
-        }
-
-        return Right(userModel);
-      } else {
-        return Left(AuthFailure(response.message ?? 'Failed to fetch user profile by ID'));
-      }
-    } catch (e, stackTrace) {
-      _logger.error('Exception fetching user profile by ID',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'targetUserId': userId},
-      );
-      return Left(AuthFailure('Failed to fetch user profile by ID: ${e.toString()}'));
-    }
-  }
-
-  List<String> _getAllowedDomains() {
-    switch (EnvironmentConfig.current) {
-      case Environment.dev:
-        return ['pearlmatricschool.com', 'gmail.com']; // Both school and Gmail for development
-      case Environment.staging:
-      case Environment.prod:
-        return ['pearlmatricschool.com', 'gmail.com']; // Allow both domains in production as requested
-    }
-  }
-
-  String _extractDomain(String email) {
-    final parts = email.split('@');
-    return parts.length == 2 ? parts[1] : '';
-  }
-
-
-  Future<Either<AuthFailure, UserModel>> _processSuccessfulOAuth(Session session, String operationId) async {
+  Future<Either<AuthFailure, UserModel>> _processSuccessfulOAuth(
+      Session session,
+      String operationId,
+      ) async {
     _logger.authEvent('oauth_session_received', session.user.id, context: {
       'operationId': operationId,
       'userEmail': session.user.email,
-      'provider': 'google',
       'platform': PlatformUtils.platformName,
     });
 
-    // Wait longer for profile creation/sync - increased to 2 seconds
-    await Future.delayed(const Duration(milliseconds: 2000));
-
-    // Get user profile after successful OAuth
-    final userResult = await _createOrGetUserProfile(session.user);
+    // Retry profile fetch with exponential backoff
+    final userResult = await _waitForProfileCreation(session.user.id);
 
     return userResult.fold(
           (failure) {
@@ -420,8 +139,13 @@ class AuthDataSource {
         return Left(failure);
       },
           (userModel) {
+        if (userModel == null) {
+          _signOut();
+          return const Left(AuthFailure('Profile creation failed - please contact administrator'));
+        }
+
         if (!userModel.isActive) {
-          _signOut(); // Cleanup on inactive user
+          _signOut();
           return const Left(DeactivatedAccountFailure());
         }
 
@@ -430,7 +154,6 @@ class AuthDataSource {
           'fullName': userModel.fullName,
           'role': userModel.role,
           'userEmail': userModel.email,
-          'completedAt': DateTime.now().toIso8601String(),
           'platform': PlatformUtils.platformName,
         });
 
@@ -438,6 +161,78 @@ class AuthDataSource {
       },
     );
   }
+
+  /// Wait for database trigger to create profile with retry logic
+  Future<Either<AuthFailure, UserModel?>> _waitForProfileCreation(String userId) async {
+    const maxAttempts = 6;
+    const baseDelay = Duration(milliseconds: 500);
+
+    _logger.debug('Waiting for profile creation', category: LogCategory.auth, context: {
+      'userId': userId,
+      'maxAttempts': maxAttempts,
+    });
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Exponential backoff: 500ms, 1s, 2s, 4s, 8s, 16s
+      final delay = baseDelay * (1 << (attempt - 1));
+
+      _logger.debug('Profile fetch attempt', category: LogCategory.auth, context: {
+        'userId': userId,
+        'attempt': attempt,
+        'delayMs': delay.inMilliseconds,
+      });
+
+      await Future.delayed(delay);
+
+      final result = await _getUserProfile(userId);
+
+      // Check if we got a result
+      final hasProfile = result.fold(
+            (failure) => false,
+            (profile) => profile != null,
+      );
+
+      if (hasProfile) {
+        _logger.debug('Profile found', category: LogCategory.auth, context: {
+          'userId': userId,
+          'attempt': attempt,
+          'totalWaitMs': _calculateTotalWait(attempt, baseDelay),
+        });
+        return result;
+      }
+
+      // Log retry
+      _logger.debug('Profile not found, retrying', category: LogCategory.auth, context: {
+        'userId': userId,
+        'attempt': attempt,
+        'remainingAttempts': maxAttempts - attempt,
+      });
+    }
+
+    // All retries exhausted
+    _logger.error('Profile creation timeout',
+      category: LogCategory.auth,
+      error: Exception('Profile not created after $maxAttempts attempts'),
+      context: {
+        'userId': userId,
+        'totalWaitMs': _calculateTotalWait(maxAttempts, baseDelay),
+      },
+    );
+
+    return const Left(AuthFailure(
+      'Profile creation timed out. The database trigger may have failed. Please contact support.',
+    ));
+  }
+
+  /// Calculate total wait time for logging
+  int _calculateTotalWait(int attempts, Duration baseDelay) {
+    int total = 0;
+    for (int i = 1; i <= attempts; i++) {
+      total += (baseDelay * (1 << (i - 1))).inMilliseconds;
+    }
+    return total;
+  }
+
 
   Future<Either<AuthFailure, UserModel?>> getCurrentUser() async {
     try {
@@ -450,9 +245,26 @@ class AuthDataSource {
     } catch (e, stackTrace) {
       _logger.authError('Error getting current user', e, context: {
         'errorType': e.runtimeType.toString(),
-        'operation': 'get_current_user',
       });
       return Left(AuthFailure('Failed to get current user: ${e.toString()}'));
+    }
+  }
+
+  Future<Either<AuthFailure, UserModel?>> getUserProfileById(String userId) async {
+    try {
+      _logger.debug('Fetching user profile by ID', category: LogCategory.auth, context: {
+        'targetUserId': userId,
+      });
+
+      return await _getUserProfile(userId);
+    } catch (e, stackTrace) {
+      _logger.error('Exception fetching user profile by ID',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'targetUserId': userId},
+      );
+      return Left(AuthFailure('Failed to fetch user profile by ID: ${e.toString()}'));
     }
   }
 
@@ -475,9 +287,7 @@ class AuthDataSource {
     } catch (e, stackTrace) {
       _logger.authError('Sign out error', e, context: {
         'userId': currentUserId,
-        'operation': 'signout',
       });
-      // Always return success to user even if there was an error
       return const Right(null);
     }
   }
@@ -494,269 +304,39 @@ class AuthDataSource {
         filters: {'id': userId},
       );
 
-      print('=== DEBUG: Raw API Response ===');
-      print('Response success: ${response.isSuccess}');
-      print('Response data: ${response.data}');
-      print('==============================');
-
       if (response.isSuccess) {
-        final userModel = response.data;
-        if (userModel == null) {
-          return const Right(null);
-        }
-
-        // ADD MORE DEBUG
-        print('=== DEBUG: UserModel ===');
-        print('UserModel tenantId: ${userModel.tenantId}');
-        print('UserModel toEntity tenantId: ${userModel.toEntity().tenantId}');
-        print('=======================');
-
-        return Right(userModel);
+        return Right(response.data);
       } else {
         return Left(AuthFailure(response.message ?? 'Failed to fetch user profile'));
       }
     } catch (e, stackTrace) {
       _logger.authError('Exception fetching user profile', e, context: {
         'userId': userId,
-        'operation': 'api_profile_fetch',
       });
       return Left(AuthFailure('Failed to fetch user profile: ${e.toString()}'));
     }
   }
 
-  Future<Either<AuthFailure, UserModel>> _createOrGetUserProfile(User user) async {
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final profileResult = await _getUserProfile(user.id);
-
-      return profileResult.fold(
-            (failure) => Left(failure),
-            (profile) async {
-          if (profile != null) {
-            // Check if user needs tenant assignment
-            if (profile.tenantId == null) {
-              _logger.info('User missing tenant assignment, creating/assigning tenant',
-                  category: LogCategory.auth,
-                  context: {
-                    'userId': user.id,
-                    'email': user.email,
-                    'userFullName': profile.fullName,
-                  });
-
-              // Auto-assign tenant based on email domain
-              final tenantAssignResult = await _autoAssignTenant(user, profile);
-
-              return tenantAssignResult.fold(
-                    (failure) => Left(failure),
-                    (updatedProfile) => Right(updatedProfile),
-              );
-            }
-
-            // User already has tenant assigned
-            return Right(profile);
-          }
-
-          // Profile doesn't exist - this should be handled by database triggers
-          _logger.warning('Profile not found after OAuth completion',
-              category: LogCategory.auth,
-              context: {
-                'userId': user.id,
-                'email': user.email,
-                'expectedAutoCreation': true,
-              });
-
-          return const Left(AuthFailure('Profile creation failed - please contact administrator'));
-        },
-      );
-    } catch (e, stackTrace) {
-      _logger.authError('Error in profile lookup', e, context: {
-        'userId': user.id,
-        'userEmail': user.email,
-      });
-      return Left(AuthFailure('Profile lookup failed: ${e.toString()}'));
-    }
-  }
-
-  Future<Either<AuthFailure, UserModel>> _autoAssignTenant(User user, UserModel profile) async {
-    try {
-      final email = user.email!;
-      final domain = _extractDomain(email);
-
-      print('🔍 DEBUG 1: Starting auto-assign');
-      print('  - Email: $email');
-      print('  - Domain: $domain');
-      print('  - UserId: ${user.id}');
-      print('  - UserName: ${profile.fullName}');
-
-      _logger.info('Auto-assigning tenant based on domain', category: LogCategory.auth, context: {
-        'userId': user.id,
-        'email': email,
-        'domain': domain,
-      });
-
-      String? tenantId;
-
-      if (domain == 'pearlmatricschool.com') {
-        print('🔍 DEBUG 2: School domain detected');
-        // School user - find existing school tenant
-        final schoolTenantResult = await _findSchoolTenant(domain);
-
-        final schoolTenantId = await schoolTenantResult.fold(
-              (failure) {
-            print('❌ DEBUG 3A: School tenant search failed: ${failure.message}');
-            throw failure;
-          },
-              (foundTenantId) {
-            print('✅ DEBUG 3B: School tenant result: $foundTenantId');
-            return foundTenantId;
-          },
-        );
-
-        if (schoolTenantId != null) {
-          tenantId = schoolTenantId;
-          print('✅ DEBUG 4: Using school tenant: $tenantId');
-          _logger.info('Assigning user to school tenant', category: LogCategory.auth, context: {
-            'userId': user.id,
-            'tenantId': tenantId,
-            'tenantType': 'school',
-          });
-        } else {
-          print('❌ DEBUG 4: No school tenant found');
-          return const Left(AuthFailure('School tenant not found - please contact administrator'));
-        }
-      } else if (domain == 'gmail.com') {
-        print('🔍 DEBUG 2: Gmail domain detected - creating personal tenant');
-
-        // Individual user - create or find personal tenant
-        final personalTenantResult = await _createPersonalTenant(user.id, email, profile.fullName);
-
-        print('🔍 DEBUG 3: Personal tenant creation result: ${personalTenantResult.isRight() ? "SUCCESS" : "FAILED"}');
-
-        tenantId = await personalTenantResult.fold(
-              (failure) {
-            print('❌ DEBUG 4A: Personal tenant creation FAILED');
-            print('   Error: ${failure.message}');
-            throw failure;
-          },
-              (createdTenantId) {
-            print('✅ DEBUG 4B: Personal tenant created: $createdTenantId');
-            return createdTenantId;
-          },
-        );
-
-        print('✅ DEBUG 5: TenantId assigned: $tenantId');
-
-        _logger.info('Created personal tenant for user', category: LogCategory.auth, context: {
-          'userId': user.id,
-          'tenantId': tenantId,
-          'tenantType': 'personal',
-        });
-      } else {
-        print('❌ DEBUG 2: Unsupported domain: $domain');
-        return Left(AuthFailure('Unsupported email domain: $domain'));
-      }
-
-      // Ensure tenantId is not null before assignment
-      if (tenantId == null) {
-        print('❌ DEBUG 6: TenantId is NULL');
-        return const Left(AuthFailure('Failed to determine tenant ID'));
-      }
-
-      print('🔍 DEBUG 7: Assigning user to tenant...');
-      print('  - UserId: ${user.id}');
-      print('  - TenantId: $tenantId');
-
-      // Assign user to the tenant
-      final assignResult = await _assignUserToTenant(user.id, tenantId);
-
-      await assignResult.fold(
-            (failure) {
-          print('❌ DEBUG 8A: User assignment FAILED');
-          print('   Error: ${failure.message}');
-          throw failure;
-        },
-            (_) {
-          print('✅ DEBUG 8B: User assigned successfully');
-          return Future.value();
-        },
-      );
-
-      print('🔍 DEBUG 9: Fetching updated profile...');
-
-      // Fetch updated profile with tenant assignment
-      final updatedProfileResult = await _getUserProfile(user.id);
-
-      return updatedProfileResult.fold(
-            (failure) {
-          print('❌ DEBUG 10A: Profile fetch FAILED');
-          print('   Error: ${failure.message}');
-          return Left(failure);
-        },
-            (updatedProfile) {
-          if (updatedProfile != null) {
-            print('✅ DEBUG 10B: Profile fetched successfully');
-            print('   TenantId in profile: ${updatedProfile.tenantId}');
-
-            _logger.info('Tenant auto-assignment completed successfully', category: LogCategory.auth, context: {
-              'userId': user.id,
-              'tenantId': tenantId,
-              'finalCheck': 'success',
-            });
-            return Right(updatedProfile);
-          } else {
-            print('❌ DEBUG 10C: Profile is NULL');
-            return const Left(AuthFailure('Failed to fetch updated profile after tenant assignment'));
-          }
-        },
-      );
-
-    } catch (e, stackTrace) {
-      print('💥 DEBUG EXCEPTION: $e');
-      print('   StackTrace: $stackTrace');
-
-      _logger.error('Exception during auto tenant assignment',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'userId': user.id, 'userEmail': user.email},
-      );
-      return Left(AuthFailure('Auto tenant assignment failed: ${e.toString()}'));
-    }
-  }
-
-
   Future<Session?> _waitForSession() async {
     final completer = Completer<Session?>();
     late StreamSubscription subscription;
 
-    print('🚀 DEBUG: Starting to wait for session');
-
-    // Check if we already have a session
     final currentSession = _supabase.auth.currentSession;
     if (currentSession?.user != null) {
-      print('🚀 DEBUG: Session already available');
       return currentSession;
     }
 
-    // Listen for auth state changes
     subscription = _supabase.auth.onAuthStateChange.listen((data) {
-      print('🚀 DEBUG: Auth state change: ${data.event.name}, hasSession: ${data.session != null}');
-
       if (data.session?.user != null && !completer.isCompleted) {
-        print('🚀 DEBUG: Session received via auth state change');
         completer.complete(data.session);
         subscription.cancel();
       } else if (data.event == AuthChangeEvent.signedOut && !completer.isCompleted) {
-        print('🚀 DEBUG: SignedOut event received');
         completer.complete(null);
         subscription.cancel();
       }
     });
 
-    // Set timeout - increased to 45 seconds
     Timer(const Duration(seconds: 45), () {
-      print('🚀 DEBUG: Session wait timed out after 45 seconds');
       if (!completer.isCompleted) {
         subscription.cancel();
         completer.complete(null);
@@ -768,29 +348,20 @@ class AuthDataSource {
 
   Future<void> _signOut() async {
     try {
-      // Add shorter timeout to prevent hanging
       await _supabase.auth.signOut(scope: SignOutScope.global)
-          .timeout(const Duration(seconds: 5)); // Reduced from 10 to 5 seconds
+          .timeout(const Duration(seconds: 5));
 
       _logger.debug('Global signout completed', category: LogCategory.auth);
     } catch (e) {
-      _logger.warning('Global signout failed, trying local', category: LogCategory.auth, context: {
-        'error': e.toString(),
-        'fallback': 'local_signout',
-      });
+      _logger.warning('Global signout failed, trying local', category: LogCategory.auth);
 
       try {
-        // Try local signout with shorter timeout as fallback
         await _supabase.auth.signOut(scope: SignOutScope.local)
-            .timeout(const Duration(seconds: 3)); // Reduced from 5 to 3 seconds
+            .timeout(const Duration(seconds: 3));
 
         _logger.debug('Local signout completed', category: LogCategory.auth);
       } catch (localError) {
-        _logger.warning('Local signout also failed', category: LogCategory.auth, context: {
-          'error': localError.toString(),
-          'action': 'continuing_anyway',
-        });
-        // Continue anyway - we'll clear local state
+        _logger.warning('Local signout also failed', category: LogCategory.auth);
       }
     }
   }
