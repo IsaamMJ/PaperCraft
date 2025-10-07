@@ -6,7 +6,8 @@
       "Bash(for dir in lib/features/*/)",
       "Bash(find:*)",
       "Bash(done)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

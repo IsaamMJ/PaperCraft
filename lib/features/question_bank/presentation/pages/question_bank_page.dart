@@ -18,6 +18,10 @@ import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../pdf_generation/domain/services/pdf_generation_service.dart';
 import '../../../paper_workflow/domain/services/user_info_service.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../widgets/paper_card/approved_paper_card.dart';
+import '../widgets/filter_panel/filter_panel.dart';
+import '../widgets/search_bar/paper_search_bar.dart';
+import '../widgets/pdf_dialogs/layout_selection_dialog.dart';
 
 class QuestionBankPage extends StatefulWidget {
   const QuestionBankPage({super.key});
@@ -90,16 +94,46 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Column(
-          children: [
-            _buildSearchAndFilters(),
-            _buildModernTabs(),
-            Expanded(child: _buildContent()),
-          ],
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<GradeBloc, GradeState>(
+          listener: (context, state) {
+            if (state is GradeLevelsLoaded) {
+              setState(() {
+                _availableGradeLevels = state.gradeLevels;
+                if (_selectedGradeLevel != null &&
+                    !state.gradeLevels.contains(_selectedGradeLevel)) {
+                  _selectedGradeLevel = null;
+                }
+              });
+            }
+          },
+        ),
+        BlocListener<SubjectBloc, SubjectState>(
+          listener: (context, state) {
+            if (state is SubjectsLoaded) {
+              setState(() {
+                _availableSubjects = state.subjects;
+                if (_selectedSubjectId != null &&
+                    !state.subjects.any((s) => s.id == _selectedSubjectId)) {
+                  _selectedSubjectId = null;
+                }
+              });
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: Column(
+            children: [
+              _buildSearchAndFilters(),
+              _buildModernTabs(),
+              Expanded(child: _buildContent()),
+            ],
+          ),
         ),
       ),
     );
@@ -129,246 +163,24 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.border.withOpacity(0.3)),
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search papers, subjects...',
-          hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: UIConstants.fontSizeMedium),
-          prefixIcon: Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-            onPressed: _clearSearch,
-            icon: Icon(Icons.clear, color: AppColors.textSecondary, size: 20),
-          )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
-        onChanged: (query) => setState(() => _searchQuery = query),
-      ),
+    return PaperSearchBar(
+      controller: _searchController,
+      searchQuery: _searchQuery,
+      onSearchChanged: (query) => setState(() => _searchQuery = query),
+      onClearSearch: _clearSearch,
     );
   }
 
   Widget _buildFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildGradeFilter(),
-          const SizedBox(width: 8),
-          _buildSubjectFilter(),
-          if (_hasActiveFilters()) ...[
-            const SizedBox(width: 8),
-            _buildClearButton(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGradeFilter() {
-    return BlocConsumer<GradeBloc, GradeState>(
-      listener: (context, state) {
-        if (state is GradeLevelsLoaded) {
-          setState(() {
-            _availableGradeLevels = state.gradeLevels;
-            if (_selectedGradeLevel != null &&
-                !state.gradeLevels.contains(_selectedGradeLevel)) {
-              _selectedGradeLevel = null;
-            }
-          });
-        }
-      },
-      builder: (context, state) {
-        if (state is GradeLoading) return _buildLoadingChip('Grade');
-        if (state is GradeError) return _buildErrorChip('Grade', () => context.read<GradeBloc>().add(const LoadGradeLevels()));
-
-        return _buildFilterChip<int>(
-          label: 'Grade',
-          value: _selectedGradeLevel,
-          options: _availableGradeLevels.map((level) =>
-              DropdownMenuItem(value: level, child: Text('Grade $level', style: const TextStyle(fontSize: UIConstants.fontSizeMedium)))).toList(),
-          onChanged: (value) => setState(() => _selectedGradeLevel = value),
-        );
-      },
-    );
-  }
-
-  Widget _buildSubjectFilter() {
-    return BlocConsumer<SubjectBloc, SubjectState>(
-      listener: (context, state) {
-        if (state is SubjectsLoaded) {
-          setState(() {
-            _availableSubjects = state.subjects;
-            if (_selectedSubjectId != null &&
-                !state.subjects.any((s) => s.id == _selectedSubjectId)) {
-              _selectedSubjectId = null;
-            }
-          });
-        }
-      },
-      builder: (context, state) {
-        if (state is SubjectLoading) return _buildLoadingChip('Subject');
-        if (state is SubjectError) return _buildErrorChip('Subject', () => context.read<SubjectBloc>().add(const LoadSubjects()));
-
-        return _buildFilterChip<String>(
-          label: 'Subject',
-          value: _selectedSubjectId,
-          options: _availableSubjects.map((subject) =>
-              DropdownMenuItem(value: subject.id, child: Text(subject.name, style: const TextStyle(fontSize: UIConstants.fontSizeMedium)))).toList(),
-          onChanged: (value) => setState(() => _selectedSubjectId = value),
-        );
-      },
-    );
-  }
-
-  Widget _buildFilterChip<T>({
-    required String label,
-    required T? value,
-    required List<DropdownMenuItem<T>> options,
-    required ValueChanged<T?> onChanged,
-  }) {
-    final isSelected = value != null;
-    T? validatedValue = value;
-    if (value != null && !options.any((item) => item.value == value)) {
-      validatedValue = null;
-    }
-
-    return Container(
-      height: 32,
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(
-          color: isSelected ? AppColors.primary : AppColors.border.withOpacity(0.5),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: validatedValue,
-          hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: UIConstants.fontSizeSmall,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          selectedItemBuilder: (context) => options.map((item) {
-            final text = (item.child as Text).data!;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                text.length > 10 ? '${text.substring(0, 10)}...' : text,
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: UIConstants.fontSizeSmall,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
-          }).toList(),
-          items: [
-            DropdownMenuItem<T>(
-              value: null,
-              child: Text('All ${label}s', style: const TextStyle(fontSize: UIConstants.fontSizeMedium)),
-            ),
-            ...options,
-          ],
-          onChanged: onChanged,
-          icon: Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary, size: 18),
-          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingChip(String label) {
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 10,
-            height: 10,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(AppColors.primary),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: AppColors.primary, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorChip(String label, VoidCallback onRetry) {
-    return Container(
-      height: 32,
-      decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.error.withOpacity(0.3)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onRetry,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, size: 14, color: AppColors.error),
-                const SizedBox(width: 4),
-                Text(label, style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClearButton() {
-    return GestureDetector(
-      onTap: _clearAllFilters,
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppColors.error.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          border: Border.all(color: AppColors.error.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.clear_rounded, size: 14, color: AppColors.error),
-            const SizedBox(width: 4),
-            Text('Clear', style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
+    return FilterPanel(
+      selectedGradeLevel: _selectedGradeLevel,
+      selectedSubjectId: _selectedSubjectId,
+      availableGradeLevels: _availableGradeLevels,
+      availableSubjects: _availableSubjects,
+      onGradeChanged: (value) => setState(() => _selectedGradeLevel = value),
+      onSubjectChanged: (value) => setState(() => _selectedSubjectId = value),
+      onClearFilters: _clearAllFilters,
+      hasActiveFilters: _hasActiveFilters(),
     );
   }
 
@@ -721,216 +533,19 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
   Widget _buildModernPaperCard(QuestionPaperEntity paper) {
     final isGenerating = _isGeneratingPdf && _generatingPdfFor == paper.id;
-    final screenWidth = MediaQuery.of(context).size.width;
     final creatorName = _userNamesCache[paper.createdBy] ?? 'Loading...';
 
-    final subjectDisplay = paper.subject ?? 'Unknown Subject';
-    final examTypeDisplay = paper.examType ?? paper.examTypeEntity.name;
-
-    return Container(
-      key: ValueKey(paper.id),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: AppColors.border.withOpacity(0.1)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.035),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        paper.title,
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeMedium,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: UIConstants.spacing4),
-                      Text(
-                        'by $creatorName',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: UIConstants.spacing6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          _buildModernTag(subjectDisplay, AppColors.primary),
-                          _buildModernTag(examTypeDisplay, AppColors.accent),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _buildStatusBadge(),
-                    const SizedBox(height: UIConstants.spacing4),
-                    Text(
-                      _formatDate(paper.reviewedAt ?? paper.createdAt),
-                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: UIConstants.spacing12),
-            Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    children: [
-                      _buildModernMetric(Icons.quiz_rounded, '${paper.totalQuestions}', 'Questions'),
-                      _buildModernMetric(Icons.grade_rounded, '${paper.totalMarks}', 'Marks'),
-                      _buildModernMetric(Icons.access_time_rounded, paper.examTypeEntity.formattedDuration, 'Duration'),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildModernActions(paper, isGenerating),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return ApprovedPaperCard(
+      paper: paper,
+      creatorName: creatorName,
+      isGeneratingPdf: isGenerating,
+      onPreview: () => _showPreviewOptions(paper),
+      onDownload: () => _showDownloadOptions(paper),
     );
   }
 
-  Widget _buildModernTag(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-      ),
-      child: Text(
-        'APPROVED',
-        style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: AppColors.success),
-      ),
-    );
-  }
-
-  Widget _buildModernMetric(IconData icon, String value, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: 3),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModernActions(QuestionPaperEntity paper, bool isGenerating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildActionButton(
-          icon: Icons.visibility_outlined,
-          color: AppColors.primary,
-          onPressed: () => _showPreviewOptions(paper),
-        ),
-        const SizedBox(width: 6),
-        _buildActionButton(
-          icon: isGenerating ? null : Icons.download_rounded,
-          color: AppColors.success,
-          isLoading: isGenerating,
-          onPressed: isGenerating ? null : () => _showDownloadOptions(paper),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    IconData? icon,
-    required Color color,
-    VoidCallback? onPressed,
-    bool isLoading = false,
-  }) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-          child: Center(
-            child: isLoading
-                ? SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(color),
-              ),
-            )
-                : Icon(icon, size: 16, color: color),
-          ),
-        ),
-      ),
-    );
-  }
+  // Removed: _buildModernTag, _buildStatusBadge, _buildModernMetric, _buildModernActions, _buildActionButton
+  // These methods are now in the ApprovedPaperCard widget and its sub-components
 
   Widget _buildEmptyForPeriod(String period) {
     String title, description;
@@ -1134,8 +749,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     return months[month];
   }
 
-  String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
-
   Future<void> _loadUserNamesForPapers(List<QuestionPaperEntity> papers) async {
     final userIds = papers.map((paper) => paper.createdBy).toSet().toList();
     final uncachedIds = userIds.where((id) => !_userNamesCache.containsKey(id)).toList();
@@ -1162,97 +775,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   void _showPreviewOptions(QuestionPaperEntity paper) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(UIConstants.paddingMedium),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: UIConstants.spacing16),
-            Text(
-              'Preview PDF',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: UIConstants.spacing6),
-            Text(
-              paper.title,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: UIConstants.spacing20),
-            _buildPreviewOption(
-              'Single Page Layout',
-              'One question paper per page',
-              Icons.description_rounded,
-              AppColors.primary,
-                  () => _previewPdf(paper, 'single'),
-            ),
-            const SizedBox(height: 10),
-            _buildPreviewOption(
-              'Dual Layout',
-              'Two identical papers per page',
-              Icons.content_copy_rounded,
-              AppColors.accent,
-                  () => _previewPdf(paper, 'dual'),
-            ),
-            const SizedBox(height: UIConstants.spacing12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreviewOption(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.pop(context);
-          onTap();
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.all(14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600)),
-                  Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    LayoutSelectionDialog.showPreviewDialog(
+      context,
+      paper.title,
+      () => _previewPdf(paper, 'single'),
+      () => _previewPdf(paper, 'dual'),
     );
   }
 
@@ -1293,97 +820,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   void _showDownloadOptions(QuestionPaperEntity paper) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(UIConstants.paddingMedium),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: UIConstants.spacing16),
-            Text(
-              'Download PDF',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: UIConstants.spacing6),
-            Text(
-              paper.title,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: UIConstants.fontSizeSmall),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: UIConstants.spacing20),
-            _buildDownloadOption(
-              'Single Page Layout',
-              'One question paper per page',
-              Icons.description_rounded,
-              AppColors.primary,
-                  () => _generatePdf(paper, 'single'),
-            ),
-            const SizedBox(height: 10),
-            _buildDownloadOption(
-              'Dual Layout',
-              'Two identical papers per page',
-              Icons.content_copy_rounded,
-              AppColors.accent,
-                  () => _generatePdf(paper, 'dual'),
-            ),
-            const SizedBox(height: UIConstants.spacing12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDownloadOption(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.pop(context);
-          onTap();
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.all(14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600)),
-                  Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    LayoutSelectionDialog.showDownloadDialog(
+      context,
+      paper.title,
+      () => _generatePdf(paper, 'single'),
+      () => _generatePdf(paper, 'dual'),
     );
   }
 
