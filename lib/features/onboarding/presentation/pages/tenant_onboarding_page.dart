@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
-import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../data/template/school_templates.dart';
 import '../widgets/school_type_selector.dart';
 import 'data_preview_screen.dart';

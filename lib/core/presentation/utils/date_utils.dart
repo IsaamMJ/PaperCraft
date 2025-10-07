@@ -1,4 +1,4 @@
-// core/presentation/utils/date_utils.dart
+// core/pages/utils/date_utils.dart
 
 /// Centralized date formatting utilities for the application
 class AppDateUtils {

@@ -27,6 +27,10 @@ class AppRoutes {
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';
 
+
+  // NEW: Teacher Assignment routes
+  static const String teacherAssignments = '/settings/teacher-assignments';
+
   // Helper methods for parameterized routes
   static String questionPaperViewWithId(String id) => '$questionPaperView/$id';
   static String questionPaperEditWithId(String id) => '$questionPaperEdit/$id';

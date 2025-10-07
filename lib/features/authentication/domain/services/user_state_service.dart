@@ -15,6 +15,13 @@ class UserStateService extends ChangeNotifier {
   UserEntity? _currentUser;
   TenantEntity? _currentTenant;
 
+
+  String get currentAcademicYear {
+    // TODO: Implement proper academic year management
+    // For now, return a default value
+    return '2024-2025';
+  }
+
   // SECURITY FIX: Periodic permission refresh
   Timer? _permissionRefreshTimer;
   final Duration _permissionRefreshInterval = const Duration(minutes: 45);

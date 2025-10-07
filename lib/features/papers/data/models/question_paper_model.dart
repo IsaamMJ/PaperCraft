@@ -1,0 +1,346 @@
+// features/question_papers/data/models/question_paper_model.dart
+import 'dart:convert';
+import '../../domain/entities/question_entity.dart';
+import '../../domain/entities/question_paper_entity.dart';
+import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../domain/entities/paper_status.dart';
+
+class QuestionPaperModel extends QuestionPaperEntity {
+  const QuestionPaperModel({
+    required super.id,
+    required super.title,
+    required super.subjectId,
+    required super.gradeId,
+    required super.examTypeId,
+    required super.academicYear,
+    required super.createdBy,
+    required super.createdAt,
+    required super.modifiedAt,
+    required super.status,
+    required super.examTypeEntity,
+    required super.questions,
+    super.examDate,
+    super.subject,
+    super.grade,
+    super.examType,
+    super.gradeLevel,
+    super.selectedSections,
+    super.tenantId,
+    super.userId,
+    super.submittedAt,
+    super.reviewedAt,
+    super.reviewedBy,
+    super.rejectionReason,
+  });
+
+  factory QuestionPaperModel.fromEntity(QuestionPaperEntity entity) {
+    return QuestionPaperModel(
+      id: entity.id,
+      title: entity.title,
+      subjectId: entity.subjectId,
+      gradeId: entity.gradeId,
+      examTypeId: entity.examTypeId,
+      academicYear: entity.academicYear,
+      createdBy: entity.createdBy,
+      createdAt: entity.createdAt,
+      modifiedAt: entity.modifiedAt,
+      status: entity.status,
+      examTypeEntity: entity.examTypeEntity,
+      questions: entity.questions,
+      examDate: entity.examDate,
+      subject: entity.subject,
+      grade: entity.grade,
+      examType: entity.examType,
+      gradeLevel: entity.gradeLevel,
+      selectedSections: entity.selectedSections,
+      tenantId: entity.tenantId,
+      userId: entity.userId,
+      submittedAt: entity.submittedAt,
+      reviewedAt: entity.reviewedAt,
+      reviewedBy: entity.reviewedBy,
+      rejectionReason: entity.rejectionReason,
+    );
+  }
+
+  QuestionPaperEntity toEntity() => this;
+
+  /// Parse from Supabase response (enriched view with joins)
+  factory QuestionPaperModel.fromSupabase(Map<String, dynamic> json) {
+    try {
+      // Parse questions JSONB
+      Map<String, List<Question>> questionsMap = {};
+      if (json['questions'] != null) {
+        final questionsJson = json['questions'] as Map<String, dynamic>;
+        questionsJson.forEach((sectionName, questionsList) {
+          if (questionsList is List) {
+            questionsMap[sectionName] = questionsList
+                .map((q) => Question.fromJson(q as Map<String, dynamic>))
+                .toList();
+          }
+        });
+      }
+
+      // Parse exam type entity from metadata
+      ExamTypeEntity examTypeEntity;
+      if (json['metadata'] != null && json['metadata']['exam_type_entity'] != null) {
+        examTypeEntity = ExamTypeEntity.fromJson(
+          json['metadata']['exam_type_entity'] as Map<String, dynamic>,
+        );
+      } else {
+        // Fallback: create minimal exam type entity
+        examTypeEntity = ExamTypeEntity(
+          id: json['exam_type_id'] ?? '',
+          tenantId: json['tenant_id'] ?? '',
+          subjectId: json['subject_id'] ?? '',
+          name: json['exam_type_name'] as String? ?? 'Unknown',
+          sections: const [],
+        );
+      }
+
+      // Extract display fields from joined columns
+      final subjectName = json['subject_name'] as String?;
+      final gradeName = json['grade_name'] as String?;
+      final examTypeName = json['exam_type_name'] as String?;
+      final gradeLevel = json['grade_level'] as int?;
+
+      // Parse selected sections if exists
+      List<String>? selectedSections;
+      if (json['metadata'] != null && json['metadata']['selected_sections'] != null) {
+        selectedSections = List<String>.from(json['metadata']['selected_sections'] as List);
+      }
+
+      return QuestionPaperModel(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        subjectId: json['subject_id'] as String,
+        gradeId: json['grade_id'] as String,
+        examTypeId: json['exam_type_id'] as String,
+        academicYear: json['academic_year'] as String,
+        createdBy: json['user_id'] as String,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        modifiedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'] as String)
+            : DateTime.parse(json['created_at'] as String),
+        status: PaperStatus.fromString(json['status'] as String),
+        examTypeEntity: examTypeEntity,
+        questions: questionsMap,
+        examDate: json['exam_date'] != null
+            ? DateTime.parse(json['exam_date'] as String)
+            : null,
+        subject: subjectName,
+        grade: gradeName,
+        examType: examTypeName,
+        gradeLevel: gradeLevel,
+        selectedSections: selectedSections,
+        tenantId: json['tenant_id'] as String?,
+        userId: json['user_id'] as String?,
+        submittedAt: json['submitted_at'] != null
+            ? DateTime.parse(json['submitted_at'] as String)
+            : null,
+        reviewedAt: json['reviewed_at'] != null
+            ? DateTime.parse(json['reviewed_at'] as String)
+            : null,
+        reviewedBy: json['reviewed_by'] as String?,
+        rejectionReason: json['rejection_reason'] as String?,
+      );
+    } catch (e) {
+      throw FormatException('Failed to parse QuestionPaperModel from Supabase: $e');
+    }
+  }
+
+  /// Convert to Supabase format for INSERT/UPDATE
+  Map<String, dynamic> toSupabaseMap() {
+    // Convert questions to JSON
+    final Map<String, dynamic> questionsJson = {};
+    questions.forEach((sectionName, questionsList) {
+      questionsJson[sectionName] = questionsList.map((q) => q.toJson()).toList();
+    });
+
+    // Store exam type entity and selected sections in metadata
+    final Map<String, dynamic> metadata = {
+      'exam_type_entity': examTypeEntity.toJson(),
+    };
+
+    if (selectedSections != null) {
+      metadata['selected_sections'] = selectedSections;
+    }
+
+    final Map<String, dynamic> map = {
+      'tenant_id': tenantId,
+      'user_id': userId,
+      'subject_id': subjectId,
+      'grade_id': gradeId,
+      'exam_type_id': examTypeId,
+      'academic_year': academicYear,
+      'title': title,
+      'exam_date': examDate?.toIso8601String(),
+      'questions': questionsJson,
+      'metadata': metadata,
+      'status': status.value,
+      'submitted_at': submittedAt?.toIso8601String(),
+      'reviewed_at': reviewedAt?.toIso8601String(),
+      'reviewed_by': reviewedBy,
+      'rejection_reason': rejectionReason,
+    };
+
+    // Only include ID if it's not empty (for updates)
+    if (id.isNotEmpty) {
+      map['id'] = id;
+    }
+
+    return map;
+  }
+
+  /// Convert to Hive format for local storage
+  Map<String, dynamic> toHiveMap() {
+    // Serialize questions map to JSON string
+    final Map<String, dynamic> questionsJson = {};
+    questions.forEach((sectionName, questionsList) {
+      questionsJson[sectionName] = questionsList.map((q) => q.toJson()).toList();
+    });
+
+    return {
+      'id': id,
+      'title': title,
+      'subject_id': subjectId,
+      'grade_id': gradeId,
+      'exam_type_id': examTypeId,
+      'academic_year': academicYear,
+      'created_by': createdBy,
+      'created_at': createdAt.millisecondsSinceEpoch,
+      'modified_at': modifiedAt.millisecondsSinceEpoch,
+      'status': status.value,
+      'exam_type_entity': jsonEncode(examTypeEntity.toJson()),
+      'questions': jsonEncode(questionsJson),
+      'exam_date': examDate?.millisecondsSinceEpoch,
+      'subject': subject,
+      'grade': grade,
+      'exam_type': examType,
+      'grade_level': gradeLevel,
+      'selected_sections': selectedSections != null ? jsonEncode(selectedSections) : null,
+      'tenant_id': tenantId,
+      'user_id': userId,
+      'submitted_at': submittedAt?.millisecondsSinceEpoch,
+      'reviewed_at': reviewedAt?.millisecondsSinceEpoch,
+      'reviewed_by': reviewedBy,
+      'rejection_reason': rejectionReason,
+    };
+  }
+
+  /// Parse from Hive storage
+  factory QuestionPaperModel.fromHive(Map<String, dynamic> paperMap) {
+    try {
+      final examTypeEntityJson = jsonDecode(paperMap['exam_type_entity'] as String);
+      final examTypeEntity = ExamTypeEntity.fromJson(examTypeEntityJson);
+
+      // Parse questions from JSON string
+      Map<String, List<Question>> questionsMap = {};
+      if (paperMap['questions'] != null) {
+        final questionsJson = jsonDecode(paperMap['questions'] as String) as Map<String, dynamic>;
+        questionsJson.forEach((sectionName, questionsList) {
+          if (questionsList is List) {
+            questionsMap[sectionName] = questionsList
+                .map((q) => Question.fromJson(q as Map<String, dynamic>))
+                .toList();
+          }
+        });
+      }
+
+      // Parse selected sections if exists
+      List<String>? selectedSections;
+      if (paperMap['selected_sections'] != null) {
+        selectedSections = List<String>.from(jsonDecode(paperMap['selected_sections'] as String));
+      }
+
+      return QuestionPaperModel(
+        id: paperMap['id'] as String,
+        title: paperMap['title'] as String,
+        subjectId: paperMap['subject_id'] as String,
+        gradeId: paperMap['grade_id'] as String,
+        examTypeId: paperMap['exam_type_id'] as String,
+        academicYear: paperMap['academic_year'] as String,
+        createdBy: paperMap['created_by'] as String,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(paperMap['created_at'] as int),
+        modifiedAt: DateTime.fromMillisecondsSinceEpoch(paperMap['modified_at'] as int),
+        status: PaperStatus.fromString(paperMap['status'] as String),
+        examTypeEntity: examTypeEntity,
+        questions: questionsMap,
+        examDate: paperMap['exam_date'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(paperMap['exam_date'] as int)
+            : null,
+        subject: paperMap['subject'] as String?,
+        grade: paperMap['grade'] as String?,
+        examType: paperMap['exam_type'] as String?,
+        gradeLevel: paperMap['grade_level'] as int?,
+        selectedSections: selectedSections,
+        tenantId: paperMap['tenant_id'] as String?,
+        userId: paperMap['user_id'] as String?,
+        submittedAt: paperMap['submitted_at'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(paperMap['submitted_at'] as int)
+            : null,
+        reviewedAt: paperMap['reviewed_at'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(paperMap['reviewed_at'] as int)
+            : null,
+        reviewedBy: paperMap['reviewed_by'] as String?,
+        rejectionReason: paperMap['rejection_reason'] as String?,
+      );
+    } catch (e) {
+      throw FormatException('Failed to parse QuestionPaperModel from Hive: $e');
+    }
+  }
+
+  @override
+  QuestionPaperModel copyWith({
+    String? id,
+    String? title,
+    String? subjectId,
+    String? gradeId,
+    String? examTypeId,
+    String? academicYear,
+    String? createdBy,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    PaperStatus? status,
+    DateTime? examDate,
+    ExamTypeEntity? examTypeEntity,
+    Map<String, List<Question>>? questions,
+    String? subject,
+    String? grade,
+    String? examType,
+    int? gradeLevel,
+    List<String>? selectedSections,
+    String? tenantId,
+    String? userId,
+    DateTime? submittedAt,
+    DateTime? reviewedAt,
+    String? reviewedBy,
+    String? rejectionReason,
+  }) {
+    return QuestionPaperModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subjectId: subjectId ?? this.subjectId,
+      gradeId: gradeId ?? this.gradeId,
+      examTypeId: examTypeId ?? this.examTypeId,
+      academicYear: academicYear ?? this.academicYear,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      status: status ?? this.status,
+      examDate: examDate ?? this.examDate,
+      examTypeEntity: examTypeEntity ?? this.examTypeEntity,
+      questions: questions ?? this.questions,
+      subject: subject ?? this.subject,
+      grade: grade ?? this.grade,
+      examType: examType ?? this.examType,
+      gradeLevel: gradeLevel ?? this.gradeLevel,
+      selectedSections: selectedSections ?? this.selectedSections,
+      tenantId: tenantId ?? this.tenantId,
+      userId: userId ?? this.userId,
+      submittedAt: submittedAt ?? this.submittedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+    );
+  }
+}

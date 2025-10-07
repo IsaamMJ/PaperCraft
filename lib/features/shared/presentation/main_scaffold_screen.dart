@@ -15,10 +15,10 @@ import '../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../authentication/presentation/bloc/auth_event.dart';
 import '../../authentication/presentation/bloc/auth_state.dart';
 import '../../home/presentation/pages/home_page.dart';
-import '../../question_papers/presentation/admin/admin_dashboard_page.dart';
-import '../../question_papers/presentation/admin/settings_screen.dart';
-import '../../question_papers/presentation/bloc/shared_bloc_provider.dart';
-import '../../question_papers/presentation/pages/question_bank_page.dart';
+import '../../papers/presentation/bloc/shared_bloc_provider.dart';
+import '../../papers/presentation/pages/admin_dashboard_page.dart';
+import '../../papers/presentation/pages/settings_screen.dart';
+import '../../papers/presentation/pages/question_bank_page.dart';
 
 class MainScaffoldPage extends StatefulWidget {
   const MainScaffoldPage({super.key});

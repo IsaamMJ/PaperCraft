@@ -1,20 +1,18 @@
+// features/home/presentation/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
-import '../../../../core/presentation/utils/ui_helpers.dart';
-import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../question_papers/domain/entities/question_paper_entity.dart';
-import '../../../question_papers/domain/entities/paper_status.dart';
-import '../../../question_papers/presentation/bloc/question_paper_bloc.dart';
-import '../../../question_papers/presentation/widgets/shared/paper_status_badge.dart';
+import '../../../papers/domain/entities/question_paper_entity.dart';
+import '../../../papers/domain/entities/paper_status.dart';
+import '../../../papers/presentation/bloc/question_paper_bloc.dart';
+import '../../../papers/presentation/widgets/paper_status_badge.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,16 +21,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
+class _HomePageState extends State<HomePage> {
   bool _isRefreshing = false;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Load data on first build only
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadInitialData();
@@ -44,7 +38,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     final authState = context.read<AuthBloc>().state;
 
     if (authState is! AuthAuthenticated) {
-      debugPrint('Cannot load data: User not authenticated');
       return;
     }
 
@@ -61,8 +54,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
         if (authState is! AuthAuthenticated) {
@@ -210,7 +201,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
-                  _handleAuthenticationError();
+                  _showAuthErrorDialog();
                 }
               });
             }
@@ -222,22 +213,20 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
             return _buildPapersList(papers, isAdmin);
           }
 
-          if (state is QuestionPaperInitial) {
-            return _buildLoading();
-          }
-
           return _buildEmpty(isAdmin);
         },
       ),
     );
   }
 
-  void _handleAuthenticationError() {
+  void _showAuthErrorDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Authentication Issue'),
-        content: const Text('There seems to be an issue with your authentication. Would you like to log out and log back in?'),
+        content: const Text(
+          'There seems to be an issue with your authentication. Would you like to log out and log back in?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -369,9 +358,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
               isAdmin
                   ? 'Papers submitted by teachers will appear here'
                   : 'Create your first question paper to get started',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -431,7 +418,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _navigateToPaper(paper),
+          onTap: () => context.push(AppRoutes.questionPaperViewWithId(paper.id)),
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
           child: Padding(
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -461,7 +448,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                     Icon(Icons.subject_rounded, size: 16, color: AppColors.textSecondary),
                     const SizedBox(width: 6),
                     Text(
-                      paper.subject,
+                      paper.subject ?? 'Unknown Subject',
                       style: TextStyle(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
@@ -506,31 +493,12 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   }
 
   Widget _buildActionButton(QuestionPaperEntity paper) {
-    String text;
-    IconData icon;
-    Color color;
-
-    switch (paper.status) {
-      case PaperStatus.draft:
-        text = 'View Draft';
-        icon = Icons.visibility_rounded;
-        color = AppColors.primary;
-        break;
-      case PaperStatus.rejected:
-        text = 'View Details';
-        icon = Icons.visibility_rounded;
-        color = AppColors.accent;
-        break;
-      case PaperStatus.approved:
-        text = 'View';
-        icon = Icons.visibility_rounded;
-        color = AppColors.success;
-        break;
-      default:
-        text = 'View Status';
-        icon = Icons.info_outline_rounded;
-        color = AppColors.textSecondary;
-    }
+    final (text, icon, color) = switch (paper.status) {
+      PaperStatus.draft => ('View Draft', Icons.visibility_rounded, AppColors.primary),
+      PaperStatus.rejected => ('View Details', Icons.visibility_rounded, AppColors.accent),
+      PaperStatus.approved => ('View', Icons.visibility_rounded, AppColors.success),
+      _ => ('View Status', Icons.info_outline_rounded, AppColors.textSecondary),
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -618,15 +586,11 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   List<QuestionPaperEntity> _getAllPapers(QuestionPaperLoaded state, bool isAdmin) {
     if (isAdmin) {
       return state.papersForReview;
-    } else {
-      final allPapers = [...state.drafts, ...state.submissions];
-      allPapers.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
-      return allPapers;
     }
-  }
 
-  void _navigateToPaper(QuestionPaperEntity paper) {
-    context.push(AppRoutes.questionPaperViewWithId(paper.id));
+    final allPapers = [...state.drafts, ...state.submissions];
+    allPapers.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+    return allPapers;
   }
 
   Future<void> _handleRefresh() async {

@@ -1,14 +1,16 @@
+// features/onboarding/domain/usecases/seed_tenant_usecase.dart
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../question_papers/domain/entities/exam_type_entity.dart';
-import '../../../question_papers/domain/entities/grade_entity.dart';
-import '../../../question_papers/domain/entities/subject_entity.dart';
-import '../../../question_papers/domain/repositories/exam_type_repository.dart';
-import '../../../question_papers/domain/repositories/grade_repository.dart';
-import '../../../question_papers/domain/repositories/subject_repository.dart';
+import '../../../catalog/data/datasources/subject_data_source.dart';
+import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/grade_entity.dart';
+import '../../../catalog/domain/entities/subject_entity.dart';
+import '../../../catalog/domain/repositories/exam_type_repository.dart';
+import '../../../catalog/domain/repositories/grade_repository.dart';
+import '../../../catalog/domain/repositories/subject_repository.dart';
 import '../../data/template/school_templates.dart';
 
 typedef ProgressCallback = void Function(double progress, String currentItem);
@@ -37,54 +39,67 @@ class SeedTenantUseCase {
         return Left(AuthFailure('No tenant ID found'));
       }
 
-      _logger.info('Starting tenant data seeding', category: LogCategory.auth, context: {
-        'tenantId': tenantId,
-        'schoolType': schoolType.name,
-      });
+      _logger.info('Starting tenant data seeding',
+          category: LogCategory.auth,
+          context: {'tenantId': tenantId, 'schoolType': schoolType.name});
 
-      final subjects = SchoolTemplates.getSubjects(schoolType);
+      final subjectTemplates = SchoolTemplates.getSubjects(schoolType);
       final grades = SchoolTemplates.getGrades(schoolType);
-      final examTypes = SchoolTemplates.getExamTypes(schoolType);
+      final examTypeTemplates = SchoolTemplates.getExamTypes(schoolType);
 
-      final totalItems = subjects.length + grades.length + examTypes.length;
+      final totalItems = subjectTemplates.length + grades.length + examTypeTemplates.length;
       var completedItems = 0;
 
-      // Seed subjects
-      for (final subjectTemplate in subjects) {
-        onProgress(completedItems / totalItems, 'Creating ${subjectTemplate.name}...');
+      // Step 1: Load subject catalog to get IDs
+      final dataSource = sl<SubjectDataSource>();
+      final catalog = await dataSource.getSubjectCatalog();
+
+      final catalogMap = {for (var c in catalog) c.name: c.id};
+
+      // Step 2: Enable subjects from catalog
+      final createdSubjects = <String, String>{}; // name -> subjectId
+
+      for (final template in subjectTemplates) {
+        onProgress(completedItems / totalItems, 'Enabling ${template.name}...');
+
+        final catalogId = catalogMap[template.catalogSubjectId];
+        if (catalogId == null) {
+          _logger.warning('Catalog subject not found',
+              category: LogCategory.auth,
+              context: {'subjectName': template.catalogSubjectId});
+          completedItems++;
+          continue;
+        }
 
         final subject = SubjectEntity(
           id: '',
           tenantId: tenantId,
-          name: subjectTemplate.name,
-          description: subjectTemplate.description,
+          catalogSubjectId: catalogId,
+          name: template.name,
           isActive: true,
           createdAt: DateTime.now(),
         );
 
         final result = await _subjectRepository.createSubject(subject);
 
-        if (result.isLeft()) {
-          _logger.warning('Failed to create subject', category: LogCategory.auth, context: {
-            'subjectName': subjectTemplate.name,
-            'continuing': true,
-          });
-          // Continue anyway - partial success is acceptable
-        }
+        result.fold(
+              (failure) => _logger.warning('Failed to enable subject',
+              category: LogCategory.auth,
+              context: {'subjectName': template.name, 'error': failure.message}),
+              (created) => createdSubjects[template.name] = created.id,
+        );
 
         completedItems++;
       }
 
-      // Seed grades
-      for (final gradeLevel in grades) {
-        onProgress(completedItems / totalItems, 'Creating Grade $gradeLevel...');
+      // Step 3: Create grades
+      for (final gradeNumber in grades) {
+        onProgress(completedItems / totalItems, 'Creating Grade $gradeNumber...');
 
         final grade = GradeEntity(
           id: '',
           tenantId: tenantId,
-          name: 'Grade $gradeLevel',
-          level: gradeLevel,
-          section: null,
+          gradeNumber: gradeNumber,
           isActive: true,
           createdAt: DateTime.now(),
         );
@@ -92,46 +107,56 @@ class SeedTenantUseCase {
         final result = await _gradeRepository.createGrade(grade);
 
         if (result.isLeft()) {
-          _logger.warning('Failed to create grade', category: LogCategory.auth, context: {
-            'gradeLevel': gradeLevel,
-            'continuing': true,
-          });
+          _logger.warning('Failed to create grade',
+              category: LogCategory.auth, context: {'gradeLevel': gradeNumber});
         }
 
         completedItems++;
       }
 
-      // Seed exam types
-      for (final examTypeTemplate in examTypes) {
-        onProgress(completedItems / totalItems, 'Creating ${examTypeTemplate.name}...');
+      // Step 4: Create exam types
+      for (final template in examTypeTemplates) {
+        onProgress(completedItems / totalItems, 'Creating ${template.name}...');
 
-        final sections = examTypeTemplate.sections.map((section) {
-          return ExamSectionEntity(
-            name: section.name,
-            type: section.type,
-            questions: section.questions,
-            marksPerQuestion: section.marksPerQuestion,
-            questionsToAnswer: section.questionsToAnswer,
-          );
-        }).toList();
+        final subjectId = createdSubjects[template.subjectName];
+        if (subjectId == null) {
+          _logger.warning('Subject not found for exam type',
+              category: LogCategory.auth,
+              context: {
+                'examType': template.name,
+                'subjectName': template.subjectName
+              });
+          completedItems++;
+          continue;
+        }
+
+        final sections = template.sections
+            .map((s) => ExamSectionEntity(
+          name: s.name,
+          type: s.type,
+          questions: s.questions,
+          marksPerQuestion: s.marksPerQuestion,
+        ))
+            .toList();
 
         final examType = ExamTypeEntity(
           id: '',
           tenantId: tenantId,
-          name: examTypeTemplate.name,
-          durationMinutes: examTypeTemplate.durationMinutes,
+          subjectId: subjectId,
+          name: template.name,
+          durationMinutes: template.durationMinutes,
           totalMarks: null,
-          totalQuestions: sections.length,
+          totalSections: sections.length,
           sections: sections,
+          isActive: true,
         );
 
         final result = await _examTypeRepository.createExamType(examType);
 
         if (result.isLeft()) {
-          _logger.warning('Failed to create exam type', category: LogCategory.auth, context: {
-            'examTypeName': examTypeTemplate.name,
-            'continuing': true,
-          });
+          _logger.warning('Failed to create exam type',
+              category: LogCategory.auth,
+              context: {'examTypeName': template.name});
         }
 
         completedItems++;
@@ -139,19 +164,18 @@ class SeedTenantUseCase {
 
       onProgress(1.0, 'Setup complete!');
 
-      _logger.info('Tenant seeding completed', category: LogCategory.auth, context: {
-        'tenantId': tenantId,
-        'totalItems': totalItems,
-        'completedItems': completedItems,
-      });
+      _logger.info('Tenant seeding completed',
+          category: LogCategory.auth,
+          context: {
+            'tenantId': tenantId,
+            'totalItems': totalItems,
+            'completedItems': completedItems
+          });
 
       return Right(tenantId);
     } catch (e, stackTrace) {
       _logger.error('Failed to seed tenant data',
-        category: LogCategory.auth,
-        error: e,
-        stackTrace: stackTrace,
-      );
+          category: LogCategory.auth, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to initialize tenant: ${e.toString()}'));
     }
   }

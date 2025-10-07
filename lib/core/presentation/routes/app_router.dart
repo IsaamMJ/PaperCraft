@@ -5,18 +5,24 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
+import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
+import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
+import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
+import '../../../features/catalog/presentation/bloc/exam_type_bloc.dart';
+import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
+import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
+import '../../../features/catalog/presentation/pages/exam_type_management_page.dart';
+import '../../../features/catalog/presentation/pages/grade_management_page.dart';
+import '../../../features/catalog/presentation/pages/subject_management_page.dart';
+import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
-import '../../../features/question_papers/presentation/admin/exam_type_management_page.dart';
-import '../../../features/question_papers/presentation/admin/grade_management_page.dart';
-import '../../../features/question_papers/presentation/admin/settings_screen.dart';
-import '../../../features/question_papers/presentation/admin/subject_management_page.dart';
-import '../../../features/question_papers/presentation/admin/user_management_page.dart';
-import '../../../features/question_papers/presentation/bloc/exam_type_bloc.dart';
-import '../../../features/question_papers/presentation/bloc/question_paper_bloc.dart';
-import '../../../features/question_papers/presentation/bloc/grade_bloc.dart';
-import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
-import '../../../features/question_papers/presentation/bloc/user_management_bloc.dart';
-import '../../../features/question_papers/presentation/pages/question_paper_edit_page.dart';
+import '../../../features/papers/presentation/bloc/user_management_bloc.dart';
+import '../../../features/papers/presentation/pages/admin_dashboard_page.dart';
+import '../../../features/papers/presentation/pages/paper_review_page.dart';
+import '../../../features/papers/presentation/pages/question_paper_detail_page.dart';
+import '../../../features/papers/presentation/pages/settings_screen.dart';
+import '../../../features/papers/presentation/bloc/question_paper_bloc.dart';
+import '../../../features/paper_creation/presentation/pages/question_paper_edit_page.dart';
 import '../../../features/shared/presentation/main_scaffold_screen.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
@@ -31,11 +37,8 @@ import '../../../features/authentication/presentation/bloc/auth_state.dart';
 import '../../../features/authentication/presentation/pages/login_page.dart';
 
 // Question papers
-import '../../../features/question_papers/presentation/admin/admin_dashboard_page.dart';
-import '../../../features/question_papers/presentation/admin/paper_review_page.dart';
-import '../../../features/question_papers/presentation/pages/question_paper_detail_page.dart';
-import '../../../features/question_papers/presentation/pages/question_paper_create_page.dart';
-import '../../../features/question_papers/presentation/pages/question_bank_page.dart';
+import '../../../features/paper_creation/presentation/pages/question_paper_create_page.dart';
+import '../../../features/papers/presentation/pages/question_bank_page.dart';
 
 // Widgets and routes
 import '../constants/ui_constants.dart';
@@ -222,6 +225,7 @@ class AppRouter {
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
+              BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
             ],
             child: QuestionPaperDetailPage(
               questionPaperId: id,
@@ -240,6 +244,7 @@ class AppRouter {
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
+              BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
             ],
             child: QuestionPaperEditPage(questionPaperId: id),
           );
@@ -253,10 +258,51 @@ class AppRouter {
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
+            BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
           ],
           child: const QuestionBankPage(),
         ),
       ),
+
+      // Replace your teacherAssignments route in app_router.dart with this:
+
+      GoRoute(
+        path: AppRoutes.teacherAssignments,
+        builder: (context, state) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => UserManagementBloc()),
+            // Add the missing bloc providers
+            BlocProvider(create: (_) => GradeBloc(repository: sl())),
+            BlocProvider(create: (_) => sl<SubjectBloc>()),
+          ],
+          child: const TeacherAssignmentManagementPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: '${AppRoutes.teacherAssignments}/:${RouteParams.id}',
+        builder: (context, state) {
+          final teacherId = state.pathParameters[RouteParams.id]!;
+
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => UserManagementBloc()..add(const LoadUsers())),
+              BlocProvider(
+                create: (_) => TeacherAssignmentBloc(
+                  sl(), // AssignmentRepository
+                  sl(), // GradeRepository
+                  sl(), // SubjectRepository
+                  sl(), // UserStateService
+                ),
+              ),
+              BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
+            ],
+            child: _TeacherAssignmentDetailLoader(teacherId: teacherId),
+          );
+        },
+      ),
+
 
       GoRoute(
         path: AppRoutes.questionPaperCreate,
@@ -265,6 +311,7 @@ class AppRouter {
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
+            BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
           ],
           child: const QuestionPaperCreatePage(),
         ),
@@ -580,6 +627,31 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
       // Continue processing for AuthLoading or other states
         break;
     }
+  }
+}
+
+
+/// Helper widget to load teacher data before showing detail page
+class _TeacherAssignmentDetailLoader extends StatelessWidget {
+  final String teacherId;
+
+  const _TeacherAssignmentDetailLoader({required this.teacherId});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<UserManagementBloc, UserManagementState>(
+      listener: (context, state) {
+        if (state is UserManagementLoaded) {
+          try {
+            final teacher = state.users.firstWhere((u) => u.id == teacherId);
+            context.read<TeacherAssignmentBloc>().add(LoadTeacherAssignments(teacher));
+          } catch (e) {
+            // Teacher not found - handled by detail page error state
+          }
+        }
+      },
+      child: TeacherAssignmentDetailPage(teacherId: teacherId),
+    );
   }
 }
 

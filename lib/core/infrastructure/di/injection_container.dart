@@ -4,18 +4,39 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Core domain interfaces
 import '../../../features/authentication/data/datasources/tenant_data_source.dart';
+import '../../../features/authentication/data/datasources/user_data_source.dart';
 import '../../../features/authentication/data/repositories/tenant_repository_impl.dart';
+import '../../../features/authentication/data/repositories/user_repository_impl.dart';
 import '../../../features/authentication/domain/repositories/tenant_repository.dart';
+import '../../../features/authentication/domain/repositories/user_repository.dart';
 import '../../../features/authentication/domain/usecases/get_tenant_usecase.dart';
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../../features/catalog/data/datasources/grade_data_source.dart';
+import '../../../features/catalog/domain/repositories/subject_repository.dart';
+import '../../../features/catalog/domain/usecases/get_exam_types_usecase.dart';
+import '../../../features/catalog/domain/usecases/get_grade_levels_usecase.dart';
+import '../../../features/catalog/domain/usecases/get_sections_by_grade_usecase.dart';
+import '../../../features/catalog/domain/usecases/get_subjects_usecase.dart';
+import '../../../features/catalog/presentation/bloc/exam_type_bloc.dart';
+import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
+import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
 import '../../../features/onboarding/domain/usecases/seed_tenant_usecase.dart';
-import '../../../features/question_papers/data/datasources/subject_data_source.dart';
-import '../../../features/question_papers/data/repositories/subject_repository_impl.dart';
-import '../../../features/question_papers/domain/repositories/subject_repository.dart';
-import '../../../features/question_papers/domain/usecases/get_grades_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_subjects_usecase.dart';
-import '../../../features/question_papers/presentation/bloc/exam_type_bloc.dart';
-import '../../../features/question_papers/presentation/bloc/subject_bloc.dart';
+import '../../../features/catalog/data/datasources/subject_data_source.dart';
+import '../../../features/catalog/data/repositories/subject_repository_impl.dart';
+import '../../../features/catalog/domain/usecases/get_grades_usecase.dart';
+import '../../../features/paper_review/domain/usecases/approve_paper_usecase.dart';
+import '../../../features/papers/data/datasources/paper_local_data_source.dart';
+import '../../../features/papers/domain/services/user_info_service.dart';
+import '../../../features/papers/domain/services/paper_display_service.dart';
+import '../../../features/papers/domain/usecases/get_all_papers_for_admin_usecase.dart';
+import '../../../features/papers/domain/usecases/get_approved_papers_usecase.dart';
+import '../../../features/papers/domain/usecases/get_drafts_usecase.dart';
+import '../../../features/papers/domain/usecases/get_paper_by_id_usecase.dart';
+import '../../../features/papers/domain/usecases/get_papers_for_review_usecase.dart';
+import '../../../features/papers/domain/usecases/get_user_submissions_usecase.dart';
+import '../../../features/papers/domain/usecases/pull_for_editing_usecase.dart';
+import '../../../features/papers/domain/usecases/save_draft_usecase.dart';
+import '../../../features/papers/domain/usecases/submit_paper_usecase.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
 import '../../domain/interfaces/i_network_service.dart';
@@ -39,42 +60,30 @@ import '../../../features/authentication/domain/services/user_state_service.dart
 import '../../../features/authentication/domain/usecases/auth_usecase.dart';
 
 // Question papers feature
-import '../../../features/question_papers/data/datasources/paper_cloud_data_source.dart';
-import '../../../features/question_papers/data/datasources/paper_local_data_source.dart';
-import '../../../features/question_papers/data/datasources/paper_local_data_source_hive.dart';
-import '../../../features/question_papers/data/repositories/question_paper_repository_impl.dart';
-import '../../../features/question_papers/domain/repositories/question_paper_repository.dart';
-import '../../../features/question_papers/domain/usecases/approve_paper_usecase.dart';
-import '../../../features/question_papers/domain/usecases/delete_draft_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_drafts_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_paper_by_id_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_papers_for_review_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_user_submissions_usecase.dart';
-import '../../../features/question_papers/domain/usecases/pull_for_editing_usecase.dart';
-import '../../../features/question_papers/domain/usecases/reject_paper_usecase.dart';
-import '../../../features/question_papers/domain/usecases/save_draft_usecase.dart';
-import '../../../features/question_papers/domain/usecases/submit_paper_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_all_papers_for_admin_usecase.dart';
-import '../../../features/question_papers/domain/usecases/get_approved_papers_usecase.dart';
-
-// UserInfoService import
-import '../../../features/question_papers/domain/services/user_info_service.dart';
+import '../../../features/papers/data/datasources/paper_cloud_data_source.dart';
+import '../../../features/papers/data/datasources/paper_local_data_source_hive.dart';
+import '../../../features/papers/data/repositories/question_paper_repository_impl.dart';
+import '../../../features/papers/domain/repositories/question_paper_repository.dart';
+import '../../../features/papers/domain/usecases/delete_draft_usecase.dart';
+import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart';
 
 // Exam Type imports
-import '../../../features/question_papers/data/datasources/exam_type_data_source.dart';
-import '../../../features/question_papers/data/repositories/exam_type_repository_impl.dart';
-import '../../../features/question_papers/domain/repositories/exam_type_repository.dart';
-import '../../../features/question_papers/domain/usecases/get_exam_types_usecase.dart';
+import '../../../features/catalog/data/datasources/exam_type_data_source.dart';
+import '../../../features/catalog/data/repositories/exam_type_repository_impl.dart';
+import '../../../features/catalog/domain/repositories/exam_type_repository.dart';
 
 // Grade feature
-import '../../../features/question_papers/data/datasources/grade_data_source.dart';
-import '../../../features/question_papers/data/repositories/grade_repository_impl.dart';
-import '../../../features/question_papers/domain/repositories/grade_repository.dart';
-import '../../../features/question_papers/presentation/bloc/grade_bloc.dart';
+import '../../../features/catalog/data/repositories/grade_repository_impl.dart';
+import '../../../features/catalog/domain/repositories/grade_repository.dart';
+
+// Assignment feature imports
+import '../../../features/assignments/data/datasources/assignment_data_source.dart';
+import '../../../features/assignments/data/repositories/assignment_repository_impl.dart';
+import '../../../features/assignments/domain/repositories/assignment_repository.dart';
+import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 
 /// Global service locator instance
 final sl = GetIt.instance;
-
 
 /// Setup all application dependencies
 /// Must be called after EnvironmentConfig.load()
@@ -104,6 +113,7 @@ Future<void> setupDependencies() async {
     await _AuthModule.setup();
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
+    await _AssignmentModule.setup();
 
     final setupDuration = DateTime.now().difference(setupStartTime);
     sl<ILogger>().info(
@@ -111,7 +121,7 @@ Future<void> setupDependencies() async {
       category: LogCategory.system,
       context: {
         'duration': '${setupDuration.inMilliseconds}ms',
-        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service'],
+        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service', 'paper_display_service', 'assignments'],
         'environment': EnvironmentConfig.current.name,
         'platform': PlatformUtils.platformName,
       },
@@ -239,7 +249,6 @@ class _NetworkModule {
 }
 
 /// Authentication layer dependencies
-/// Authentication layer dependencies
 class _AuthModule {
   static Future<void> setup() async {
     try {
@@ -265,18 +274,27 @@ class _AuthModule {
       // Setup tenant dependencies
       _setupTenantDependencies();
 
-      // ADD THIS NEW LINE - Setup onboarding dependencies
-      _setupOnboardingDependencies();
-
       // Use cases - Now includes logger dependency
       sl.registerLazySingleton<AuthUseCase>(
             () => AuthUseCase(sl<AuthRepository>(), sl<ILogger>()),
       );
 
-      // Domain services - can have their own logging if needed
-      sl.registerLazySingleton<UserStateService>(
-            () => UserStateService(sl<ILogger>()),
+      // User data layer BEFORE UserStateService
+      sl.registerLazySingleton<UserDataSource>(
+            () => UserDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
       );
+
+      sl.registerLazySingleton<UserRepository>(
+            () => UserRepositoryImpl(sl<UserDataSource>(), sl<ILogger>()),
+      );
+
+      // Domain services - CORRECT: Only pass ILogger
+      sl.registerLazySingleton<UserStateService>(
+            () => UserStateService(sl<ILogger>()), // ✅ CORRECT - single positional parameter
+      );
+
+      // Setup onboarding dependencies (after all dependencies are ready)
+      _setupOnboardingDependencies();
 
       // Presentation layer (BLoC) - registered as factory for multiple instances
       sl.registerLazySingleton<AuthBloc>(() => AuthBloc(
@@ -291,7 +309,7 @@ class _AuthModule {
           'authProvider': 'supabase_google_oauth',
           'redirectUrl': AuthConfig.redirectUrl,
           'tenantSupport': true,
-          'onboardingSupport': true, // ADD THIS
+          'onboardingSupport': true,
           'environment': EnvironmentConfig.current.name,
           'platform': PlatformUtils.platformName,
         },
@@ -312,8 +330,6 @@ class _AuthModule {
     }
   }
 
-
-  // ADD THIS NEW METHOD
   static void _setupOnboardingDependencies() {
     sl<ILogger>().debug('Setting up onboarding dependencies', category: LogCategory.auth);
 
@@ -333,8 +349,6 @@ class _AuthModule {
     });
   }
 
-
-  // Setup tenant dependencies
   static void _setupTenantDependencies() {
     sl<ILogger>().debug('Setting up tenant dependencies', category: LogCategory.auth);
 
@@ -373,15 +387,16 @@ class _QuestionPapersModule {
       _setupExamTypes();
       _setupSubjects();
       _setupUserInfoService();
+      _setupPaperDisplayService();
 
       sl<ILogger>().info(
         'Question papers module initialized successfully',
         category: LogCategory.system,
         context: {
-          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow', 'exam_types', 'subjects', 'user_info_service'],
+          'features': ['drafts', 'submissions', 'reviews', 'approval_workflow', 'exam_types', 'subjects', 'user_info_service', 'paper_display_service'],
           'useCasesRegistered': 17,
           'dataSourcesRegistered': 4,
-          'servicesRegistered': 1,
+          'servicesRegistered': 2,
           'platform': PlatformUtils.platformName,
         },
       );
@@ -398,6 +413,21 @@ class _QuestionPapersModule {
       );
       rethrow;
     }
+  }
+
+  static void _setupPaperDisplayService() {
+    sl<ILogger>().debug('Setting up PaperDisplayService', category: LogCategory.paper);
+
+    sl.registerLazySingleton<PaperDisplayService>(
+          () => PaperDisplayService(
+        sl<SubjectRepository>(),
+        sl<GradeRepository>(),
+        sl<ExamTypeRepository>(),
+        sl<ILogger>(),
+      ),
+    );
+
+    sl<ILogger>().debug('PaperDisplayService registered successfully', category: LogCategory.paper);
   }
 
   static void _setupUserInfoService() {
@@ -418,7 +448,7 @@ class _QuestionPapersModule {
 
     // Data Sources
     sl.registerLazySingleton<SubjectDataSource>(
-          () => SubjectDataSourceImpl(sl<ApiClient>(), sl<ILogger>()),
+          () => SubjectDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
     );
 
     // Repositories
@@ -432,11 +462,13 @@ class _QuestionPapersModule {
     sl.registerLazySingleton<GetSubjectByIdUseCase>(() => GetSubjectByIdUseCase(sl<SubjectRepository>()));
 
     // BLoC registration
-    sl.registerFactory<SubjectBloc>(
+    // Find where SubjectBloc is registered and update it:
+    sl.registerFactory(
           () => SubjectBloc(
-        getSubjectsUseCase: sl<GetSubjectsUseCase>(),
-        getSubjectsByGradeUseCase: sl<GetSubjectsByGradeUseCase>(),
-        getSubjectByIdUseCase: sl<GetSubjectByIdUseCase>(),
+        getSubjectsUseCase: sl(),
+        getSubjectsByGradeUseCase: sl(),
+        getSubjectByIdUseCase: sl(),
+        subjectRepository: sl(), // ADD THIS LINE
       ),
     );
 
@@ -452,8 +484,13 @@ class _QuestionPapersModule {
     );
 
     // Repositories
+    // Find where ExamTypeRepository is registered and update it:
     sl.registerLazySingleton<ExamTypeRepository>(
-          () => ExamTypeRepositoryImpl(sl<ExamTypeDataSource>(), sl<ILogger>()),
+          () => ExamTypeRepositoryImpl(
+        sl<ExamTypeDataSource>(),
+        sl<ILogger>(),
+        sl<UserStateService>(), // ADD THIS LINE
+      ),
     );
 
     // Use Cases
@@ -470,6 +507,7 @@ class _QuestionPapersModule {
 
   static void _setupDataSources() {
     sl<ILogger>().debug('Setting up question papers data sources', category: LogCategory.paper);
+
 
     sl.registerLazySingleton<PaperLocalDataSource>(
           () => PaperLocalDataSourceHive(sl<HiveDatabaseHelper>(), sl<ILogger>()),
@@ -550,7 +588,7 @@ class _GradeModule {
     sl<ILogger>().debug('Setting up grade data sources', category: LogCategory.system);
 
     sl.registerLazySingleton<GradeDataSource>(
-          () => GradeDataSourceImpl(sl<ApiClient>(), sl<ILogger>()),
+          () => GradeDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
     );
   }
 
@@ -575,6 +613,83 @@ class _GradeModule {
     sl.registerFactory<GradeBloc>(
           () => GradeBloc(repository: sl<GradeRepository>()),
     );
+  }
+}
+
+/// Assignment feature dependencies
+class _AssignmentModule {
+  static Future<void> setup() async {
+    try {
+      sl<ILogger>().debug('Initializing assignment module', category: LogCategory.system);
+
+      _setupDataSources();
+      _setupRepositories();
+      _setupBlocs();
+
+      sl<ILogger>().info(
+        'Assignment module initialized successfully',
+        category: LogCategory.system,
+        context: {
+          'features': ['teacher_grade_assignments', 'teacher_subject_assignments'],
+          'blocsRegistered': 1,
+          'repositoriesRegistered': 1,
+          'dataSourcesRegistered': 1,
+          'platform': PlatformUtils.platformName,
+        },
+      );
+    } catch (e, stackTrace) {
+      sl<ILogger>().error(
+        'Assignment module initialization failed',
+        error: e,
+        stackTrace: stackTrace,
+        category: LogCategory.system,
+        context: {
+          'step': 'assignment_setup',
+          'platform': PlatformUtils.platformName,
+        },
+      );
+      rethrow;
+    }
+  }
+
+  static void _setupDataSources() {
+    sl<ILogger>().debug('Setting up assignment data sources', category: LogCategory.system);
+
+    sl.registerLazySingleton<AssignmentDataSource>(
+          () => AssignmentDataSourceImpl(
+        Supabase.instance.client,
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupRepositories() {
+    sl<ILogger>().debug('Setting up assignment repositories', category: LogCategory.system);
+
+    sl.registerLazySingleton<AssignmentRepository>(
+          () => AssignmentRepositoryImpl(
+        sl<AssignmentDataSource>(),
+        sl<GradeDataSource>(),
+        sl<SubjectDataSource>(),
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupBlocs() {
+    sl<ILogger>().debug('Setting up assignment BLoCs', category: LogCategory.system);
+
+    // Register as factory so each page gets its own instance
+    sl.registerFactory<TeacherAssignmentBloc>(
+          () => TeacherAssignmentBloc(
+        sl<AssignmentRepository>(),
+        sl<GradeRepository>(),
+        sl<SubjectRepository>(),
+        sl<UserStateService>(),
+      ),
+    );
+
+    sl<ILogger>().debug('TeacherAssignmentBloc registered successfully', category: LogCategory.system);
   }
 }
 
