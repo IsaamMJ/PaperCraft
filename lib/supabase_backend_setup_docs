@@ -1,0 +1,147 @@
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subject_catalog ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.grades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_grade_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_subject_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exam_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.question_papers ENABLE ROW LEVEL SECURITY;
+
+-- TENANTS
+CREATE POLICY "Users can view their own tenant"
+  ON public.tenants FOR SELECT
+  USING (id = get_user_tenant_id());
+
+CREATE POLICY "Admins can update their tenant"
+  ON public.tenants FOR UPDATE
+  USING (id = get_user_tenant_id() AND user_has_role('admin'))
+  WITH CHECK (id = get_user_tenant_id() AND user_has_role('admin'));
+
+-- PROFILES
+CREATE POLICY "Users can view their own profile"
+  ON public.profiles FOR SELECT
+  USING (id = auth.uid());
+
+CREATE POLICY "Users can view profiles in their tenant"
+  ON public.profiles FOR SELECT
+  USING (tenant_id = get_user_tenant_id());
+
+CREATE POLICY "Users can update their own profile"
+  ON public.profiles FOR UPDATE
+  USING (id = auth.uid())
+  WITH CHECK (id = auth.uid());
+
+CREATE POLICY "Admins can update profiles in their tenant"
+  ON public.profiles FOR UPDATE
+  USING (tenant_id = get_user_tenant_id() AND user_has_role('admin'))
+  WITH CHECK (tenant_id = get_user_tenant_id() AND user_has_role('admin'));
+
+-- SUBJECT CATALOG
+CREATE POLICY "Anyone can view subject catalog"
+  ON public.subject_catalog FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+-- SUBJECTS
+CREATE POLICY "Users can view subjects in their tenant"
+  ON public.subjects FOR SELECT
+  USING (tenant_id = get_user_tenant_id());
+
+CREATE POLICY "Admins can manage subjects in their tenant"
+  ON public.subjects FOR ALL
+  USING (tenant_id = get_user_tenant_id() AND user_has_role('admin'))
+  WITH CHECK (tenant_id = get_user_tenant_id() AND user_has_role('admin'));
+
+-- GRADES
+CREATE POLICY "Users can view grades in their tenant"
+  ON public.grades FOR SELECT
+  USING (tenant_id = get_user_tenant_id());
+
+CREATE POLICY "Admins can manage grades in their tenant"
+  ON public.grades FOR ALL
+  USING (tenant_id = get_user_tenant_id() AND user_has_role('admin'))
+  WITH CHECK (tenant_id = get_user_tenant_id() AND user_has_role('admin'));
+
+-- TEACHER ASSIGNMENTS
+CREATE POLICY "Teachers can view their own assignments"
+  ON public.teacher_grade_assignments FOR SELECT
+  USING (teacher_id = auth.uid());
+
+CREATE POLICY "Admins can manage assignments in their tenant"
+  ON public.teacher_grade_assignments FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = teacher_id
+      AND tenant_id = get_user_tenant_id()
+    ) AND user_has_role('admin')
+  );
+
+CREATE POLICY "Teachers can view their own subject assignments"
+  ON public.teacher_subject_assignments FOR SELECT
+  USING (teacher_id = auth.uid());
+
+CREATE POLICY "Admins can manage subject assignments"
+  ON public.teacher_subject_assignments FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = teacher_id
+      AND tenant_id = get_user_tenant_id()
+    ) AND user_has_role('admin')
+  );
+
+-- EXAM TYPES
+CREATE POLICY "Users can view active exam types in their tenant"
+  ON public.exam_types FOR SELECT
+  USING (tenant_id = get_user_tenant_id() AND is_active = true);
+
+CREATE POLICY "Admins can manage exam types in their tenant"
+  ON public.exam_types FOR ALL
+  USING (tenant_id = get_user_tenant_id() AND user_has_role('admin'))
+  WITH CHECK (tenant_id = get_user_tenant_id() AND user_has_role('admin'));
+
+-- QUESTION PAPERS (CRITICAL - DRAFT PRIVACY)
+CREATE POLICY "Teachers can view their own drafts"
+  ON public.question_papers FOR SELECT
+  USING (user_id = auth.uid() AND status = 'draft');
+
+CREATE POLICY "Users can view non-draft papers in their tenant"
+  ON public.question_papers FOR SELECT
+  USING (tenant_id = get_user_tenant_id() AND status != 'draft');
+
+CREATE POLICY "Admins can view all papers in their tenant"
+  ON public.question_papers FOR SELECT
+  USING (tenant_id = get_user_tenant_id() AND user_has_role('admin'));
+
+CREATE POLICY "Teachers can create papers for assigned subjects/grades"
+  ON public.question_papers FOR INSERT
+  WITH CHECK (
+    tenant_id = get_user_tenant_id()
+    AND user_id = auth.uid()
+    AND status IN ('draft', 'submitted')
+    AND teacher_has_assignment(grade_id, subject_id, academic_year)
+  );
+
+CREATE POLICY "Teachers can update their own draft papers"
+  ON public.question_papers FOR UPDATE
+  USING (user_id = auth.uid() AND status = 'draft')
+  WITH CHECK (user_id = auth.uid() AND status IN ('draft', 'submitted'));
+
+CREATE POLICY "Admins can review papers"
+  ON public.question_papers FOR UPDATE
+  USING (
+    tenant_id = get_user_tenant_id()
+    AND status = 'submitted'
+    AND user_has_role('admin')
+  )
+  WITH CHECK (
+    tenant_id = get_user_tenant_id()
+    AND status IN ('approved', 'rejected', 'draft')
+    AND user_has_role('admin')
+  );
+
+CREATE POLICY "Teachers can delete their own draft papers"
+  ON public.question_papers FOR DELETE
+  USING (user_id = auth.uid() AND status = 'draft');
