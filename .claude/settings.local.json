@@ -7,7 +7,8 @@
       "Bash(find:*)",
       "Bash(done)",
       "Bash(tree:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(for file in \"E:\\New folder (2)\\papercraft\\lib\\features\\paper_creation\\presentation\\pages\"/*.dart)"
     ],
     "deny": [],
     "ask": []

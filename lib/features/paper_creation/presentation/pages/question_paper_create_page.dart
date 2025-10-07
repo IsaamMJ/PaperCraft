@@ -6,12 +6,14 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
+import '../../../../core/presentation/widgets/info_box.dart';
+import '../../../../core/presentation/widgets/step_progress_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../catalog/presentation/bloc/exam_type_bloc.dart';
 import '../../../catalog/presentation/bloc/exam_type_bloc.dart' as exam_type;
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
@@ -290,53 +292,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   Widget _buildProgressIndicator() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text(
-                'Step $_currentStep of $_totalSteps',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeMedium,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _getStepTitle(_currentStep),
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeMedium,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: UIConstants.spacing12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: _currentStep / _totalSteps,
-              backgroundColor: AppColors.border,
-              valueColor: AlwaysStoppedAnimation(AppColors.primary),
-              minHeight: 6,
-            ),
-          ),
-        ],
-      ),
+    return StepProgressIndicator(
+      currentStep: _currentStep,
+      totalSteps: _totalSteps,
+      stepTitle: _getStepTitle(_currentStep),
     );
   }
 
@@ -367,18 +326,18 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       BlocBuilder<GradeBloc, GradeState>(
         builder: (context, state) {
           if (state is GradeLoading) {
-            return _buildLoading(state.message ?? 'Loading grades...');
+            return LoadingWidget(message: state.message ?? 'Loading grades...');
           }
 
           if (state is GradeError) {
-            return _buildError(state.message, _loadInitialData);
+            return ErrorStateWidget(message: state.message, onRetry: _loadInitialData);
           }
 
           if (_availableGrades.isEmpty) {
-            return _buildEmptyMessage(
-              Icons.school_outlined,
-              sl<UserStateService>().isTeacher ? 'No Grades Assigned' : 'No Grades Available',
-              sl<UserStateService>().isTeacher
+            return EmptyMessageWidget(
+              icon: Icons.school_outlined,
+              title: sl<UserStateService>().isTeacher ? 'No Grades Assigned' : 'No Grades Available',
+              message: sl<UserStateService>().isTeacher
                   ? 'Contact your administrator to get assigned to grades.'
                   : 'Add grades in Settings → Manage Grades.',
             );
@@ -417,9 +376,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               if (_selectedGradeLevel != null) ...[
                 SizedBox(height: UIConstants.spacing24),
                 if (_isSectionsLoading)
-                  _buildInfoBox('Loading sections...')
+                  const InfoBox(message: 'Loading sections...')
                 else if (_availableSections.isEmpty)
-                  _buildInfoBox('This paper will apply to all sections')
+                  const InfoBox(message: 'This paper will apply to all sections')
                 else
                   _buildSectionSelector(),
               ],
@@ -480,20 +439,23 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       BlocBuilder<exam_type.ExamTypeBloc, exam_type.ExamTypeState>(
         builder: (context, state) {
           if (state is exam_type.ExamTypeLoading) {
-            return _buildLoading('Loading exam types...');
+            return const LoadingWidget(message: 'Loading exam types...');
           }
 
           if (state is exam_type.ExamTypeError) {
-            return _buildError(state.message, () {
-              context.read<exam_type.ExamTypeBloc>().add(const exam_type.LoadExamTypes());
-            });
+            return ErrorStateWidget(
+              message: state.message,
+              onRetry: () {
+                context.read<exam_type.ExamTypeBloc>().add(const exam_type.LoadExamTypes());
+              },
+            );
           }
 
           if (_availableExamTypes.isEmpty) {
-            return _buildEmptyMessage(
-              Icons.quiz_outlined,
-              'No Exam Types Available',
-              'Contact your administrator to add exam types.',
+            return const EmptyMessageWidget(
+              icon: Icons.quiz_outlined,
+              title: 'No Exam Types Available',
+              message: 'Contact your administrator to add exam types.',
             );
           }
 
@@ -633,18 +595,18 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       BlocBuilder<SubjectBloc, SubjectState>(
         builder: (context, state) {
           if (state is SubjectLoading) {
-            return _buildLoading(state.message ?? 'Loading subjects...');
+            return LoadingWidget(message: state.message ?? 'Loading subjects...');
           }
 
           if (state is SubjectError) {
-            return _buildError(state.message, _loadSubjectsForSelectedGrade);
+            return ErrorStateWidget(message: state.message, onRetry: _loadSubjectsForSelectedGrade);
           }
 
           if (_availableSubjects.isEmpty) {
-            return _buildEmptyMessage(
-              Icons.subject_outlined,
-              sl<UserStateService>().isTeacher ? 'No Subjects Assigned' : 'No Subjects Available',
-              sl<UserStateService>().isTeacher
+            return EmptyMessageWidget(
+              icon: Icons.subject_outlined,
+              title: sl<UserStateService>().isTeacher ? 'No Subjects Assigned' : 'No Subjects Available',
+              message: sl<UserStateService>().isTeacher
                   ? 'Contact your administrator for subject assignments.'
                   : 'Add subjects in Settings → Manage Subjects.',
             );
@@ -895,100 +857,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               ),
             ),
         ],
-    );
-  }
-
-  // Helper widgets
-  Widget _buildLoading(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildError(String message, VoidCallback onRetry) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyMessage(IconData icon, String title, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoBox(String message) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
