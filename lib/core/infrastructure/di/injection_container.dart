@@ -25,18 +25,18 @@ import '../../../features/catalog/data/datasources/subject_data_source.dart';
 import '../../../features/catalog/data/repositories/subject_repository_impl.dart';
 import '../../../features/catalog/domain/usecases/get_grades_usecase.dart';
 import '../../../features/paper_review/domain/usecases/approve_paper_usecase.dart';
-import '../../../features/papers/data/datasources/paper_local_data_source.dart';
-import '../../../features/papers/domain/services/user_info_service.dart';
-import '../../../features/papers/domain/services/paper_display_service.dart';
-import '../../../features/papers/domain/usecases/get_all_papers_for_admin_usecase.dart';
-import '../../../features/papers/domain/usecases/get_approved_papers_usecase.dart';
-import '../../../features/papers/domain/usecases/get_drafts_usecase.dart';
-import '../../../features/papers/domain/usecases/get_paper_by_id_usecase.dart';
-import '../../../features/papers/domain/usecases/get_papers_for_review_usecase.dart';
-import '../../../features/papers/domain/usecases/get_user_submissions_usecase.dart';
-import '../../../features/papers/domain/usecases/pull_for_editing_usecase.dart';
-import '../../../features/papers/domain/usecases/save_draft_usecase.dart';
-import '../../../features/papers/domain/usecases/submit_paper_usecase.dart';
+import '../../../features/paper_workflow/data/datasources/paper_local_data_source.dart';
+import '../../../features/paper_workflow/domain/services/user_info_service.dart';
+import '../../../features/paper_workflow/domain/services/paper_display_service.dart';
+import '../../../features/paper_workflow/domain/usecases/get_all_papers_for_admin_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_approved_papers_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_drafts_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_paper_by_id_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_user_submissions_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/pull_for_editing_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/save_draft_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
 import '../../domain/interfaces/i_network_service.dart';
@@ -60,11 +60,11 @@ import '../../../features/authentication/domain/services/user_state_service.dart
 import '../../../features/authentication/domain/usecases/auth_usecase.dart';
 
 // Question papers feature
-import '../../../features/papers/data/datasources/paper_cloud_data_source.dart';
-import '../../../features/papers/data/datasources/paper_local_data_source_hive.dart';
-import '../../../features/papers/data/repositories/question_paper_repository_impl.dart';
-import '../../../features/papers/domain/repositories/question_paper_repository.dart';
-import '../../../features/papers/domain/usecases/delete_draft_usecase.dart';
+import '../../../features/paper_workflow/data/datasources/paper_cloud_data_source.dart';
+import '../../../features/paper_workflow/data/datasources/paper_local_data_source_hive.dart';
+import '../../../features/paper_workflow/data/repositories/question_paper_repository_impl.dart';
+import '../../../features/paper_workflow/domain/repositories/question_paper_repository.dart';
+import '../../../features/paper_workflow/domain/usecases/delete_draft_usecase.dart';
 import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart';
 
 // Exam Type imports
@@ -84,6 +84,23 @@ import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.
 
 /// Global service locator instance
 final sl = GetIt.instance;
+
+/// Dependency Registration Strategy:
+///
+/// **Singletons (registerLazySingleton):**
+/// - Core services (Logger, NetworkService, FeatureFlags)
+/// - Repositories (stateless data access)
+/// - Use cases (stateless business logic)
+/// - Data sources (API clients, database helpers)
+/// - Global state managers (AuthBloc, UserStateService)
+///
+/// **Factories (registerFactory):**
+/// - BLoCs that are page/screen-specific (ExamTypeBloc, GradeBloc, etc.)
+/// - Widgets that need fresh instances
+/// - Any component that maintains screen-specific state
+///
+/// **Rule of thumb:** If it holds state tied to a UI screen, use Factory.
+/// If it's stateless or manages global app state, use Singleton.
 
 /// Setup all application dependencies
 /// Must be called after EnvironmentConfig.load()
@@ -297,6 +314,7 @@ class _AuthModule {
       _setupOnboardingDependencies();
 
       // Presentation layer (BLoC) - registered as factory for multiple instances
+      // Note: AuthBloc is special - it's a singleton because it manages global auth state
       sl.registerLazySingleton<AuthBloc>(() => AuthBloc(
         sl<AuthUseCase>(),
         sl<UserStateService>(),
@@ -706,19 +724,47 @@ void _validateEnvironmentConfig() {
 
 /// Clean up all registered dependencies (useful for testing)
 Future<void> cleanupDependencies() async {
+  final errors = <String>[];
+
+  // Dispose services that need cleanup
   try {
-    // Dispose network service if it exists
     if (sl.isRegistered<INetworkService>()) {
-      sl<INetworkService>().dispose();
+      try {
+        sl<INetworkService>().dispose();
+      } catch (e) {
+        errors.add('Failed to dispose INetworkService: $e');
+      }
     }
+  } catch (e) {
+    errors.add('Failed to check INetworkService registration: $e');
+  }
 
-    // Reset all registrations
+  // Note: HiveDatabaseHelper doesn't require explicit disposal
+  // Hive boxes are automatically closed on app termination
+
+  // Log any errors before resetting
+  if (errors.isNotEmpty && sl.isRegistered<ILogger>()) {
+    try {
+      final logger = sl<ILogger>();
+      for (final error in errors) {
+        logger.warning(error, category: LogCategory.system);
+      }
+    } catch (e) {
+      // Logger might already be disposed, use print
+      print('Errors during cleanup (logger unavailable):');
+      for (final error in errors) {
+        print('  - $error');
+      }
+    }
+  }
+
+  // Reset all registrations
+  try {
     await sl.reset();
-
-    // Use print since logger might not be available after reset
-    print('Dependencies cleaned up successfully');
+    print('✅ Dependencies cleaned up successfully${errors.isNotEmpty ? ' (with ${errors.length} warnings)' : ''}');
   } catch (e, stackTrace) {
-    print('Failed to cleanup dependencies: $e');
+    print('❌ Failed to reset dependency injection container: $e');
     print('StackTrace: $stackTrace');
+    rethrow;
   }
 }

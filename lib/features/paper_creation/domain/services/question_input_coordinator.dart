@@ -11,9 +11,10 @@ import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../papers/domain/entities/paper_status.dart';
-import '../../../papers/domain/entities/question_entity.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/domain/entities/paper_status.dart';
+import '../../../paper_workflow/domain/entities/question_entity.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../presentation/widgets/question_input/bulk_input_widget.dart';
 import '../../presentation/widgets/question_input/essay_input_widget.dart';
 import '../../presentation/widgets/question_input/fill_blanks_input_widget.dart';
@@ -22,7 +23,6 @@ import '../../presentation/widgets/question_input/mcq_input_widget.dart';
 import '../../presentation/widgets/question_input/question_list_widget.dart';
 import '../../presentation/widgets/question_input/section_progress_widget.dart';
 import 'paper_validation_service.dart';
-import '../../../papers/presentation/bloc/question_paper_bloc.dart';
 
 class QuestionInputCoordinator extends StatefulWidget {
   final List<ExamSectionEntity> sections;

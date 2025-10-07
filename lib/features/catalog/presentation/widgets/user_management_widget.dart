@@ -6,7 +6,7 @@ import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/utils/date_utils.dart';
 import '../../../authentication/domain/entities/user_entity.dart';
 import '../../../authentication/domain/entities/user_role.dart';
-import '../../../papers/presentation/bloc/user_management_bloc.dart';
+import '../../../paper_workflow/presentation/bloc/user_management_bloc.dart';
 
 class UserManagementWidget extends StatefulWidget {
   const UserManagementWidget({super.key});

@@ -4,9 +4,9 @@ import '../../../../../core/presentation/constants/app_colors.dart';
 
 import '../../../../../core/presentation/constants/ui_constants.dart';
 
-import '../../../../papers/domain/entities/question_entity.dart';
 
 import '../../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../paper_workflow/domain/entities/question_entity.dart';
 
 class TrueFalseInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;

@@ -8,7 +8,7 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/entities/user_entity.dart';
 import '../../../authentication/domain/entities/user_role.dart';
-import '../../../papers/presentation/bloc/user_management_bloc.dart';
+import '../../../paper_workflow/presentation/bloc/user_management_bloc.dart';
 
 class TeacherAssignmentManagementPage extends StatefulWidget {
   const TeacherAssignmentManagementPage({super.key});

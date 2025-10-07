@@ -3,9 +3,8 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/presentation/constants/ui_constants.dart';
-import '../../../papers/domain/entities/question_entity.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
-
+import '../../../paper_workflow/domain/entities/question_entity.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 abstract class IPdfGenerationService {
   Future<Uint8List> generateStudentPdf({
     required QuestionPaperEntity paper,

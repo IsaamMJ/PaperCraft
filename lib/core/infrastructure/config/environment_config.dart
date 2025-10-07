@@ -100,24 +100,41 @@ class EnvironmentConfig {
   /// Validate required configuration
   static void _validateConfig() {
     final errors = <String>[];
+    final hasUrl = _supabaseUrl.isNotEmpty;
+    final hasKey = _supabaseAnonKey.isNotEmpty;
 
-    // FIXED: Always validate if any Supabase operations will be attempted
-    final willUseSupabase = _supabaseUrl.isNotEmpty || _supabaseAnonKey.isNotEmpty;
+    // Strict validation: either both configured or neither
+    if (hasUrl != hasKey) {
+      errors.add('Supabase configuration is incomplete: '
+          '${hasUrl ? 'URL is set but KEY is missing' : 'KEY is set but URL is missing'}');
+    }
 
-    if (_current != Environment.dev && willUseSupabase) {
-      // Production/staging must have valid config
-      if (_supabaseUrl.isEmpty || !_isValidUrl(_supabaseUrl)) {
-        errors.add('SUPABASE_URL is required and must be valid for ${_current.name}');
-      }
-      if (_supabaseAnonKey.isEmpty || _supabaseAnonKey.length < 20) {
-        errors.add('SUPABASE_KEY is required and must be valid for ${_current.name}');
+    // If both are provided, validate them
+    if (hasUrl && hasKey) {
+      // Production/staging requires valid configuration
+      if (_current != Environment.dev) {
+        if (!_isValidUrl(_supabaseUrl)) {
+          errors.add('SUPABASE_URL must be a valid URL for ${_current.name}');
+        }
+        if (_supabaseAnonKey.length < 20) {
+          errors.add('SUPABASE_KEY appears invalid (too short) for ${_current.name}');
+        }
+      } else {
+        // Even in dev, if provided, should be valid
+        if (!_isValidUrl(_supabaseUrl)) {
+          errors.add('SUPABASE_URL is set but appears invalid');
+        }
       }
     }
 
-    // FIXED: In dev, warn but don't fail if config is missing
-    if (_current == Environment.dev && !willUseSupabase) {
-      debugPrint('⚠️ WARNING: Supabase config missing in dev mode. App will run in offline mode.');
-      return; // Allow offline development
+    // If neither are provided
+    if (!hasUrl && !hasKey) {
+      if (_current == Environment.dev) {
+        debugPrint('⚠️ WARNING: Supabase config missing in dev mode. App will run in offline mode.');
+        return; // Allow offline development
+      } else {
+        errors.add('Supabase configuration is required for ${_current.name} environment');
+      }
     }
 
     if (errors.isNotEmpty) {

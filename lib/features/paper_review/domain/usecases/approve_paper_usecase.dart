@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
-import '../../../papers/domain/repositories/question_paper_repository.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/domain/repositories/question_paper_repository.dart';
 
 class ApprovePaperUseCase {
   final QuestionPaperRepository repository;

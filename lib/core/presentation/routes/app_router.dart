@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
+import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
+import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
@@ -16,13 +18,12 @@ import '../../../features/catalog/presentation/pages/grade_management_page.dart'
 import '../../../features/catalog/presentation/pages/subject_management_page.dart';
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
-import '../../../features/papers/presentation/bloc/user_management_bloc.dart';
-import '../../../features/papers/presentation/pages/admin_dashboard_page.dart';
-import '../../../features/papers/presentation/pages/paper_review_page.dart';
-import '../../../features/papers/presentation/pages/question_paper_detail_page.dart';
-import '../../../features/papers/presentation/pages/settings_screen.dart';
-import '../../../features/papers/presentation/bloc/question_paper_bloc.dart';
+import '../../../features/paper_review/presentation/pages/paper_review_page.dart';
+import '../../../features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../features/paper_workflow/presentation/bloc/user_management_bloc.dart';
 import '../../../features/paper_creation/presentation/pages/question_paper_edit_page.dart';
+import '../../../features/paper_workflow/presentation/pages/question_paper_detail_page.dart';
+import '../../../features/question_bank/presentation/pages/question_bank_page.dart';
 import '../../../features/shared/presentation/main_scaffold_screen.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
@@ -38,7 +39,6 @@ import '../../../features/authentication/presentation/pages/login_page.dart';
 
 // Question papers
 import '../../../features/paper_creation/presentation/pages/question_paper_create_page.dart';
-import '../../../features/papers/presentation/pages/question_bank_page.dart';
 
 // Widgets and routes
 import '../constants/ui_constants.dart';

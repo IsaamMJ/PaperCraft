@@ -15,8 +15,8 @@ import '../../../catalog/presentation/bloc/exam_type_bloc.dart';
 import '../../../catalog/presentation/bloc/exam_type_bloc.dart' as exam_type;
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../domain/services/paper_validation_service.dart';
-import '../../../papers/presentation/bloc/question_paper_bloc.dart';
 import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {

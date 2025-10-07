@@ -7,15 +7,15 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
+import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
+import '../../../catalog/domain/services/subject_grade_service.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
-import '../../../catalog/domain/services/subject_grade_service.dart';
-import '../../../papers/presentation/bloc/question_paper_bloc.dart';
-import '../../../papers/presentation/bloc/shared_bloc_provider.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
 import '../widgets/question_input/question_input_dialog.dart';
 
 class QuestionPaperEditPage extends StatelessWidget {

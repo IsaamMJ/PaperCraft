@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(dart analyze:*)",
+      "Bash(for dir in lib/features/*/)",
+      "Bash(find:*)",
+      "Bash(done)",
+      "Bash(tree:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

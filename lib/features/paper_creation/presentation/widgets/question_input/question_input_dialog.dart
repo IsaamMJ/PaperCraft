@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:papercraft/features/paper_creation/domain/services/question_input_coordinator.dart';
 import '../../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../../catalog/domain/entities/subject_entity.dart';
-import '../../../../papers/domain/entities/question_entity.dart';
-import '../../../../papers/domain/entities/question_paper_entity.dart';
+import '../../../../paper_workflow/domain/entities/question_entity.dart';
+import '../../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
 class QuestionInputDialog extends StatelessWidget {
   final List<ExamSectionEntity> sections;

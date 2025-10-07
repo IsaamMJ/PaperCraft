@@ -1,7 +1,7 @@
-// features/papers/domain/services/paper_validation_service.dart
+// features/paper_workflow/domain/services/paper_validation_service.dart
 import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
 class PaperValidationService {
   /// Validate paper for creation (before generating entity)

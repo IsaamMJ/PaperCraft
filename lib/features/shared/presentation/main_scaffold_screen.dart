@@ -9,16 +9,16 @@ import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../core/infrastructure/di/injection_container.dart';
 import '../../../core/presentation/constants/app_colors.dart';
 import '../../../core/presentation/routes/app_routes.dart';
+import '../../admin/presentation/pages/admin_dashboard_page.dart';
+import '../../admin/presentation/pages/settings_screen.dart';
 import '../../authentication/domain/entities/user_role.dart';
 import '../../authentication/domain/services/user_state_service.dart';
 import '../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../authentication/presentation/bloc/auth_event.dart';
 import '../../authentication/presentation/bloc/auth_state.dart';
 import '../../home/presentation/pages/home_page.dart';
-import '../../papers/presentation/bloc/shared_bloc_provider.dart';
-import '../../papers/presentation/pages/admin_dashboard_page.dart';
-import '../../papers/presentation/pages/settings_screen.dart';
-import '../../papers/presentation/pages/question_bank_page.dart';
+import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
+import '../../question_bank/presentation/pages/question_bank_page.dart';
 
 class MainScaffoldPage extends StatefulWidget {
   const MainScaffoldPage({super.key});

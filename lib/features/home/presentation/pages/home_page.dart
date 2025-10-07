@@ -9,10 +9,10 @@ import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../papers/domain/entities/question_paper_entity.dart';
-import '../../../papers/domain/entities/paper_status.dart';
-import '../../../papers/presentation/bloc/question_paper_bloc.dart';
-import '../../../papers/presentation/widgets/paper_status_badge.dart';
+import '../../../paper_workflow/domain/entities/paper_status.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

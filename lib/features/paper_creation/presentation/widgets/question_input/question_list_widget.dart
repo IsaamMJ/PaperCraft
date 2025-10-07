@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
 import '../../../../../core/presentation/constants/ui_constants.dart';
-import '../../../../papers/domain/entities/question_entity.dart';
+import '../../../../paper_workflow/domain/entities/question_entity.dart';
 
 class QuestionListWidget extends StatelessWidget {
   final String sectionName;

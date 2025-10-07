@@ -11,6 +11,10 @@ class AppLoggerImpl implements ILogger {
   static bool _crashlyticsAvailable = false;
   final IFeatureFlags _featureFlags;
 
+  // Track custom keys to prevent memory leaks
+  final Set<String> _activeCustomKeys = {};
+  static const int _maxCustomKeys = 50; // Limit number of custom keys
+
   AppLoggerImpl(this._featureFlags);
 
   @override
@@ -230,21 +234,70 @@ class AppLoggerImpl implements ILogger {
 
   void _sendToCrashlytics(Object error, StackTrace? stackTrace, {String? reason, LogCategory? category, Map<String, dynamic>? context}) {
     try {
-      if (category != null) {
-        FirebaseCrashlytics.instance.setCustomKey('log_category', category.name);
+      // Clear old custom keys if we're approaching the limit
+      if (_activeCustomKeys.length > _maxCustomKeys) {
+        _clearOldCustomKeys();
       }
+
+      if (category != null) {
+        _setCustomKey('log_category', category.name);
+      }
+
       if (context != null && context.isNotEmpty) {
         context.forEach((key, value) {
           try {
-            FirebaseCrashlytics.instance.setCustomKey('context_$key', value.toString());
+            _setCustomKey('context_$key', value.toString());
           } catch (e) {
             // Ignore individual key failures
           }
         });
       }
+
       FirebaseCrashlytics.instance.recordError(error, stackTrace, reason: reason, printDetails: false);
+
+      // Clear context keys after recording to prevent accumulation
+      _clearContextKeys();
     } catch (e) {
       if (_featureFlags.enableDebugLogging) print('Failed to send to Crashlytics: $e');
+    }
+  }
+
+  /// Set a custom key and track it
+  void _setCustomKey(String key, String value) {
+    FirebaseCrashlytics.instance.setCustomKey(key, value);
+    _activeCustomKeys.add(key);
+  }
+
+  /// Clear context keys after recording error
+  void _clearContextKeys() {
+    try {
+      final contextKeys = _activeCustomKeys.where((key) => key.startsWith('context_')).toList();
+      for (final key in contextKeys) {
+        FirebaseCrashlytics.instance.setCustomKey(key, ''); // Clear value
+        _activeCustomKeys.remove(key);
+      }
+    } catch (e) {
+      if (_featureFlags.enableDebugLogging) print('Failed to clear context keys: $e');
+    }
+  }
+
+  /// Clear old custom keys to prevent memory leak
+  void _clearOldCustomKeys() {
+    try {
+      // Keep log_category and platform, clear everything else
+      final keysToKeep = {'log_category', 'app_version', 'platform'};
+      final keysToRemove = _activeCustomKeys.where((key) => !keysToKeep.contains(key)).toList();
+
+      for (final key in keysToRemove) {
+        FirebaseCrashlytics.instance.setCustomKey(key, '');
+        _activeCustomKeys.remove(key);
+      }
+
+      if (_featureFlags.enableDebugLogging) {
+        print('Cleared ${keysToRemove.length} old custom keys from Crashlytics');
+      }
+    } catch (e) {
+      if (_featureFlags.enableDebugLogging) print('Failed to clear old custom keys: $e');
     }
   }
 }
