@@ -8,6 +8,7 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/date_utils.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/domain/services/user_info_service.dart';
@@ -124,7 +125,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Container(
               padding: const EdgeInsets.all(UIConstants.paddingSmall),
               decoration: BoxDecoration(
-                color: confirmColor.withOpacity(0.1),
+                color: confirmColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Icon(icon, color: confirmColor, size: 20),
@@ -197,7 +198,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Container(
               padding: const EdgeInsets.all(UIConstants.paddingSmall),
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
@@ -348,7 +349,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -360,7 +361,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border.withOpacity(0.3)),
+              border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
             ),
             child: TextField(
               decoration: InputDecoration(
@@ -409,7 +410,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       vertical: UIConstants.spacing8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.1),
+                      color: AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: const Row(
@@ -450,13 +451,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       height: 36,
       decoration: BoxDecoration(
         color: value.isNotEmpty
-            ? AppColors.primary.withOpacity(0.1)
+            ? AppColors.primary.withValues(alpha: 0.1)
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: Border.all(
           color: value.isNotEmpty
               ? AppColors.primary
-              : AppColors.border.withOpacity(0.5),
+              : AppColors.border.withValues(alpha: 0.5),
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -550,14 +551,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(UIConstants.paddingSmall),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: const Icon(
@@ -606,7 +607,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -717,7 +718,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         vertical: UIConstants.spacing4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
       ),
       child: Text(
@@ -806,7 +807,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Material(
@@ -821,24 +822,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildLoading() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(AppColors.primary),
-          ),
-          SizedBox(height: UIConstants.spacing16),
-          Text(
-            'Loading...',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: UIConstants.fontSizeLarge,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const LoadingWidget(message: 'Loading papers...');
   }
 
   Widget _buildEmptyState() {
@@ -846,45 +830,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       physics: const AlwaysScrollableScrollPhysics(),
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-                ),
-                child: const Icon(
-                  Icons.description_outlined,
-                  size: 40,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: UIConstants.spacing24),
-              const Text(
-                'No Papers Found',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeXLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: UIConstants.spacing8),
-              Text(
-                (_searchQuery.isNotEmpty || _selectedSubject.isNotEmpty)
-                    ? 'No papers match your current filters'
-                    : 'No papers have been submitted yet\nPull down to refresh',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: UIConstants.fontSizeMedium,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+        child: EmptyMessageWidget(
+          icon: Icons.description_outlined,
+          title: 'No Papers Found',
+          message: (_searchQuery.isNotEmpty || _selectedSubject.isNotEmpty)
+              ? 'No papers match your current filters'
+              : 'No papers have been submitted yet\nPull down to refresh',
         ),
       ),
     );
@@ -895,48 +846,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       physics: const AlwaysScrollableScrollPhysics(),
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-                ),
-                child: const Icon(Icons.error_outline, size: 40, color: AppColors.error),
-              ),
-              const SizedBox(height: UIConstants.spacing24),
-              const Text(
-                'Error',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeXLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.error,
-                ),
-              ),
-              const SizedBox(height: UIConstants.spacing8),
-              Text(
-                message,
-                style: const TextStyle(color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: UIConstants.spacing24),
-              ElevatedButton(
-                onPressed: _loadInitialData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  ),
-                ),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        child: ErrorStateWidget(
+          message: message,
+          onRetry: _loadInitialData,
         ),
       ),
     );

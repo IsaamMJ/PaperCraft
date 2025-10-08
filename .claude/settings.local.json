@@ -8,7 +8,12 @@
       "Bash(done)",
       "Bash(tree:*)",
       "Bash(wc:*)",
-      "Bash(for file in \"E:\\New folder (2)\\papercraft\\lib\\features\\paper_creation\\presentation\\pages\"/*.dart)"
+      "Bash(for file in \"E:\\New folder (2)\\papercraft\\lib\\features\\paper_creation\\presentation\\pages\"/*.dart)",
+      "Bash(while read file)",
+      "Bash(do if grep -q \"withOpacity\" \"$file\")",
+      "Bash(then echo \"$file\")",
+      "Bash(fi)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

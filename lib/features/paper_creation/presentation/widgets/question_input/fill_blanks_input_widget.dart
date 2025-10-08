@@ -101,9 +101,9 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -158,9 +158,9 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
+              color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              border: Border.all(color: AppColors.success.withOpacity(0.3)),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,8 +178,8 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
                   spacing: 8,
                   children: _extractedBlanks.map((blank) => Chip(
                     label: Text(blank, style: const TextStyle(fontSize: 11)),
-                    backgroundColor: AppColors.success.withOpacity(0.1),
-                    side: BorderSide(color: AppColors.success.withOpacity(0.3)),
+                    backgroundColor: AppColors.success.withValues(alpha: 0.1),
+                    side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
                   )).toList(),
                 ),
               ],

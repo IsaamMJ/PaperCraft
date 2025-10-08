@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
@@ -96,8 +97,8 @@ class _HomePageState extends State<HomePage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.primary.withOpacity(0.08),
-              AppColors.secondary.withOpacity(0.08),
+              AppColors.primary.withValues(alpha: 0.08),
+              AppColors.secondary.withValues(alpha: 0.08),
             ],
           ),
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
@@ -139,7 +140,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -245,75 +246,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLoading() {
-    return SliverToBoxAdapter(
+    return const SliverToBoxAdapter(
       child: SizedBox(
         height: 200,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing16),
-              Text(
-                'Loading your papers...',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: LoadingWidget(message: 'Loading your papers...'),
       ),
     );
   }
 
   Widget _buildError(String message) {
     return SliverToBoxAdapter(
-      child: Container(
-        margin: const EdgeInsets.all(UIConstants.paddingMedium),
-        padding: const EdgeInsets.all(UIConstants.paddingLarge),
-        decoration: BoxDecoration(
-          color: AppColors.error.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          border: Border.all(color: AppColors.error.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.error_outline, color: AppColors.error, size: 48),
-            SizedBox(height: UIConstants.spacing16),
-            Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            ElevatedButton.icon(
-              onPressed: _loadInitialData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
+      child: SizedBox(
+        height: 200,
+        child: ErrorStateWidget(
+          message: message,
+          onRetry: _loadInitialData,
         ),
       ),
     );
@@ -321,47 +268,14 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildEmpty(bool isAdmin) {
     return SliverToBoxAdapter(
-      child: Container(
-        margin: const EdgeInsets.all(UIConstants.paddingMedium),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withOpacity(0.1),
-                    AppColors.secondary.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-              ),
-              child: Icon(
-                Icons.description_outlined,
-                size: 40,
-                color: AppColors.primary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing24),
-            Text(
-              isAdmin ? 'No papers to review' : 'No papers yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing8),
-            Text(
-              isAdmin
-                  ? 'Papers submitted by teachers will appear here'
-                  : 'Create your first question paper to get started',
-              style: TextStyle(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
+      child: SizedBox(
+        height: 250,
+        child: EmptyMessageWidget(
+          icon: Icons.description_outlined,
+          title: isAdmin ? 'No papers to review' : 'No papers yet',
+          message: isAdmin
+              ? 'Papers submitted by teachers will appear here'
+              : 'Create your first question paper to get started',
         ),
       ),
     );
@@ -409,7 +323,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -503,7 +417,7 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Row(
@@ -528,9 +442,9 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.05),
+        color: AppColors.error.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.error.withOpacity(0.2)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,7 +468,7 @@ class _HomePageState extends State<HomePage> {
                   reason,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.error.withOpacity(0.8),
+                    color: AppColors.error.withValues(alpha: 0.8),
                   ),
                 ),
               ],

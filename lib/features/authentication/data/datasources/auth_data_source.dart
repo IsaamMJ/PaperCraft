@@ -59,7 +59,7 @@ class AuthDataSource {
           }
         },
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.authError('Initialize failed with exception', e, context: {
         'errorType': e.runtimeType.toString(),
       });
@@ -111,7 +111,7 @@ class AuthDataSource {
 
       return await _processSuccessfulOAuth(session!, operationId);
 
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.authError('Unexpected sign-in error', e, context: {
         'operationId': operationId,
         'errorType': e.runtimeType.toString(),
@@ -242,7 +242,7 @@ class AuthDataSource {
       }
 
       return await _getUserProfile(user.id);
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.authError('Error getting current user', e, context: {
         'errorType': e.runtimeType.toString(),
       });
@@ -284,7 +284,7 @@ class AuthDataSource {
       });
 
       return const Right(null);
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.authError('Sign out error', e, context: {
         'userId': currentUserId,
       });
@@ -309,7 +309,7 @@ class AuthDataSource {
       } else {
         return Left(AuthFailure(response.message ?? 'Failed to fetch user profile'));
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.authError('Exception fetching user profile', e, context: {
         'userId': userId,
       });

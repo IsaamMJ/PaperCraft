@@ -116,7 +116,7 @@ class AssignmentDataSourceImpl implements AssignmentDataSource {
             'assignmentId': response['id'],
           });
 
-      return TeacherGradeAssignmentModel.fromJson(response as Map<String, dynamic>);
+      return TeacherGradeAssignmentModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to assign grade to teacher',
           category: LogCategory.storage,
@@ -227,7 +227,7 @@ class AssignmentDataSourceImpl implements AssignmentDataSource {
             'assignmentId': response['id'],
           });
 
-      return TeacherSubjectAssignmentModel.fromJson(response as Map<String, dynamic>);
+      return TeacherSubjectAssignmentModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to assign subject to teacher',
           category: LogCategory.storage,

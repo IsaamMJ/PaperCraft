@@ -85,7 +85,7 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
           .maybeSingle();
 
       if (response == null) return null;
-      return ExamTypeModel.fromJson(response as Map<String, dynamic>);
+      return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch exam type by ID',
           category: LogCategory.examtype,
@@ -124,7 +124,7 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
             'name': response['name'],
           });
 
-      return ExamTypeModel.fromJson(response as Map<String, dynamic>);
+      return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to create exam type',
           category: LogCategory.examtype,
@@ -164,7 +164,7 @@ class ExamTypeSupabaseDataSource implements ExamTypeDataSource {
             'name': examType.name,
           });
 
-      return ExamTypeModel.fromJson(response as Map<String, dynamic>);
+      return ExamTypeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to update exam type',
           category: LogCategory.examtype,

@@ -24,12 +24,13 @@ class AppRoutes {
   static const String settingsUsers = '/settings/users';
 
   // Admin routes
+  static const String adminHome = '/admin/home';
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';
 
-
-  // NEW: Teacher Assignment routes
+  // Teacher Assignment routes
   static const String teacherAssignments = '/settings/teacher-assignments';
+  static const String assignmentMatrix = '/admin/assignment-matrix';
 
   // Helper methods for parameterized routes
   static String questionPaperViewWithId(String id) => '$questionPaperView/$id';

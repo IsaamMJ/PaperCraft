@@ -298,7 +298,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
           Container(
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.textTertiary.withOpacity(0.3)),
+              border: Border.all(color: AppColors.textTertiary.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Center(
@@ -362,7 +362,7 @@ class _ExamTypeManagementWidgetState extends State<ExamTypeManagementWidget> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
           child: Icon(Icons.quiz, color: AppColors.primary, size: 20),
         ),
         title: Text(examType.name, style: const TextStyle(fontWeight: FontWeight.w600)),

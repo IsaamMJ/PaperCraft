@@ -44,7 +44,7 @@ class _TeacherAssignmentManagementPageState
 
     return teachers.where((teacher) {
       final nameLower = teacher.fullName.toLowerCase();
-      final emailLower = (teacher.email ?? '').toLowerCase();
+      final emailLower = teacher.email.toLowerCase();
       final queryLower = _searchQuery.toLowerCase();
       return nameLower.contains(queryLower) || emailLower.contains(queryLower);
     }).toList();
@@ -122,6 +122,7 @@ class _TeacherAssignmentManagementPageState
 
             return Column(
               children: [
+                _buildAssignmentProgress(teachers.length),
                 _buildSearchBar(),
                 Expanded(
                   child: filteredTeachers.isEmpty
@@ -135,6 +136,68 @@ class _TeacherAssignmentManagementPageState
           print('🔍 State: UNKNOWN/INITIAL - showing empty state');
           return _buildEmptyState();
         },
+      ),
+    );
+  }
+
+  Widget _buildAssignmentProgress(int totalTeachers) {
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+        UIConstants.paddingMedium,
+        UIConstants.paddingMedium,
+        UIConstants.paddingMedium,
+        0,
+      ),
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient.scale(0.1),
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(UIConstants.spacing12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            ),
+            child: Icon(
+              Icons.people,
+              color: AppColors.primary,
+              size: UIConstants.iconLarge,
+            ),
+          ),
+          SizedBox(width: UIConstants.spacing16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$totalTeachers ${totalTeachers == 1 ? 'Teacher' : 'Teachers'} in School',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeLarge,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: UIConstants.spacing4),
+                Text(
+                  'Tap any teacher to assign grades and subjects',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeMedium,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.info_outline,
+            color: AppColors.primary,
+            size: UIConstants.iconMedium,
+          ),
+        ],
       ),
     );
   }
@@ -197,7 +260,7 @@ class _TeacherAssignmentManagementPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -303,11 +366,11 @@ class _TeacherAssignmentManagementPageState
       ),
       decoration: BoxDecoration(
         gradient: isAdmin ? AppColors.accentGradient : null,
-        color: isAdmin ? null : AppColors.primary.withOpacity(0.1),
+        color: isAdmin ? null : AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdmin
             ? null
-            : Border.all(color: AppColors.primary.withOpacity(0.2)),
+            : Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
         role.displayName,

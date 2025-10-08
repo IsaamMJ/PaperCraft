@@ -106,7 +106,7 @@ class AppColors {
 
   /// Returns a color with specified opacity
   static Color withOpacity(Color color, double opacity) {
-    return color.withOpacity(opacity);
+    return color.withValues(alpha: opacity);
   }
 
   /// Lightens a color by a given amount (0.0 to 1.0)
@@ -165,7 +165,7 @@ extension GradientExtensions on LinearGradient {
     return LinearGradient(
       begin: begin,
       end: end,
-      colors: colors.map((color) => color.withOpacity(opacity)).toList(),
+      colors: colors.map((color) => color.withValues(alpha: opacity)).toList(),
       stops: stops,
     );
   }

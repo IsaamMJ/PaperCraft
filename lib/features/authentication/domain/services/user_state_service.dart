@@ -296,7 +296,7 @@ class UserStateService extends ChangeNotifier {
           }
         },
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.warning('Permission refresh exception', category: LogCategory.auth, context: {
         'userId': currentUserId,
         'error': e.toString(),

@@ -412,7 +412,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               selected: isSelected,
               onSelected: (selected) => _onSectionToggled(section, selected),
               backgroundColor: AppColors.surface,
-              selectedColor: AppColors.primary.withOpacity(0.1),
+              selectedColor: AppColors.primary.withValues(alpha: 0.1),
               checkmarkColor: AppColors.primary,
               side: BorderSide(
                 color: isSelected ? AppColors.primary : AppColors.border,
@@ -480,7 +480,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                         width: _selectedExamDate != null ? 2 : 1,
                       ),
                       color: _selectedExamDate != null
-                          ? AppColors.primary.withOpacity(0.05)
+                          ? AppColors.primary.withValues(alpha: 0.05)
                           : AppColors.backgroundSecondary,
                     ),
                     child: Row(
@@ -541,7 +541,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 color: isSelected ? AppColors.primary : AppColors.border,
                 width: isSelected ? 2 : 1,
               ),
-              color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+              color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
             ),
             child: Row(
               children: [
@@ -637,7 +637,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 color: isSelected ? AppColors.primary : AppColors.border,
                 width: isSelected ? 2 : 1,
               ),
-              color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+              color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
             ),
             child: Row(
               children: [
@@ -684,8 +684,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primary.withOpacity(0.05),
-                  AppColors.secondary.withOpacity(0.05)
+                  AppColors.primary.withValues(alpha: 0.05),
+                  AppColors.secondary.withValues(alpha: 0.05)
                 ],
               ),
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
@@ -773,7 +773,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           )

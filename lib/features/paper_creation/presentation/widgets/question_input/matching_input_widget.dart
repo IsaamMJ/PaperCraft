@@ -133,9 +133,9 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -187,9 +187,9 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.secondary.withOpacity(0.1),
+            color: AppColors.secondary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -281,7 +281,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Center(
@@ -342,7 +342,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: AppColors.secondary.withOpacity(0.1),
+                            color: AppColors.secondary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Center(
@@ -380,8 +380,8 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: validPairs == _pairCount
-                  ? AppColors.success.withOpacity(0.1)
-                  : AppColors.warning.withOpacity(0.1),
+                  ? AppColors.success.withValues(alpha: 0.1)
+                  : AppColors.warning.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Row(

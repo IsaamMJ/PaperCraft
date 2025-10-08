@@ -254,7 +254,7 @@ class HiveDatabaseHelper {
       }
 
       return info;
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.warning('Error getting database info', category: LogCategory.storage, context: {
         'error': e.toString(),
         'fallbackInfo': {

@@ -508,7 +508,6 @@ class ApiClient {
       case PostgresErrorCodes.notNullViolation:
         return PostgresErrorMessages.notNullViolation;
       case PostgresErrorCodes.insufficientPrivilege:
-      case PostgresErrorCodes.rowLevelSecurityViolation:
         return PostgresErrorMessages.insufficientPrivilege;
       case PostgresErrorCodes.rlsPolicyViolation:
         return PostgresErrorMessages.rlsPolicyViolation;

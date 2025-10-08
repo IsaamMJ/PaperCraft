@@ -217,7 +217,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Text(
@@ -307,7 +307,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                       width: widget.isMobile ? 24 : 20,
                       height: widget.isMobile ? 24 : 20,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(

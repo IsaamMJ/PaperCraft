@@ -2,7 +2,6 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../entities/tenant_entity.dart';
-import '../failures/auth_failures.dart' hide AuthFailure;
 import '../repositories/tenant_repository.dart';
 
 class GetTenantUseCase {

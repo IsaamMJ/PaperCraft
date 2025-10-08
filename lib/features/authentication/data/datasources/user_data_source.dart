@@ -71,7 +71,7 @@ class UserDataSourceImpl implements UserDataSource {
         return null;
       }
 
-      return _parseUserEntity(response as Map<String, dynamic>);
+      return _parseUserEntity(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch user by ID',
           category: LogCategory.auth,

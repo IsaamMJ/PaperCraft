@@ -271,7 +271,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 borderRadius: BorderRadius.circular(logoSize * 0.25),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: logoSize * 0.25,
                     offset: Offset(0, logoSize * 0.125),
                   ),
@@ -416,7 +416,7 @@ class _SignInButtonState extends State<_SignInButton> {
             border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: AppColors.overlayLight.withOpacity(0.8),
+                color: AppColors.overlayLight.withValues(alpha: 0.8),
                 blurRadius: isDesktop ? 15 : 10,
                 offset: const Offset(0, 4),
               ),

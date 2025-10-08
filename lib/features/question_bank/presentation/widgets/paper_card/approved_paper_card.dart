@@ -37,12 +37,12 @@ class ApprovedPaperCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: AppColors.border.withOpacity(0.1)),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.1)),
       ),
       child: Padding(
         padding: EdgeInsets.all(screenWidth * 0.035),
@@ -182,7 +182,7 @@ class ApprovedPaperCard extends StatelessWidget {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Material(

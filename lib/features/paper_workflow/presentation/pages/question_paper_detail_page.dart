@@ -6,8 +6,8 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
-
 import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
@@ -188,73 +188,26 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildContent(QuestionPaperState state) {
-    if (state is QuestionPaperLoading) return _buildState(Icons.refresh, 'Loading paper details...', null);
-    if (state is QuestionPaperError) return _buildState(Icons.error_outline_rounded, 'Failed to Load Paper', state.message);
+    if (state is QuestionPaperLoading) {
+      return const LoadingWidget(message: 'Loading paper details...');
+    }
+    if (state is QuestionPaperError) {
+      return ErrorStateWidget(
+        message: state.message,
+        onRetry: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
+      );
+    }
     if (state is QuestionPaperLoaded) {
-      if (state.currentPaper == null) return _buildState(Icons.description_outlined, 'Paper Not Found', 'The requested paper could not be found.');
+      if (state.currentPaper == null) {
+        return const EmptyMessageWidget(
+          icon: Icons.description_outlined,
+          title: 'Paper Not Found',
+          message: 'The requested paper could not be found.',
+        );
+      }
       return _buildPaperContent(state.currentPaper!);
     }
-    return _buildState(Icons.refresh, 'Loading...', null);
-  }
-
-  Widget _buildState(IconData icon, String title, String? message) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon == Icons.refresh)
-              SizedBox(
-                width: 40, height: 40,
-                child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation(AppColors.primary)),
-              )
-            else
-              Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  color: (icon == Icons.error_outline_rounded ? AppColors.error : AppColors.textTertiary).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-                ),
-                child: Icon(icon, size: 40, color: icon == Icons.error_outline_rounded ? AppColors.error : AppColors.textTertiary),
-              ),
-            SizedBox(height: UIConstants.spacing24),
-            Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            if (message != null) ...[
-              SizedBox(height: UIConstants.spacing8),
-              Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-            ],
-            SizedBox(height: UIConstants.spacing32),
-            if (icon == Icons.error_outline_rounded)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Try Again'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton.icon(
-                    onPressed: _navigateBack,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    label: const Text('Go Back'),
-                  ),
-                ],
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: _navigateBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('Go Back'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-              ),
-          ],
-        ),
-      ),
-    );
+    return const LoadingWidget(message: 'Loading...');
   }
 
   Widget _buildPaperContent(QuestionPaperEntity paper) {
@@ -291,7 +244,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
+          colors: [AppColors.primary.withValues(alpha: 0.05), AppColors.secondary.withValues(alpha: 0.05)],
         ),
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.border),
@@ -365,9 +318,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(status.displayName.toUpperCase(), style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700, color: color)),
     );
@@ -446,7 +399,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,9 +433,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             Container(
               padding: const EdgeInsets.all(UIConstants.paddingMedium),
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.05),
+                color: AppColors.error.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                border: Border.all(color: AppColors.error.withOpacity(0.2)),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +448,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ],
                   ),
                   SizedBox(height: UIConstants.spacing12),
-                  Text(paper.rejectionReason!, style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.error.withOpacity(0.8), height: 1.4)),
+                  Text(paper.rejectionReason!, style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.error.withValues(alpha: 0.8), height: 1.4)),
                 ],
               ),
             ),
@@ -536,7 +489,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,9 +501,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.05),
+                color: AppColors.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
               ),
               child: Row(
                 children: [
@@ -609,7 +562,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,7 +631,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                           children: [
                             Container(
                               width: 24, height: 24,
-                              decoration: BoxDecoration(color: AppColors.textTertiary.withOpacity(0.1), borderRadius: BorderRadius.circular(UIConstants.radiusSmall)),
+                              decoration: BoxDecoration(color: AppColors.textTertiary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(UIConstants.radiusSmall)),
                               child: Center(child: Text(label, style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
                             ),
                             const SizedBox(width: 8),
@@ -694,7 +647,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
             child: Text('${question.marks} marks', style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.primary)),
           ),
         ],
@@ -823,7 +776,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     subtitle,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -942,9 +895,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
+        color: AppColors.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

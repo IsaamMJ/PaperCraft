@@ -6,6 +6,7 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
@@ -386,29 +387,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
           style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation(AppColors.primary),
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing24),
-            Text(
-              'Loading paper details...',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: const LoadingWidget(message: 'Loading paper details...'),
     );
   }
 
@@ -428,57 +407,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
           style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-              ),
-              child: Icon(Icons.error_outline_rounded, size: 40, color: AppColors.error),
-            ),
-            SizedBox(height: UIConstants.spacing24),
-            Text(
-              'Failed to Load Paper',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            SizedBox(height: UIConstants.spacing32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Try Again'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                TextButton.icon(
-                  onPressed: _navigateBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('Go Back'),
-                ),
-              ],
-            ),
-          ],
-        ),
+      body: ErrorStateWidget(
+        message: error,
+        onRetry: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
       ),
     );
   }
@@ -522,7 +453,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Row(
@@ -586,7 +517,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   ),
                   child: Row(
@@ -669,7 +600,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                   ),
                   child: Row(
@@ -696,7 +627,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                       selected: isSelected,
                       onSelected: (selected) => _onSectionToggled(section, selected),
                       backgroundColor: AppColors.surface,
-                      selectedColor: AppColors.primary.withOpacity(0.1),
+                      selectedColor: AppColors.primary.withValues(alpha: 0.1),
                       checkmarkColor: AppColors.primary,
                       labelStyle: TextStyle(
                         color: isSelected ? AppColors.primary : AppColors.textSecondary,
@@ -759,7 +690,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                       color: isSelected ? AppColors.primary : AppColors.border,
                       width: isSelected ? 2 : 1,
                     ),
-                    color: isSelected ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
                   ),
                   child: Row(
                     children: [
@@ -820,7 +751,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -862,7 +793,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                     });
                   },
                   backgroundColor: AppColors.surface,
-                  selectedColor: AppColors.primary.withOpacity(0.1),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.1),
                   checkmarkColor: AppColors.primary,
                   labelStyle: TextStyle(
                     color: isSelected ? AppColors.primary : AppColors.textSecondary,
@@ -906,9 +837,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.05),
+                color: AppColors.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,7 +887,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         padding: const EdgeInsets.all(UIConstants.paddingMedium),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.primary.withOpacity(0.05), AppColors.secondary.withOpacity(0.05)],
+            colors: [AppColors.primary.withValues(alpha: 0.05), AppColors.secondary.withValues(alpha: 0.05)],
           ),
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           border: Border.all(color: AppColors.border),
@@ -1099,7 +1030,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           )

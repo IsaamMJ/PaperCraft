@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/entities/user_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
@@ -46,6 +47,11 @@ class _TeacherAssignmentDetailPageState
         backgroundColor: AppColors.background,
         appBar: _buildAppBar(),
         body: BlocBuilder<TeacherAssignmentBloc, TeacherAssignmentState>(
+          buildWhen: (previous, current) {
+            // Don't rebuild on AssignmentSuccess - keep showing previous state
+            // The listener will trigger reload which will update the UI
+            return current is! AssignmentSuccess;
+          },
           builder: (context, state) {
             if (state is TeacherAssignmentLoading) {
               return _buildLoadingState(state.message);
@@ -117,12 +123,107 @@ class _TeacherAssignmentDetailPageState
   }
 
   Widget _buildContent(TeacherAssignmentLoaded state) {
-    return TabBarView(
-      controller: _tabController,
+    return Column(
       children: [
-        _buildGradesTab(state),
-        _buildSubjectsTab(state),
+        _buildAssignmentSummary(state),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildGradesTab(state),
+              _buildSubjectsTab(state),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildAssignmentSummary(TeacherAssignmentLoaded state) {
+    final gradeCount = state.assignedGrades.length;
+    final subjectCount = state.assignedSubjects.length;
+    final hasAssignments = gradeCount > 0 || subjectCount > 0;
+
+    return Container(
+      margin: EdgeInsets.all(UIConstants.paddingMedium),
+      padding: EdgeInsets.all(UIConstants.paddingMedium),
+      decoration: BoxDecoration(
+        gradient: hasAssignments ? AppColors.primaryGradient.scale(0.1) : null,
+        color: hasAssignments ? null : AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: Border.all(
+          color: hasAssignments
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasAssignments ? Icons.check_circle : Icons.info_outline,
+            color: hasAssignments ? AppColors.primary : AppColors.textSecondary,
+            size: UIConstants.iconLarge,
+          ),
+          SizedBox(width: UIConstants.spacing12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasAssignments
+                      ? 'Assignments Configured'
+                      : 'No Assignments Yet',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeLarge,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: UIConstants.spacing4),
+                Text(
+                  hasAssignments
+                      ? '$gradeCount ${gradeCount == 1 ? 'grade' : 'grades'}, $subjectCount ${subjectCount == 1 ? 'subject' : 'subjects'}'
+                      : 'Tap items below to assign grades and subjects',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeMedium,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (hasAssignments)
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: UIConstants.spacing12,
+                vertical: UIConstants.spacing8,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check,
+                    size: UIConstants.iconSmall,
+                    color: AppColors.success,
+                  ),
+                  SizedBox(width: UIConstants.spacing4),
+                  Text(
+                    'Active',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                      fontSize: UIConstants.fontSizeSmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -205,7 +306,7 @@ class _TeacherAssignmentDetailPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -239,7 +340,7 @@ class _TeacherAssignmentDetailPageState
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
+                    color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: Text(
@@ -314,7 +415,7 @@ class _TeacherAssignmentDetailPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -348,7 +449,7 @@ class _TeacherAssignmentDetailPageState
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: Text(
@@ -416,12 +517,12 @@ class _TeacherAssignmentDetailPageState
       ),
       decoration: BoxDecoration(
         color: isAssigned
-            ? AppColors.success.withOpacity(0.1)
+            ? AppColors.success.withValues(alpha: 0.1)
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(
           color: isAssigned
-              ? AppColors.success.withOpacity(0.3)
+              ? AppColors.success.withValues(alpha: 0.3)
               : AppColors.border,
           width: 1.5,
         ),
@@ -464,12 +565,12 @@ class _TeacherAssignmentDetailPageState
       ),
       decoration: BoxDecoration(
         color: isAssigned
-            ? AppColors.success.withOpacity(0.1)
+            ? AppColors.success.withValues(alpha: 0.1)
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(
           color: isAssigned
-              ? AppColors.success.withOpacity(0.3)
+              ? AppColors.success.withValues(alpha: 0.3)
               : AppColors.border,
           width: 1.5,
         ),
@@ -505,78 +606,13 @@ class _TeacherAssignmentDetailPageState
   }
 
   Widget _buildLoadingState(String? message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-          ),
-          if (message != null) ...[
-            SizedBox(height: UIConstants.spacing16),
-            Text(
-              message,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: UIConstants.fontSizeMedium,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+    return LoadingWidget(message: message ?? 'Loading assignments...');
   }
 
   Widget _buildErrorState(String message) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(UIConstants.paddingLarge),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: UIConstants.iconHuge,
-              color: AppColors.error,
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            Text(
-              'Error Loading Assignments',
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeXXLarge,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing8),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeMedium,
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: UIConstants.spacing24),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Go Back'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: UIConstants.spacing24,
-                  vertical: UIConstants.spacing12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ErrorStateWidget(
+      message: message,
+      onRetry: () => Navigator.of(context).pop(),
     );
   }
 

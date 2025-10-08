@@ -60,9 +60,13 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
             Expanded(
               child: BlocBuilder<SubjectBloc, SubjectState>(
                 builder: (context, state) {
-                  // REMOVED setState from here - that was the bug!
-
+                  // Show loading for any loading state
                   if (state is SubjectLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  // Show loading while waiting for reload after create/delete
+                  if (state is SubjectCreated || state is SubjectDeleted) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
@@ -220,7 +224,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
           child: Icon(Icons.subject, color: AppColors.primary, size: 20),
         ),
         title: Text(

@@ -136,9 +136,9 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -187,7 +187,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
             width: double.infinity,
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
-              color: _getRoleColor(role).withOpacity(0.1),
+              color: _getRoleColor(role).withValues(alpha: 0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
@@ -218,7 +218,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
   Widget _buildUserCard(UserEntity user) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+        backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
         child: Text(
           user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
           style: TextStyle(
@@ -310,7 +310,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.success.withOpacity(0.1) : AppColors.error.withOpacity(0.1),
+        color: isActive ? AppColors.success.withValues(alpha: 0.1) : AppColors.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Text(

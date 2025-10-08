@@ -183,6 +183,7 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
         String errorMessage = 'Failed to load assignments';
         assignedGradesResult.fold((failure) => errorMessage = failure.message, (_) {});
 
+        print('[TeacherAssignmentBloc] Load failed: $errorMessage');
         emit(TeacherAssignmentError(errorMessage));
         return;
       }
@@ -208,6 +209,8 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
             (subjects) => subjects,
       );
 
+      print('[TeacherAssignmentBloc] Loaded: ${assignedGrades.length} grades, ${assignedSubjects.length} subjects for ${event.teacher.fullName}');
+
       emit(TeacherAssignmentLoaded(
         teacher: event.teacher,
         assignedGrades: assignedGrades,
@@ -216,6 +219,7 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
         availableSubjects: allSubjects,
       ));
     } catch (e) {
+      print('[TeacherAssignmentBloc] Exception: $e');
       emit(TeacherAssignmentError('Error: ${e.toString()}'));
     }
   }
@@ -226,18 +230,29 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
       ) async {
     emit(const TeacherAssignmentLoading(message: 'Assigning grade...'));
 
-    final academicYear = _userStateService.currentAcademicYear ?? '2024-2025';
+    try {
+      final academicYear = _userStateService.currentAcademicYear;
 
-    final result = await _assignmentRepository.assignGradeToTeacher(
-      teacherId: event.teacherId,
-      gradeId: event.gradeId,
-      academicYear: academicYear,
-    );
+      final result = await _assignmentRepository.assignGradeToTeacher(
+        teacherId: event.teacherId,
+        gradeId: event.gradeId,
+        academicYear: academicYear,
+      );
 
-    result.fold(
-          (failure) => emit(TeacherAssignmentError(failure.message)),
-          (_) => emit(const AssignmentSuccess('Grade assigned successfully')),
-    );
+      result.fold(
+        (failure) {
+          print('[TeacherAssignmentBloc] Assign grade failed: ${failure.message}');
+          emit(TeacherAssignmentError(failure.message));
+        },
+        (_) {
+          print('[TeacherAssignmentBloc] Grade assigned successfully');
+          emit(const AssignmentSuccess('Grade assigned successfully'));
+        },
+      );
+    } catch (e) {
+      print('[TeacherAssignmentBloc] Exception assigning grade: $e');
+      emit(TeacherAssignmentError('Failed to assign grade: ${e.toString()}'));
+    }
   }
 
   Future<void> _onRemoveGrade(
@@ -246,7 +261,7 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
       ) async {
     emit(const TeacherAssignmentLoading(message: 'Removing grade...'));
 
-    final academicYear = _userStateService.currentAcademicYear ?? '2024-2025';
+    final academicYear = _userStateService.currentAcademicYear;
 
     final result = await _assignmentRepository.removeGradeAssignment(
       teacherId: event.teacherId,
@@ -266,18 +281,29 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
       ) async {
     emit(const TeacherAssignmentLoading(message: 'Assigning subject...'));
 
-    final academicYear = _userStateService.currentAcademicYear ?? '2024-2025';
+    try {
+      final academicYear = _userStateService.currentAcademicYear;
 
-    final result = await _assignmentRepository.assignSubjectToTeacher(
-      teacherId: event.teacherId,
-      subjectId: event.subjectId,
-      academicYear: academicYear,
-    );
+      final result = await _assignmentRepository.assignSubjectToTeacher(
+        teacherId: event.teacherId,
+        subjectId: event.subjectId,
+        academicYear: academicYear,
+      );
 
-    result.fold(
-          (failure) => emit(TeacherAssignmentError(failure.message)),
-          (_) => emit(const AssignmentSuccess('Subject assigned successfully')),
-    );
+      result.fold(
+        (failure) {
+          print('[TeacherAssignmentBloc] Assign subject failed: ${failure.message}');
+          emit(TeacherAssignmentError(failure.message));
+        },
+        (_) {
+          print('[TeacherAssignmentBloc] Subject assigned successfully');
+          emit(const AssignmentSuccess('Subject assigned successfully'));
+        },
+      );
+    } catch (e) {
+      print('[TeacherAssignmentBloc] Exception assigning subject: $e');
+      emit(TeacherAssignmentError('Failed to assign subject: ${e.toString()}'));
+    }
   }
 
   Future<void> _onRemoveSubject(
@@ -286,7 +312,7 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
       ) async {
     emit(const TeacherAssignmentLoading(message: 'Removing subject...'));
 
-    final academicYear = _userStateService.currentAcademicYear ?? '2024-2025';
+    final academicYear = _userStateService.currentAcademicYear;
 
     final result = await _assignmentRepository.removeSubjectAssignment(
       teacherId: event.teacherId,

@@ -81,7 +81,7 @@ class QuestionListWidget extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Center(
@@ -152,7 +152,7 @@ class QuestionListWidget extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.1),
+                          color: AppColors.warning.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -181,7 +181,7 @@ class QuestionListWidget extends StatelessWidget {
                 },
                 icon: const Icon(Icons.edit, size: 16),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   minimumSize: const Size(28, 28),
                 ),
                 color: AppColors.primary,
@@ -194,7 +194,7 @@ class QuestionListWidget extends StatelessWidget {
                 },
                 icon: const Icon(Icons.delete_outline, size: 16),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.error.withOpacity(0.1),
+                  backgroundColor: AppColors.error.withValues(alpha: 0.1),
                   minimumSize: const Size(28, 28),
                 ),
                 color: AppColors.error,
@@ -226,9 +226,9 @@ class QuestionListWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingSmall),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
+        color: AppColors.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +361,7 @@ class QuestionListWidget extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(UIConstants.paddingSmall),
                     decoration: BoxDecoration(
-                      color: AppColors.warning.withOpacity(0.1),
+                      color: AppColors.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Row(

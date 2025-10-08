@@ -8,6 +8,7 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
@@ -124,42 +125,11 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
   }
 
   Widget _buildNotFoundState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: UIConstants.iconHuge,
-            color: AppColors.textSecondary,
-          ),
-          SizedBox(height: UIConstants.spacing16),
-          Text(
-            'Paper Not Found',
-            style: TextStyle(
-              fontSize: UIConstants.fontSizeXLarge,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          SizedBox(height: UIConstants.spacing8),
-          Text(
-            'The requested paper could not be found.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          SizedBox(height: UIConstants.spacing16),
-          ElevatedButton(
-            onPressed: () => context.go(AppRoutes.adminDashboard),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-            ),
-            child: const Text('Back to Dashboard'),
-          ),
-        ],
+    return const Center(
+      child: EmptyMessageWidget(
+        icon: Icons.description_outlined,
+        title: 'Paper Not Found',
+        message: 'The requested paper could not be found.',
       ),
     );
   }
@@ -199,11 +169,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
           builder: (context, state) {
             if (state is QuestionPaperLoading) {
-              return Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                ),
-              );
+              return const LoadingWidget(message: 'Loading paper...');
             }
 
             if (state is QuestionPaperLoaded && state.currentPaper != null) {
@@ -211,7 +177,10 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             }
 
             if (state is QuestionPaperError) {
-              return _buildErrorState(state.message);
+              return ErrorStateWidget(
+                message: state.message,
+                onRetry: _loadPaper,
+              );
             }
 
             return _buildNotFoundState();
@@ -454,9 +423,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             horizontal: UIConstants.paddingMedium,
           ),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Text(
             sectionName,
@@ -517,7 +486,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                   vertical: UIConstants.spacing4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                 ),
                 child: Text(
@@ -537,7 +506,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.1),
+                    color: AppColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Text(
@@ -638,7 +607,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
   Widget _buildRejectionFeedback(QuestionPaperEntity paper) {
     return Card(
       elevation: UIConstants.elevationMedium,
-      color: AppColors.error.withOpacity(0.05),
+      color: AppColors.error.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
@@ -668,7 +637,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
               ),
               child: Text(
                 paper.rejectionReason!,
@@ -701,7 +670,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, -2),
@@ -718,47 +687,6 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     );
   }
 
-  Widget _buildErrorState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: UIConstants.iconHuge,
-            color: AppColors.error,
-          ),
-          SizedBox(height: UIConstants.spacing16),
-          Text(
-            'Error Loading Paper',
-            style: TextStyle(
-              fontSize: UIConstants.fontSizeXLarge,
-              fontWeight: FontWeight.w600,
-              color: AppColors.error,
-            ),
-          ),
-          SizedBox(height: UIConstants.spacing8),
-          Text(
-            message,
-            style: TextStyle(color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: UIConstants.spacing16),
-          ElevatedButton(
-            onPressed: _loadPaper,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-            ),
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // RejectPaperDialog Widget

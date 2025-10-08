@@ -171,8 +171,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: currentMarks == totalMarks
-                      ? AppColors.success.withOpacity(0.1)
-                      : AppColors.primary.withOpacity(0.1),
+                      ? AppColors.success.withValues(alpha: 0.1)
+                      : AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
                 child: Text(
@@ -189,7 +189,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.1),
+                    color: AppColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                   ),
                   child: Text(

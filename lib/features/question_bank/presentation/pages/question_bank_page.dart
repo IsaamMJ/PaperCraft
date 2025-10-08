@@ -146,7 +146,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -201,7 +201,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textSecondary,
         indicator: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: AppColors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         ),
         indicatorPadding: const EdgeInsets.all(4),
@@ -399,7 +399,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
+                    color: AppColors.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
                   ),
                   child: Text(
@@ -433,14 +433,14 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Icon(Icons.assessment, size: 18, color: AppColors.primary),
@@ -465,7 +465,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
               ),
               child: Text(
@@ -504,7 +504,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
                   ),
                   child: Text(
@@ -576,7 +576,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
             ),
             child: Icon(icon, size: 30, color: AppColors.primary),
@@ -595,7 +595,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           const SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
-            style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
+            style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 10),
           ),
         ],
       ),
@@ -644,7 +644,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(24),
             ),
             child: Icon(Icons.library_books_outlined, size: 40, color: AppColors.primary),
@@ -663,7 +663,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           const SizedBox(height: UIConstants.spacing12),
           Text(
             'Pull down to refresh',
-            style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 10),
+            style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 10),
           ),
         ],
       ),

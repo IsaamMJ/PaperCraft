@@ -6,10 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
+import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
+import '../../../features/assignments/presentation/pages/teacher_assignment_matrix_page.dart';
 import '../../../features/catalog/presentation/bloc/exam_type_bloc.dart';
 import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
 import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
@@ -110,7 +112,7 @@ class AppRouter {
         return AppRoutes.login;
       }
 
-      final authUser = (authState as AuthAuthenticated).user;
+      final authUser = authState.user;
 
       try {
         final userStateService = sl<UserStateService>();
@@ -319,6 +321,21 @@ class AppRouter {
 
       // Admin routes
       GoRoute(
+        path: AppRoutes.adminHome,
+        builder: (context, state) {
+          AppLogger.info('Admin accessing home dashboard', category: LogCategory.navigation);
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
+              BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
+              BlocProvider(create: (_) => sl<ExamTypeBloc>()),
+            ],
+            child: const AdminHomeDashboard(),
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutes.adminDashboard,
         builder: (context, state) {
           AppLogger.info('Admin accessing dashboard', category: LogCategory.navigation);
@@ -329,6 +346,24 @@ class AppRouter {
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: const AdminDashboardPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.assignmentMatrix,
+        builder: (context, state) {
+          AppLogger.info('Admin accessing assignment matrix', category: LogCategory.navigation);
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
+              BlocProvider(create: (_) => TeacherAssignmentBloc(
+                sl(),
+                sl(),
+                sl(),
+                sl(),
+              )),
+            ],
+            child: const TeacherAssignmentMatrixPage(),
           );
         },
       ),

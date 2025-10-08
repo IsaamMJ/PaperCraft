@@ -187,11 +187,23 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
 
   Future<void> _onLoadSubjects(LoadSubjects event, Emitter<SubjectState> emit) async {
     emit(const SubjectLoading(message: 'Loading subjects...'));
-    final result = await _getSubjectsUseCase();
-    result.fold(
-          (failure) => emit(SubjectError(failure.message)),
-          (subjects) => emit(SubjectsLoaded(subjects)),
-    );
+
+    try {
+      final result = await _getSubjectsUseCase();
+      result.fold(
+        (failure) {
+          print('[SubjectBloc] Load subjects failed: ${failure.message}');
+          emit(SubjectError(failure.message));
+        },
+        (subjects) {
+          print('[SubjectBloc] Loaded ${subjects.length} subjects');
+          emit(SubjectsLoaded(subjects));
+        },
+      );
+    } catch (e) {
+      print('[SubjectBloc] Exception loading subjects: $e');
+      emit(SubjectError('Failed to load subjects: ${e.toString()}'));
+    }
   }
 
   Future<void> _onLoadSubjectsByGrade(LoadSubjectsByGrade event, Emitter<SubjectState> emit) async {
@@ -232,11 +244,23 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
 
   Future<void> _onCreateSubject(CreateSubject event, Emitter<SubjectState> emit) async {
     emit(const SubjectLoading(message: 'Enabling subject...'));
-    final result = await _subjectRepository.createSubject(event.subject);
-    result.fold(
-          (failure) => emit(SubjectError(failure.message)),
-          (subject) => emit(SubjectCreated(subject)),
-    );
+
+    try {
+      final result = await _subjectRepository.createSubject(event.subject);
+      result.fold(
+        (failure) {
+          print('[SubjectBloc] Create subject failed: ${failure.message}');
+          emit(SubjectError(failure.message));
+        },
+        (subject) {
+          print('[SubjectBloc] Subject created: ${subject.name}');
+          emit(SubjectCreated(subject));
+        },
+      );
+    } catch (e) {
+      print('[SubjectBloc] Exception creating subject: $e');
+      emit(SubjectError('Failed to create subject: ${e.toString()}'));
+    }
   }
 
   Future<void> _onUpdateSubject(UpdateSubject event, Emitter<SubjectState> emit) async {

@@ -6,6 +6,7 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/date_utils.dart';
+import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -29,7 +30,6 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _subjectCount;
   int? _gradeCount;
   int? _examTypeCount;
-  bool _isLoadingCounts = false;
 
   @override
   void initState() {
@@ -40,8 +40,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadCounts() async {
     if (!_userStateService.isAdmin) return;
-
-    setState(() => _isLoadingCounts = true);
 
     try {
       final results = await Future.wait([
@@ -55,13 +53,10 @@ class _SettingsPageState extends State<SettingsPage> {
           _subjectCount = results[0].fold((_) => 0, (list) => list.length);
           _gradeCount = results[1].fold((_) => 0, (list) => list.length);
           _examTypeCount = results[2].fold((_) => 0, (list) => list.length);
-          _isLoadingCounts = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingCounts = false);
-      }
+      // Silently fail - counts will remain null
     }
   }
 
@@ -88,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               padding: EdgeInsets.all(UIConstants.spacing12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -189,6 +184,8 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildDashboardLink(),
+                SizedBox(height: UIConstants.spacing16),
                 _buildProfileSection(user),
                 SizedBox(height: UIConstants.spacing24),
                 _buildManagementSection(),
@@ -215,37 +212,11 @@ class _SettingsPageState extends State<SettingsPage> {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(UIConstants.paddingLarge),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.admin_panel_settings_outlined,
-                size: UIConstants.iconHuge,
-                color: AppColors.textTertiary,
-              ),
-              SizedBox(height: UIConstants.spacing16),
-              Text(
-                'Admin Access Required',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeXXLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing8),
-              Text(
-                'Only administrators can access settings',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeLarge,
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+      body: const Center(
+        child: EmptyMessageWidget(
+          icon: Icons.admin_panel_settings_outlined,
+          title: 'Admin Access Required',
+          message: 'Only administrators can access settings',
         ),
       ),
     );
@@ -361,7 +332,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   vertical: UIConstants.spacing4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 ),
                 child: Text(
@@ -435,7 +406,7 @@ class _SettingsPageState extends State<SettingsPage> {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -490,7 +461,7 @@ class _SettingsPageState extends State<SettingsPage> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
             ),
             child: Center(
@@ -522,7 +493,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   user.role.displayName,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: UIConstants.fontSizeMedium,
                   ),
                 ),
@@ -613,11 +584,11 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       decoration: BoxDecoration(
         gradient: isAdminRole ? AppColors.accentGradient : null,
-        color: isAdminRole ? null : AppColors.primary.withOpacity(0.1),
+        color: isAdminRole ? null : AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdminRole
             ? null
-            : Border.all(color: AppColors.primary.withOpacity(0.2)),
+            : Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
         role.displayName,
@@ -625,6 +596,67 @@ class _SettingsPageState extends State<SettingsPage> {
           color: isAdminRole ? Colors.white : AppColors.primary,
           fontWeight: FontWeight.w700,
           fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardLink() {
+    return InkWell(
+      onTap: () => context.push(AppRoutes.adminHome),
+      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+      child: Container(
+        padding: EdgeInsets.all(UIConstants.paddingMedium),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.1),
+              AppColors.secondary.withValues(alpha: 0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(UIConstants.spacing12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+              child: Icon(
+                Icons.dashboard,
+                color: AppColors.primary,
+                size: UIConstants.iconLarge,
+              ),
+            ),
+            SizedBox(width: UIConstants.spacing16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Admin Dashboard',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeLarge,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: UIConstants.spacing4),
+                  Text(
+                    'View setup progress and quick actions',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeMedium,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textTertiary),
+          ],
         ),
       ),
     );

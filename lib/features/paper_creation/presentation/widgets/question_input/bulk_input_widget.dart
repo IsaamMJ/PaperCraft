@@ -201,9 +201,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +228,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                 _getInstructionPreview(),
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.primary.withOpacity(0.8),
+                  color: AppColors.primary.withValues(alpha: 0.8),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -283,7 +283,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                     width: widget.isMobile ? 28 : 24,
                     height: widget.isMobile ? 28 : 24,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Center(
@@ -309,8 +309,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: _isValid
-                ? AppColors.success.withOpacity(0.1)
-                : AppColors.warning.withOpacity(0.1),
+                ? AppColors.success.withValues(alpha: 0.1)
+                : AppColors.warning.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           ),
           child: Row(

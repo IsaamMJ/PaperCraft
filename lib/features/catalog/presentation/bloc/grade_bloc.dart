@@ -195,12 +195,23 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
   Future<void> _onLoadGrades(LoadGrades event, Emitter<GradeState> emit) async {
     emit(const GradeLoading(message: 'Loading grades...'));
 
-    final result = await _repository.getGrades();
+    try {
+      final result = await _repository.getGrades();
 
-    result.fold(
-          (failure) => emit(GradeError(failure.message)),
-          (grades) => emit(GradesLoaded(grades)),
-    );
+      result.fold(
+        (failure) {
+          print('[GradeBloc] Load grades failed: ${failure.message}');
+          emit(GradeError(failure.message));
+        },
+        (grades) {
+          print('[GradeBloc] Loaded ${grades.length} grades');
+          emit(GradesLoaded(grades));
+        },
+      );
+    } catch (e) {
+      print('[GradeBloc] Exception loading grades: $e');
+      emit(GradeError('Failed to load grades: ${e.toString()}'));
+    }
   }
 
   Future<void> _onLoadGradeLevels(LoadGradeLevels event, Emitter<GradeState> emit) async {
@@ -258,12 +269,23 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
   Future<void> _onCreateGrade(CreateGrade event, Emitter<GradeState> emit) async {
     emit(const GradeLoading(message: 'Creating grade...'));
 
-    final result = await _repository.createGrade(event.grade);
+    try {
+      final result = await _repository.createGrade(event.grade);
 
-    result.fold(
-          (failure) => emit(GradeError(failure.message)),
-          (grade) => emit(GradeCreated(grade)),
-    );
+      result.fold(
+        (failure) {
+          print('[GradeBloc] Create grade failed: ${failure.message}');
+          emit(GradeError(failure.message));
+        },
+        (grade) {
+          print('[GradeBloc] Grade created: ${grade.displayName}');
+          emit(GradeCreated(grade));
+        },
+      );
+    } catch (e) {
+      print('[GradeBloc] Exception creating grade: $e');
+      emit(GradeError('Failed to create grade: ${e.toString()}'));
+    }
   }
 
   Future<void> _onUpdateGrade(UpdateGrade event, Emitter<GradeState> emit) async {

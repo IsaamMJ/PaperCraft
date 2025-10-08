@@ -12,12 +12,6 @@ class EnvironmentConfig {
   static String get supabaseUrl => _supabaseUrl;
   static String get supabaseAnonKey => _supabaseAnonKey;
 
-  // Auth redirect URLs by environment
-  static const String _authRedirectUrlDev = 'http://localhost:3000/auth/callback';
-  static const String _authRedirectUrlStaging = 'https://staging-papercraft.your-domain2.com/auth/callback';
-  static const String _authRedirectUrlProd = 'https://papercraft.your-domain2.com/auth/callback';
-
-  // Helper to get auth redirect URL based on current environment
   // Helper to get auth redirect URL based on current environment
   static String get authRedirectUrl {
     switch (_current) {

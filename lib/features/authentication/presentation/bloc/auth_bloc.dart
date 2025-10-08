@@ -118,7 +118,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Force status check to resync
         add(const AuthCheckStatus());
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       AppLogger.warning('Auth state sync error', category: LogCategory.auth, context: {
         'error': e.toString(),
       });
@@ -179,7 +179,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       _isInitialized = true;
       print('🔥 DEBUG: _onInitialize method completed');
-    } catch (e, stackTrace) {
+    } catch (e) {
       print('🔥 DEBUG: Initialize exception: $e');
       AppLogger.authError('Initialize exception', e, context: {
         'operation': 'initialize',
@@ -258,7 +258,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(AuthAuthenticated(authResult.user, isFirstLogin: authResult.isFirstLogin));
         },
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       AppLogger.authError('Unexpected sign-in error', e, context: {
         'operation': 'google_signin',
         'errorType': e.runtimeType.toString(),
@@ -369,7 +369,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           }
         },
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       AppLogger.authError('Status check exception', e, context: {
         'operation': 'check_status',
         'errorType': e.runtimeType.toString(),

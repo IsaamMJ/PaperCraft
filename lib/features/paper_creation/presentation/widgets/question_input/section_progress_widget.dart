@@ -29,7 +29,7 @@ class SectionProgressWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
+        color: AppColors.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
       child: Column(
@@ -89,9 +89,9 @@ class SectionProgressWidget extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             decoration: BoxDecoration(
               color: isCurrent
-                  ? AppColors.primary.withOpacity(0.1)
+                  ? AppColors.primary.withValues(alpha: 0.1)
                   : isCompleted
-                  ? AppColors.success.withOpacity(0.1)
+                  ? AppColors.success.withValues(alpha: 0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),

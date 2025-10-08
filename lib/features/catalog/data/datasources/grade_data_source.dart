@@ -119,7 +119,7 @@ class GradeDataSourceImpl implements GradeDataSource {
           .maybeSingle();
 
       if (response == null) return null;
-      return GradeModel.fromJson(response as Map<String, dynamic>);
+      return GradeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch grade by ID',
           category: LogCategory.storage,
@@ -158,7 +158,7 @@ class GradeDataSourceImpl implements GradeDataSource {
             'gradeNumber': response['grade_number'],
           });
 
-      return GradeModel.fromJson(response as Map<String, dynamic>);
+      return GradeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to create grade',
           category: LogCategory.storage,
@@ -197,7 +197,7 @@ class GradeDataSourceImpl implements GradeDataSource {
             'gradeNumber': grade.gradeNumber,
           });
 
-      return GradeModel.fromJson(response as Map<String, dynamic>);
+      return GradeModel.fromJson(response);
     } catch (e, stackTrace) {
       _logger.error('Failed to update grade',
           category: LogCategory.storage,
