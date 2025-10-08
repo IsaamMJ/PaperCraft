@@ -65,8 +65,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
           .eq('teacher_subject_assignments.academic_year', academicYear)
           .eq('teacher_subject_assignments.is_active', true)
           .eq('is_active', true)
-          .eq('subject_catalog.is_active', true)
-          .order('subject_catalog.name');
+          .eq('subject_catalog.is_active', true);
 
       _logger.info('Assigned subjects fetched',
           category: LogCategory.storage,
@@ -76,7 +75,10 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             'count': (response as List).length,
           });
 
-      return _parseSubjectResponse(response);
+      final subjects = _parseSubjectResponse(response);
+      // Sort by subject name since we can't order by foreign table columns in the query
+      subjects.sort((a, b) => a.name.compareTo(b.name));
+      return subjects;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch assigned subjects',
           category: LogCategory.storage,
