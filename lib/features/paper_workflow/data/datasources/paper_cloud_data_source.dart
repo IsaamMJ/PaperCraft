@@ -8,7 +8,7 @@ abstract class PaperCloudDataSource {
   Future<QuestionPaperModel> submitPaper(QuestionPaperModel paper);
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId);
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId);
-  Future<QuestionPaperModel> updatePaperStatus(String id, String status, {String? reason, String? reviewerId});
+  Future<QuestionPaperModel> updatePaperStatus(String id, String status, {String? reason, String? reviewerId, bool clearRejectionData = false});
   Future<QuestionPaperModel?> getPaperById(String id);
   Future<void> deletePaper(String id);
   Future<List<QuestionPaperModel>> getAllPapersForAdmin(String tenantId);
@@ -19,6 +19,13 @@ abstract class PaperCloudDataSource {
         String? status,
         String? userId,
       });
+  Future<void> saveRejectionHistory({
+    required String paperId,
+    required String rejectionReason,
+    required String rejectedBy,
+    required DateTime rejectedAt,
+  });
+  Future<List<Map<String, dynamic>>> getRejectionHistory(String paperId);
 }
 
 class PaperCloudDataSourceImpl implements PaperCloudDataSource {
@@ -44,16 +51,42 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
 
       final data = paper.toSupabaseMap();
 
-      final response = await _apiClient.insert<QuestionPaperModel>(
-        table: _tableName,
-        data: data,
-        fromJson: QuestionPaperModel.fromSupabase,
-      );
+      // Check if this is a resubmission (paper already exists in cloud)
+      final existingPaper = await getPaperById(paper.id);
+
+      ApiResponse<QuestionPaperModel> response;
+
+      if (existingPaper != null) {
+        // This is a resubmission - UPDATE the existing paper
+        _logger.info('Resubmitting existing paper', category: LogCategory.paper, context: {
+          'paperId': paper.id,
+          'title': paper.title,
+        });
+
+        response = await _apiClient.update<QuestionPaperModel>(
+          table: _tableName,
+          data: data,
+          filters: {'id': paper.id},
+          fromJson: QuestionPaperModel.fromSupabase,
+        );
+      } else {
+        // This is a new submission - INSERT
+        _logger.info('Submitting new paper', category: LogCategory.paper, context: {
+          'title': paper.title,
+        });
+
+        response = await _apiClient.insert<QuestionPaperModel>(
+          table: _tableName,
+          data: data,
+          fromJson: QuestionPaperModel.fromSupabase,
+        );
+      }
 
       if (response.isSuccess) {
         _logger.paperAction('submit_paper_success', response.data!.id, context: {
           'title': paper.title,
           'submittedAt': response.data!.submittedAt?.toIso8601String(),
+          'isResubmission': existingPaper != null,
         });
         return response.data!;
       } else {
@@ -233,13 +266,14 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<QuestionPaperModel> updatePaperStatus(
       String id,
       String status,
-      {String? reason, String? reviewerId}
+      {String? reason, String? reviewerId, bool clearRejectionData = false}
       ) async {
     try {
       _logger.paperAction('update_paper_status_started', id, context: {
         'newStatus': status,
         'reason': reason,
         'reviewerId': reviewerId,
+        'clearRejectionData': clearRejectionData,
       });
 
       final updateData = <String, dynamic>{
@@ -247,12 +281,18 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         'reviewed_at': DateTime.now().toIso8601String(),
       };
 
-      if (reason != null && reason.isNotEmpty) {
-        updateData['rejection_reason'] = reason;
-      }
+      if (clearRejectionData) {
+        updateData['rejection_reason'] = null;
+        updateData['reviewed_by'] = null;
+        updateData['reviewed_at'] = null;
+      } else {
+        if (reason != null && reason.isNotEmpty) {
+          updateData['rejection_reason'] = reason;
+        }
 
-      if (reviewerId != null) {
-        updateData['reviewed_by'] = reviewerId;
+        if (reviewerId != null) {
+          updateData['reviewed_by'] = reviewerId;
+        }
       }
 
       final response = await _apiClient.update<QuestionPaperModel>(
@@ -274,6 +314,102 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
     } catch (e, stackTrace) {
       _logger.paperError('update_paper_status', id, e);
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> saveRejectionHistory({
+    required String paperId,
+    required String rejectionReason,
+    required String rejectedBy,
+    required DateTime rejectedAt,
+  }) async {
+    try {
+      _logger.info('Saving rejection history', category: LogCategory.paper, context: {
+        'paperId': paperId,
+        'rejectedBy': rejectedBy,
+      });
+
+      // Get current rejection count for this paper to determine revision number
+      int revisionNumber = 1;
+
+      try {
+        final historyResponse = await _apiClient.select<Map<String, dynamic>>(
+          table: 'paper_rejection_history',
+          fromJson: (json) => json,
+          filters: {'paper_id': paperId},
+          orderBy: 'revision_number',
+          ascending: false,
+        );
+
+        if (historyResponse.isSuccess && historyResponse.data != null && historyResponse.data!.isNotEmpty) {
+          revisionNumber = (historyResponse.data!.first['revision_number'] as int) + 1;
+        }
+      } catch (e) {
+        _logger.warning('Could not get revision number, using 1', category: LogCategory.paper);
+      }
+
+      final data = {
+        'paper_id': paperId,
+        'rejection_reason': rejectionReason,
+        'rejected_by': rejectedBy,
+        'rejected_at': rejectedAt.toIso8601String(),
+        'revision_number': revisionNumber,
+      };
+
+      final response = await _apiClient.insert<Map<String, dynamic>>(
+        table: 'paper_rejection_history',
+        data: data,
+        fromJson: (json) => json,
+      );
+
+      if (!response.isSuccess) {
+        throw Exception(response.message ?? 'Failed to save rejection history');
+      }
+
+      _logger.info('Rejection history saved', category: LogCategory.paper, context: {
+        'paperId': paperId,
+        'revisionNumber': revisionNumber,
+      });
+    } catch (e, stackTrace) {
+      _logger.error('Failed to save rejection history',
+          category: LogCategory.paper,
+          error: e,
+          stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRejectionHistory(String paperId) async {
+    try {
+      _logger.info('Fetching rejection history', category: LogCategory.paper, context: {
+        'paperId': paperId,
+      });
+
+      final response = await _apiClient.select<Map<String, dynamic>>(
+        table: 'paper_rejection_history',
+        fromJson: (json) => json,
+        filters: {'paper_id': paperId},
+        orderBy: 'revision_number',
+        ascending: true,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        _logger.info('Rejection history fetched', category: LogCategory.paper, context: {
+          'paperId': paperId,
+          'historyCount': response.data!.length,
+        });
+        return response.data!;
+      }
+
+      return [];
+    } catch (e, stackTrace) {
+      _logger.error('Failed to fetch rejection history',
+          category: LogCategory.paper,
+          error: e,
+          stackTrace: stackTrace);
+      return [];
     }
   }
 

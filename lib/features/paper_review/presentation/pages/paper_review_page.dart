@@ -139,6 +139,90 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     return DateFormat('MMM dd, yyyy at HH:mm').format(date);
   }
 
+  void _showPostActionOptions(String? actionType) {
+    final isRejection = actionType == 'reject';
+    final title = isRejection ? 'Paper Rejected' : 'Paper Approved';
+    final subtitle = isRejection
+        ? 'The teacher has been notified with your feedback.'
+        : 'The paper is now available in the question bank.';
+
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(UIConstants.radiusXLarge)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(UIConstants.paddingLarge),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isRejection ? Icons.check_circle : Icons.check_circle_outline,
+              color: isRejection ? AppColors.error : AppColors.success,
+              size: 48,
+            ),
+            SizedBox(height: UIConstants.spacing16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.go(AppRoutes.adminDashboard);
+                },
+                icon: const Icon(Icons.dashboard),
+                label: const Text('Back to Dashboard'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Stay on current page (will show empty state or navigate back)
+                },
+                icon: const Icon(Icons.close),
+                label: const Text('Close'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -160,7 +244,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
           if (state is QuestionPaperSuccess) {
             setState(() => _isLoading = false);
             UiHelpers.showSuccessMessage(context, state.message);
-            context.go(AppRoutes.adminDashboard);
+
+            // Show post-action options instead of immediate redirect
+            _showPostActionOptions(state.actionType);
           } else if (state is QuestionPaperError) {
             setState(() => _isLoading = false);
             UiHelpers.showErrorMessage(context, state.message);
@@ -706,11 +792,94 @@ class RejectPaperDialog extends StatefulWidget {
 
 class _RejectPaperDialogState extends State<RejectPaperDialog> {
   final TextEditingController _reasonController = TextEditingController();
+  final List<String> _commonReasons = [
+    'Questions difficulty level inappropriate for grade',
+    'Formatting and structure issues',
+    'Answer key errors detected',
+    'Content does not match exam type requirements',
+    'Grammatical or spelling errors',
+  ];
 
   @override
   void dispose() {
     _reasonController.dispose();
     super.dispose();
+  }
+
+  bool get _isReasonValid => _reasonController.text.trim().length >= 10;
+  int get _charCount => _reasonController.text.length;
+
+  void _showConfirmation() {
+    if (!_isReasonValid) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_rounded, color: AppColors.error, size: 24),
+            const SizedBox(width: 12),
+            const Text('Confirm Rejection'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Paper: ${widget.paperTitle}', style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: UIConstants.spacing16),
+            const Text('Rejection Reason:', style: TextStyle(fontWeight: FontWeight.w500)),
+            SizedBox(height: UIConstants.spacing8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Text(_reasonController.text.trim()),
+            ),
+            SizedBox(height: UIConstants.spacing16),
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: AppColors.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'The teacher will be notified with this feedback.',
+                    style: TextStyle(fontSize: 12, color: AppColors.error),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              widget.onReject(_reasonController.text.trim());
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
+            child: const Text('Confirm Reject'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -720,25 +889,57 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
       ),
       title: const Text('Reject Paper'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Paper: ${widget.paperTitle}'),
-          SizedBox(height: UIConstants.spacing16),
-          const Text('Please provide a reason for rejection:'),
-          SizedBox(height: UIConstants.spacing8),
-          TextField(
-            controller: _reasonController,
-            decoration: InputDecoration(
-              hintText: 'Enter rejection reason...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Paper: ${widget.paperTitle}', style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: UIConstants.spacing16),
+            const Text('Common reasons:', style: TextStyle(fontWeight: FontWeight.w500)),
+            SizedBox(height: UIConstants.spacing8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _commonReasons.map((reason) => ActionChip(
+                label: Text(reason, style: TextStyle(fontSize: 12)),
+                onPressed: () {
+                  setState(() {
+                    _reasonController.text = reason;
+                  });
+                },
+                backgroundColor: _reasonController.text == reason
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : AppColors.surface,
+                side: BorderSide(
+                  color: _reasonController.text == reason
+                      ? AppColors.primary
+                      : AppColors.border,
+                ),
+              )).toList(),
             ),
-            maxLines: 3,
-          ),
-        ],
+            SizedBox(height: UIConstants.spacing16),
+            const Text('Or provide custom reason:', style: TextStyle(fontWeight: FontWeight.w500)),
+            SizedBox(height: UIConstants.spacing8),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                hintText: 'Enter rejection reason (minimum 10 characters)...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                ),
+                errorText: _charCount > 0 && _charCount < 10
+                    ? 'Reason must be at least 10 characters'
+                    : null,
+                helperText: '$_charCount/500 characters',
+                counterText: '',
+              ),
+              maxLength: 500,
+              maxLines: 4,
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -746,18 +947,14 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
-            if (_reasonController.text.trim().isNotEmpty) {
-              widget.onReject(_reasonController.text.trim());
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: _isReasonValid ? _showConfirmation : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.error,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
+            disabledBackgroundColor: AppColors.textTertiary,
           ),
           child: const Text('Reject'),
         ),

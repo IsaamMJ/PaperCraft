@@ -1,81 +1,43 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:printing/printing.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
 class PdfPreviewPage extends StatelessWidget {
   final Uint8List pdfBytes;
   final String paperTitle;
+  final String layoutType;
   final VoidCallback onDownload;
-  final VoidCallback onGenerateDual;
 
   const PdfPreviewPage({
     super.key,
     required this.pdfBytes,
     required this.paperTitle,
+    required this.layoutType,
     required this.onDownload,
-    required this.onGenerateDual,
   });
 
-  void _showDownloadOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: EdgeInsets.all(UIConstants.paddingMedium),
-        padding: EdgeInsets.all(UIConstants.paddingLarge),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
+  void _handleDownload(BuildContext context) {
+    onDownload();
+    Navigator.pop(context);
+  }
+
+  Future<void> _handlePrint(BuildContext context) async {
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: paperTitle,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print: $e'),
+          backgroundColor: AppColors.error,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Download Options',
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeXLarge,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing20),
-            _DownloadOption(
-              title: 'Single Page Layout',
-              subtitle: 'Download this preview (one paper per page)',
-              icon: Icons.description_rounded,
-              color: AppColors.primary,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                onDownload();
-              },
-            ),
-            SizedBox(height: UIConstants.spacing12),
-            _DownloadOption(
-              title: 'Dual Layout',
-              subtitle: 'Two identical papers per page (saves paper)',
-              icon: Icons.content_copy_rounded,
-              color: AppColors.accent,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                onGenerateDual();
-              },
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -89,9 +51,14 @@ class PdfPreviewPage extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            onPressed: () => _showDownloadOptions(context),
+            onPressed: () => _handlePrint(context),
+            icon: const Icon(Icons.print_rounded),
+            tooltip: 'Print PDF',
+          ),
+          IconButton(
+            onPressed: () => _handleDownload(context),
             icon: const Icon(Icons.download_rounded),
-            tooltip: 'Download Options',
+            tooltip: 'Download PDF',
           ),
         ],
       ),
@@ -106,6 +73,8 @@ class PdfPreviewPage extends StatelessWidget {
   }
 
   Widget _buildPaperInfoHeader() {
+    final layoutName = layoutType == 'single' ? 'Single Page Layout' : 'Side-by-Side Layout';
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(UIConstants.paddingMedium),
@@ -113,17 +82,39 @@ class PdfPreviewPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            paperTitle,
-            style: TextStyle(
-              fontSize: UIConstants.fontSizeLarge,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  paperTitle,
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeLarge,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  layoutName,
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeSmall,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
           SizedBox(height: UIConstants.spacing4),
           Text(
-            'PDF Preview - This is how your paper will look when printed',
+            'Preview how your paper will look when printed',
             style: TextStyle(
               fontSize: UIConstants.fontSizeMedium,
               color: AppColors.textSecondary,
@@ -179,42 +170,65 @@ class PdfPreviewPage extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.arrow_back, color: AppColors.textSecondary),
-                label: Text(
-                  'Back',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    vertical: UIConstants.spacing12,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _handlePrint(context),
+                    icon: Icon(Icons.print_rounded, color: AppColors.primary),
+                    label: Text(
+                      'Print',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        vertical: UIConstants.spacing12,
+                      ),
+                      side: BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      ),
+                    ),
                   ),
-                  side: BorderSide(color: AppColors.border),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                ),
+                SizedBox(width: UIConstants.spacing12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handleDownload(context),
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('Download'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        vertical: UIConstants.spacing12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-            SizedBox(width: UIConstants.spacing12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _showDownloadOptions(context),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('Download'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    vertical: UIConstants.spacing12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                  ),
+            SizedBox(height: UIConstants.spacing8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(Icons.arrow_back, color: AppColors.textSecondary, size: 18),
+              label: Text(
+                'Back to Paper Details',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(
+                  vertical: UIConstants.spacing8,
+                ),
+                side: BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 ),
               ),
             ),
@@ -225,63 +239,3 @@ class PdfPreviewPage extends StatelessWidget {
   }
 }
 
-class _DownloadOption extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _DownloadOption({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.all(UIConstants.paddingMedium),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: UIConstants.iconMedium),
-            SizedBox(width: UIConstants.spacing16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeLarge,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeSmall,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

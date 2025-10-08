@@ -1,7 +1,12 @@
+import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:papercraft/features/pdf_generation/presentation/pages/pdf_preview_page.dart';
+import '../../../pdf_generation/domain/services/pdf_generation_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
@@ -51,7 +56,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   bool _isSubmitting = false, _isPulling = false;
-  bool _isGeneratingPdf = false; // ADD THIS
+  bool _isGeneratingPdf = false;
+  bool _cancelPdfGeneration = false;
 
   // Add user info service
   late final UserInfoService _userInfoService;
@@ -334,8 +340,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         paper.status == PaperStatus.submitted ||
         paper.status == PaperStatus.approved) {
       actions.add(_buildActionBtn(
-          Icons.picture_as_pdf_rounded,
-          'View as PDF',
+          Icons.download_rounded,
+          'Download PDF',
           AppColors.accent,
               () => _showPdfViewOptions(paper),
           _isGeneratingPdf
@@ -664,78 +670,191 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _showPdfViewOptions(QuestionPaperEntity paper) {
+    bool showPreview = false;
+    String dualMode = 'balanced'; // 'balanced' or 'compressed'
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(UIConstants.paddingMedium),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          margin: const EdgeInsets.all(UIConstants.paddingMedium),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            Text(
-              'View PDF',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+              SizedBox(height: UIConstants.spacing16),
+              Text(
+                'Download PDF',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            SizedBox(height: UIConstants.spacing6),
-            Text(
-              paper.title,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: UIConstants.fontSizeSmall,
+              SizedBox(height: UIConstants.spacing6),
+              Text(
+                paper.title,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: UIConstants.fontSizeSmall,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            SizedBox(height: UIConstants.spacing20),
-            _buildPdfViewOption(
-              'Single Page Layout',
-              'One question paper per page',
-              Icons.description_rounded,
-              AppColors.primary,
-                  () => _viewPdf(paper, 'single'),
-            ),
-            const SizedBox(height: 10),
-            _buildPdfViewOption(
-              'Dual Layout',
-              'Two identical papers per page',
-              Icons.content_copy_rounded,
-              AppColors.accent,
-                  () => _viewPdf(paper, 'dual'),
-            ),
-            SizedBox(height: UIConstants.spacing12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary),
+              SizedBox(height: UIConstants.spacing20),
+              _buildPdfLayoutOption(
+                'Single Page Layout',
+                'One question paper per page',
+                Icons.description_rounded,
+                AppColors.primary,
+                () {
+                  Navigator.pop(context);
+                  _generateAndHandlePdf(paper, 'single', showPreview, dualMode: dualMode);
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              _buildPdfLayoutOption(
+                'Side-by-Side Layout',
+                dualMode == 'balanced'
+                    ? 'Balanced layout - even distribution'
+                    : 'Compressed - left fills first, then right (saves paper)',
+                Icons.content_copy_rounded,
+                AppColors.accent,
+                () {
+                  Navigator.pop(context);
+                  _generateAndHandlePdf(paper, 'dual', showPreview, dualMode: dualMode);
+                },
+              ),
+              const SizedBox(height: 10),
+              // Dual mode toggle
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.compress_rounded, color: AppColors.accent, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Compress Content',
+                            style: TextStyle(
+                              fontSize: UIConstants.fontSizeMedium,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Fill left side completely first, then continue on right',
+                            style: TextStyle(
+                              fontSize: UIConstants.fontSizeSmall,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: dualMode == 'compressed',
+                      onChanged: (value) {
+                        setModalState(() {
+                          dualMode = value ? 'compressed' : 'balanced';
+                        });
+                      },
+                      activeColor: AppColors.accent,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing16),
+              InkWell(
+                onTap: () {
+                  setModalState(() {
+                    showPreview = !showPreview;
+                  });
+                },
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundSecondary,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: showPreview,
+                        onChanged: (value) {
+                          setModalState(() {
+                            showPreview = value ?? false;
+                          });
+                        },
+                        activeColor: AppColors.primary,
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Preview before download',
+                              style: TextStyle(
+                                fontSize: UIConstants.fontSizeMedium,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'View PDF before saving to device',
+                              style: TextStyle(
+                                fontSize: UIConstants.fontSizeSmall,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPdfViewOption(
+  Widget _buildPdfLayoutOption(
       String title,
       String subtitle,
       IconData icon,
@@ -796,35 +915,61 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  Future<void> _viewPdf(QuestionPaperEntity paper, String layoutType) async {
-    setState(() => _isGeneratingPdf = true);
+  Future<void> _generateAndHandlePdf(QuestionPaperEntity paper, String layoutType, bool showPreview, {String dualMode = 'balanced'}) async {
+    setState(() {
+      _isGeneratingPdf = true;
+      _cancelPdfGeneration = false;
+    });
 
     try {
-      // Show loading dialog
+      // Show loading dialog with cancel option
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => Center(
-          child: Container(
-            padding: const EdgeInsets.all(UIConstants.paddingLarge),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: AppColors.primary),
-                SizedBox(height: UIConstants.spacing16),
-                Text(
-                  'Generating PDF...',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.all(UIConstants.paddingLarge),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: AppColors.primary),
+                  SizedBox(height: UIConstants.spacing16),
+                  Text(
+                    'Generating PDF...',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: UIConstants.spacing8),
+                  Text(
+                    'This may take a few seconds',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: UIConstants.fontSizeSmall,
+                    ),
+                  ),
+                  SizedBox(height: UIConstants.spacing16),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _cancelPdfGeneration = true);
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -834,7 +979,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
 
-      // Generate PDF based on layout type
+      // Generate PDF based on layout type and mode
       final pdfBytes = layoutType == 'single'
           ? await pdfService.generateStudentPdf(
         paper: paper,
@@ -843,32 +988,91 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           : await pdfService.generateDualLayoutPdf(
         paper: paper,
         schoolName: schoolName,
+        mode: dualMode == 'compressed' ? DualLayoutMode.compressed : DualLayoutMode.balanced,
       );
+
+      // Check if cancelled
+      if (_cancelPdfGeneration) {
+        if (mounted) {
+          setState(() => _isGeneratingPdf = false);
+          _showMessage('PDF generation cancelled', AppColors.warning);
+        }
+        return;
+      }
 
       // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
-      // Navigate to preview
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PdfPreviewPage(
-              pdfBytes: pdfBytes,
-              paperTitle: paper.title,
-              onDownload: () {}, // Empty callback since we don't need download
-              onGenerateDual: () {}, // Empty callback since we don't need dual
+      if (showPreview) {
+        // Navigate to preview page
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PdfPreviewPage(
+                pdfBytes: pdfBytes,
+                paperTitle: paper.title,
+                layoutType: layoutType,
+                onDownload: () => _downloadPdf(pdfBytes, paper.title, layoutType),
+              ),
             ),
-          ),
-        );
+          );
+        }
+      } else {
+        // Direct download without preview
+        await _downloadPdf(pdfBytes, paper.title, layoutType);
       }
     } catch (e) {
       // Close loading dialog if still open
       if (mounted) Navigator.of(context).pop();
 
-      _showMessage('Failed to generate PDF: $e', AppColors.error);
+      if (mounted) {
+        _showMessage('Failed to generate PDF: $e', AppColors.error);
+      }
     } finally {
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
+      }
+    }
+  }
+
+  Future<void> _downloadPdf(Uint8List pdfBytes, String paperTitle, String layoutType) async {
+    try {
+      final layoutSuffix = layoutType == 'single' ? 'Single' : 'SideBySide';
+      final fileName = '${paperTitle.replaceAll(RegExp(r'[^\w\s-]'), '')}_${layoutSuffix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      File? savedFile;
+
+      if (Platform.isAndroid) {
+        final directory = await getExternalStorageDirectory();
+        if (directory != null) {
+          final downloadsPath = Directory('${directory.path}/Download');
+          if (!await downloadsPath.exists()) {
+            await downloadsPath.create(recursive: true);
+          }
+          savedFile = File('${downloadsPath.path}/$fileName');
+        }
+      } else if (Platform.isIOS) {
+        final directory = await getApplicationDocumentsDirectory();
+        savedFile = File('${directory.path}/$fileName');
+      }
+
+      if (savedFile != null) {
+        await savedFile.writeAsBytes(pdfBytes);
+
+        // Share the file so user can open with PDF viewer
+        await Share.shareXFiles(
+          [XFile(savedFile.path, mimeType: 'application/pdf')],
+          text: paperTitle,
+          subject: 'Question Paper PDF',
+        );
+
+        if (mounted) {
+          _showMessage('PDF saved and ready to share!', AppColors.success);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Failed to download PDF: $e', AppColors.error);
       }
     }
   }

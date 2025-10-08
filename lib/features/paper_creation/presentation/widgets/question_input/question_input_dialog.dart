@@ -48,23 +48,70 @@ class QuestionInputDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return QuestionInputCoordinator(
-      sections: sections,
-      examType: examType,
-      selectedSubjects: selectedSubjects,
-      paperTitle: paperTitle,
-      gradeLevel: gradeLevel,
-      gradeId: gradeId,
-      academicYear: academicYear,
-      selectedSections: selectedSections,
-      onPaperCreated: onPaperCreated,
-      isAdmin: isAdmin,
-      existingQuestions: existingQuestions,
-      isEditing: isEditing,
-      existingPaperId: existingPaperId,
-      existingTenantId: existingTenantId,
-      existingUserId: existingUserId,
-      examDate: examDate,
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width < 600;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        margin: EdgeInsets.only(top: isMobile ? 40 : 60),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 20 : 12)),
+        ),
+        child: Column(
+          children: [
+            // Header with close button
+            Container(
+              padding: EdgeInsets.fromLTRB(20, isMobile ? 16 : 20, 8, 12),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      isEditing ? 'Edit Questions' : 'Add Questions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            // Coordinator content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(isMobile ? 20 : 24),
+                child: QuestionInputCoordinator(
+                  sections: sections,
+                  examType: examType,
+                  selectedSubjects: selectedSubjects,
+                  paperTitle: paperTitle,
+                  gradeLevel: gradeLevel,
+                  gradeId: gradeId,
+                  academicYear: academicYear,
+                  selectedSections: selectedSections,
+                  onPaperCreated: onPaperCreated,
+                  isAdmin: isAdmin,
+                  existingQuestions: existingQuestions,
+                  isEditing: isEditing,
+                  existingPaperId: existingPaperId,
+                  existingTenantId: existingTenantId,
+                  existingUserId: existingUserId,
+                  examDate: examDate,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

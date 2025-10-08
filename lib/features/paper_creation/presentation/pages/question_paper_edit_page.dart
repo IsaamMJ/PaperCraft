@@ -54,10 +54,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   final _titleController = TextEditingController();
 
   // Grade and Section Selection
-  List<GradeEntity> _availableGrades = []; // FIXED: Only use GradeEntity list
-  GradeEntity? _selectedGrade; // FIXED: Add selected grade entity
+  List<GradeEntity> _availableGrades = [];
+  GradeEntity? _selectedGrade;
   int? _selectedGradeLevel;
-  List<String> _availableSections = [];
   List<String> _selectedSections = [];
 
   // Exam type and subject - Loaded from BLoC
@@ -72,7 +71,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   // Paper being edited
   QuestionPaperEntity? _currentPaper;
   bool _isLoaded = false;
-  bool _isSaving = false;
 
   @override
   void initState() {
@@ -180,46 +178,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     }
   }
 
-  bool get _canSave {
-    final titleValid = _titleController.text.trim().isNotEmpty &&
-        _titleController.text.trim().length >= 3;
-    final gradeValid = _selectedGradeLevel != null && _selectedGrade != null;
-    final sectionsValid = _selectedSections.isNotEmpty || _availableSections.isEmpty;
-    final examTypeValid = _selectedExamType != null;
-    final subjectValid = _selectedSubject != null; // FIXED: check for null, not isEmpty
-
-    return titleValid && gradeValid && sectionsValid && examTypeValid && subjectValid;
-  }
-
-  void _onGradeSelected(GradeEntity grade) {
-    setState(() {
-      _selectedGrade = grade;
-      _selectedGradeLevel = grade.gradeNumber;
-      _selectedSections.clear();
-      _selectedSubject = null; // FIXED: null instead of clear()
-      _availableSections.clear();
-
-      // Filter subjects from LOADED data
-      if (_availableSubjects.isNotEmpty) {
-        _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
-          _availableSubjects,
-          grade.gradeNumber,
-        );
-      }
-    });
-
-    context.read<GradeBloc>().add(LoadSectionsByGrade(grade.gradeNumber));
-  }
-
-  void _onSectionToggled(String section, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedSections.add(section);
-      } else {
-        _selectedSections.remove(section);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,16 +210,12 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
 
               if (state is QuestionPaperSuccess) {
                 UiHelpers.showSuccessMessage(context, state.message);
-                if (state.actionType == 'save') {
-                  setState(() => _isSaving = false);
-                  Future.delayed(const Duration(seconds: 1), () {
-                    if (mounted) context.go(AppRoutes.home);
-                  });
-                }
+                Future.delayed(const Duration(seconds: 1), () {
+                  if (mounted) context.go(AppRoutes.home);
+                });
               }
 
               if (state is QuestionPaperError) {
-                setState(() => _isSaving = false);
                 UiHelpers.showErrorMessage(context, state.message);
               }
             },
@@ -279,11 +233,26 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                     );
                   }
                   // Re-populate selected subject if paper is loaded
-                  if (_currentPaper != null && _selectedGrade == null) {
-                    _selectedGrade = _availableGrades.firstWhere(
-                          (grade) => grade.gradeNumber == _currentPaper!.gradeLevel,
-                      orElse: () => _availableGrades.first,
-                    );
+                  if (_currentPaper != null && _selectedSubject == null) {
+                    try {
+                      _selectedSubject = _availableSubjects.firstWhere(
+                        (subject) => subject.id == _currentPaper!.subjectId,
+                      );
+                    } catch (e) {
+                      // If exact match not found, try to find by name
+                      try {
+                        _selectedSubject = _availableSubjects.firstWhere(
+                          (subject) => subject.name == _currentPaper!.subject,
+                        );
+                      } catch (e2) {
+                        // If still not found, use first from filtered subjects or all subjects
+                        if (_filteredSubjects.isNotEmpty) {
+                          _selectedSubject = _filteredSubjects.first;
+                        } else if (_availableSubjects.isNotEmpty) {
+                          _selectedSubject = _availableSubjects.first;
+                        }
+                      }
+                    }
                   }
                 });
               }
@@ -331,29 +300,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                         delegate: SliverChildListDelegate([
                           _buildHeader(),
                           SizedBox(height: UIConstants.spacing24),
-                          _buildTitleSection(),
-                          SizedBox(height: UIConstants.spacing20),
-                          _buildGradeSection(),
-                          if (_selectedGradeLevel != null) ...[
-                            SizedBox(height: UIConstants.spacing20),
-                            _buildSectionSelection(),
-                          ],
-                          if (_selectedGradeLevel != null &&
-                              (_selectedSections.isNotEmpty || _availableSections.isEmpty)) ...[
-                            SizedBox(height: UIConstants.spacing20),
-                            _buildExamTypeSection(),
-                          ],
-                          if (_selectedExamType != null) ...[
-                            SizedBox(height: UIConstants.spacing20),
-                            _buildSubjectSection(),
-                          ],
-                          if (_currentPaper != null && _currentPaper!.questions.isNotEmpty) ...[
+                          _buildPaperDetailsCard(),
+                          if (_currentPaper != null) ...[
                             SizedBox(height: UIConstants.spacing20),
                             _buildCurrentQuestionsSection(),
-                          ],
-                          if (_selectedExamType != null && _selectedSubject != null) ...[
-                            SizedBox(height: UIConstants.spacing20),
-                            _buildPreview(),
                           ],
                           SizedBox(height: UIConstants.spacing32),
                           _buildActions(),
@@ -436,7 +386,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Edit Question Paper',
+          'Edit Questions',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w700,
@@ -445,580 +395,222 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         ),
         SizedBox(height: UIConstants.spacing8),
         Text(
-          'Update the details and content of your question paper',
+          'Add, edit, or remove questions from this paper',
           style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
         ),
-        if (_currentPaper != null) ...[
-          SizedBox(height: UIConstants.spacing12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Editing: ${_currentPaper!.title}',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+        SizedBox(height: UIConstants.spacing12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline, color: AppColors.warning, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Paper details (title, grade, subject, exam type) cannot be changed after creation',
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
 
-  Widget _buildTitleSection() {
+  Widget _buildPaperDetailsCard() {
     return _buildCard(
-      'Paper Title',
-      'Update the title of your question paper',
-      TextFormField(
-        controller: _titleController,
-        decoration: InputDecoration(
-          hintText: 'e.g., Mathematics Midterm Exam 2024',
-          filled: true,
-          fillColor: AppColors.backgroundSecondary,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-            borderSide: BorderSide(color: AppColors.primary, width: 2),
-          ),
-          prefixIcon: Icon(Icons.title_rounded, color: AppColors.textSecondary),
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-    );
-  }
-
-  Widget _buildGradeSection() {
-    return BlocBuilder<GradeBloc, GradeState>(
-      builder: (context, state) {
-        return _buildCard(
-          'Grade Level',
-          'Select the grade level for this question paper',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (state is GradeLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (state is GradeError)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          state.message,
-                          style: TextStyle(color: AppColors.error),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (_availableGrades.isNotEmpty) ...[
-                  DropdownButtonFormField<GradeEntity>(
-                    value: _selectedGrade,
-                    hint: const Text('Select Grade Level'),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.backgroundSecondary,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                        borderSide: BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
-                    ),
-                    items: _availableGrades.map((grade) {
-                      return DropdownMenuItem(
-                        value: grade,
-                        child: Text('Grade ${grade.gradeNumber}'),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        _onGradeSelected(value);
-                      }
-                    },
-                  ),
-                  if (_selectedGradeLevel != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Selected: Grade $_selectedGradeLevel',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: UIConstants.fontSizeMedium,
-                        ),
-                      ),
-                    ),
-                ] else
-                  const Text('Loading grade levels...'),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionSelection() {
-    return BlocBuilder<GradeBloc, GradeState>(
-      builder: (context, state) {
-        if (state is SectionsLoaded) {
-          _availableSections = state.sections;
-        }
-
-        return _buildCard(
-          'Sections',
-          'Select which sections this paper applies to',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_availableSections.isEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'No specific sections found for Grade $_selectedGradeLevel. This paper will apply to all sections.',
-                          style: TextStyle(color: AppColors.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: _availableSections.map((section) {
-                    final isSelected = _selectedSections.contains(section);
-                    return FilterChip(
-                      label: Text('Section $section'),
-                      selected: isSelected,
-                      onSelected: (selected) => _onSectionToggled(section, selected),
-                      backgroundColor: AppColors.surface,
-                      selectedColor: AppColors.primary.withValues(alpha: 0.1),
-                      checkmarkColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.border,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                if (_selectedSections.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Please select at least one section',
-                      style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium),
-                    ),
-                  ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildExamTypeSection() {
-    if (_availableExamTypes.isEmpty) {
-      return _buildCard(
-        'Exam Type',
-        'Choose the type of exam you want to create',
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-
-    return _buildCard(
-      'Exam Type',
-      'Choose the type of exam you want to create',
-      Column(
-        children: _availableExamTypes.map((type) {
-          final isSelected = _selectedExamType?.id == type.id;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() => _selectedExamType = type),
-                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                child: Container(
-                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.border,
-                            width: 2,
-                          ),
-                          color: isSelected ? AppColors.primary : Colors.transparent,
-                        ),
-                        child: isSelected ? Icon(Icons.check, size: 12, color: Colors.white) : null,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              type.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(height: UIConstants.spacing4),
-                            Text(
-                              '${type.formattedDuration} • ${type.calculatedTotalMarks} marks • ${type.sections.length} sections',
-                              style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isSelected) Icon(Icons.check_circle, color: AppColors.primary),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSubjectSection() {
-    return _buildCard(
-      'Subject',
-      'Select subject for this paper (filtered by Grade $_selectedGradeLevel)',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_filteredSubjects.isEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_outlined, color: AppColors.warning, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _availableSubjects.isEmpty
-                          ? 'Loading subjects...'
-                          : 'No subjects available for Grade $_selectedGradeLevel',
-                      style: TextStyle(color: AppColors.warning),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            Text(
-              'Available subjects for Grade $_selectedGradeLevel:',
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeMedium,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _filteredSubjects.map((subject) {
-                final isSelected = _selectedSubject?.id == subject.id;
-                return FilterChip(
-                  label: Text(subject.name),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedSubject = selected ? subject : null;
-                    });
-                  },
-                  backgroundColor: AppColors.surface,
-                  selectedColor: AppColors.primary.withValues(alpha: 0.1),
-                  checkmarkColor: AppColors.primary,
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                  ),
-                );
-              }).toList(),
-            ),
-            if (_selectedSubject == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  'Please select a subject',
-                  style: TextStyle(color: AppColors.error, fontSize: UIConstants.fontSizeMedium),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentQuestionsSection() {
-    if (_currentPaper == null || _currentPaper!.questions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return _buildCard(
-      'Current Questions',
-      'Questions currently in this paper',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ..._currentPaper!.questions.entries.map((entry) {
-            final sectionName = entry.key;
-            final questions = entry.value;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    sectionName,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: UIConstants.spacing8),
-                  Text(
-                    '${questions.length} questions',
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeMedium,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          SizedBox(height: UIConstants.spacing12),
-          ElevatedButton.icon(
-            onPressed: _editQuestions,
-            icon: const Icon(Icons.edit_rounded),
-            label: const Text('Edit Questions'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreview() {
-    return _buildCard(
-      'Preview',
-      'Here\'s how your updated paper will look',
+      'Paper Details',
+      'These details are locked and cannot be changed',
       Container(
         padding: const EdgeInsets.all(UIConstants.paddingMedium),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary.withValues(alpha: 0.05), AppColors.secondary.withValues(alpha: 0.05)],
-          ),
+          color: AppColors.backgroundSecondary,
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Paper',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing12),
-            if (_selectedGradeLevel != null)
-              _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
-            if (_selectedSections.isNotEmpty)
-              _buildPreviewRow(Icons.class_rounded, 'Sections', _selectedSections.join(', '))
-            else if (_availableSections.isEmpty)
-              _buildPreviewRow(Icons.class_rounded, 'Sections', 'All sections'),
-            _buildPreviewRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType!.name),
-            _buildPreviewRow(Icons.access_time_rounded, 'Duration', _selectedExamType!.formattedDuration),
-            _buildPreviewRow(Icons.grade_rounded, 'Total Marks', '${_selectedExamType!.calculatedTotalMarks}'),
-            if (_selectedSubject != null)
-              _buildPreviewRow(
-                Icons.subject_rounded,
-                'Subject',
-                _selectedSubject!.name,
-              ),
-            if (_currentPaper != null && _currentPaper!.questions.isNotEmpty) ...[
-              SizedBox(height: UIConstants.spacing12),
-              Text(
-                'Current Questions: ${_currentPaper!.totalQuestions}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+            _buildLockedRow(Icons.title_rounded, 'Title', _titleController.text.isNotEmpty ? _titleController.text : 'Loading...'),
+            Divider(height: 24, color: AppColors.border),
+            _buildLockedRow(Icons.school_rounded, 'Grade', _selectedGradeLevel != null ? 'Grade $_selectedGradeLevel' : 'Loading...'),
+            Divider(height: 24, color: AppColors.border),
+            _buildLockedRow(Icons.class_rounded, 'Sections', _selectedSections.isNotEmpty ? _selectedSections.join(', ') : 'All sections'),
+            Divider(height: 24, color: AppColors.border),
+            _buildLockedRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType?.name ?? 'Loading...'),
+            if (_selectedExamType != null) ...[
+              SizedBox(height: UIConstants.spacing4),
+              Padding(
+                padding: const EdgeInsets.only(left: 36),
+                child: Text(
+                  '${_selectedExamType!.formattedDuration} • ${_selectedExamType!.calculatedTotalMarks} marks • ${_selectedExamType!.sections.length} sections',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeSmall,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
-            SizedBox(height: UIConstants.spacing12),
-            Text('Sections:', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            SizedBox(height: UIConstants.spacing8),
-            ..._selectedExamType!.sections.map((section) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${section.name} (${section.questions} questions × ${section.marksPerQuestion} marks)',
-                      style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
-            )),
+            Divider(height: 24, color: AppColors.border),
+            _buildLockedRow(Icons.subject_rounded, 'Subject', _selectedSubject?.name ?? 'Loading...'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPreviewRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.textSecondary),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+  Widget _buildLockedRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          Expanded(child: Text(value, style: TextStyle(color: AppColors.textPrimary))),
+        ),
+        Icon(Icons.lock, size: 16, color: AppColors.textTertiary),
+      ],
+    );
+  }
+
+  Widget _buildCurrentQuestionsSection() {
+    if (_currentPaper == null) {
+      return const SizedBox.shrink();
+    }
+
+    final hasQuestions = _currentPaper!.questions.isNotEmpty;
+
+    return _buildCard(
+      'Questions',
+      hasQuestions ? 'Manage questions for this paper' : 'No questions added yet',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasQuestions) ...[
+            ..._currentPaper!.questions.entries.map((entry) {
+              final sectionName = entry.key;
+              final questions = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sectionName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: UIConstants.spacing8),
+                    Text(
+                      '${questions.length} questions',
+                      style: TextStyle(
+                        fontSize: UIConstants.fontSizeMedium,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            SizedBox(height: UIConstants.spacing12),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This paper has no questions yet. Click below to add questions.',
+                      style: TextStyle(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing16),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _editQuestions,
+              icon: Icon(hasQuestions ? Icons.edit_rounded : Icons.add_rounded),
+              label: Text(hasQuestions ? 'Edit Questions' : 'Add Questions'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
+
   Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _navigateBack,
-            icon: const Icon(Icons.close_rounded),
-            label: const Text('Cancel'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: BorderSide(color: AppColors.border),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
-            ),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _navigateBack,
+        icon: const Icon(Icons.arrow_back_rounded),
+        label: const Text('Back to Papers'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          side: BorderSide(color: AppColors.border),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton.icon(
-            onPressed: _canSave && !_isSaving ? _saveChanges : null,
-            icon: _isSaving
-                ? SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white),
-              ),
-            )
-                : const Icon(Icons.save_rounded),
-            label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusLarge)),
-              disabledBackgroundColor: AppColors.textTertiary,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -1060,7 +652,16 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _editQuestions() {
-    if (_currentPaper == null || _selectedExamType == null || _selectedSubject == null) return;
+    if (_currentPaper == null || _selectedExamType == null || _selectedSubject == null) {
+      // Show error message if required data is missing
+      String missingData = '';
+      if (_currentPaper == null) missingData = 'Paper data not loaded';
+      else if (_selectedExamType == null) missingData = 'Exam type not loaded';
+      else if (_selectedSubject == null) missingData = 'Subject not loaded';
+
+      UiHelpers.showErrorMessage(context, 'Cannot edit questions: $missingData');
+      return;
+    }
 
     showDialog(
       context: context,
@@ -1101,26 +702,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
     );
   }
 
-  void _saveChanges() {
-    if (!_canSave || _isSaving || _currentPaper == null || _selectedGrade == null) return;
-
-    setState(() => _isSaving = true);
-
-    final updatedPaper = _currentPaper!.copyWith(
-      title: _titleController.text.trim(),
-      gradeLevel: _selectedGradeLevel,
-      gradeId: _selectedGrade!.id, // Use the full grade entity
-      selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
-      examTypeId: _selectedExamType!.id,
-      examType: _selectedExamType!.name,
-      subjectId: _selectedSubject?.id ?? _currentPaper!.subjectId,
-      subject: _selectedSubject?.name ?? _currentPaper!.subject,
-      examTypeEntity: _selectedExamType!,
-      modifiedAt: DateTime.now(),
-    );
-
-    context.read<QuestionPaperBloc>().add(SaveDraft(updatedPaper));
-  }
 
   void _showSuccess() {
     _showMessage('Question paper updated successfully!', AppColors.success);

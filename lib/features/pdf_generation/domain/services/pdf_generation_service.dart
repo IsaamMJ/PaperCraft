@@ -5,6 +5,25 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+
+class DualPageData {
+  final pw.Widget leftContent;
+  final pw.Widget rightContent;
+  final int pageNumber;
+
+  DualPageData({
+    required this.leftContent,
+    required this.rightContent,
+    required this.pageNumber,
+  });
+}
+
+enum DualLayoutMode {
+  balanced,    // Balance content between left/right (current)
+  compressed,  // Pack content tightly from top, fill both sides completely
+  identical,   // Both sides identical (only for small papers)
+}
+
 abstract class IPdfGenerationService {
   Future<Uint8List> generateStudentPdf({
     required QuestionPaperEntity paper,
@@ -16,6 +35,7 @@ abstract class IPdfGenerationService {
   Future<Uint8List> generateDualLayoutPdf({
     required QuestionPaperEntity paper,
     required String schoolName,
+    DualLayoutMode mode = DualLayoutMode.balanced,
   });
 
 }
@@ -23,6 +43,11 @@ abstract class IPdfGenerationService {
 class SimplePdfService implements IPdfGenerationService {
   static const int MAX_QUESTIONS_PER_BATCH = 20;
   static const int MAX_QUESTIONS_PER_PAGE = 10;
+
+  // Layout constants for dual mode
+  static const double DUAL_PAGE_HEIGHT = 550; // A4 landscape height in points minus margins
+  static const double HEADER_HEIGHT = 80;
+  static const double AVAILABLE_CONTENT_HEIGHT = DUAL_PAGE_HEIGHT - HEADER_HEIGHT;
 
   // Mobile-compatible fonts - using built-in fonts only
   static pw.Font? _regularFont;
@@ -32,20 +57,22 @@ class SimplePdfService implements IPdfGenerationService {
   Future<Uint8List> generateDualLayoutPdf({
     required QuestionPaperEntity paper,
     required String schoolName,
+    DualLayoutMode mode = DualLayoutMode.balanced,
   }) async {
     await _loadFonts();
     final pdf = pw.Document();
 
     try {
       final allSections = _getSortedSections(paper.questions);
-      final totalSections = allSections.length;
 
-      // Estimate: ~8-10 questions per side (adjust based on your content)
-      final estimatedQuestionsPerSide = 12;
-      final totalQuestions = paper.questions.values.expand((q) => q).length;
+      // Calculate total content height
+      double totalHeight = 0;
+      for (final section in allSections) {
+        totalHeight += _calculateSectionHeight(section.key, section.value);
+      }
 
-      // Check if content fits in single page dual layout
-      if (totalQuestions <= estimatedQuestionsPerSide) {
+      // If content fits on one side, duplicate it (identical layout)
+      if (totalHeight <= AVAILABLE_CONTENT_HEIGHT * 0.85 || mode == DualLayoutMode.identical) {
         // Single page - both sides identical with full content
         pdf.addPage(
           pw.Page(
@@ -63,50 +90,49 @@ class SimplePdfService implements IPdfGenerationService {
             },
           ),
         );
+      } else if (mode == DualLayoutMode.compressed) {
+        // Compressed mode - fill both sides from top to bottom
+        final compressedPages = _compressContentForDualLayout(allSections, schoolName, paper);
+
+        for (final pageData in compressedPages) {
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4.landscape,
+              margin: const pw.EdgeInsets.all(15),
+              build: (context) {
+                return pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(child: pageData.leftContent),
+                    pw.SizedBox(width: 10),
+                    pw.Expanded(child: pageData.rightContent),
+                  ],
+                );
+              },
+            ),
+          );
+        }
       } else {
-        // Multi-page needed - split content
-        final halfPoint = (totalSections / 2).ceil();
-        final leftSections = Map.fromEntries(allSections.take(halfPoint));
-        final rightSections = Map.fromEntries(allSections.skip(halfPoint));
+        // Balanced mode - use space-based splitting
+        final balancedPages = _balanceContentForDualLayout(allSections, schoolName, paper);
 
-        // First page: Left with header + Right continuation
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4.landscape,
-            margin: const pw.EdgeInsets.all(15),
-            build: (context) {
-              return pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // LEFT: Header + first half sections
-                  pw.Expanded(
-                    child: _buildSinglePaperLayout(
-                      schoolName,
-                      paper,
-                      sectionsToShow: leftSections,
-                      startingSectionIndex: 1,
-                    ),
-                  ),
-                  pw.SizedBox(width: 10),
-                  // RIGHT: Continuation without header
-                  pw.Expanded(
-                    child: _buildContinuationLayout(
-                      paper,
-                      rightSections,
-                      startingSectionIndex: halfPoint + 1,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-
-        // If right side still has overflow (very long papers), add more pages
-        // This handles extreme cases with 30+ questions
-        if (totalQuestions > estimatedQuestionsPerSide * 2) {
-          // Add additional continuation pages as needed
-          // For now, the single overflow page should handle most cases
+        for (final pageData in balancedPages) {
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4.landscape,
+              margin: const pw.EdgeInsets.all(15),
+              build: (context) {
+                return pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(child: pageData.leftContent),
+                    pw.SizedBox(width: 10),
+                    pw.Expanded(child: pageData.rightContent),
+                  ],
+                );
+              },
+            ),
+          );
         }
       }
     } catch (e) {
@@ -293,9 +319,7 @@ class SimplePdfService implements IPdfGenerationService {
                   studentName: studentName,
                   rollNumber: rollNumber,
                 ),
-                pw.SizedBox(height: 3), // Reduced from 6
-                _buildCompactInstructionsForSinglePage(),
-                pw.SizedBox(height: 4), // Reduced from 8
+                pw.SizedBox(height: 6),
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1201,4 +1225,288 @@ class SimplePdfService implements IPdfGenerationService {
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
+
+  /// Calculate estimated height for a question in points
+  double _calculateQuestionHeight(Question question) {
+    double height = 0;
+
+    // Base question text height (varies by text length)
+    final textLength = question.text.length;
+    if (textLength <= 50) {
+      height += 15; // Single line
+    } else if (textLength <= 100) {
+      height += 25; // Two lines
+    } else {
+      height += 35; // Multiple lines
+    }
+
+    // Spacing after question text
+    height += 3;
+
+    // Options height (depends on question type)
+    if (question.options != null && question.options!.isNotEmpty) {
+      if (question.type == 'match_following') {
+        // Matching questions take significantly more space (table layout)
+        final maxPairs = question.options!.length ~/ 2;
+        height += 15 + (maxPairs * 10); // Header + rows
+      } else {
+        // MCQ options (horizontal wrap)
+        final optionCount = question.options!.length;
+        final avgOptionLength = question.options!.map((o) => o.length).reduce((a, b) => a + b) / optionCount;
+
+        if (avgOptionLength > 30) {
+          // Long options, likely vertical
+          height += optionCount * 12;
+        } else {
+          // Short options, horizontal wrap
+          height += ((optionCount / 2).ceil()) * 12;
+        }
+      }
+      height += 3;
+    }
+
+    // Sub-questions height
+    if (question.subQuestions.isNotEmpty) {
+      height += 3; // Spacing before sub-questions
+      for (final subQ in question.subQuestions) {
+        final subTextLength = subQ.text.length;
+        if (subTextLength <= 40) {
+          height += 12;
+        } else {
+          height += 18;
+        }
+      }
+    }
+
+    // Spacing after question
+    height += 4;
+
+    return height;
+  }
+
+  /// Calculate total height for a section including header
+  double _calculateSectionHeight(String sectionName, List<Question> questions) {
+    if (questions.isEmpty) return 0;
+
+    double height = 0;
+
+    // Section header
+    height += 20;
+
+    // Common instruction (if applicable)
+    final commonInstruction = _getCommonInstruction(questions.first.type);
+    if (commonInstruction.isNotEmpty) {
+      height += 18;
+    }
+
+    // Questions
+    for (final question in questions) {
+      height += _calculateQuestionHeight(question);
+    }
+
+    // Spacing after section
+    height += 6;
+
+    return height;
+  }
+
+  /// Balance content across dual layout pages using space-based algorithm
+  List<DualPageData> _balanceContentForDualLayout(
+    List<MapEntry<String, List<Question>>> allSections,
+    String schoolName,
+    QuestionPaperEntity paper,
+  ) {
+    final pages = <DualPageData>[];
+    int currentSectionIndex = 1;
+
+    // Flatten all sections into list of (section, question) pairs
+    final allItems = <_SectionItem>[];
+    for (final section in allSections) {
+      for (final question in section.value) {
+        allItems.add(_SectionItem(
+          sectionName: section.key,
+          question: question,
+          sectionIndex: currentSectionIndex,
+        ));
+      }
+      currentSectionIndex++;
+    }
+
+    // Balance items into pages
+    int itemIndex = 0;
+    int pageNumber = 1;
+
+    while (itemIndex < allItems.length) {
+      // Try to fit as many items as possible on this page
+      final pageItems = <_SectionItem>[];
+      double pageHeight = 0;
+      final maxPageHeight = AVAILABLE_CONTENT_HEIGHT * 2; // Both sides combined
+
+      while (itemIndex < allItems.length && pageHeight < maxPageHeight) {
+        final item = allItems[itemIndex];
+        final itemHeight = _calculateQuestionHeight(item.question) + 5; // +5 for buffer
+
+        if (pageHeight + itemHeight <= maxPageHeight || pageItems.isEmpty) {
+          pageItems.add(item);
+          pageHeight += itemHeight;
+          itemIndex++;
+        } else {
+          break; // Page full
+        }
+      }
+
+      // Balance page items into left and right columns
+      final (leftItems, rightItems) = _balanceItems(pageItems);
+
+      // Build left and right content
+      final leftSections = _groupItemsBySection(leftItems);
+      final rightSections = _groupItemsBySection(rightItems);
+
+      final leftContent = pageNumber == 1
+          ? _buildSinglePaperLayout(schoolName, paper, sectionsToShow: leftSections)
+          : _buildContinuationLayout(paper, leftSections);
+
+      final rightContent = _buildContinuationLayout(paper, rightSections);
+
+      pages.add(DualPageData(
+        leftContent: leftContent,
+        rightContent: rightContent,
+        pageNumber: pageNumber,
+      ));
+
+      pageNumber++;
+    }
+
+    return pages;
+  }
+
+  /// Balance items between left and right columns based on space
+  (List<_SectionItem>, List<_SectionItem>) _balanceItems(List<_SectionItem> items) {
+    final leftItems = <_SectionItem>[];
+    final rightItems = <_SectionItem>[];
+    double leftHeight = 0;
+    double rightHeight = 0;
+
+    for (final item in items) {
+      final itemHeight = _calculateQuestionHeight(item.question);
+
+      // Add to the side with less content
+      if (leftHeight <= rightHeight && leftHeight + itemHeight <= AVAILABLE_CONTENT_HEIGHT) {
+        leftItems.add(item);
+        leftHeight += itemHeight;
+      } else if (rightHeight + itemHeight <= AVAILABLE_CONTENT_HEIGHT) {
+        rightItems.add(item);
+        rightHeight += itemHeight;
+      } else {
+        // If both sides full, add to left (will overflow to next page)
+        leftItems.add(item);
+        leftHeight += itemHeight;
+      }
+    }
+
+    return (leftItems, rightItems);
+  }
+
+  /// Group items back into section maps
+  Map<String, List<Question>> _groupItemsBySection(List<_SectionItem> items) {
+    final sections = <String, List<Question>>{};
+
+    for (final item in items) {
+      sections.putIfAbsent(item.sectionName, () => []).add(item.question);
+    }
+
+    return sections;
+  }
+
+  /// Compress content - fill left side COMPLETELY first, only use right when left is full
+  /// This saves paper by maximizing space usage while keeping content continuous
+  List<DualPageData> _compressContentForDualLayout(
+    List<MapEntry<String, List<Question>>> allSections,
+    String schoolName,
+    QuestionPaperEntity paper,
+  ) {
+    final pages = <DualPageData>[];
+
+    // Calculate total content height
+    double totalHeight = 0;
+    for (final section in allSections) {
+      totalHeight += _calculateSectionHeight(section.key, section.value);
+    }
+
+    // If all content fits on LEFT side only, don't use right side at all
+    if (totalHeight <= AVAILABLE_CONTENT_HEIGHT) {
+      final leftContent = _buildSinglePaperLayout(schoolName, paper);
+
+      pages.add(DualPageData(
+        leftContent: leftContent,
+        rightContent: pw.Container(), // Right side empty
+        pageNumber: 1,
+      ));
+
+      return pages;
+    }
+
+    // Content needs to overflow - fill left completely, then use right
+    // Split sections by height for left and right
+    final leftSections = <MapEntry<String, List<Question>>>[];
+    final rightSections = <MapEntry<String, List<Question>>>[];
+    double leftHeight = 0;
+    double rightHeight = 0;
+
+    for (final section in allSections) {
+      final sectionHeight = _calculateSectionHeight(section.key, section.value);
+
+      // Try to fit entire section on left first
+      if (leftHeight + sectionHeight <= AVAILABLE_CONTENT_HEIGHT * 0.95) {
+        leftSections.add(section);
+        leftHeight += sectionHeight;
+      } else {
+        // Left is full, add to right
+        rightSections.add(section);
+        rightHeight += sectionHeight;
+      }
+    }
+
+    // Build single page with full left, continuation on right
+    final leftContent = _buildSinglePaperLayout(
+      schoolName,
+      paper,
+      sectionsToShow: Map.fromEntries(leftSections),
+      startingSectionIndex: 1,
+    );
+
+    final rightContent = rightSections.isNotEmpty
+        ? _buildContinuationLayout(
+            paper,
+            Map.fromEntries(rightSections),
+            startingSectionIndex: leftSections.length + 1,
+          )
+        : pw.Container();
+
+    pages.add(DualPageData(
+      leftContent: leftContent,
+      rightContent: rightContent,
+      pageNumber: 1,
+    ));
+
+    // If right side also overflows (very long papers), create additional pages
+    if (rightHeight > AVAILABLE_CONTENT_HEIGHT) {
+      // TODO: Handle extreme cases with 40+ questions
+      // For now, content will be compressed on right side
+    }
+
+    return pages;
+  }
+}
+
+class _SectionItem {
+  final String sectionName;
+  final Question question;
+  final int sectionIndex;
+
+  _SectionItem({
+    required this.sectionName,
+    required this.question,
+    required this.sectionIndex,
+  });
 }

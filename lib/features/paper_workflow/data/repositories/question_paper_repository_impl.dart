@@ -117,8 +117,21 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
         return Left(ValidationFailure(_getSubmissionError(paper)));
       }
 
+      _logger.info('Submitting paper', category: LogCategory.paper, context: {
+        'draftId': paper.id,
+        'title': paper.title,
+        'status': paper.status.toString(),
+        'subjectId': paper.subjectId,
+        'gradeId': paper.gradeId,
+        'tenantId': tenantId,
+        'userId': userId,
+      });
+
+      // Check if this paper already exists in cloud (resubmission scenario)
+      final existingPaper = await _cloudDataSource.getPaperById(paper.id);
+
       final cloudPaper = paper.copyWith(
-        id: '', // Let Supabase generate UUID
+        id: existingPaper != null ? paper.id : '', // Keep ID for resubmission, let Supabase generate for new
         status: PaperStatus.submitted,
         tenantId: tenantId,
         userId: userId,
@@ -130,18 +143,33 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       );
 
       final model = QuestionPaperModel.fromEntity(cloudPaper);
+
+      _logger.info('Converted to model', category: LogCategory.paper, context: {
+        'modelId': model.id,
+        'modelTitle': model.title,
+      });
+
       final submittedModel = await _cloudDataSource.submitPaper(model);
 
       await _localDataSource.deleteDraft(paper.id);
 
-      _logger.info('Paper submitted', category: LogCategory.paper, context: {
-        'originalId': paper.id,
-        'newId': submittedModel.id,
+      _logger.info('Paper submitted successfully', category: LogCategory.paper, context: {
+        'originalDraftId': paper.id,
+        'newSubmittedId': submittedModel.id,
       });
 
       return Right(submittedModel.toEntity());
     } catch (e, stackTrace) {
-      _logger.error('Failed to submit paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      _logger.error('Failed to submit paper', category: LogCategory.paper, error: e, stackTrace: stackTrace, context: {
+        'paperId': paper.id,
+        'paperTitle': paper.title,
+      });
+
+      // Check if it's a unique constraint error
+      if (e.toString().contains('duplicate') || e.toString().contains('already exists') || e.toString().contains('unique')) {
+        return Left(ValidationFailure('A paper with similar details already exists. Please check if you have already submitted this paper.'));
+      }
+
       return Left(ServerFailure('Failed to submit paper: ${e.toString()}'));
     }
   }
@@ -267,24 +295,45 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
         return Left(PermissionFailure('Can only edit own papers'));
       }
 
-      final newDraftId = 'draft_${const Uuid().v4()}';
+      _logger.info('Pulling rejected paper for editing', category: LogCategory.paper, context: {
+        'paperId': id,
+        'title': cloudEntity.title,
+        'currentStatus': cloudEntity.status.toString(),
+      });
 
-      final draftPaper = cloudEntity.copyWith(
-        id: newDraftId,
-        status: PaperStatus.draft,
-        modifiedAt: DateTime.now(),
-        rejectionReason: null,
-        submittedAt: null,
-        reviewedAt: null,
-        reviewedBy: null,
-        tenantId: null,
-        userId: null,
+      // Save rejection history before converting to draft
+      if (cloudEntity.rejectionReason != null && cloudEntity.reviewedBy != null) {
+        await _cloudDataSource.saveRejectionHistory(
+          paperId: id,
+          rejectionReason: cloudEntity.rejectionReason!,
+          rejectedBy: cloudEntity.reviewedBy!,
+          rejectedAt: cloudEntity.reviewedAt ?? DateTime.now(),
+        );
+
+        _logger.info('Saved rejection history', category: LogCategory.paper, context: {
+          'paperId': id,
+        });
+      }
+
+      // Convert the same paper back to draft status (edit in place)
+      final updatedModel = await _cloudDataSource.updatePaperStatus(
+        id,
+        PaperStatus.draft.value,
+        clearRejectionData: true,
       );
 
-      final localModel = QuestionPaperModel.fromEntity(draftPaper);
+      final draftEntity = updatedModel.toEntity();
+
+      // Also save as local draft for offline editing
+      final localModel = QuestionPaperModel.fromEntity(draftEntity);
       await _localDataSource.saveDraft(localModel);
 
-      return Right(draftPaper);
+      _logger.info('Paper converted to draft for editing', category: LogCategory.paper, context: {
+        'paperId': id,
+        'newStatus': draftEntity.status.toString(),
+      });
+
+      return Right(draftEntity);
     } catch (e, stackTrace) {
       _logger.error('Failed to pull for editing', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to pull paper: ${e.toString()}'));
@@ -377,6 +426,17 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
     } catch (e, stackTrace) {
       _logger.error('Failed to get paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to get paper: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getRejectionHistory(String paperId) async {
+    try {
+      final history = await _cloudDataSource.getRejectionHistory(paperId);
+      return Right(history);
+    } catch (e, stackTrace) {
+      _logger.error('Failed to get rejection history', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to get rejection history: ${e.toString()}'));
     }
   }
 }

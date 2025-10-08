@@ -5,7 +5,6 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
-import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../../core/presentation/widgets/step_progress_indicator.dart';
@@ -17,9 +16,7 @@ import '../../../catalog/domain/entities/subject_entity.dart';
 import '../../../catalog/presentation/bloc/exam_type_bloc.dart' as exam_type;
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
-import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
-import '../../domain/services/paper_validation_service.dart';
-import '../widgets/question_input/question_input_dialog.dart';
+import '../../domain/services/question_input_coordinator.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {
   const QuestionPaperCreatePage({super.key});
@@ -34,7 +31,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   late Animation<Offset> _slideAnim;
 
   int _currentStep = 1;
-  final int _totalSteps = 4;
+  final int _totalSteps = 2;
 
   // Form state
   List<GradeEntity> _availableGrades = [];
@@ -51,8 +48,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   List<SubjectEntity> _availableSubjects = [];
   SubjectEntity? _selectedSubject;
 
-  bool _isCreating = false;
-
   @override
   void initState() {
     super.initState();
@@ -68,6 +63,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
     _loadInitialData();
     context.read<exam_type.ExamTypeBloc>().add(const exam_type.LoadExamTypes());
+
+    // Set smart default for exam date (7 days from now)
+    _selectedExamDate = DateTime.now().add(const Duration(days: 7));
 
     Future.delayed(
       const Duration(milliseconds: 200),
@@ -122,13 +120,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
+        // All metadata must be filled: Grade, Subject, Exam Type, Date, Sections
         return _selectedGradeLevel != null &&
+            _selectedSubject != null &&
+            _selectedExamType != null &&
+            _selectedExamDate != null &&
             !_isSectionsLoading &&
             (_availableSections.isEmpty || _selectedSections.isNotEmpty);
-      case 2:
-        return _selectedExamType != null && _selectedExamDate != null;
-      case 3:
-        return _selectedSubject != null;
       default:
         return true;
     }
@@ -301,90 +299,234 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   String _getStepTitle(int step) {
     switch (step) {
-      case 1: return 'Basic Info';
-      case 2: return 'Exam Setup';
-      case 3: return 'Subject';
-      case 4: return 'Review';
+      case 1: return 'Quick Setup';
+      case 2: return 'Add Questions';
       default: return '';
     }
   }
 
   Widget _buildCurrentStep() {
     switch (_currentStep) {
-      case 1: return _buildStep1();
-      case 2: return _buildStep2();
-      case 3: return _buildStep3();
-      case 4: return _buildStep4();
+      case 1: return _buildQuickSetupStep();
+      case 2: return _buildQuestionsStep();
       default: return Container();
     }
   }
 
-  Widget _buildStep1() {
+  Widget _buildQuickSetupStep() {
     return _buildStepCard(
-      'Basic Information',
-      'Select the grade level and sections for your question paper',
-      BlocBuilder<GradeBloc, GradeState>(
-        builder: (context, state) {
-          if (state is GradeLoading) {
-            return LoadingWidget(message: state.message ?? 'Loading grades...');
-          }
+      'Quick Setup',
+      'Configure your question paper details',
+      SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Grade Selection
+            BlocBuilder<GradeBloc, GradeState>(
+              builder: (context, state) {
+                if (state is GradeLoading) {
+                  return LoadingWidget(message: state.message ?? 'Loading...');
+                }
 
-          if (state is GradeError) {
-            return ErrorStateWidget(message: state.message, onRetry: _loadInitialData);
-          }
+                if (state is GradeError) {
+                  return ErrorStateWidget(message: state.message, onRetry: _loadInitialData);
+                }
 
-          if (_availableGrades.isEmpty) {
-            return EmptyMessageWidget(
-              icon: Icons.school_outlined,
-              title: sl<UserStateService>().isTeacher ? 'No Grades Assigned' : 'No Grades Available',
-              message: sl<UserStateService>().isTeacher
-                  ? 'Contact your administrator to get assigned to grades.'
-                  : 'Add grades in Settings → Manage Grades.',
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DropdownButtonFormField<GradeEntity>(
-                value: _selectedGrade,
-                hint: const Text('Select Grade Level'),
-                decoration: InputDecoration(
-                  labelText: 'Grade Level',
-                  filled: true,
-                  fillColor: AppColors.backgroundSecondary,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    borderSide: BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                  prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
-                ),
-                items: _availableGrades.map((grade) {
-                  return DropdownMenuItem(
-                    value: grade,
-                    child: Text('Grade ${grade.gradeNumber}'),
+                if (_availableGrades.isEmpty) {
+                  return EmptyMessageWidget(
+                    icon: Icons.school_outlined,
+                    title: 'No Grades Available',
+                    message: 'Contact your administrator.',
                   );
-                }).toList(),
-                onChanged: (grade) {
-                  if (grade != null) _onGradeSelected(grade);
+                }
+
+                return DropdownButtonFormField<GradeEntity>(
+                  value: _selectedGrade,
+                  hint: const Text('Select Grade Level'),
+                  decoration: InputDecoration(
+                    labelText: 'Grade Level',
+                    filled: true,
+                    fillColor: AppColors.backgroundSecondary,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      borderSide: BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
+                  ),
+                  items: _availableGrades.map((grade) {
+                    return DropdownMenuItem(
+                      value: grade,
+                      child: Text('Grade ${grade.gradeNumber}'),
+                    );
+                  }).toList(),
+                  onChanged: (grade) {
+                    if (grade != null) _onGradeSelected(grade);
+                  },
+                );
+              },
+            ),
+
+            // Subject Selection (only show if grade selected)
+            if (_selectedGradeLevel != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              BlocBuilder<SubjectBloc, SubjectState>(
+                builder: (context, state) {
+                  if (state is SubjectLoading) {
+                    return const InfoBox(message: 'Loading subjects...');
+                  }
+
+                  if (state is SubjectError) {
+                    return Text('Error: ${state.message}', style: TextStyle(color: AppColors.error));
+                  }
+
+                  if (_availableSubjects.isEmpty) {
+                    return const InfoBox(message: 'No subjects available for this grade');
+                  }
+
+                  return DropdownButtonFormField<SubjectEntity>(
+                    value: _selectedSubject,
+                    hint: const Text('Select Subject'),
+                    decoration: InputDecoration(
+                      labelText: 'Subject',
+                      filled: true,
+                      fillColor: AppColors.backgroundSecondary,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                        borderSide: BorderSide(color: AppColors.primary, width: 2),
+                      ),
+                      prefixIcon: Icon(Icons.subject_rounded, color: AppColors.textSecondary),
+                    ),
+                    items: _availableSubjects.map((subject) {
+                      return DropdownMenuItem(
+                        value: subject,
+                        child: Text(subject.name),
+                      );
+                    }).toList(),
+                    onChanged: (subject) {
+                      setState(() => _selectedSubject = subject);
+                    },
+                  );
                 },
               ),
-              if (_selectedGradeLevel != null) ...[
-                SizedBox(height: UIConstants.spacing24),
-                if (_isSectionsLoading)
-                  const InfoBox(message: 'Loading sections...')
-                else if (_availableSections.isEmpty)
-                  const InfoBox(message: 'This paper will apply to all sections')
-                else
-                  _buildSectionSelector(),
-              ],
             ],
-          );
-        },
+
+            // Sections (only show if grade selected)
+            if (_selectedGradeLevel != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              if (_isSectionsLoading)
+                const InfoBox(message: 'Loading sections...')
+              else if (_availableSections.isEmpty)
+                const InfoBox(message: 'This paper will apply to all sections')
+              else
+                _buildSectionSelector(),
+            ],
+
+            // Exam Type Selection (only show if grade and subject selected)
+            if (_selectedGradeLevel != null && _selectedSubject != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              BlocBuilder<exam_type.ExamTypeBloc, exam_type.ExamTypeState>(
+                builder: (context, state) {
+                  if (state is exam_type.ExamTypeLoading) {
+                    return const InfoBox(message: 'Loading exam types...');
+                  }
+
+                  if (state is exam_type.ExamTypeError) {
+                    return Text('Error: ${state.message}', style: TextStyle(color: AppColors.error));
+                  }
+
+                  if (_availableExamTypes.isEmpty) {
+                    return const InfoBox(message: 'No exam types available');
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Exam Type',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: UIConstants.spacing12),
+                      ..._availableExamTypes.map((type) => _buildExamTypeCard(type)),
+                    ],
+                  );
+                },
+              ),
+            ],
+
+            // Exam Date (only show if exam type selected)
+            if (_selectedExamType != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              Text(
+                'Exam Date',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing12),
+              GestureDetector(
+                onTap: _selectExamDate,
+                child: Container(
+                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    border: Border.all(
+                      color: _selectedExamDate != null ? AppColors.primary : AppColors.border,
+                      width: _selectedExamDate != null ? 2 : 1,
+                    ),
+                    color: _selectedExamDate != null
+                        ? AppColors.primary.withValues(alpha: 0.05)
+                        : AppColors.backgroundSecondary,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: _selectedExamDate != null
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _selectedExamDate != null
+                              ? _formatExamDate(_selectedExamDate!)
+                              : 'Select exam date',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: _selectedExamDate != null
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                            fontWeight: _selectedExamDate != null
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down,
+                          color: _selectedExamDate != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -432,97 +574,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
-  Widget _buildStep2() {
-    return _buildStepCard(
-      'Exam Configuration',
-      'Configure the exam type and schedule',
-      BlocBuilder<exam_type.ExamTypeBloc, exam_type.ExamTypeState>(
-        builder: (context, state) {
-          if (state is exam_type.ExamTypeLoading) {
-            return const LoadingWidget(message: 'Loading exam types...');
-          }
-
-          if (state is exam_type.ExamTypeError) {
-            return ErrorStateWidget(
-              message: state.message,
-              onRetry: () {
-                context.read<exam_type.ExamTypeBloc>().add(const exam_type.LoadExamTypes());
-              },
-            );
-          }
-
-          if (_availableExamTypes.isEmpty) {
-            return const EmptyMessageWidget(
-              icon: Icons.quiz_outlined,
-              title: 'No Exam Types Available',
-              message: 'Contact your administrator to add exam types.',
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Exam Type', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              SizedBox(height: UIConstants.spacing12),
-              ..._availableExamTypes.map((type) => _buildExamTypeCard(type)),
-              if (_selectedExamType != null) ...[
-                SizedBox(height: UIConstants.spacing24),
-                Text('Exam Date', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                SizedBox(height: UIConstants.spacing12),
-                GestureDetector(
-                  onTap: _selectExamDate,
-                  child: Container(
-                    padding: const EdgeInsets.all(UIConstants.paddingMedium),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                      border: Border.all(
-                        color: _selectedExamDate != null ? AppColors.primary : AppColors.border,
-                        width: _selectedExamDate != null ? 2 : 1,
-                      ),
-                      color: _selectedExamDate != null
-                          ? AppColors.primary.withValues(alpha: 0.05)
-                          : AppColors.backgroundSecondary,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today,
-                          color: _selectedExamDate != null
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _selectedExamDate != null
-                                ? _formatExamDate(_selectedExamDate!)
-                                : 'Select exam date',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: _selectedExamDate != null
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              fontWeight: _selectedExamDate != null
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.arrow_drop_down,
-                            color: _selectedExamDate != null
-                                ? AppColors.primary
-                                : AppColors.textSecondary),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildExamTypeCard(ExamTypeEntity type) {
     final isSelected = _selectedExamType?.id == type.id;
@@ -588,180 +639,29 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
-  Widget _buildStep3() {
-    return _buildStepCard(
-      'Subject Selection',
-      'Choose the subject for this question paper',
-      BlocBuilder<SubjectBloc, SubjectState>(
-        builder: (context, state) {
-          if (state is SubjectLoading) {
-            return LoadingWidget(message: state.message ?? 'Loading subjects...');
-          }
+  Widget _buildQuestionsStep() {
+    if (_selectedSubject == null || _selectedExamDate == null || _selectedGrade == null) {
+      return Container();
+    }
 
-          if (state is SubjectError) {
-            return ErrorStateWidget(message: state.message, onRetry: _loadSubjectsForSelectedGrade);
-          }
+    final autoTitle = _generateAutoTitle();
+    final userStateService = sl<UserStateService>();
+    final academicYear = _getAcademicYear(_selectedExamDate!);
 
-          if (_availableSubjects.isEmpty) {
-            return EmptyMessageWidget(
-              icon: Icons.subject_outlined,
-              title: sl<UserStateService>().isTeacher ? 'No Subjects Assigned' : 'No Subjects Available',
-              message: sl<UserStateService>().isTeacher
-                  ? 'Contact your administrator for subject assignments.'
-                  : 'Add subjects in Settings → Manage Subjects.',
-            );
-          }
-
-          return Column(
-            children: _availableSubjects.map((subject) => _buildSubjectCard(subject)).toList(),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSubjectCard(SubjectEntity subject) {
-    final isSelected = _selectedSubject?.id == subject.id;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => setState(() => _selectedSubject = subject),
-          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-          child: Container(
-            padding: const EdgeInsets.all(UIConstants.paddingMedium),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(
-                color: isSelected ? AppColors.primary : AppColors.border,
-                width: isSelected ? 2 : 1,
-              ),
-              color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: 2,
-                    ),
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                  ),
-                  child: isSelected ? Icon(Icons.check, size: 12, color: Colors.white) : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    subject.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep4() {
-    return _buildStepCard(
-      'Review & Create',
-      'Review your paper configuration',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(UIConstants.paddingMedium),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.05),
-                  AppColors.secondary.withValues(alpha: 0.05)
-                ],
-              ),
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _generateAutoTitle(),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: UIConstants.spacing12),
-                _buildPreviewRow(Icons.school_rounded, 'Grade', 'Grade $_selectedGradeLevel'),
-                _buildPreviewRow(Icons.calendar_today, 'Exam Date',
-                    _selectedExamDate != null ? _formatExamDate(_selectedExamDate!) : 'Not set'),
-                _buildPreviewRow(Icons.class_rounded, 'Sections',
-                    _selectedSections.isNotEmpty ? _selectedSections.join(', ') : 'All'),
-                _buildPreviewRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType!.name),
-                _buildPreviewRow(Icons.access_time_rounded, 'Duration',
-                    _selectedExamType!.formattedDuration),
-                _buildPreviewRow(Icons.grade_rounded, 'Total Marks',
-                    '${_selectedExamType!.totalMarks}'),
-                _buildPreviewRow(Icons.subject_rounded, 'Subject', _selectedSubject!.name),
-              ],
-            ),
-          ),
-          SizedBox(height: UIConstants.spacing20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: !_isCreating ? _proceedToQuestions : null,
-              icon: _isCreating
-                  ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              )
-                  : const Icon(Icons.add_rounded),
-              label: Text(_isCreating ? 'Creating...' : 'Create Questions'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.textSecondary),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
-          ),
-          Expanded(child: Text(value, style: TextStyle(color: AppColors.textPrimary))),
-        ],
-      ),
+    return QuestionInputCoordinator(
+      sections: _selectedExamType!.sections,
+      examType: _selectedExamType!,
+      selectedSubjects: [_selectedSubject!],
+      paperTitle: autoTitle,
+      gradeLevel: _selectedGradeLevel!,
+      gradeId: _selectedGrade!.id,
+      academicYear: academicYear,
+      selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
+      examDate: _selectedExamDate,
+      isAdmin: userStateService.isAdmin,
+      onPaperCreated: (paper) {
+        _showSuccess();
+      },
     );
   }
 
@@ -828,7 +728,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     child: ElevatedButton.icon(
     onPressed: _isStepValid(_currentStep) ? _nextStep : null,
     icon: const Icon(Icons.arrow_forward_rounded),
-      label: Text(_currentStep == _totalSteps - 1 ? 'Review' : 'Next'),
+      label: Text(_currentStep == 1 ? 'Add Questions' : 'Next'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -860,64 +760,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
-  void _proceedToQuestions() {
-    if (_isCreating || _selectedSubject == null || _selectedExamDate == null || _selectedGrade == null) {
-      return;
-    }
-
-    final autoTitle = _generateAutoTitle();
-    final userStateService = sl<UserStateService>();
-
-    final errors = PaperValidationService.validatePaperForCreation(
-      title: autoTitle,
-      gradeLevel: _selectedGradeLevel,
-      selectedSections: _selectedSections,
-      selectedSubjects: [_selectedSubject!],
-      examType: _selectedExamType,
-    );
-
-    if (errors.isNotEmpty) {
-      _showMessage(errors.first, AppColors.error);
-      return;
-    }
-
-    setState(() => _isCreating = true);
-
-    final academicYear = _getAcademicYear(_selectedExamDate!);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => BlocProvider.value(
-        value: context.read<QuestionPaperBloc>(),
-        child: BlocListener<QuestionPaperBloc, QuestionPaperState>(
-          listener: (context, state) {
-            if (state is QuestionPaperSuccess) {
-              Navigator.of(dialogContext).pop();
-              _showSuccess();
-            } else if (state is QuestionPaperError) {
-              setState(() => _isCreating = false);
-              Navigator.of(dialogContext).pop();
-              UiHelpers.showErrorMessage(context, state.message);
-            }
-          },
-          child: QuestionInputDialog(
-            sections: _selectedExamType!.sections,
-            examType: _selectedExamType!,
-            selectedSubjects: [_selectedSubject!],
-            paperTitle: autoTitle,
-            gradeLevel: _selectedGradeLevel!,
-            gradeId: _selectedGrade!.id,
-            academicYear: academicYear,
-            selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
-            examDate: _selectedExamDate,
-            isAdmin: userStateService.isAdmin,
-            onPaperCreated: (_) {},
-          ),
-        ),
-      ),
-    ).then((_) => setState(() => _isCreating = false));
-  }
 
   void _showSuccess() {
     _showMessage('Question paper created successfully!', AppColors.success);

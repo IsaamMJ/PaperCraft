@@ -38,4 +38,7 @@ abstract class QuestionPaperRepository {
   });
 
   Future<Either<Failure, QuestionPaperEntity?>> getPaperById(String id);
+
+  // =============== REJECTION HISTORY ===============
+  Future<Either<Failure, List<Map<String, dynamic>>>> getRejectionHistory(String paperId);
 }

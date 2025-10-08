@@ -26,8 +26,21 @@ class _HomePageState extends State<HomePage> {
   bool _isRefreshing = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Load data only once when page is created
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadInitialData();
+      }
+    });
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // This gets called when navigating back - reload data here
+    // But we need to avoid calling it on initial build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadInitialData();

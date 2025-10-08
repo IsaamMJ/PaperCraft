@@ -8,6 +8,7 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
+import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
@@ -99,45 +100,44 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
     return BlocListener<QuestionPaperBloc, QuestionPaperState>(
       listener: _handleBlocState,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Container(
-          margin: EdgeInsets.only(top: isMobile ? 40 : 60),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 20 : 12)),
-          ),
-          child: Column(
-            children: [
-              _buildHeader(isMobile),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(isMobile ? 20 : 24),
-                  child: Column(
-                    children: [
-                      SectionProgressWidget(
-                        currentSection: _currentSectionIndex,
-                        sections: widget.sections,
-                        allQuestions: _allQuestions,
-                      ),
-                      SizedBox(height: isMobile ? 24 : 20),
-                      QuestionListWidget(
-                        sectionName: _currentSection.name,
-                        questions: _currentSectionQuestions,
-                        onEditQuestion: _editQuestion,
-                        onRemoveQuestion: _removeQuestion,
-                        isMobile: isMobile,
-                      ),
-                      SizedBox(height: isMobile ? 20 : 16),
-                      _buildQuestionInput(isMobile),
-                      SizedBox(height: isMobile ? 32 : 20),
-                    ],
-                  ),
-                ),
-              ),
-              _buildActions(isMobile),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(UIConstants.paddingLarge),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(isMobile),
+            SizedBox(height: UIConstants.spacing24),
+            _buildSectionTabs(),
+            SizedBox(height: UIConstants.spacing16),
+            SectionProgressWidget(
+              currentSection: _currentSectionIndex,
+              sections: widget.sections,
+              allQuestions: _allQuestions,
+            ),
+            SizedBox(height: isMobile ? 24 : 20),
+            QuestionListWidget(
+              sectionName: _currentSection.name,
+              questions: _currentSectionQuestions,
+              onEditQuestion: _editQuestion,
+              onRemoveQuestion: _removeQuestion,
+              isMobile: isMobile,
+            ),
+            SizedBox(height: isMobile ? 20 : 16),
+            _buildQuestionInput(isMobile),
+            SizedBox(height: isMobile ? 32 : 20),
+            _buildActions(isMobile),
+          ],
         ),
       ),
     );
@@ -148,79 +148,133 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     final totalMarks = widget.examType.calculatedTotalMarks;
     final optionalMarks = _getOptionalMarks();
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, isMobile ? 16 : 20, 16, 16),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.paperTitle,
-                  style: TextStyle(
-                    fontSize: isMobile ? 18 : 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.paperTitle,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: currentMarks == totalMarks
+                    ? AppColors.success.withValues(alpha: 0.1)
+                    : AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
+              ),
+              child: Text(
+                '$currentMarks/$totalMarks marks',
+                style: TextStyle(
+                  fontSize: UIConstants.fontSizeMedium,
+                  fontWeight: FontWeight.w600,
+                  color: currentMarks == totalMarks ? AppColors.success : AppColors.primary,
+                ),
+              ),
+            ),
+            if (optionalMarks > 0) ...[
+              const SizedBox(width: 8),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: currentMarks == totalMarks
-                      ? AppColors.success.withValues(alpha: 0.1)
-                      : AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
                 child: Text(
-                  '$currentMarks/$totalMarks marks',
+                  '+$optionalMarks optional',
                   style: TextStyle(
-                    fontSize: UIConstants.fontSizeMedium,
-                    fontWeight: FontWeight.w600,
-                    color: currentMarks == totalMarks ? AppColors.success : AppColors.primary,
+                    fontSize: UIConstants.fontSizeSmall,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.warning,
                   ),
                 ),
               ),
-              if (optionalMarks > 0) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ],
+          ],
+        ),
+        SizedBox(height: UIConstants.spacing8),
+        Text(
+          'Add questions for each section',
+          style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: widget.sections.asMap().entries.map((entry) {
+          final index = entry.key;
+          final section = entry.value;
+          final isActive = index == _currentSectionIndex;
+          final questions = _allQuestions[section.name] ?? [];
+          final mandatoryCount = questions.where((q) => !q.isOptional).length;
+          final isComplete = mandatoryCount >= section.questions;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _currentSectionIndex = index),
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
-                  ),
-                  child: Text(
-                    '+$optionalMarks optional',
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeSmall,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.warning,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    border: Border.all(
+                      color: isActive ? AppColors.primary : AppColors.border,
+                      width: isActive ? 2 : 1,
                     ),
+                    color: isActive
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : AppColors.surface,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isComplete)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      Text(
+                        section.name,
+                        style: TextStyle(
+                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                          color: isActive ? AppColors.primary : AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '($mandatoryCount/${section.questions})',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: _isProcessing ? null : () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
               ),
-            ],
-          ),
-          Row(
-            children: [
-              Text(
-                'Section ${_currentSectionIndex + 1}: ${_currentSection.name}',
-                style: TextStyle(
-                  fontSize: isMobile ? 14 : 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -317,75 +371,39 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   Widget _buildActions(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 20 : 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            if (widget.sections.length > 1) ...[
-              Row(
-                children: [
-                  if (_currentSectionIndex > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => setState(() => _currentSectionIndex--),
-                        child: const Text('Previous Section'),
+    return Column(
+      children: [
+        if (_allComplete())
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: !_isProcessing ? _createPaper : null,
+              icon: _isProcessing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
-                    ),
-                  if (_currentSectionIndex > 0 && _currentSectionIndex < widget.sections.length - 1)
-                    const SizedBox(width: 12),
-                  if (_currentSectionIndex < widget.sections.length - 1)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => setState(() => _currentSectionIndex++),
-                        child: const Text('Next Section'),
-                      ),
-                    ),
-                ],
-              ),
-              SizedBox(height: UIConstants.spacing12),
-            ],
-            if (_allComplete())
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: !_isProcessing ? _createPaper : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: isMobile ? 16 : 12),
-                    minimumSize: Size(0, isMobile ? 52 : 44),
-                    textStyle: TextStyle(
-                      fontSize: isMobile ? 16 : 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: _isProcessing
-                      ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_getProcessingText()),
-                    ],
-                  )
-                      : Text(_getCompleteButtonText()),
+                    )
+                  : const Icon(Icons.check_circle_rounded),
+              label: Text(_isProcessing ? _getProcessingText() : _getCompleteButtonText()),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 ),
               ),
-          ],
-        ),
-      ),
+            ),
+          )
+        else
+          const InfoBox(
+            message: 'Complete all sections to submit the paper',
+          ),
+      ],
     );
   }
 
