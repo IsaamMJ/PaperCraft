@@ -155,6 +155,17 @@ class QuestionPaperEntity extends Equatable {
     return 'Unknown Grade';
   }
 
+  // Clean PDF title without date (for professional PDF display)
+  String get pdfTitle {
+    if (examType != null && subject != null) {
+      return '$examType - $subject';
+    }
+    return title;
+  }
+
+  // Just the grade number for PDF display
+  int? get gradeNumber => gradeLevel;
+
   String get sectionsDisplayName {
     if (selectedSections != null && selectedSections!.isNotEmpty) {
       return selectedSections!.join(', ');

@@ -35,6 +35,8 @@ abstract class IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   });
 
   Future<Uint8List> generateDualLayoutPdf({
@@ -335,6 +337,8 @@ class SimplePdfService implements IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   }) async {
     // Rate limiting check
     if (!RateLimiters.pdfGeneration.canProceed('pdf_gen_${paper.id}')) {
@@ -350,6 +354,9 @@ class SimplePdfService implements IPdfGenerationService {
       schoolName: schoolName,
       studentName: studentName,
       rollNumber: rollNumber,
+      compressed: compressed,
+      fontSizeMultiplier: fontSizeMultiplier,
+      spacingMultiplier: spacingMultiplier,
     ).timeout(
       AppConfig.pdfGenerationTimeout,
       onTimeout: () {
@@ -366,6 +373,9 @@ class SimplePdfService implements IPdfGenerationService {
     required String schoolName,
     String? studentName,
     String? rollNumber,
+    bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   }) async {
     await _loadFonts();
     final pdf = pw.Document();
@@ -384,12 +394,13 @@ class SimplePdfService implements IPdfGenerationService {
                   paper: paper,
                   studentName: studentName,
                   rollNumber: rollNumber,
+                  fontSizeMultiplier: fontSizeMultiplier,
                 ),
-                pw.SizedBox(height: 6),
+                pw.SizedBox(height: 6 * spacingMultiplier),
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: _buildCompactQuestionsForSinglePage(paper),
+                    children: _buildCompactQuestionsForSinglePage(paper, fontSizeMultiplier, spacingMultiplier),
                   ),
                 ),
               ],
@@ -435,6 +446,7 @@ class SimplePdfService implements IPdfGenerationService {
     required QuestionPaperEntity paper,
     String? studentName,
     String? rollNumber,
+    double fontSizeMultiplier = 1.0,
   }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -444,47 +456,51 @@ class SimplePdfService implements IPdfGenerationService {
           child: pw.Text(
             schoolName,
             style: pw.TextStyle(
-              fontSize: 16, // Increased from 14
+              fontSize: 16 * fontSizeMultiplier,
               fontWeight: pw.FontWeight.bold,
               font: _boldFont,
             ),
           ),
         ),
-        pw.SizedBox(height: 2), // Reduced from 4
+        pw.SizedBox(height: 2),
 
         // Paper title
         pw.Center(
           child: pw.Text(
-            paper.title,
+            paper.pdfTitle,
             style: pw.TextStyle(
-              fontSize: UIConstants.fontSizeMedium, // Increased from 12
+              fontSize: UIConstants.fontSizeMedium * fontSizeMultiplier,
               fontWeight: pw.FontWeight.bold,
               font: _boldFont,
             ),
           ),
         ),
-        pw.SizedBox(height: 2), // Reduced from 4
+        pw.SizedBox(height: 2),
 
         // Paper details in single row
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Subject: ${paper.subject}',
-                style: pw.TextStyle(fontSize: 10, font: _regularFont)), // Increased from 9
-            pw.Text('Grade: ${paper.gradeDisplayName}',
-                style: pw.TextStyle(fontSize: 10, font: _regularFont)), // Increased from 9
+                style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+            if (paper.gradeNumber != null)
+              pw.Text('Class: ${paper.gradeNumber}',
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont))
+            else if (paper.gradeDisplayName != null)
+              pw.Text('Class: ${paper.gradeDisplayName.replaceAll('Grade ', '')}',
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
             if (paper.examDate != null)
               pw.Text('Date: ${_formatExamDate(paper.examDate!)}',
-                  style: pw.TextStyle(fontSize: 10, font: _regularFont)), // Increased from 9
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
             if (paper.examTypeEntity.durationMinutes != null)
               pw.Text('Time: ${paper.examTypeEntity.formattedDuration}',
-                  style: pw.TextStyle(fontSize: 10, font: _regularFont)), // Increased from 9
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
             pw.Text('Total Marks: ${paper.totalMarks}',
-                style: pw.TextStyle(fontSize: 10, font: _regularFont)), // Increased from 9
+                style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
           ],
         ),
 
-        pw.SizedBox(height: 2), // Reduced from 4
+        pw.SizedBox(height: 2),
         pw.Container(height: 1, color: PdfColors.grey),
       ],
     );
@@ -613,7 +629,7 @@ class SimplePdfService implements IPdfGenerationService {
 
   // FIXED: Questions with proper section handling and error recovery
   List<pw.Widget> _buildCompactQuestionsForSinglePage(
-      QuestionPaperEntity paper) {
+      QuestionPaperEntity paper, double fontSizeMultiplier, double spacingMultiplier) {
     final widgets = <pw.Widget>[];
     final sortedSections = _getSortedSections(paper.questions);
     int sectionIndex = 1;
@@ -634,14 +650,14 @@ class SimplePdfService implements IPdfGenerationService {
         widgets.add(
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1), // Reduced vertical padding
+            padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
                   '${_getRomanNumeral(sectionIndex)}. $sectionName',
                   style: pw.TextStyle(
-                    fontSize: UIConstants.fontSizeSmall, // Increased from 10
+                    fontSize: UIConstants.fontSizeSmall * fontSizeMultiplier,
                     fontWeight: pw.FontWeight.bold,
                     font: _boldFont,
                   ),
@@ -650,7 +666,7 @@ class SimplePdfService implements IPdfGenerationService {
                   '$questionCount × ${sectionMarks ~/
                       questionCount} = $sectionMarks marks',
                   style: pw.TextStyle(
-                    fontSize: 9, // Increased from 8
+                    fontSize: 9 * fontSizeMultiplier,
                     fontWeight: pw.FontWeight.bold,
                     font: _boldFont,
                   ),
@@ -660,22 +676,22 @@ class SimplePdfService implements IPdfGenerationService {
           ),
         );
 
-        widgets.add(pw.SizedBox(height: 1)); // Reduced from 3
+        widgets.add(pw.SizedBox(height: 1 * spacingMultiplier));
 
         // COMMON INSTRUCTION FOR BULK QUESTIONS
         final commonInstruction = _getCommonInstruction(questions.first.type);
         if (commonInstruction.isNotEmpty) {
           widgets.add(
             pw.Container(
-              padding: const pw.EdgeInsets.all(2), // Reduced from 4
-              margin: const pw.EdgeInsets.only(bottom: 3), // Reduced from 6
+              padding: const pw.EdgeInsets.all(2),
+              margin: pw.EdgeInsets.only(bottom: 3 * spacingMultiplier),
               decoration: pw.BoxDecoration(
                 color: PdfColors.grey100,
                 borderRadius: pw.BorderRadius.circular(3),
               ),
               child: pw.Text(
                 commonInstruction,
-                style: pw.TextStyle(fontSize: 9, font: _regularFont), // Increased from 8
+                style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, font: _regularFont),
               ),
             ),
           );
@@ -691,23 +707,24 @@ class SimplePdfService implements IPdfGenerationService {
               question: question,
               questionNumber: questionNumber,
               showCommonText: commonInstruction.isEmpty,
+              fontSizeMultiplier: fontSizeMultiplier,
             ));
 
             if (i < questions.length - 1) {
-              widgets.add(pw.SizedBox(height: 1)); // Reduced from 3
+              widgets.add(pw.SizedBox(height: 1 * spacingMultiplier));
             }
           } catch (e) {
             // Skip malformed questions
             widgets.add(
               pw.Text(
                 '$questionNumber. [Question could not be displayed]',
-                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey), // Increased from 8
+                style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey),
               ),
             );
           }
         }
 
-        widgets.add(pw.SizedBox(height: 3)); // Reduced from 6
+        widgets.add(pw.SizedBox(height: 3 * spacingMultiplier));
         sectionIndex++;
       } catch (e) {
         // Skip entire section if there's an error
@@ -831,6 +848,7 @@ class SimplePdfService implements IPdfGenerationService {
     required Question question,
     required int questionNumber,
     bool showCommonText = true,
+    double fontSizeMultiplier = 1.0,
   }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -842,24 +860,24 @@ class SimplePdfService implements IPdfGenerationService {
               : '$questionNumber. ${_extractSpecificText(
               question.text, question.type)}',
           style: pw.TextStyle(
-            fontSize: 11, // Increased from 9
+            fontSize: 11 * fontSizeMultiplier,
             fontWeight: pw.FontWeight.normal,
             font: _regularFont,
           ),
         ),
 
-        pw.SizedBox(height: 1), // Reduced from 2
+        pw.SizedBox(height: 1),
 
         // FIXED: Proper matching question handling
         if (question.type == 'match_following' && question.options != null)
-          _buildMatchingPairs(question.options!)
+          _buildMatchingPairs(question.options!, fontSizeMultiplier)
         else
           if (question.options != null && question.options!.isNotEmpty)
-            _buildSinglePageOptions(question),
+            _buildSinglePageOptions(question, fontSizeMultiplier),
 
         // Sub-questions
         if (question.subQuestions.isNotEmpty)
-          ..._buildSinglePageSubQuestions(question.subQuestions),
+          ..._buildSinglePageSubQuestions(question.subQuestions, fontSizeMultiplier),
       ],
     );
   }
@@ -902,7 +920,7 @@ class SimplePdfService implements IPdfGenerationService {
   }
 
   // NEW: Matching pairs display
-  pw.Widget _buildMatchingPairs(List<String> options) {
+  pw.Widget _buildMatchingPairs(List<String> options, double fontSizeMultiplier) {
     try {
       int separatorIndex = options.indexOf('---SEPARATOR---');
       if (separatorIndex == -1) return pw.SizedBox.shrink();
@@ -911,8 +929,8 @@ class SimplePdfService implements IPdfGenerationService {
       List<String> rightColumn = options.sublist(separatorIndex + 1);
 
       return pw.Container(
-        padding: const pw.EdgeInsets.all(3), // Reduced from 6
-        margin: const pw.EdgeInsets.only(top: 2), // Reduced from 4
+        padding: const pw.EdgeInsets.all(3),
+        margin: const pw.EdgeInsets.only(top: 2),
         decoration: pw.BoxDecoration(
           border: pw.Border.all(width: 0.5),
           borderRadius: pw.BorderRadius.circular(3),
@@ -925,7 +943,7 @@ class SimplePdfService implements IPdfGenerationService {
                 pw.Expanded(
                   child: pw.Text(
                     'Column A',
-                    style: pw.TextStyle(fontSize: 9, // Increased from 8
+                    style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier,
                         fontWeight: pw.FontWeight.bold,
                         font: _boldFont),
                     textAlign: pw.TextAlign.center,
@@ -935,7 +953,7 @@ class SimplePdfService implements IPdfGenerationService {
                 pw.Expanded(
                   child: pw.Text(
                     'Column B',
-                    style: pw.TextStyle(fontSize: 9, // Increased from 8
+                    style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier,
                         fontWeight: pw.FontWeight.bold,
                         font: _boldFont),
                     textAlign: pw.TextAlign.center,
@@ -943,14 +961,14 @@ class SimplePdfService implements IPdfGenerationService {
                 ),
               ],
             ),
-            pw.SizedBox(height: 2), // Reduced from 4
+            pw.SizedBox(height: 2),
             // Pairs
             ...List.generate(
               leftColumn.length.compareTo(rightColumn.length) <= 0 ? leftColumn
                   .length : rightColumn.length,
                   (i) =>
                   pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 1), // Reduced from 2
+                    padding: const pw.EdgeInsets.only(bottom: 1),
                     child: pw.Row(
                       children: [
                         pw.Expanded(
@@ -959,7 +977,7 @@ class SimplePdfService implements IPdfGenerationService {
                                 ? '${i + 1}. ${leftColumn[i]}'
                                 : '',
                             style: pw.TextStyle(
-                                fontSize: 9, font: _regularFont), // Increased from 8
+                                fontSize: 9 * fontSizeMultiplier, font: _regularFont),
                           ),
                         ),
                         pw.SizedBox(width: 20),
@@ -968,7 +986,7 @@ class SimplePdfService implements IPdfGenerationService {
                             i < rightColumn.length ? '${String.fromCharCode(65 +
                                 i)}. ${rightColumn[i]}' : '',
                             style: pw.TextStyle(
-                                fontSize: 9, font: _regularFont), // Increased from 8
+                                fontSize: 9 * fontSizeMultiplier, font: _regularFont),
                           ),
                         ),
                       ],
@@ -980,7 +998,7 @@ class SimplePdfService implements IPdfGenerationService {
       );
     } catch (e) {
       return pw.Text('[Matching question error]',
-          style: pw.TextStyle(fontSize: 9, color: PdfColors.grey)); // Increased from 8
+          style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey));
     }
   }
 
@@ -1066,10 +1084,10 @@ class SimplePdfService implements IPdfGenerationService {
     }
   }
 
-  pw.Widget _buildSinglePageOptions(Question question) {
+  pw.Widget _buildSinglePageOptions(Question question, double fontSizeMultiplier) {
     return pw.Wrap(
       spacing: 10,
-      runSpacing: 1, // Reduced from 2
+      runSpacing: 1,
       children: question.options!.asMap().entries.map((entry) {
         final index = entry.key;
         final option = entry.value;
@@ -1078,7 +1096,7 @@ class SimplePdfService implements IPdfGenerationService {
         return pw.Text(
           '$optionLabel) $option',
           style: pw.TextStyle(
-            fontSize: 9, // Increased from 8
+            fontSize: 9 * fontSizeMultiplier,
             font: _regularFont,
           ),
         );
@@ -1108,10 +1126,10 @@ class SimplePdfService implements IPdfGenerationService {
     );
   }
 
-  List<pw.Widget> _buildSinglePageSubQuestions(List<SubQuestion> subQuestions) {
+  List<pw.Widget> _buildSinglePageSubQuestions(List<SubQuestion> subQuestions, double fontSizeMultiplier) {
     final widgets = <pw.Widget>[];
 
-    widgets.add(pw.SizedBox(height: 1)); // Reduced from 2
+    widgets.add(pw.SizedBox(height: 1));
 
     for (int i = 0; i < subQuestions.length; i++) {
       final subQuestion = subQuestions[i];
@@ -1119,10 +1137,10 @@ class SimplePdfService implements IPdfGenerationService {
 
       widgets.add(
         pw.Container(
-          margin: const pw.EdgeInsets.only(left: 8, bottom: 0.5), // Reduced bottom margin
+          margin: const pw.EdgeInsets.only(left: 8, bottom: 0.5),
           child: pw.Text(
             '$subLabel) ${subQuestion.text}',
-            style: pw.TextStyle(fontSize: 9, font: _regularFont), // Increased from 8
+            style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, font: _regularFont),
           ),
         ),
       );

@@ -1006,6 +1006,15 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 paperTitle: paper.title,
                 layoutType: compressed ? 'compressed' : 'standard',
                 onDownload: () => _downloadPdf(pdfBytes, paper.title, compressed: compressed),
+                onRegeneratePdf: (fontMultiplier, spacingMultiplier) async {
+                  return await pdfService.generateStudentPdf(
+                    paper: paper,
+                    schoolName: schoolName,
+                    compressed: compressed,
+                    fontSizeMultiplier: fontMultiplier,
+                    spacingMultiplier: spacingMultiplier,
+                  );
+                },
               ),
             ),
           );

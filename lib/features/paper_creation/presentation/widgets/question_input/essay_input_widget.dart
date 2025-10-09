@@ -9,6 +9,7 @@ class EssayInputWidget extends StatefulWidget {
   final bool isMobile;
   final bool isAdmin;
   final String? questionType;
+  final int? marksPerQuestion;
 
   const EssayInputWidget({
     super.key,
@@ -16,6 +17,7 @@ class EssayInputWidget extends StatefulWidget {
     required this.isMobile,
     this.questionType,
     required this.isAdmin,
+    this.marksPerQuestion,
   });
 
   @override
@@ -124,6 +126,12 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   }
 
   int _getDefaultMarks() {
+    // If marksPerQuestion is provided from section, use it
+    if (widget.marksPerQuestion != null) {
+      return widget.marksPerQuestion!;
+    }
+
+    // Fallback to type-based defaults
     switch (widget.questionType) {
       case 'missing_letters':
       case 'meanings':

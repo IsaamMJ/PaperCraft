@@ -8,6 +8,7 @@ import '../../../../paper_workflow/domain/entities/question_entity.dart';
 class BulkInputWidget extends StatefulWidget {
   final String questionType;
   final int questionCount;
+  final int marksPerQuestion;
   final Function(List<Question>) onQuestionsAdded;
   final bool isMobile;
   final bool isAdmin;
@@ -16,6 +17,7 @@ class BulkInputWidget extends StatefulWidget {
     super.key,
     required this.questionType,
     required this.questionCount,
+    required this.marksPerQuestion,
     required this.onQuestionsAdded,
     required this.isMobile,
     required this.isAdmin,
@@ -75,6 +77,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
     if (!_isValid) return;
 
     final questions = <Question>[];
+    final marks = _getDefaultMarks();
 
     for (int i = 0; i < _controllers.length; i++) {
       final text = _controllers[i].text.trim();
@@ -82,7 +85,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         questions.add(Question(
           text: _formatQuestionText(text, i + 1), // Pass question number for variation
           type: widget.questionType,
-          marks: _getDefaultMarks(),
+          marks: marks,
           isOptional: _isOptionalAll,
         ));
       }
@@ -115,15 +118,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   }
 
   int _getDefaultMarks() {
-    switch (widget.questionType) {
-      case 'missing_letters':
-      case 'true_false':
-        return 1;
-      case 'short_answers':
-        return 2;
-      default:
-        return 1;
-    }
+    // Use the marks from exam type section instead of hardcoded values
+    return widget.marksPerQuestion;
   }
 
   String _getTitle() {

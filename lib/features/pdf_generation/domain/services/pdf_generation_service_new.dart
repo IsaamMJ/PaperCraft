@@ -16,6 +16,8 @@ abstract class IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   });
 }
 
@@ -31,6 +33,8 @@ class SimplePdfService implements IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   }) async {
     // Rate limiting check
     if (!RateLimiters.pdfGeneration.canProceed('pdf_gen_${paper.id}')) {
@@ -47,6 +51,8 @@ class SimplePdfService implements IPdfGenerationService {
       studentName: studentName,
       rollNumber: rollNumber,
       compressed: compressed,
+      fontSizeMultiplier: fontSizeMultiplier,
+      spacingMultiplier: spacingMultiplier,
     ).timeout(
       AppConfig.pdfGenerationTimeout,
       onTimeout: () {
@@ -64,14 +70,16 @@ class SimplePdfService implements IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     bool compressed = false,
+    double fontSizeMultiplier = 1.0,
+    double spacingMultiplier = 1.0,
   }) async {
     await _loadFonts();
     final pdf = pw.Document();
 
-    // Spacing based on compress mode
-    final double questionSpacing = compressed ? 4 : 8;
-    final double sectionSpacing = compressed ? 8 : 12;
-    final double headerSpacing = compressed ? 6 : 10;
+    // Spacing based on compress mode and user multiplier
+    final double questionSpacing = (compressed ? 6 : 12) * spacingMultiplier;
+    final double sectionSpacing = (compressed ? 12 : 20) * spacingMultiplier;
+    final double headerSpacing = (compressed ? 8 : 16) * spacingMultiplier;
 
     try {
       pdf.addPage(
@@ -88,6 +96,7 @@ class SimplePdfService implements IPdfGenerationService {
               studentName: studentName,
               rollNumber: rollNumber,
               compressed: compressed,
+              fontSizeMultiplier: fontSizeMultiplier,
             ));
             widgets.add(pw.SizedBox(height: headerSpacing));
 
@@ -101,7 +110,7 @@ class SimplePdfService implements IPdfGenerationService {
                 ),
                 child: pw.Text(
                   'Instructions: Read all questions carefully. Write your answers clearly in the space provided.',
-                  style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                  style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey700),
                 ),
               ));
               widgets.add(pw.SizedBox(height: 12));
@@ -111,7 +120,7 @@ class SimplePdfService implements IPdfGenerationService {
             paper.examTypeEntity.sections.forEach((section) {
               final sectionQuestions = paper.questions[section.name] ?? [];
               if (sectionQuestions.isNotEmpty) {
-                widgets.add(_buildSectionHeader(section.name, compressed));
+                widgets.add(_buildSectionHeader(section.name, compressed, fontSizeMultiplier));
                 widgets.add(pw.SizedBox(height: sectionSpacing));
 
                 int questionNumber = 1;
@@ -120,6 +129,7 @@ class SimplePdfService implements IPdfGenerationService {
                     question: question,
                     questionNumber: questionNumber++,
                     compressed: compressed,
+                    fontSizeMultiplier: fontSizeMultiplier,
                   ));
                   widgets.add(pw.SizedBox(height: questionSpacing));
                 }
@@ -151,31 +161,50 @@ class SimplePdfService implements IPdfGenerationService {
     String? studentName,
     String? rollNumber,
     required bool compressed,
+    required double fontSizeMultiplier,
   }) {
-    final titleSize = compressed ? 14.0 : 18.0;
-    final subtitleSize = compressed ? 9.0 : 11.0;
-    final infoSize = compressed ? 8.0 : 9.0;
+    final titleSize = (compressed ? 16.0 : 22.0) * fontSizeMultiplier;
+    final subtitleSize = (compressed ? 11.0 : 15.0) * fontSizeMultiplier;
+    final infoSize = (compressed ? 9.0 : 11.0) * fontSizeMultiplier;
 
     return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: [
+        // School name - centered, uppercase
         pw.Text(
           schoolName.toUpperCase(),
           style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: compressed ? 4 : 6),
+
+        // Exam title - use pdfTitle, centered
         pw.Text(
-          paper.title,
+          paper.pdfTitle,
           style: pw.TextStyle(fontSize: subtitleSize, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: compressed ? 6 : 8),
+
+        // Decorative divider
+        pw.Container(
+          width: 100,
+          height: 2,
+          color: PdfColors.grey800,
+        ),
+        pw.SizedBox(height: compressed ? 6 : 10),
+
+        // Info row
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('Grade: ${paper.gradeDisplayName}', style: pw.TextStyle(fontSize: infoSize)),
+                if (paper.gradeNumber != null)
+                  pw.Text('Class: ${paper.gradeNumber}', style: pw.TextStyle(fontSize: infoSize))
+                else if (paper.gradeDisplayName != null)
+                  pw.Text('Class: ${paper.gradeDisplayName.replaceAll('Grade ', '')}', style: pw.TextStyle(fontSize: infoSize)),
                 if (paper.subject != null)
                   pw.Text('Subject: ${paper.subject}', style: pw.TextStyle(fontSize: infoSize)),
               ],
@@ -206,18 +235,20 @@ class SimplePdfService implements IPdfGenerationService {
     );
   }
 
-  pw.Widget _buildSectionHeader(String sectionName, bool compressed) {
+  pw.Widget _buildSectionHeader(String sectionName, bool compressed, double fontSizeMultiplier) {
     return pw.Container(
-      padding: pw.EdgeInsets.symmetric(vertical: compressed ? 4 : 6, horizontal: 8),
+      width: double.infinity,
+      padding: pw.EdgeInsets.all(compressed ? 8 : 10),
       decoration: pw.BoxDecoration(
-        color: PdfColors.grey300,
+        color: PdfColors.grey800,
         borderRadius: pw.BorderRadius.circular(4),
       ),
       child: pw.Text(
-        'Section: $sectionName',
+        sectionName.toUpperCase(),
         style: pw.TextStyle(
-          fontSize: compressed ? 10 : 11,
+          fontSize: (compressed ? 12 : 14) * fontSizeMultiplier,
           fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
         ),
       ),
     );
@@ -227,9 +258,11 @@ class SimplePdfService implements IPdfGenerationService {
     required Question question,
     required int questionNumber,
     required bool compressed,
+    required double fontSizeMultiplier,
   }) {
-    final questionSize = compressed ? 9.0 : 10.0;
-    final optionSize = compressed ? 8.0 : 9.0;
+    final questionNumSize = (compressed ? 11.0 : 13.0) * fontSizeMultiplier;
+    final questionSize = (compressed ? 10.0 : 12.0) * fontSizeMultiplier;
+    final optionSize = (compressed ? 9.0 : 10.0) * fontSizeMultiplier;
 
     final widgets = <pw.Widget>[];
 
@@ -240,7 +273,7 @@ class SimplePdfService implements IPdfGenerationService {
         children: [
           pw.Text(
             '$questionNumber. ',
-            style: pw.TextStyle(fontSize: questionSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(fontSize: questionNumSize, fontWeight: pw.FontWeight.bold),
           ),
           pw.Expanded(
             child: pw.Text(
@@ -257,7 +290,7 @@ class SimplePdfService implements IPdfGenerationService {
             ),
             child: pw.Text(
               '[${question.marks} mark${question.marks > 1 ? 's' : ''}]',
-              style: pw.TextStyle(fontSize: compressed ? 7 : 8),
+              style: pw.TextStyle(fontSize: (compressed ? 7 : 8) * fontSizeMultiplier),
             ),
           ),
         ],
@@ -266,11 +299,11 @@ class SimplePdfService implements IPdfGenerationService {
 
     // Options for MCQ
     if (question.type == 'multiple_choice' && question.options != null) {
-      widgets.add(pw.SizedBox(height: compressed ? 2 : 4));
+      widgets.add(pw.SizedBox(height: compressed ? 3 : 5));
       for (int i = 0; i < question.options!.length; i++) {
         widgets.add(
           pw.Padding(
-            padding: pw.EdgeInsets.only(left: 16, top: compressed ? 1 : 2),
+            padding: pw.EdgeInsets.only(left: 16, top: compressed ? 2 : 3),
             child: pw.Text(
               '${String.fromCharCode(97 + i)}) ${question.options![i]}',
               style: pw.TextStyle(fontSize: optionSize),
@@ -282,12 +315,12 @@ class SimplePdfService implements IPdfGenerationService {
 
     // Sub-questions
     if (question.subQuestions.isNotEmpty) {
-      widgets.add(pw.SizedBox(height: compressed ? 2 : 4));
+      widgets.add(pw.SizedBox(height: compressed ? 3 : 5));
       for (int i = 0; i < question.subQuestions.length; i++) {
         final subQ = question.subQuestions[i];
         widgets.add(
           pw.Padding(
-            padding: const pw.EdgeInsets.only(left: 16),
+            padding: const pw.EdgeInsets.only(left: 16, top: 2),
             child: pw.Text(
               '  ${String.fromCharCode(97 + i)}) ${subQ.text} [${subQ.marks} mark${subQ.marks > 1 ? 's' : ''}]',
               style: pw.TextStyle(fontSize: optionSize),

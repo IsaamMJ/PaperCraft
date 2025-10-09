@@ -26,6 +26,7 @@ class TeacherAssignmentDetailPage extends StatefulWidget {
 class _TeacherAssignmentDetailPageState
     extends State<TeacherAssignmentDetailPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  UserEntity? _currentTeacher;
 
   @override
   void initState() {
@@ -62,6 +63,8 @@ class _TeacherAssignmentDetailPageState
             }
 
             if (state is TeacherAssignmentLoaded) {
+              // Store the teacher for reload after assignment success
+              _currentTeacher = state.teacher;
               return _buildContent(state);
             }
 
@@ -682,11 +685,9 @@ class _TeacherAssignmentDetailPageState
         ),
       );
 
-      // Reload the assignments after successful operation
-      final bloc = context.read<TeacherAssignmentBloc>();
-      if (bloc.state is TeacherAssignmentLoaded) {
-        final loadedState = bloc.state as TeacherAssignmentLoaded;
-        bloc.add(LoadTeacherAssignments(loadedState.teacher));
+      // Reload the assignments after successful operation using stored teacher
+      if (_currentTeacher != null) {
+        context.read<TeacherAssignmentBloc>().add(LoadTeacherAssignments(_currentTeacher!));
       }
     }
 

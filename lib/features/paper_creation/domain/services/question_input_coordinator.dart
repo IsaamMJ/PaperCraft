@@ -400,6 +400,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         return BulkInputWidget(
           questionType: _currentSection.type,
           questionCount: _currentSection.questions,
+          marksPerQuestion: _currentSection.marksPerQuestion,
           onQuestionsAdded: _addMultipleQuestions,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
@@ -415,6 +416,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           isMobile: isMobile,
           questionType: _currentSection.type,
           isAdmin: widget.isAdmin,
+          marksPerQuestion: _currentSection.marksPerQuestion,
         );
     }
   }
@@ -644,6 +646,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   void _handleBlocState(BuildContext context, QuestionPaperState state) {
     if (state is QuestionPaperSuccess) {
+      setState(() => _isProcessing = false);
       UiHelpers.showSuccessMessage(context, state.message);
       if (state.actionType == 'save') {
         Future.delayed(const Duration(seconds: 1), () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
@@ -102,13 +103,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   String _generateAutoTitle() {
-    if (_selectedExamType != null && _selectedGradeLevel != null && _selectedSubject != null) {
-      final subject = _selectedSubject!.name.split(' ').first;
-      final examTypeShort = _selectedExamType!.name.replaceAll('Examination', 'Exam');
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
-      return '$subject G$_selectedGradeLevel $examTypeShort #$timestamp';
+    if (_selectedExamType != null && _selectedSubject != null && _selectedExamDate != null) {
+      final dateStr = DateFormat('dd MMM yyyy').format(_selectedExamDate!);
+      return '${_selectedExamType!.name} - ${_selectedSubject!.name} - $dateStr';
     }
-    return 'Paper #${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    return 'Untitled Paper';
   }
 
   String _getAcademicYear(DateTime examDate) {

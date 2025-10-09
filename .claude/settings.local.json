@@ -18,7 +18,8 @@
       "Bash(do echo \"=== $file ===\")",
       "Bash(tail:*)",
       "Read(//e/**)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(flutter build:*)"
     ],
     "deny": [],
     "ask": []

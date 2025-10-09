@@ -5,11 +5,18 @@ import 'package:printing/printing.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
-class PdfPreviewPage extends StatelessWidget {
+enum PdfLayoutDensity {
+  normal,
+  spacious,
+  extraSpacious,
+}
+
+class PdfPreviewPage extends StatefulWidget {
   final Uint8List pdfBytes;
   final String paperTitle;
   final String layoutType;
   final VoidCallback onDownload;
+  final Future<Uint8List> Function(double fontMultiplier, double spacingMultiplier)? onRegeneratePdf;
 
   const PdfPreviewPage({
     super.key,
@@ -17,18 +24,76 @@ class PdfPreviewPage extends StatelessWidget {
     required this.paperTitle,
     required this.layoutType,
     required this.onDownload,
+    this.onRegeneratePdf,
   });
 
+  @override
+  State<PdfPreviewPage> createState() => _PdfPreviewPageState();
+}
+
+class _PdfPreviewPageState extends State<PdfPreviewPage> {
+  late Uint8List _currentPdfBytes;
+  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.normal;
+  bool _isRegenerating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPdfBytes = widget.pdfBytes;
+  }
+
+  (double, double) _getMultipliersForDensity(PdfLayoutDensity density) {
+    switch (density) {
+      case PdfLayoutDensity.normal:
+        return (1.0, 1.0); // 100% font, 100% spacing (old compact)
+      case PdfLayoutDensity.spacious:
+        return (1.15, 1.3); // 115% font, 130% spacing (old normal)
+      case PdfLayoutDensity.extraSpacious:
+        return (1.25, 1.5); // 125% font, 150% spacing (new extra)
+    }
+  }
+
+  Future<void> _handleDensityChange(PdfLayoutDensity density) async {
+    if (_isRegenerating || widget.onRegeneratePdf == null || density == _selectedDensity) return;
+
+    setState(() {
+      _isRegenerating = true;
+      _selectedDensity = density;
+    });
+
+    try {
+      final (fontMultiplier, spacingMultiplier) = _getMultipliersForDensity(density);
+      final newPdfBytes = await widget.onRegeneratePdf!(fontMultiplier, spacingMultiplier);
+
+      if (mounted) {
+        setState(() {
+          _currentPdfBytes = newPdfBytes;
+          _isRegenerating = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to regenerate PDF. Please try again.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _handleDownload(BuildContext context) {
-    onDownload();
+    widget.onDownload();
     Navigator.pop(context);
   }
 
   Future<void> _handlePrint(BuildContext context) async {
     try {
       await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-        name: paperTitle,
+        onLayout: (format) async => _currentPdfBytes,
+        name: widget.paperTitle,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,6 +130,7 @@ class PdfPreviewPage extends StatelessWidget {
       body: Column(
         children: [
           _buildPaperInfoHeader(),
+          if (widget.onRegeneratePdf != null) _buildLayoutControls(),
           _buildPdfViewer(),
           _buildBottomActionBar(context),
         ],
@@ -73,7 +139,7 @@ class PdfPreviewPage extends StatelessWidget {
   }
 
   Widget _buildPaperInfoHeader() {
-    final layoutName = layoutType == 'single' ? 'Single Page Layout' : 'Side-by-Side Layout';
+    final layoutName = widget.layoutType == 'single' ? 'Single Page Layout' : 'Side-by-Side Layout';
 
     return Container(
       width: double.infinity,
@@ -86,7 +152,7 @@ class PdfPreviewPage extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  paperTitle,
+                  widget.paperTitle,
                   style: TextStyle(
                     fontSize: UIConstants.fontSizeLarge,
                     fontWeight: FontWeight.w600,
@@ -125,6 +191,142 @@ class PdfPreviewPage extends StatelessWidget {
     );
   }
 
+  Widget _buildLayoutControls() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: UIConstants.paddingMedium,
+        vertical: UIConstants.spacing8,
+      ),
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Layout Density',
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeMedium,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          SizedBox(height: UIConstants.spacing8),
+          Row(
+            children: [
+              _buildDensityOption(
+                PdfLayoutDensity.normal,
+                'Normal',
+                'Standard layout',
+                Icons.view_agenda_rounded,
+              ),
+              SizedBox(width: 8),
+              _buildDensityOption(
+                PdfLayoutDensity.spacious,
+                'Spacious',
+                'Larger fonts, more spacing',
+                Icons.expand_rounded,
+              ),
+              SizedBox(width: 8),
+              _buildDensityOption(
+                PdfLayoutDensity.extraSpacious,
+                'Extra Spacious',
+                'Maximum spacing',
+                Icons.open_in_full_rounded,
+              ),
+            ],
+          ),
+          if (_isRegenerating) ...[
+            SizedBox(height: UIConstants.spacing8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Regenerating PDF...',
+                  style: TextStyle(
+                    fontSize: UIConstants.fontSizeSmall,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDensityOption(
+    PdfLayoutDensity density,
+    String label,
+    String description,
+    IconData icon,
+  ) {
+    final isSelected = _selectedDensity == density;
+    final isDisabled = _isRegenerating;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: isDisabled ? null : () => _handleDensityChange(density),
+        child: Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.background,
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primary
+                  : AppColors.border.withValues(alpha: 0.3),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.textSecondary,
+                size: 20,
+              ),
+              SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPdfViewer() {
     return Expanded(
       child: Container(
@@ -142,7 +344,8 @@ class PdfPreviewPage extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           child: SfPdfViewer.memory(
-            pdfBytes,
+            _currentPdfBytes,
+            key: ValueKey(_currentPdfBytes.hashCode),
             enableDoubleTapZooming: true,
             enableTextSelection: false,
             canShowScrollHead: true,

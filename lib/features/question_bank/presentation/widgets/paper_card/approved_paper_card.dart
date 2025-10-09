@@ -6,13 +6,12 @@ import 'paper_tag.dart';
 import 'paper_metric.dart';
 import 'paper_status_badge.dart';
 
-/// A card displaying an approved question paper with actions for preview and download
+/// A card displaying an approved question paper with action for preview
 class ApprovedPaperCard extends StatelessWidget {
   final QuestionPaperEntity paper;
   final String creatorName;
   final bool isGeneratingPdf;
   final VoidCallback onPreview;
-  final VoidCallback onDownload;
 
   const ApprovedPaperCard({
     super.key,
@@ -20,7 +19,6 @@ class ApprovedPaperCard extends StatelessWidget {
     required this.creatorName,
     required this.isGeneratingPdf,
     required this.onPreview,
-    required this.onDownload,
   });
 
   @override
@@ -157,16 +155,10 @@ class ApprovedPaperCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildActionButton(
-          icon: Icons.visibility_outlined,
+          icon: isGeneratingPdf ? null : Icons.visibility_outlined,
           color: AppColors.primary,
-          onPressed: onPreview,
-        ),
-        const SizedBox(width: 6),
-        _buildActionButton(
-          icon: isGeneratingPdf ? null : Icons.download_rounded,
-          color: AppColors.success,
           isLoading: isGeneratingPdf,
-          onPressed: isGeneratingPdf ? null : onDownload,
+          onPressed: isGeneratingPdf ? null : onPreview,
         ),
       ],
     );

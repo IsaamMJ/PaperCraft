@@ -664,7 +664,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       creatorName: creatorName,
       isGeneratingPdf: isGenerating,
       onPreview: () => _showPreviewOptions(paper),
-      onDownload: () => _showDownloadOptions(paper),
     );
   }
 
@@ -899,218 +898,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   void _showPreviewOptions(QuestionPaperEntity paper) {
-    _showPdfViewOptions(paper);
-  }
-
-  void _showDownloadOptions(QuestionPaperEntity paper) {
-    _showPdfViewOptions(paper);
-  }
-
-  void _showPdfViewOptions(QuestionPaperEntity paper) {
-    bool showPreview = false;
-    String dualMode = 'balanced'; // 'balanced' or 'compressed'
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(UIConstants.radiusXLarge)),
-          ),
-          padding: EdgeInsets.all(UIConstants.paddingLarge),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Choose PDF Layout',
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeXLarge,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              SizedBox(height: UIConstants.spacing12),
-
-              // Single Page Layout Option
-              _buildPdfLayoutOption(
-                'Single Page Layout',
-                'Traditional format - one question paper per page',
-                Icons.description_outlined,
-                () {
-                  Navigator.pop(context);
-                  _generateAndHandlePdf(paper, 'single', showPreview);
-                },
-              ),
-
-              SizedBox(height: UIConstants.spacing12),
-
-              // Side-by-Side Layout Option
-              _buildPdfLayoutOption(
-                'Side-by-Side Layout',
-                dualMode == 'balanced'
-                    ? 'Balanced layout - even distribution'
-                    : 'Compressed - left fills first, then right (saves paper)',
-                Icons.view_week_outlined,
-                () {
-                  Navigator.pop(context);
-                  _generateAndHandlePdf(paper, 'dual', showPreview, dualMode: dualMode);
-                },
-              ),
-
-              SizedBox(height: UIConstants.spacing12),
-
-              // Compression Toggle
-              Container(
-                padding: EdgeInsets.all(UIConstants.paddingMedium),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.compress_rounded, color: AppColors.accent, size: 24),
-                    SizedBox(width: UIConstants.spacing12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Compress Content',
-                            style: TextStyle(
-                              fontSize: UIConstants.fontSizeMedium,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Fill left side completely first, then continue on right',
-                            style: TextStyle(
-                              fontSize: UIConstants.fontSizeSmall,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: dualMode == 'compressed',
-                      onChanged: (value) {
-                        setModalState(() {
-                          dualMode = value ? 'compressed' : 'balanced';
-                        });
-                      },
-                      activeColor: AppColors.accent,
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: UIConstants.spacing16),
-
-              // Preview Checkbox
-              InkWell(
-                onTap: () {
-                  setModalState(() {
-                    showPreview = !showPreview;
-                  });
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: UIConstants.spacing8),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: showPreview,
-                        onChanged: (value) {
-                          setModalState(() {
-                            showPreview = value ?? false;
-                          });
-                        },
-                        activeColor: AppColors.primary,
-                      ),
-                      Text(
-                        'Preview before download',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeMedium,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: UIConstants.spacing8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPdfLayoutOption(String title, String description, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-      child: Container(
-        padding: EdgeInsets.all(UIConstants.paddingMedium),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(UIConstants.spacing12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 24),
-            ),
-            SizedBox(width: UIConstants.spacing12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeMedium,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeSmall,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textSecondary),
-          ],
-        ),
-      ),
-    );
+    // Generate single layout PDF and show preview
+    _generateAndHandlePdf(paper, 'single', true);  // true = show preview
   }
 
   Future<void> _generateAndHandlePdf(
@@ -1194,6 +983,16 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               paperTitle: paper.title,
               layoutType: layoutType,
               onDownload: () => _downloadPdfFromBank(pdfBytes, paper.title, layoutType),
+              onRegeneratePdf: layoutType == 'single'
+                  ? (fontMultiplier, spacingMultiplier) async {
+                      return await pdfService.generateStudentPdf(
+                        paper: paper,
+                        schoolName: schoolName,
+                        fontSizeMultiplier: fontMultiplier,
+                        spacingMultiplier: spacingMultiplier,
+                      );
+                    }
+                  : null,
             ),
           ),
         );
