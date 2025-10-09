@@ -124,16 +124,16 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
         SizedBox(height: UIConstants.spacing16),
 
-        // Question input with Enter key navigation
+        // Question input
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.done,
+          maxLines: 1,
           onSubmitted: (_) {
             FocusScope.of(context).unfocus();
             if (_isValid) _addQuestion();
           },
-          maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: 'Enter your question with blanks (e.g., "The capital of France is ___")',

@@ -90,14 +90,22 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
 
   String _getHint() {
     switch (widget.questionType) {
-      case 'missing_letters': return 'e.g., "Fill the missing letters: C_T, D_G, B_RD"';
-      case 'meanings': return 'e.g., "Write the meaning of: Beautiful"';
-      case 'opposites': return 'e.g., "Write the opposite of: Hot"';
-      case 'frame_sentences': return 'e.g., "Make a sentence using: Beautiful"';
-      case 'misc_grammar': return 'e.g., "Write the plural of: Child"';
-      case 'true_false': return 'e.g., "The sun rises in the east"';
+      case 'missing_letters': return 'Enter word (e.g., "CAT", "DOG", "BIRD")';
+      case 'meanings': return 'Enter single word (e.g., "Beautiful")';
+      case 'opposites': return 'Enter single word (e.g., "Hot")';
+      case 'frame_sentences': return 'Enter word (e.g., "Beautiful")';
+      case 'misc_grammar': return 'Enter word (e.g., "Child")';
+      case 'true_false': return 'Enter statement (e.g., "The sun rises in the east")';
       default: return 'Enter your question here...';
     }
+  }
+
+  bool _isSingleLineType() {
+    return widget.questionType == 'missing_letters' ||
+           widget.questionType == 'meanings' ||
+           widget.questionType == 'opposites' ||
+           widget.questionType == 'frame_sentences' ||
+           widget.questionType == 'misc_grammar';
   }
 
   void _addQuestion() {
@@ -150,22 +158,16 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
         ),
         SizedBox(height: UIConstants.spacing12),
 
-        // Main question input with Enter key navigation
+        // Main question input
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) {
-            if (_showSubQuestions) {
-              // Move to sub-question field if expanded
-              FocusScope.of(context).nextFocus();
-            } else {
-              // Add question if valid
-              FocusScope.of(context).unfocus();
-              if (_isValid) _addQuestion();
-            }
-          },
-          maxLines: widget.isMobile ? 4 : 3,
+          textInputAction: _isSingleLineType() ? TextInputAction.done : TextInputAction.newline,
+          maxLines: _isSingleLineType() ? 1 : (widget.isMobile ? 4 : 3),
+          onSubmitted: _isSingleLineType() ? (_) {
+            FocusScope.of(context).unfocus();
+            if (_isValid) _addQuestion();
+          } : null,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: _getHint(),

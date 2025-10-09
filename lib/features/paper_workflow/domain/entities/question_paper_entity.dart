@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import 'question_entity.dart';
 import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../../core/domain/validators/input_validators.dart';
 import 'paper_status.dart';
 
 class QuestionPaperEntity extends Equatable {
@@ -98,8 +99,26 @@ class QuestionPaperEntity extends Equatable {
 
   List<String> get validationErrors {
     final errors = <String>[];
-    if (title.trim().isEmpty) errors.add('Title is required');
+
+    // Validate title using InputValidators
+    final titleError = InputValidators.validatePaperTitle(title);
+    if (titleError != null) errors.add(titleError);
+
+    // Validate total marks
+    if (totalMarks > InputValidators.MAX_TOTAL_MARKS) {
+      errors.add('Total marks cannot exceed ${InputValidators.MAX_TOTAL_MARKS}');
+    }
+
     if (questions.isEmpty) errors.add('At least one question required');
+
+    // Check total question count
+    int totalQuestionCount = 0;
+    for (final section in questions.values) {
+      totalQuestionCount += section.length;
+    }
+    if (totalQuestionCount > InputValidators.MAX_TOTAL_QUESTIONS) {
+      errors.add('Total questions cannot exceed ${InputValidators.MAX_TOTAL_QUESTIONS}');
+    }
 
     for (final section in examTypeEntity.sections) {
       final sectionQuestions = questions[section.name] ?? [];
@@ -108,6 +127,19 @@ class QuestionPaperEntity extends Equatable {
 
       if (actual < required) {
         errors.add('Section "${section.name}" needs $required questions, has $actual');
+      }
+
+      // Validate each question in the section
+      for (final question in sectionQuestions) {
+        final questionError = InputValidators.validateQuestionText(question.text);
+        if (questionError != null) {
+          errors.add('Invalid question in ${section.name}: $questionError');
+        }
+
+        final marksError = InputValidators.validateMarks(question.totalMarks);
+        if (marksError != null) {
+          errors.add('Invalid marks in ${section.name}: $marksError');
+        }
       }
     }
     return errors;

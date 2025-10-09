@@ -103,12 +103,11 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
         ),
         SizedBox(height: UIConstants.spacing12),
 
-        // Question input with Enter key navigation
+        // Question input
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          textInputAction: TextInputAction.newline,
           maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(

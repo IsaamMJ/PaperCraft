@@ -1,4 +1,5 @@
 // features/home/presentation/pages/home_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,8 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
+import '../../../../core/presentation/widgets/skeleton_loader.dart';
+import '../../../../core/presentation/widgets/connectivity_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
@@ -14,6 +17,7 @@ import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
+import '../../../notifications/presentation/bloc/notification_bloc.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,28 +28,64 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isRefreshing = false;
+  bool _hasLoadedInitialData = false;
+  Timer? _notificationRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     // Load data only once when page is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && !_hasLoadedInitialData) {
         _loadInitialData();
+        _hasLoadedInitialData = true;
+        _startNotificationRefresh();
+      }
+    });
+  }
+
+  void _startNotificationRefresh() {
+    _notificationRefreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (mounted) {
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated && authState.user.role != UserRole.admin) {
+          context.read<NotificationBloc>().add(
+            RefreshNotifications(authState.user.id),
+          );
+        }
       }
     });
   }
 
   @override
+  void dispose() {
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // This gets called when navigating back - reload data here
-    // But we need to avoid calling it on initial build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadInitialData();
-      }
-    });
+    // Only reload data if we're returning from another page
+    // Check if we already loaded initial data to avoid redundant loads
+    if (_hasLoadedInitialData) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _refreshData();
+        }
+      });
+    }
+  }
+
+  void _refreshData() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    final isAdmin = authState.user.role == UserRole.admin;
+    if (!isAdmin) {
+      // Only refresh unread count for teachers (lightweight operation)
+      context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
+    }
   }
 
   void _loadInitialData() {
@@ -63,6 +103,9 @@ class _HomePageState extends State<HomePage> {
     } else {
       bloc.add(const LoadDrafts());
       bloc.add(const LoadUserSubmissions());
+
+      // Load notifications for teachers
+      context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
     }
   }
 
@@ -145,6 +188,13 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
+                // Connectivity and notification for teachers
+                if (!isAdmin) ...[
+                  const ConnectivityIndicator(),
+                  const SizedBox(width: 8),
+                  _buildNotificationBell(),
+                  const SizedBox(width: 12),
+                ],
                 Container(
                   width: 48,
                   height: 48,
@@ -260,9 +310,9 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildLoading() {
     return const SliverToBoxAdapter(
-      child: SizedBox(
-        height: 200,
-        child: LoadingWidget(message: 'Loading your papers...'),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: PaperListSkeleton(itemCount: 5),
       ),
     );
   }
@@ -537,19 +587,80 @@ class _HomePageState extends State<HomePage> {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final difference = now.difference(date);
+    final today = DateTime(now.year, now.month, now.day);
+    final compareDate = DateTime(date.year, date.month, date.day);
+    final difference = today.difference(compareDate).inDays;
 
-    if (difference.inDays == 0) {
+    if (difference == 0) {
       return 'Today';
-    } else if (difference.inDays == 1) {
+    } else if (difference == 1) {
       return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
+    } else if (difference < 7) {
+      return '$difference days ago';
+    } else if (difference < 30) {
+      final weeks = (difference / 7).floor();
       return '$weeks week${weeks > 1 ? 's' : ''} ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
+  }
+
+  Widget _buildNotificationBell() {
+    return BlocBuilder<NotificationBloc, NotificationState>(
+      builder: (context, state) {
+        int unreadCount = 0;
+
+        if (state is NotificationLoaded) {
+          unreadCount = state.unreadCount;
+        }
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () => context.push(AppRoutes.notifications),
+              icon: Icon(
+                Icons.notifications_rounded,
+                color: AppColors.textPrimary,
+                size: 26,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                ),
+              ),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.background, width: 2),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Center(
+                    child: Text(
+                      unreadCount > 9 ? '9+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 }

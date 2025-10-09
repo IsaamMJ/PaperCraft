@@ -156,12 +156,11 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         SizedBox(height: UIConstants.spacing16),
 
-        // Question instruction with Enter key navigation
+        // Question instruction
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          textInputAction: TextInputAction.newline,
           maxLines: widget.isMobile ? 3 : 2,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(

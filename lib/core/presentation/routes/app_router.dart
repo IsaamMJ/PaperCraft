@@ -22,6 +22,8 @@ import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
 import '../../../features/paper_review/presentation/pages/paper_review_page.dart';
 import '../../../features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../features/notifications/presentation/bloc/notification_bloc.dart';
+import '../../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../../features/paper_workflow/presentation/bloc/user_management_bloc.dart';
 import '../../../features/paper_creation/presentation/pages/question_paper_edit_page.dart';
 import '../../../features/paper_workflow/presentation/pages/question_paper_detail_page.dart';
@@ -187,6 +189,7 @@ class AppRouter {
       getPaperByIdUseCase: sl(),
       getAllPapersForAdminUseCase: sl(),
       getApprovedPapersUseCase: sl(),
+      getApprovedPapersPaginatedUseCase: sl(),
     );
   }
 
@@ -202,6 +205,18 @@ class AppRouter {
         path: AppRoutes.settings,
         builder: (context, state) => _AuthenticatedBuilder(
           builder: (context, user) => const SettingsPage(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (context, state) => BlocProvider(
+          create: (_) => NotificationBloc(
+            getUserNotificationsUseCase: sl(),
+            getUnreadCountUseCase: sl(),
+            markNotificationReadUseCase: sl(),
+            logger: sl<ILogger>(),
+          ),
+          child: const NotificationsPage(),
         ),
       ),
       GoRoute(

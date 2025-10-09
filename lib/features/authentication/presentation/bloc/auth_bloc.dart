@@ -79,16 +79,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     add(const AuthSignOut());
   }
 
-  @override
-  Future<void> close() {
-    AppLogger.blocEvent('AuthBloc', 'closing', context: {
-      'finalState': state.runtimeType.toString(),
-    });
-    _authSubscription.cancel();
-    _syncTimer?.cancel();
-    return super.close();
-  }
-
   // =============== SECURITY FIX: AUTH STATE SYNCHRONIZATION ===============
 
   /// Start periodic auth state synchronization timer
@@ -123,6 +113,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'error': e.toString(),
       });
     }
+  }
+
+  @override
+  Future<void> close() {
+    AppLogger.blocEvent('AuthBloc', 'closing', context: {
+      'finalState': state.runtimeType.toString(),
+    });
+    _authSubscription.cancel();
+    _syncTimer?.cancel();
+    return super.close();
   }
 
   Future<void> _onInitialize(AuthInitialize event, Emitter<AuthState> emit) async {

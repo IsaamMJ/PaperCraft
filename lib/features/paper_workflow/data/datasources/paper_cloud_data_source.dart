@@ -1,5 +1,7 @@
 // features/question_papers/data/datasources/paper_cloud_data_source.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../../../core/infrastructure/network/models/api_response.dart';
 import '../models/question_paper_model.dart';
@@ -13,6 +15,14 @@ abstract class PaperCloudDataSource {
   Future<void> deletePaper(String id);
   Future<List<QuestionPaperModel>> getAllPapersForAdmin(String tenantId);
   Future<List<QuestionPaperModel>> getApprovedPapers(String tenantId);
+  Future<PaginatedResult<QuestionPaperModel>> getApprovedPapersPaginated({
+    required String tenantId,
+    required int page,
+    required int pageSize,
+    String? searchQuery,
+    String? subjectFilter,
+    String? gradeFilter,
+  });
   Future<List<QuestionPaperModel>> searchPapers(
       String tenantId, {
         String? title,
@@ -148,6 +158,82 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch approved papers',
+          category: LogCategory.storage,
+          error: e,
+          stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<PaginatedResult<QuestionPaperModel>> getApprovedPapersPaginated({
+    required String tenantId,
+    required int page,
+    required int pageSize,
+    String? searchQuery,
+    String? subjectFilter,
+    String? gradeFilter,
+  }) async {
+    try {
+      // Calculate range for pagination
+      final from = (page - 1) * pageSize;
+      final to = from + pageSize - 1;
+
+      // Build base query
+      var queryBuilder = Supabase.instance.client
+          .from(_viewName)
+          .select()
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved');
+
+      // Apply optional filters
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queryBuilder = queryBuilder.ilike('title', '%$searchQuery%');
+      }
+
+      if (subjectFilter != null && subjectFilter.isNotEmpty) {
+        queryBuilder = queryBuilder.eq('subject_id', subjectFilter);
+      }
+
+      if (gradeFilter != null && gradeFilter.isNotEmpty) {
+        queryBuilder = queryBuilder.eq('grade_id', gradeFilter);
+      }
+
+      // Execute query with ordering and pagination
+      final response = await queryBuilder
+          .order('reviewed_at', ascending: false)
+          .range(from, to);
+
+      // Parse response
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      // Get total count separately for pagination
+      final countResponse = await Supabase.instance.client
+          .from(_viewName)
+          .select()
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved')
+          .count();
+
+      final totalItems = countResponse.count;
+
+      _logger.info('Fetched paginated approved papers', category: LogCategory.storage, context: {
+        'page': page,
+        'pageSize': pageSize,
+        'totalItems': totalItems,
+        'returnedItems': items.length,
+      });
+
+      return PaginatedResult.fromCount(
+        items: items,
+        currentPage: page,
+        totalItems: totalItems,
+        pageSize: pageSize,
+      );
+    } catch (e, stackTrace) {
+      _logger.error('Failed to fetch paginated approved papers',
           category: LogCategory.storage,
           error: e,
           stackTrace: stackTrace);

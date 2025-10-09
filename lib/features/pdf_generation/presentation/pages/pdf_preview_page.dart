@@ -33,7 +33,7 @@ class PdfPreviewPage extends StatelessWidget {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to print: $e'),
+          content: Text('Unable to print. Please check if a printer is available.'),
           backgroundColor: AppColors.error,
         ),
       );

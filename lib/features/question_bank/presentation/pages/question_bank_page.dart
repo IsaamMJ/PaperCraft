@@ -19,6 +19,7 @@ import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../pdf_generation/domain/services/pdf_generation_service.dart';
 import '../../../paper_workflow/domain/services/user_info_service.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../assignments/domain/repositories/assignment_repository.dart';
 import '../widgets/paper_card/approved_paper_card.dart';
 import '../widgets/filter_panel/filter_panel.dart';
 import '../widgets/search_bar/paper_search_bar.dart';
@@ -43,6 +44,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   bool _isGeneratingPdf = false;
   String? _generatingPdfFor;
 
+  // Pagination state
+  int _currentPage = 1;
+  final int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
+
   // Dynamic data from BLoCs
   List<int> _availableGradeLevels = [];
   List<SubjectEntity> _availableSubjects = [];
@@ -61,6 +67,9 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     _tabController = TabController(length: 3, vsync: this);
     _animController.forward();
     _loadInitialData();
+
+    // Setup scroll listener for pagination
+    _scrollController.addListener(_onScroll);
   }
 
   @override
@@ -79,11 +88,96 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     _searchController.dispose();
     _animController.dispose();
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _loadInitialData() {
-    context.read<QuestionPaperBloc>().add(const LoadApprovedPapers());
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more when scrolled to 80% of the list
+      _loadMore();
+    }
+  }
+
+  void _loadMore() {
+    final state = context.read<QuestionPaperBloc>().state;
+    if (state is ApprovedPapersPaginated && state.hasMore && !state.isLoadingMore) {
+      context.read<QuestionPaperBloc>().add(LoadApprovedPapersPaginated(
+        page: state.currentPage + 1,
+        pageSize: _pageSize,
+        searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+        subjectFilter: _selectedSubjectId,
+        gradeFilter: _selectedGradeLevel?.toString(),
+        isLoadMore: true,
+      ));
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    // Use paginated endpoint with teacher assignment filtering
+    _currentPage = 1;
+
+    // Get current user and their assignments
+    final userStateService = sl<UserStateService>();
+    final currentUser = userStateService.currentUser;
+    final assignmentRepo = sl<AssignmentRepository>();
+
+    // Fetch teacher's assigned grades and subjects
+    String? gradeFilter = _selectedGradeLevel?.toString();
+    String? subjectFilter = _selectedSubjectId;
+
+    if (currentUser != null && currentUser.role == 'teacher') {
+      // Get current academic year (you may want to make this dynamic)
+      final currentYear = DateTime.now().year.toString();
+
+      try {
+        // Fetch assigned grades
+        final gradesResult = await assignmentRepo.getTeacherAssignedGrades(
+          currentUser.id,
+          currentYear,
+        );
+
+        // Fetch assigned subjects
+        final subjectsResult = await assignmentRepo.getTeacherAssignedSubjects(
+          currentUser.id,
+          currentYear,
+        );
+
+        gradesResult.fold(
+          (failure) => null,
+          (grades) {
+            if (grades.isNotEmpty && gradeFilter == null) {
+              // If no grade filter is set, use first assigned grade
+              gradeFilter = grades.first.gradeNumber.toString();
+            }
+          },
+        );
+
+        subjectsResult.fold(
+          (failure) => null,
+          (subjects) {
+            if (subjects.isNotEmpty && subjectFilter == null) {
+              // If no subject filter is set, use first assigned subject
+              subjectFilter = subjects.first.id;
+            }
+          },
+        );
+      } catch (e) {
+        // If fetching assignments fails, proceed without filtering
+        debugPrint('Failed to fetch teacher assignments: $e');
+      }
+    }
+
+    if (!mounted) return;
+
+    context.read<QuestionPaperBloc>().add(LoadApprovedPapersPaginated(
+      page: _currentPage,
+      pageSize: _pageSize,
+      searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+      subjectFilter: subjectFilter,
+      gradeFilter: gradeFilter,
+      isLoadMore: false,
+    ));
     context.read<GradeBloc>().add(const LoadGradeLevels());
     context.read<SubjectBloc>().add(const LoadSubjects());
   }
@@ -230,11 +324,30 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
           UiHelpers.showErrorMessage(context, state.message);
         } else if (state is QuestionPaperLoaded) {
           _loadUserNamesForPapers(state.approvedPapers);
+        } else if (state is ApprovedPapersPaginated) {
+          _loadUserNamesForPapers(state.papers);
         }
       },
       builder: (context, state) {
         if (state is QuestionPaperLoading && !_isRefreshing) {
           return _buildModernLoading();
+        }
+
+        // Handle paginated state
+        if (state is ApprovedPapersPaginated) {
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: AppColors.primary,
+            backgroundColor: AppColors.surface,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPaginatedPapersForPeriod(state, 'current'),
+                _buildPaginatedPapersForPeriod(state, 'previous'),
+                _buildPaginatedArchiveView(state),
+              ],
+            ),
+          );
         }
 
         if (state is QuestionPaperLoaded) {
@@ -1090,7 +1203,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        _showMessage('Failed to generate PDF: $e', AppColors.error);
+        _showMessage('Unable to generate PDF. Please try again.', AppColors.error);
       }
     }
   }
@@ -1122,7 +1235,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       }
     } catch (e) {
       if (mounted) {
-        _showMessage('Failed to download PDF: $e', AppColors.error);
+        _showMessage('Unable to save PDF. Please check storage permissions.', AppColors.error);
       }
     }
   }
@@ -1154,6 +1267,100 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
       ),
+    );
+  }
+
+  // ========== PAGINATED BUILDERS ==========
+
+  Widget _buildPaginatedPapersForPeriod(ApprovedPapersPaginated state, String period) {
+    final papers = _filterPapersByPeriod(state.papers, period);
+    final groupedPapers = _groupPapersByClass(papers);
+
+    if (papers.isEmpty && !state.isLoadingMore) {
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: _buildEmptyForPeriod(period),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(child: _buildStatsHeader(papers.length)),
+        ...groupedPapers.entries.map((entry) => _buildModernClassSection(entry.key, entry.value)),
+        if (state.isLoadingMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+          ),
+        if (!state.hasMore && state.papers.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'No more papers',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+      ],
+    );
+  }
+
+  Widget _buildPaginatedArchiveView(ApprovedPapersPaginated state) {
+    final archivedPapers = _filterPapersByPeriod(state.papers, 'archive');
+    final groupedByMonth = _groupPapersByMonth(archivedPapers);
+
+    if (archivedPapers.isEmpty && !state.isLoadingMore) {
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: _buildEmptyForPeriod('archive'),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(child: _buildStatsHeader(archivedPapers.length)),
+        ...groupedByMonth.entries.map((entry) => _buildMonthSection(entry.key, entry.value)),
+        if (state.isLoadingMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+          ),
+        if (!state.hasMore && state.papers.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'No more papers',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+      ],
     );
   }
 }

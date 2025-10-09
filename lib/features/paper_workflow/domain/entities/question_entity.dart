@@ -1,5 +1,6 @@
 // features/question_papers/domain2/entities/question_entity.dart
 import 'package:equatable/equatable.dart';
+import '../../../../core/domain/validators/input_validators.dart';
 
 class Question extends Equatable {
   final String text;
@@ -44,13 +45,34 @@ class Question extends Equatable {
   }
 
   String get validationError {
+    // Validate question text length
+    final textError = InputValidators.validateQuestionText(text);
+    if (textError != null) return textError;
+
+    // Validate marks
+    final marksError = InputValidators.validateMarks(marks);
+    if (marksError != null) return marksError;
+
+    // Validate options
+    if (options != null) {
+      if (options!.length > InputValidators.MAX_OPTIONS_PER_QUESTION) {
+        return 'Too many options (max ${InputValidators.MAX_OPTIONS_PER_QUESTION})';
+      }
+
+      for (final option in options!) {
+        final optionError = InputValidators.validateOption(option);
+        if (optionError != null) return optionError;
+      }
+    }
+
+    // Type-specific validation
     if (!isValid) {
       if (type == 'multiple_choice') {
         if (options == null || options!.isEmpty) {
           return 'Multiple choice questions must have options';
         }
-        if (options!.length < 2) {
-          return 'Multiple choice questions must have at least 2 options';
+        if (options!.length < InputValidators.MIN_OPTIONS_FOR_MCQ) {
+          return 'Multiple choice questions must have at least ${InputValidators.MIN_OPTIONS_FOR_MCQ} options';
         }
         if (subQuestions.isNotEmpty) {
           return 'Multiple choice questions cannot have sub-questions';
@@ -61,6 +83,12 @@ class Question extends Equatable {
         return 'Non-multiple choice questions cannot have options';
       }
     }
+
+    // Validate sub-questions
+    if (subQuestions.length > InputValidators.MAX_SUB_QUESTIONS) {
+      return 'Too many sub-questions (max ${InputValidators.MAX_SUB_QUESTIONS})';
+    }
+
     return '';
   }
 

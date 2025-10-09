@@ -671,7 +671,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
   void _showPdfViewOptions(QuestionPaperEntity paper) {
     bool showPreview = false;
-    String dualMode = 'balanced'; // 'balanced' or 'compressed'
+    bool compressed = false;
 
     showModalBottomSheet(
       context: context,
@@ -717,41 +717,17 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 overflow: TextOverflow.ellipsis,
               ),
               SizedBox(height: UIConstants.spacing20),
-              _buildPdfLayoutOption(
-                'Single Page Layout',
-                'One question paper per page',
-                Icons.description_rounded,
-                AppColors.primary,
-                () {
-                  Navigator.pop(context);
-                  _generateAndHandlePdf(paper, 'single', showPreview, dualMode: dualMode);
-                },
-              ),
-              const SizedBox(height: 10),
-              _buildPdfLayoutOption(
-                'Side-by-Side Layout',
-                dualMode == 'balanced'
-                    ? 'Balanced layout - even distribution'
-                    : 'Compressed - left fills first, then right (saves paper)',
-                Icons.content_copy_rounded,
-                AppColors.accent,
-                () {
-                  Navigator.pop(context);
-                  _generateAndHandlePdf(paper, 'dual', showPreview, dualMode: dualMode);
-                },
-              ),
-              const SizedBox(height: 10),
-              // Dual mode toggle
+              // Compress toggle
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.compress_rounded, color: AppColors.accent, size: 20),
+                    Icon(Icons.compress_rounded, color: AppColors.primary, size: 20),
                     SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -766,7 +742,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                             ),
                           ),
                           Text(
-                            'Fill left side completely first, then continue on right',
+                            'Reduce spacing between lines to fit more content',
                             style: TextStyle(
                               fontSize: UIConstants.fontSizeSmall,
                               color: AppColors.textSecondary,
@@ -776,17 +752,18 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                       ),
                     ),
                     Switch(
-                      value: dualMode == 'compressed',
+                      value: compressed,
                       onChanged: (value) {
                         setModalState(() {
-                          dualMode = value ? 'compressed' : 'balanced';
+                          compressed = value;
                         });
                       },
-                      activeColor: AppColors.accent,
+                      activeColor: AppColors.primary,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
               SizedBox(height: UIConstants.spacing16),
               InkWell(
                 onTap: () {
@@ -836,6 +813,27 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing20),
+              // Generate PDF Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _generateAndHandlePdf(paper, showPreview, compressed: compressed);
+                  },
+                  icon: Icon(Icons.picture_as_pdf_rounded),
+                  label: Text('Generate PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                    ),
                   ),
                 ),
               ),
@@ -915,7 +913,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  Future<void> _generateAndHandlePdf(QuestionPaperEntity paper, String layoutType, bool showPreview, {String dualMode = 'balanced'}) async {
+  Future<void> _generateAndHandlePdf(QuestionPaperEntity paper, bool showPreview, {bool compressed = false}) async {
     setState(() {
       _isGeneratingPdf = true;
       _cancelPdfGeneration = false;
@@ -979,16 +977,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
 
-      // Generate PDF based on layout type and mode
-      final pdfBytes = layoutType == 'single'
-          ? await pdfService.generateStudentPdf(
+      // Generate PDF with compress option
+      final pdfBytes = await pdfService.generateStudentPdf(
         paper: paper,
         schoolName: schoolName,
-      )
-          : await pdfService.generateDualLayoutPdf(
-        paper: paper,
-        schoolName: schoolName,
-        mode: dualMode == 'compressed' ? DualLayoutMode.compressed : DualLayoutMode.balanced,
+        compressed: compressed,
       );
 
       // Check if cancelled
@@ -1011,22 +1004,22 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               builder: (context) => PdfPreviewPage(
                 pdfBytes: pdfBytes,
                 paperTitle: paper.title,
-                layoutType: layoutType,
-                onDownload: () => _downloadPdf(pdfBytes, paper.title, layoutType),
+                layoutType: compressed ? 'compressed' : 'standard',
+                onDownload: () => _downloadPdf(pdfBytes, paper.title, compressed: compressed),
               ),
             ),
           );
         }
       } else {
         // Direct download without preview
-        await _downloadPdf(pdfBytes, paper.title, layoutType);
+        await _downloadPdf(pdfBytes, paper.title, compressed: compressed);
       }
     } catch (e) {
       // Close loading dialog if still open
       if (mounted) Navigator.of(context).pop();
 
       if (mounted) {
-        _showMessage('Failed to generate PDF: $e', AppColors.error);
+        _showMessage('Unable to generate PDF. Please check your paper and try again.', AppColors.error);
       }
     } finally {
       if (mounted) {
@@ -1035,9 +1028,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  Future<void> _downloadPdf(Uint8List pdfBytes, String paperTitle, String layoutType) async {
+  Future<void> _downloadPdf(Uint8List pdfBytes, String paperTitle, {bool compressed = false}) async {
     try {
-      final layoutSuffix = layoutType == 'single' ? 'Single' : 'SideBySide';
+      final layoutSuffix = compressed ? 'Compressed' : 'Standard';
       final fileName = '${paperTitle.replaceAll(RegExp(r'[^\w\s-]'), '')}_${layoutSuffix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
       File? savedFile;
@@ -1072,7 +1065,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       }
     } catch (e) {
       if (mounted) {
-        _showMessage('Failed to download PDF: $e', AppColors.error);
+        _showMessage('Unable to save PDF. Please check storage permissions and try again.', AppColors.error);
       }
     }
   }

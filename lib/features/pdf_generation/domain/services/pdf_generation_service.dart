@@ -1,8 +1,12 @@
 // features/question_papers/domain2/services/pdf_generation_service.dart
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/presentation/constants/ui_constants.dart';
+import '../../../../core/domain/errors/failures.dart';
+import '../../../../core/infrastructure/config/app_config.dart';
+import '../../../../core/infrastructure/rate_limiter/rate_limiter.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
@@ -30,6 +34,7 @@ abstract class IPdfGenerationService {
     required String schoolName,
     String? studentName,
     String? rollNumber,
+    bool compressed = false,
   });
 
   Future<Uint8List> generateDualLayoutPdf({
@@ -55,6 +60,35 @@ class SimplePdfService implements IPdfGenerationService {
 
   @override
   Future<Uint8List> generateDualLayoutPdf({
+    required QuestionPaperEntity paper,
+    required String schoolName,
+    DualLayoutMode mode = DualLayoutMode.balanced,
+  }) async {
+    // Rate limiting check
+    if (!RateLimiters.pdfGeneration.canProceed('pdf_gen_${paper.id}')) {
+      final waitTime = RateLimiters.pdfGeneration.getWaitTime('pdf_gen_${paper.id}');
+      throw ValidationFailure(
+        'Too many PDF requests. Please wait ${waitTime.inSeconds} seconds before trying again.'
+      );
+    }
+
+    // Wrap generation with timeout
+    return await _generateDualLayoutPdfInternal(
+      paper: paper,
+      schoolName: schoolName,
+      mode: mode,
+    ).timeout(
+      AppConfig.pdfGenerationTimeout,
+      onTimeout: () {
+        throw ValidationFailure(
+          'PDF generation timed out. The paper may be too large. '
+          'Try reducing the number of questions or contact support.'
+        );
+      },
+    );
+  }
+
+  Future<Uint8List> _generateDualLayoutPdfInternal({
     required QuestionPaperEntity paper,
     required String schoolName,
     DualLayoutMode mode = DualLayoutMode.balanced,
@@ -296,6 +330,38 @@ class SimplePdfService implements IPdfGenerationService {
 
   @override
   Future<Uint8List> generateStudentPdf({
+    required QuestionPaperEntity paper,
+    required String schoolName,
+    String? studentName,
+    String? rollNumber,
+    bool compressed = false,
+  }) async {
+    // Rate limiting check
+    if (!RateLimiters.pdfGeneration.canProceed('pdf_gen_${paper.id}')) {
+      final waitTime = RateLimiters.pdfGeneration.getWaitTime('pdf_gen_${paper.id}');
+      throw ValidationFailure(
+        'Too many PDF requests. Please wait ${waitTime.inSeconds} seconds before trying again.'
+      );
+    }
+
+    // Wrap generation with timeout
+    return await _generateStudentPdfInternal(
+      paper: paper,
+      schoolName: schoolName,
+      studentName: studentName,
+      rollNumber: rollNumber,
+    ).timeout(
+      AppConfig.pdfGenerationTimeout,
+      onTimeout: () {
+        throw ValidationFailure(
+          'PDF generation timed out. The paper may be too large. '
+          'Try reducing the number of questions or contact support.'
+        );
+      },
+    );
+  }
+
+  Future<Uint8List> _generateStudentPdfInternal({
     required QuestionPaperEntity paper,
     required String schoolName,
     String? studentName,

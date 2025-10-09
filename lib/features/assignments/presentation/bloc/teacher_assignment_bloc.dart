@@ -183,7 +183,6 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
         String errorMessage = 'Failed to load assignments';
         assignedGradesResult.fold((failure) => errorMessage = failure.message, (_) {});
 
-        print('[TeacherAssignmentBloc] Load failed: $errorMessage');
         emit(TeacherAssignmentError(errorMessage));
         return;
       }
@@ -209,7 +208,6 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
             (subjects) => subjects,
       );
 
-      print('[TeacherAssignmentBloc] Loaded: ${assignedGrades.length} grades, ${assignedSubjects.length} subjects for ${event.teacher.fullName}');
 
       emit(TeacherAssignmentLoaded(
         teacher: event.teacher,
@@ -219,7 +217,6 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
         availableSubjects: allSubjects,
       ));
     } catch (e) {
-      print('[TeacherAssignmentBloc] Exception: $e');
       emit(TeacherAssignmentError('Error: ${e.toString()}'));
     }
   }
@@ -241,16 +238,13 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
 
       result.fold(
         (failure) {
-          print('[TeacherAssignmentBloc] Assign grade failed: ${failure.message}');
           emit(TeacherAssignmentError(failure.message));
         },
         (_) {
-          print('[TeacherAssignmentBloc] Grade assigned successfully');
           emit(const AssignmentSuccess('Grade assigned successfully'));
         },
       );
     } catch (e) {
-      print('[TeacherAssignmentBloc] Exception assigning grade: $e');
       emit(TeacherAssignmentError('Failed to assign grade: ${e.toString()}'));
     }
   }

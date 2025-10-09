@@ -2,6 +2,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
+import '../../../../core/domain/models/paginated_result.dart';
 import '../entities/question_paper_entity.dart';
 
 abstract class QuestionPaperRepository {
@@ -16,6 +17,15 @@ abstract class QuestionPaperRepository {
 
   /// Get all approved papers for question bank (visible to everyone)
   Future<Either<Failure, List<QuestionPaperEntity>>> getApprovedPapers();
+
+  /// Get approved papers with pagination and filters
+  Future<Either<Failure, PaginatedResult<QuestionPaperEntity>>> getApprovedPapersPaginated({
+    required int page,
+    required int pageSize,
+    String? searchQuery,
+    String? subjectFilter,
+    String? gradeFilter,
+  });
 
   // =============== SUBMISSION OPERATIONS (Cloud Storage) ===============
   Future<Either<Failure, QuestionPaperEntity>> submitPaper(QuestionPaperEntity paper);

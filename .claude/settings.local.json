@@ -13,7 +13,12 @@
       "Bash(do if grep -q \"withOpacity\" \"$file\")",
       "Bash(then echo \"$file\")",
       "Bash(fi)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(tail:*)",
+      "Read(//e/**)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,97 @@
+create table public.question_papers (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  user_id uuid not null,
+  reviewed_by uuid null,
+  subject_id uuid not null,
+  grade_id uuid not null,
+  exam_type_id uuid not null,
+  academic_year text not null,
+  title text not null,
+  exam_date date null,
+  questions jsonb not null,
+  metadata jsonb null,
+  status text not null default 'draft'::text,
+  rejection_reason text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  submitted_at timestamp with time zone null,
+  reviewed_at timestamp with time zone null,
+  constraint question_papers_pkey primary key (id),
+  constraint question_papers_title_unique unique (
+    tenant_id,
+    subject_id,
+    grade_id,
+    academic_year,
+    title
+  ),
+  constraint question_papers_user_id_fkey foreign KEY (user_id) references profiles (id) on delete CASCADE,
+  constraint question_papers_grade_id_fkey foreign KEY (grade_id) references grades (id) on delete RESTRICT,
+  constraint question_papers_subject_id_fkey foreign KEY (subject_id) references subjects (id) on delete RESTRICT,
+  constraint question_papers_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE,
+  constraint question_papers_exam_type_id_fkey foreign KEY (exam_type_id) references exam_types (id) on delete RESTRICT,
+  constraint question_papers_reviewed_by_fkey foreign KEY (reviewed_by) references profiles (id) on delete set null,
+  constraint question_papers_rejection_reason_check check (
+    (
+      (status <> 'rejected'::text)
+      or (rejection_reason is not null)
+    )
+  ),
+  constraint question_papers_questions_size check ((pg_column_size(questions) < 1048576)),
+  constraint question_papers_status_check check (
+    (
+      status = any (
+        array[
+          'draft'::text,
+          'submitted'::text,
+          'approved'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_id on public.question_papers using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_user_id on public.question_papers using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_reviewed_by on public.question_papers using btree (reviewed_by) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_subject_id on public.question_papers using btree (subject_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_grade_id on public.question_papers using btree (grade_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_exam_type_id on public.question_papers using btree (exam_type_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_academic_year on public.question_papers using btree (academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_status_submitted on public.question_papers using btree (tenant_id, status, submitted_at desc) TABLESPACE pg_default
+where
+  (
+    status = any (
+      array[
+        'submitted'::text,
+        'approved'::text,
+        'rejected'::text
+      ]
+    )
+  );
+
+create index IF not exists idx_question_papers_user_status_created on public.question_papers using btree (user_id, status, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_subject_grade_year on public.question_papers using btree (tenant_id, subject_id, grade_id, academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_pending_review on public.question_papers using btree (tenant_id, submitted_at desc) TABLESPACE pg_default
+where
+  (status = 'submitted'::text);
+
+create index IF not exists idx_question_papers_questions_gin on public.question_papers using gin (questions) TABLESPACE pg_default;
+
+create trigger handle_paper_status BEFORE
+update on question_papers for EACH row
+execute FUNCTION handle_paper_status_change ();
+
+create trigger set_question_papers_updated_at BEFORE
+update on question_papers for EACH row
+execute FUNCTION update_updated_at_column ();

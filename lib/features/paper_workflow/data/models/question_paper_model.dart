@@ -150,6 +150,29 @@ class QuestionPaperModel extends QuestionPaperEntity {
 
   /// Convert to Supabase format for INSERT/UPDATE
   Map<String, dynamic> toSupabaseMap() {
+    // Validate UUID fields before serialization
+    if (id.isEmpty) {
+      throw ArgumentError('Paper ID cannot be empty');
+    }
+    if (tenantId == null || tenantId!.isEmpty) {
+      throw ArgumentError('Tenant ID cannot be null or empty');
+    }
+    if (userId == null || userId!.isEmpty) {
+      throw ArgumentError('User ID cannot be null or empty');
+    }
+    if (subjectId.isEmpty) {
+      throw ArgumentError('Subject ID cannot be empty');
+    }
+    if (gradeId.isEmpty) {
+      throw ArgumentError('Grade ID cannot be empty');
+    }
+    if (examTypeId.isEmpty) {
+      throw ArgumentError('Exam Type ID cannot be empty');
+    }
+    if (reviewedBy != null && reviewedBy!.isEmpty) {
+      throw ArgumentError('Reviewed By cannot be empty string (use null instead)');
+    }
+
     // Convert questions to JSON
     final Map<String, dynamic> questionsJson = {};
     questions.forEach((sectionName, questionsList) {
@@ -166,6 +189,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
     }
 
     final Map<String, dynamic> map = {
+      'id': id,
       'tenant_id': tenantId,
       'user_id': userId,
       'subject_id': subjectId,
@@ -179,14 +203,9 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'status': status.value,
       'submitted_at': submittedAt?.toIso8601String(),
       'reviewed_at': reviewedAt?.toIso8601String(),
-      'reviewed_by': reviewedBy,
+      'reviewed_by': (reviewedBy != null && reviewedBy!.isNotEmpty) ? reviewedBy : null,
       'rejection_reason': rejectionReason,
     };
-
-    // Only include ID if it's not empty (for updates)
-    if (id.isNotEmpty) {
-      map['id'] = id;
-    }
 
     return map;
   }

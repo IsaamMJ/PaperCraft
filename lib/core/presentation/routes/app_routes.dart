@@ -8,6 +8,7 @@ class AppRoutes {
   // Main routes
   static const String home = '/';
   static const String settings = '/settings'; // ADD THIS
+  static const String notifications = '/notifications';
 
   // Question paper routes
   static const String questionPaperCreate = '/papers/create';

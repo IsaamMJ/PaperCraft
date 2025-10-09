@@ -18,6 +18,7 @@ import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'firebase_options.dart';
 
 import 'features/authentication/domain/services/user_state_service.dart';
+import 'core/infrastructure/error/global_error_handler.dart';
 
 /// Entry point of the PaperCraft application
 Future<void> main() async {
@@ -76,6 +77,9 @@ Future<void> _initializeFirebase() async {
 
 /// Configure global error handlers for Flutter and Crashlytics
 void _setupErrorHandlers() {
+  // Initialize global error handler (catches all uncaught errors)
+  GlobalErrorHandler.initialize();
+
   FlutterError.onError = (FlutterErrorDetails details) {
     _logFlutterError(details);
 

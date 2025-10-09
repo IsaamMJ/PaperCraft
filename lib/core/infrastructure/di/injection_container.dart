@@ -30,6 +30,7 @@ import '../../../features/paper_workflow/domain/services/user_info_service.dart'
 import '../../../features/paper_workflow/domain/services/paper_display_service.dart';
 import '../../../features/paper_workflow/domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_approved_papers_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_approved_papers_paginated_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_drafts_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_paper_by_id_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
@@ -38,6 +39,7 @@ import '../../../features/paper_workflow/domain/usecases/pull_for_editing_usecas
 import '../../../features/paper_workflow/domain/usecases/save_draft_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.dart';
 import '../../domain/interfaces/i_logger.dart';
+import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
 import '../../domain/interfaces/i_network_service.dart';
 
@@ -81,6 +83,15 @@ import '../../../features/assignments/data/datasources/assignment_data_source.da
 import '../../../features/assignments/data/repositories/assignment_repository_impl.dart';
 import '../../../features/assignments/domain/repositories/assignment_repository.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
+
+// Notification feature imports
+import '../../../features/notifications/data/datasources/notification_data_source.dart';
+import '../../../features/notifications/data/repositories/notification_repository.dart';
+import '../../../features/notifications/domain/repositories/i_notification_repository.dart';
+import '../../../features/notifications/domain/usecases/create_notification_usecase.dart';
+import '../../../features/notifications/domain/usecases/get_user_notifications_usecase.dart';
+import '../../../features/notifications/domain/usecases/mark_notification_read_usecase.dart';
+import '../../../features/notifications/domain/usecases/get_unread_count_usecase.dart';
 
 /// Global service locator instance
 final sl = GetIt.instance;
@@ -131,6 +142,7 @@ Future<void> setupDependencies() async {
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
     await _AssignmentModule.setup();
+    await _NotificationModule.setup();
 
     final setupDuration = DateTime.now().difference(setupStartTime);
     sl<ILogger>().info(
@@ -138,7 +150,7 @@ Future<void> setupDependencies() async {
       category: LogCategory.system,
       context: {
         'duration': '${setupDuration.inMilliseconds}ms',
-        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service', 'paper_display_service', 'assignments'],
+        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service', 'paper_display_service', 'assignments', 'notifications'],
         'environment': EnvironmentConfig.current.name,
         'platform': PlatformUtils.platformName,
       },
@@ -172,6 +184,9 @@ void _registerCoreServices() {
 
   // Logger second (depends on feature flags)
   sl.registerLazySingleton<ILogger>(() => AppLoggerImpl(sl<IFeatureFlags>()));
+
+  // Analytics service (depends on nothing - can be stubbed)
+  sl.registerLazySingleton<IAnalyticsService>(() => AnalyticsService());
 
   // Network service third (depends on logger)
   sl.registerLazySingleton<INetworkService>(() => NetworkServiceImpl(sl<ILogger>()));
@@ -559,12 +574,21 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => SubmitPaperUseCase(repository));
     sl.registerLazySingleton(() => GetUserSubmissionsUseCase(repository));
     sl.registerLazySingleton(() => GetPapersForReviewUseCase(repository));
-    sl.registerLazySingleton(() => ApprovePaperUseCase(repository));
-    sl.registerLazySingleton(() => RejectPaperUseCase(repository));
+    sl.registerLazySingleton(() => ApprovePaperUseCase(
+          repository,
+          sl<CreateNotificationUseCase>(),
+          sl<ILogger>(),
+        ));
+    sl.registerLazySingleton(() => RejectPaperUseCase(
+          repository,
+          sl<CreateNotificationUseCase>(),
+          sl<ILogger>(),
+        ));
     sl.registerLazySingleton(() => GetPaperByIdUseCase(repository));
     sl.registerLazySingleton(() => PullForEditingUseCase(repository));
     sl.registerLazySingleton(() => GetAllPapersForAdminUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersUseCase(repository));
+    sl.registerLazySingleton(() => GetApprovedPapersPaginatedUseCase(repository));
   }
 }
 
@@ -708,6 +732,75 @@ class _AssignmentModule {
     );
 
     sl<ILogger>().debug('TeacherAssignmentBloc registered successfully', category: LogCategory.system);
+  }
+}
+
+class _NotificationModule {
+  static Future<void> setup() async {
+    try {
+      sl<ILogger>().debug('Initializing notification module', category: LogCategory.system);
+
+      _setupDataSources();
+      _setupRepositories();
+      _setupUseCases();
+
+      sl<ILogger>().info(
+        'Notification module initialized successfully',
+        category: LogCategory.system,
+        context: {
+          'features': ['paper_approval_notifications', 'paper_rejection_notifications'],
+          'useCasesRegistered': 4,
+          'repositoriesRegistered': 1,
+          'dataSourcesRegistered': 1,
+          'platform': PlatformUtils.platformName,
+        },
+      );
+    } catch (e, stackTrace) {
+      sl<ILogger>().error(
+        'Notification module initialization failed',
+        error: e,
+        stackTrace: stackTrace,
+        category: LogCategory.system,
+        context: {
+          'step': 'notification_setup',
+          'platform': PlatformUtils.platformName,
+        },
+      );
+      rethrow;
+    }
+  }
+
+  static void _setupDataSources() {
+    sl<ILogger>().debug('Setting up notification data sources', category: LogCategory.system);
+
+    sl.registerLazySingleton<NotificationDataSource>(
+      () => NotificationDataSourceImpl(
+        sl<ApiClient>(),
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupRepositories() {
+    sl<ILogger>().debug('Setting up notification repositories', category: LogCategory.system);
+
+    sl.registerLazySingleton<INotificationRepository>(
+      () => NotificationRepository(
+        sl<NotificationDataSource>(),
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupUseCases() {
+    sl<ILogger>().debug('Setting up notification use cases', category: LogCategory.system);
+
+    sl.registerLazySingleton(() => CreateNotificationUseCase(sl<INotificationRepository>()));
+    sl.registerLazySingleton(() => GetUserNotificationsUseCase(sl<INotificationRepository>()));
+    sl.registerLazySingleton(() => MarkNotificationReadUseCase(sl<INotificationRepository>()));
+    sl.registerLazySingleton(() => GetUnreadCountUseCase(sl<INotificationRepository>()));
+
+    sl<ILogger>().debug('Notification use cases registered successfully', category: LogCategory.system);
   }
 }
 

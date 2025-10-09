@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../../core/infrastructure/services/auto_save_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
@@ -23,6 +24,7 @@ import '../../presentation/widgets/question_input/matching_input_widget.dart';
 import '../../presentation/widgets/question_input/mcq_input_widget.dart';
 import '../../presentation/widgets/question_input/question_list_widget.dart';
 import '../../presentation/widgets/question_input/section_progress_widget.dart';
+import '../../presentation/widgets/paper_preview_widget.dart';
 import 'paper_validation_service.dart';
 
 class QuestionInputCoordinator extends StatefulWidget {
@@ -73,11 +75,14 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   int _currentSectionIndex = 0;
   Map<String, List<Question>> _allQuestions = {};
   bool _isProcessing = false;
+  final _autoSaveService = AutoSaveService();
+  DateTime? _lastAutoSave;
 
   @override
   void initState() {
     super.initState();
     _initializeQuestions();
+    _startAutoSave();
   }
 
   void _initializeQuestions() {
@@ -88,6 +93,58 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         _allQuestions[section.name] = [];
       }
     }
+  }
+
+  void _startAutoSave() {
+    if (widget.isAdmin) return; // Only auto-save for teachers, not admins
+
+    _autoSaveService.startAutoSave(
+      onSave: () async {
+        final userStateService = sl<UserStateService>();
+        final userId = userStateService.currentUserId;
+        final tenantId = userStateService.currentTenantId;
+
+        if (userId == null || tenantId == null) return;
+
+        final now = DateTime.now();
+        final paper = QuestionPaperEntity(
+          id: widget.existingPaperId ?? const Uuid().v4(),
+          title: widget.paperTitle,
+          subjectId: widget.selectedSubjects.first.id,
+          gradeId: widget.gradeId,
+          examTypeId: widget.examType.id,
+          academicYear: widget.academicYear,
+          createdBy: userId,
+          createdAt: now,
+          modifiedAt: now,
+          status: PaperStatus.draft,
+          examTypeEntity: widget.examType,
+          questions: _allQuestions,
+          examDate: widget.examDate,
+          subject: widget.selectedSubjects.map((s) => s.name).join(', '),
+          grade: 'Grade ${widget.gradeLevel}',
+          examType: widget.examType.name,
+          gradeLevel: widget.gradeLevel,
+          selectedSections: widget.selectedSections,
+          tenantId: tenantId,
+          userId: userId,
+        );
+
+        context.read<QuestionPaperBloc>().add(SaveDraft(paper));
+        _lastAutoSave = DateTime.now();
+      },
+      shouldSave: () {
+        // Only save if there are questions and it's been at least 30 seconds
+        final hasQuestions = _allQuestions.values.any((questions) => questions.isNotEmpty);
+        return hasQuestions && !_isProcessing;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoSaveService.dispose();
+    super.dispose();
   }
 
   ExamSectionEntity get _currentSection => widget.sections[_currentSectionIndex];
@@ -377,7 +434,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: !_isProcessing ? _createPaper : null,
+              onPressed: !_isProcessing ? _showPreviewAndSubmit : null,
               icon: _isProcessing
                   ? SizedBox(
                       width: 20,
@@ -387,8 +444,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                         valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
                     )
-                  : const Icon(Icons.check_circle_rounded),
-              label: Text(_isProcessing ? _getProcessingText() : _getCompleteButtonText()),
+                  : const Icon(Icons.preview_rounded),
+              label: Text(_isProcessing ? _getProcessingText() : 'Preview & ${_getCompleteButtonText()}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 foregroundColor: Colors.white,
@@ -404,6 +461,40 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
             message: 'Complete all sections to submit the paper',
           ),
       ],
+    );
+  }
+
+  void _showPreviewAndSubmit() {
+    final now = DateTime.now();
+    final previewPaper = QuestionPaperEntity(
+      id: widget.existingPaperId ?? const Uuid().v4(),
+      title: widget.paperTitle,
+      subjectId: widget.selectedSubjects.first.id,
+      gradeId: widget.gradeId,
+      examTypeId: widget.examType.id,
+      academicYear: widget.academicYear,
+      createdBy: 'preview',
+      createdAt: now,
+      modifiedAt: now,
+      status: PaperStatus.draft,
+      examTypeEntity: widget.examType,
+      questions: _allQuestions,
+      examDate: widget.examDate,
+      subject: widget.selectedSubjects.map((s) => s.name).join(', '),
+      grade: 'Grade ${widget.gradeLevel}',
+      examType: widget.examType.name,
+      gradeLevel: widget.gradeLevel,
+      selectedSections: widget.selectedSections,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => PaperPreviewWidget(
+        paper: previewPaper,
+        onSubmit: _createPaper,
+      ),
     );
   }
 
@@ -484,8 +575,21 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
     try {
       final userStateService = sl<UserStateService>();
-      final userId = userStateService.currentUserId ?? '';
-      final tenantId = userStateService.currentTenantId ?? '';
+      final userId = userStateService.currentUserId;
+      final tenantId = userStateService.currentTenantId;
+
+      // Validate user authentication state
+      if (userId == null || userId.isEmpty) {
+        setState(() => _isProcessing = false);
+        _showMessage('User not authenticated. Please log in again.', AppColors.error);
+        return;
+      }
+
+      if (tenantId == null || tenantId.isEmpty) {
+        setState(() => _isProcessing = false);
+        _showMessage('Tenant information missing. Please log in again.', AppColors.error);
+        return;
+      }
 
       final errors = PaperValidationService.validatePaperForCreation(
         title: widget.paperTitle,
@@ -506,7 +610,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       final paper = QuestionPaperEntity(
         id: widget.isEditing && widget.existingPaperId != null
             ? widget.existingPaperId!
-            : 'draft_${const Uuid().v4()}',
+            : const Uuid().v4(),
         title: widget.paperTitle,
         subjectId: widget.selectedSubjects.first.id,
         gradeId: widget.gradeId,

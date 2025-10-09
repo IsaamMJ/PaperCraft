@@ -1,6 +1,7 @@
 // features/paper_workflow/presentation/bloc/question_paper_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../catalog/domain/usecases/get_exam_types_usecase.dart';
 import '../../../paper_review/domain/usecases/approve_paper_usecase.dart';
@@ -10,6 +11,7 @@ import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../domain/usecases/get_approved_papers_usecase.dart';
+import '../../domain/usecases/get_approved_papers_paginated_usecase.dart';
 import '../../domain/usecases/get_drafts_usecase.dart';
 import '../../domain/usecases/get_paper_by_id_usecase.dart';
 import '../../domain/usecases/get_papers_for_review_usecase.dart';
@@ -45,6 +47,27 @@ class LoadAllPapersForAdmin extends QuestionPaperEvent {
 
 class LoadApprovedPapers extends QuestionPaperEvent {
   const LoadApprovedPapers();
+}
+
+class LoadApprovedPapersPaginated extends QuestionPaperEvent {
+  final int page;
+  final int pageSize;
+  final String? searchQuery;
+  final String? subjectFilter;
+  final String? gradeFilter;
+  final bool isLoadMore; // true if loading more, false if refreshing
+
+  const LoadApprovedPapersPaginated({
+    this.page = 1,
+    this.pageSize = 20,
+    this.searchQuery,
+    this.subjectFilter,
+    this.gradeFilter,
+    this.isLoadMore = false,
+  });
+
+  @override
+  List<Object?> get props => [page, pageSize, searchQuery, subjectFilter, gradeFilter, isLoadMore];
 }
 
 class LoadExamTypes extends QuestionPaperEvent {
@@ -209,6 +232,68 @@ class QuestionPaperSuccess extends QuestionPaperState {
   List<Object?> get props => [message, actionType];
 }
 
+class ApprovedPapersPaginated extends QuestionPaperState {
+  final List<QuestionPaperEntity> papers;
+  final int currentPage;
+  final int totalPages;
+  final int totalItems;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String? searchQuery;
+  final String? subjectFilter;
+  final String? gradeFilter;
+
+  const ApprovedPapersPaginated({
+    required this.papers,
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalItems,
+    required this.hasMore,
+    this.isLoadingMore = false,
+    this.searchQuery,
+    this.subjectFilter,
+    this.gradeFilter,
+  });
+
+  @override
+  List<Object?> get props => [
+        papers,
+        currentPage,
+        totalPages,
+        totalItems,
+        hasMore,
+        isLoadingMore,
+        searchQuery,
+        subjectFilter,
+        gradeFilter,
+      ];
+
+  ApprovedPapersPaginated copyWith({
+    List<QuestionPaperEntity>? papers,
+    int? currentPage,
+    int? totalPages,
+    int? totalItems,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchQuery,
+    String? subjectFilter,
+    String? gradeFilter,
+    bool clearFilters = false,
+  }) {
+    return ApprovedPapersPaginated(
+      papers: papers ?? this.papers,
+      currentPage: currentPage ?? this.currentPage,
+      totalPages: totalPages ?? this.totalPages,
+      totalItems: totalItems ?? this.totalItems,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchQuery: clearFilters ? null : (searchQuery ?? this.searchQuery),
+      subjectFilter: clearFilters ? null : (subjectFilter ?? this.subjectFilter),
+      gradeFilter: clearFilters ? null : (gradeFilter ?? this.gradeFilter),
+    );
+  }
+}
+
 // =============== BLOC ===============
 class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final SaveDraftUseCase _saveDraftUseCase;
@@ -223,6 +308,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetPaperByIdUseCase _getPaperByIdUseCase;
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final GetApprovedPapersUseCase _getApprovedPapersUseCase;
+  final GetApprovedPapersPaginatedUseCase _getApprovedPapersPaginatedUseCase;
   final GetExamTypesUseCase _getExamTypesUseCase;
 
   QuestionPaperBloc({
@@ -238,6 +324,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetPaperByIdUseCase getPaperByIdUseCase,
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required GetApprovedPapersUseCase getApprovedPapersUseCase,
+    required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
     required GetExamTypesUseCase getExamTypesUseCase,
   })  : _saveDraftUseCase = saveDraftUseCase,
         _submitPaperUseCase = submitPaperUseCase,
@@ -251,6 +338,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getPaperByIdUseCase = getPaperByIdUseCase,
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _getApprovedPapersUseCase = getApprovedPapersUseCase,
+        _getApprovedPapersPaginatedUseCase = getApprovedPapersPaginatedUseCase,
         _getExamTypesUseCase = getExamTypesUseCase,
         super(QuestionPaperInitial()) {
     on<LoadDrafts>(_onLoadDrafts);
@@ -258,6 +346,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<LoadPapersForReview>(_onLoadPapersForReview);
     on<LoadAllPapersForAdmin>(_onLoadAllPapersForAdmin);
     on<LoadApprovedPapers>(_onLoadApprovedPapers);
+    on<LoadApprovedPapersPaginated>(_onLoadApprovedPapersPaginated);
     on<LoadExamTypes>(_onLoadExamTypes);
     on<LoadPaperById>(_onLoadPaperById);
     on<SaveDraft>(_onSaveDraft);
@@ -359,6 +448,67 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
           emit(currentState.copyWith(approvedPapers: enrichedPapers));
         } else {
           emit(QuestionPaperLoaded(approvedPapers: enrichedPapers));
+        }
+      },
+    );
+  }
+
+  Future<void> _onLoadApprovedPapersPaginated(
+    LoadApprovedPapersPaginated event,
+    Emitter<QuestionPaperState> emit,
+  ) async {
+    // If loading more, set loading flag on existing state
+    if (event.isLoadMore && state is ApprovedPapersPaginated) {
+      final currentState = state as ApprovedPapersPaginated;
+      emit(currentState.copyWith(isLoadingMore: true));
+    } else if (!event.isLoadMore) {
+      // Fresh load or filter change - show loading
+      emit(const QuestionPaperLoading(message: 'Loading papers...'));
+    }
+
+    final result = await _getApprovedPapersPaginatedUseCase(
+      page: event.page,
+      pageSize: event.pageSize,
+      searchQuery: event.searchQuery,
+      subjectFilter: event.subjectFilter,
+      gradeFilter: event.gradeFilter,
+    );
+
+    await result.fold(
+      (failure) async => emit(QuestionPaperError(failure.message)),
+      (paginatedResult) async {
+        // Enrich papers with display names
+        final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(paginatedResult.items);
+
+        if (event.isLoadMore && state is ApprovedPapersPaginated) {
+          // Append to existing papers
+          final currentState = state as ApprovedPapersPaginated;
+          final allPapers = [...currentState.papers, ...enrichedPapers];
+
+          emit(ApprovedPapersPaginated(
+            papers: allPapers,
+            currentPage: paginatedResult.currentPage,
+            totalPages: paginatedResult.totalPages,
+            totalItems: paginatedResult.totalItems,
+            hasMore: paginatedResult.hasMore,
+            isLoadingMore: false,
+            searchQuery: event.searchQuery,
+            subjectFilter: event.subjectFilter,
+            gradeFilter: event.gradeFilter,
+          ));
+        } else {
+          // Fresh load - replace papers
+          emit(ApprovedPapersPaginated(
+            papers: enrichedPapers,
+            currentPage: paginatedResult.currentPage,
+            totalPages: paginatedResult.totalPages,
+            totalItems: paginatedResult.totalItems,
+            hasMore: paginatedResult.hasMore,
+            isLoadingMore: false,
+            searchQuery: event.searchQuery,
+            subjectFilter: event.subjectFilter,
+            gradeFilter: event.gradeFilter,
+          ));
         }
       },
     );

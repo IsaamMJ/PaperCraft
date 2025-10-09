@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
@@ -131,7 +132,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       final existingPaper = await _cloudDataSource.getPaperById(paper.id);
 
       final cloudPaper = paper.copyWith(
-        id: existingPaper != null ? paper.id : '', // Keep ID for resubmission, let Supabase generate for new
+        // Always keep the generated ID - never use empty string
         status: PaperStatus.submitted,
         tenantId: tenantId,
         userId: userId,
@@ -374,6 +375,46 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       return Right(models.map((m) => m.toEntity()).toList());
     } catch (e, stackTrace) {
       _logger.error('Failed to get approved papers', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to get papers: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, PaginatedResult<QuestionPaperEntity>>> getApprovedPapersPaginated({
+    required int page,
+    required int pageSize,
+    String? searchQuery,
+    String? subjectFilter,
+    String? gradeFilter,
+  }) async {
+    try {
+      final tenantId = await _getTenantId();
+
+      if (tenantId == null) {
+        return Left(AuthFailure('User not authenticated'));
+      }
+
+      final result = await _cloudDataSource.getApprovedPapersPaginated(
+        tenantId: tenantId,
+        page: page,
+        pageSize: pageSize,
+        searchQuery: searchQuery,
+        subjectFilter: subjectFilter,
+        gradeFilter: gradeFilter,
+      );
+
+      final entities = result.items.map((m) => m.toEntity()).toList();
+
+      return Right(PaginatedResult<QuestionPaperEntity>(
+        items: entities,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        totalItems: result.totalItems,
+        hasMore: result.hasMore,
+        pageSize: result.pageSize,
+      ));
+    } catch (e, stackTrace) {
+      _logger.error('Failed to get paginated approved papers', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to get papers: ${e.toString()}'));
     }
   }
