@@ -7,7 +7,7 @@ import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/database/hive_database_helper.dart';
 import '../../domain/entities/question_entity.dart';
 import '../models/question_paper_model.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../domain/entities/paper_status.dart';
 
 class PaperLocalDataSourceHive implements PaperLocalDataSource {
@@ -383,13 +383,12 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
       'title': paper.title,
       'subject_id': paper.subjectId,
       'grade_id': paper.gradeId,
-      'exam_type_id': paper.examTypeId,
       'academic_year': paper.academicYear,
       'created_by': paper.createdBy,
       'created_at': paper.createdAt.millisecondsSinceEpoch,
       'modified_at': paper.modifiedAt.millisecondsSinceEpoch,
       'status': paper.status.value,
-      'exam_type_entity': jsonEncode(paper.examTypeEntity.toJson()),
+      'paper_sections': jsonEncode(paper.paperSections.map((s) => s.toJson()).toList()),
       'exam_date': paper.examDate?.millisecondsSinceEpoch,
       'tenant_id': paper.tenantId,
       'user_id': paper.userId,
@@ -537,21 +536,22 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         questionsMap.putIfAbsent(sectionName, () => []).add(question);
       }
 
-      final examTypeEntityJson = jsonDecode(paperMap['exam_type_entity'] as String);
-      final examTypeEntity = ExamTypeEntity.fromJson(examTypeEntityJson);
+      final paperSectionsJson = jsonDecode(paperMap['paper_sections'] as String) as List<dynamic>;
+      final paperSections = paperSectionsJson
+          .map((json) => PaperSectionEntity.fromJson(json as Map<String, dynamic>))
+          .toList();
 
       final paper = QuestionPaperModel(
         id: paperMap['id'] as String,
         title: paperMap['title'] as String,
         subjectId: paperMap['subject_id'] as String,
         gradeId: paperMap['grade_id'] as String,
-        examTypeId: paperMap['exam_type_id'] as String,
         academicYear: paperMap['academic_year'] as String,
         createdBy: paperMap['created_by'] as String,
         createdAt: DateTime.fromMillisecondsSinceEpoch(paperMap['created_at'] as int),
         modifiedAt: DateTime.fromMillisecondsSinceEpoch(paperMap['modified_at'] as int),
         status: PaperStatus.fromString(paperMap['status'] as String),
-        examTypeEntity: examTypeEntity,
+        paperSections: paperSections,
         questions: questionsMap,
         examDate: paperMap['exam_date'] != null
             ? DateTime.fromMillisecondsSinceEpoch(paperMap['exam_date'] as int)

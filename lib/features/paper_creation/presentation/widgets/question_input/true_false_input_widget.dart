@@ -83,11 +83,11 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.done,
+          maxLines: 1,
           onSubmitted: (_) {
             FocusScope.of(context).unfocus();
             if (_isValid) _addQuestion();
           },
-          maxLines: widget.isMobile ? 4 : 3,
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: 'Enter your true/false statement...',

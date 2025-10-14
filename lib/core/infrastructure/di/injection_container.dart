@@ -13,13 +13,18 @@ import '../../../features/authentication/domain/usecases/get_tenant_usecase.dart
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../../../features/catalog/data/datasources/grade_data_source.dart';
 import '../../../features/catalog/domain/repositories/subject_repository.dart';
-import '../../../features/catalog/domain/usecases/get_exam_types_usecase.dart';
 import '../../../features/catalog/domain/usecases/get_grade_levels_usecase.dart';
 import '../../../features/catalog/domain/usecases/get_sections_by_grade_usecase.dart';
 import '../../../features/catalog/domain/usecases/get_subjects_usecase.dart';
-import '../../../features/catalog/presentation/bloc/exam_type_bloc.dart';
 import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
 import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
+import '../../../features/catalog/presentation/bloc/teacher_pattern_bloc.dart';
+import '../../../features/catalog/data/datasources/teacher_pattern_data_source.dart';
+import '../../../features/catalog/data/repositories/teacher_pattern_repository_impl.dart';
+import '../../../features/catalog/domain/repositories/teacher_pattern_repository.dart';
+import '../../../features/catalog/domain/usecases/get_teacher_patterns_usecase.dart';
+import '../../../features/catalog/domain/usecases/save_teacher_pattern_usecase.dart';
+import '../../../features/catalog/domain/usecases/delete_teacher_pattern_usecase.dart';
 import '../../../features/onboarding/domain/usecases/seed_tenant_usecase.dart';
 import '../../../features/catalog/data/datasources/subject_data_source.dart';
 import '../../../features/catalog/data/repositories/subject_repository_impl.dart';
@@ -68,11 +73,6 @@ import '../../../features/paper_workflow/data/repositories/question_paper_reposi
 import '../../../features/paper_workflow/domain/repositories/question_paper_repository.dart';
 import '../../../features/paper_workflow/domain/usecases/delete_draft_usecase.dart';
 import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart';
-
-// Exam Type imports
-import '../../../features/catalog/data/datasources/exam_type_data_source.dart';
-import '../../../features/catalog/data/repositories/exam_type_repository_impl.dart';
-import '../../../features/catalog/domain/repositories/exam_type_repository.dart';
 
 // Grade feature
 import '../../../features/catalog/data/repositories/grade_repository_impl.dart';
@@ -371,14 +371,13 @@ class _AuthModule {
           () => SeedTenantUseCase(
         sl<SubjectRepository>(),
         sl<GradeRepository>(),
-        sl<ExamTypeRepository>(),
         sl<ILogger>(),
       ),
     );
 
     sl<ILogger>().debug('Onboarding dependencies registered successfully', category: LogCategory.auth, context: {
       'useCase': 'SeedTenantUseCase',
-      'dependencies': ['SubjectRepository', 'GradeRepository', 'ExamTypeRepository'],
+      'dependencies': ['SubjectRepository', 'GradeRepository'],
     });
   }
 
@@ -417,7 +416,7 @@ class _QuestionPapersModule {
       _setupDataSources();
       _setupRepositories();
       _setupUseCases();
-      _setupExamTypes();
+      _setupTeacherPatterns();
       _setupSubjects();
       _setupUserInfoService();
       _setupPaperDisplayService();
@@ -455,7 +454,6 @@ class _QuestionPapersModule {
           () => PaperDisplayService(
         sl<SubjectRepository>(),
         sl<GradeRepository>(),
-        sl<ExamTypeRepository>(),
         sl<ILogger>(),
       ),
     );
@@ -508,34 +506,40 @@ class _QuestionPapersModule {
     sl<ILogger>().debug('SubjectBloc registered successfully', category: LogCategory.paper);
   }
 
-  static void _setupExamTypes() {
-    sl<ILogger>().debug('Setting up exam types', category: LogCategory.examtype);
+  static void _setupTeacherPatterns() {
+    sl<ILogger>().debug('Setting up teacher patterns', category: LogCategory.paper);
 
     // Data Sources
-    sl.registerLazySingleton<ExamTypeDataSource>(
-          () => ExamTypeSupabaseDataSource(Supabase.instance.client, sl<ILogger>()),
+    sl.registerLazySingleton<TeacherPatternDataSource>(
+      () => TeacherPatternDataSource(Supabase.instance.client),
     );
 
     // Repositories
-    // Find where ExamTypeRepository is registered and update it:
-    sl.registerLazySingleton<ExamTypeRepository>(
-          () => ExamTypeRepositoryImpl(
-        sl<ExamTypeDataSource>(),
-        sl<ILogger>(),
-        sl<UserStateService>(), // ADD THIS LINE
-      ),
+    sl.registerLazySingleton<ITeacherPatternRepository>(
+      () => TeacherPatternRepositoryImpl(sl<TeacherPatternDataSource>()),
     );
 
     // Use Cases
-    sl.registerLazySingleton<GetExamTypesUseCase>(() => GetExamTypesUseCase(sl<ExamTypeRepository>()));
-    sl.registerLazySingleton<GetExamTypeByIdUseCase>(() => GetExamTypeByIdUseCase(sl<ExamTypeRepository>()));
-
-    // BLoC registration
-    sl.registerFactory<ExamTypeBloc>(
-          () => ExamTypeBloc(repository: sl<ExamTypeRepository>()),
+    sl.registerLazySingleton<GetTeacherPatternsUseCase>(
+      () => GetTeacherPatternsUseCase(sl<ITeacherPatternRepository>()),
+    );
+    sl.registerLazySingleton<SaveTeacherPatternUseCase>(
+      () => SaveTeacherPatternUseCase(sl<ITeacherPatternRepository>()),
+    );
+    sl.registerLazySingleton<DeleteTeacherPatternUseCase>(
+      () => DeleteTeacherPatternUseCase(sl<ITeacherPatternRepository>()),
     );
 
-    sl<ILogger>().debug('ExamTypeBloc registered successfully', category: LogCategory.examtype);
+    // BLoC registration
+    sl.registerFactory<TeacherPatternBloc>(
+      () => TeacherPatternBloc(
+        getPatterns: sl<GetTeacherPatternsUseCase>(),
+        savePattern: sl<SaveTeacherPatternUseCase>(),
+        deletePattern: sl<DeleteTeacherPatternUseCase>(),
+      ),
+    );
+
+    sl<ILogger>().debug('TeacherPatternBloc registered successfully', category: LogCategory.paper);
   }
 
   static void _setupDataSources() {

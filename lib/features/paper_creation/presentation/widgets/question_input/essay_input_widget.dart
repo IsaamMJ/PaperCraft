@@ -107,7 +107,10 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
            widget.questionType == 'meanings' ||
            widget.questionType == 'opposites' ||
            widget.questionType == 'frame_sentences' ||
-           widget.questionType == 'misc_grammar';
+           widget.questionType == 'misc_grammar' ||
+           widget.questionType == 'short_answers' ||
+           widget.questionType == 'long_answers' ||
+           widget.questionType == 'true_false';
   }
 
   void _addQuestion() {

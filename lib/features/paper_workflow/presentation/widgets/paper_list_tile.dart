@@ -101,13 +101,11 @@ class PaperListTile extends StatelessWidget {
                       Icons.score_outlined,
                       '${paper.totalMarks} marks',
                     ),
-                    if (paper.examTypeEntity.durationMinutes != null) ...[
-                      const SizedBox(width: 16),
-                      _buildMetric(
-                        Icons.schedule_outlined,
-                        paper.examTypeEntity.formattedDuration,
-                      ),
-                    ],
+                    const SizedBox(width: 16),
+                    _buildMetric(
+                      Icons.library_books_outlined,
+                      '${paper.paperSections.length} sections',
+                    ),
                   ],
                 ),
 

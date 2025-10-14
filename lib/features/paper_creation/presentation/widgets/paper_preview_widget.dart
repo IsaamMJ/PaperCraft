@@ -6,11 +6,13 @@ import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 class PaperPreviewWidget extends StatelessWidget {
   final QuestionPaperEntity paper;
   final VoidCallback? onSubmit;
+  final bool isAdmin;
 
   const PaperPreviewWidget({
     super.key,
     required this.paper,
     this.onSubmit,
+    this.isAdmin = false,
   });
 
   @override
@@ -271,7 +273,7 @@ class PaperPreviewWidget extends StatelessWidget {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: const Text('Submit Paper'),
+                          child: Text(isAdmin ? 'Submit Paper' : 'Save Draft'),
                         ),
                       ),
                     ],

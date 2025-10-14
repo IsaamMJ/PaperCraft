@@ -107,8 +107,9 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.newline,
-          maxLines: widget.isMobile ? 4 : 3,
+          textInputAction: TextInputAction.next,
+          maxLines: 1,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: 'Enter your multiple choice question here...',

@@ -1,7 +1,7 @@
 // features/question_papers/pages/widgets/question_input/section_progress_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../../core/presentation/constants/app_colors.dart';
-import '../../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../../catalog/domain/entities/paper_section_entity.dart';
 
 import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../paper_workflow/domain/entities/question_entity.dart';
@@ -9,7 +9,7 @@ import '../../../../paper_workflow/domain/entities/question_entity.dart';
 
 class SectionProgressWidget extends StatelessWidget {
   final int currentSection;
-  final List<ExamSectionEntity> sections;
+  final List<PaperSectionEntity> sections;
   final Map<String, List<Question>> allQuestions;
 
   const SectionProgressWidget({

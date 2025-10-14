@@ -1,14 +1,13 @@
 // features/question_papers/pages/widgets/question_input_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:papercraft/features/paper_creation/domain/services/question_input_coordinator.dart';
-import '../../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../../catalog/domain/entities/subject_entity.dart';
 import '../../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
 class QuestionInputDialog extends StatelessWidget {
-  final List<ExamSectionEntity> sections;
-  final ExamTypeEntity examType;
+  final List<PaperSectionEntity> paperSections;
   final List<SubjectEntity> selectedSubjects;
   final String paperTitle;
   final int gradeLevel;
@@ -28,8 +27,7 @@ class QuestionInputDialog extends StatelessWidget {
 
   const QuestionInputDialog({
     super.key,
-    required this.sections,
-    required this.examType,
+    required this.paperSections,
     required this.selectedSubjects,
     required this.paperTitle,
     required this.gradeLevel,
@@ -90,8 +88,7 @@ class QuestionInputDialog extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: EdgeInsets.all(isMobile ? 20 : 24),
                 child: QuestionInputCoordinator(
-                  sections: sections,
-                  examType: examType,
+                  paperSections: paperSections,
                   selectedSubjects: selectedSubjects,
                   paperTitle: paperTitle,
                   gradeLevel: gradeLevel,

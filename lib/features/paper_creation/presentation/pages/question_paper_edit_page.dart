@@ -8,7 +8,6 @@ import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
 import '../../../catalog/domain/services/subject_grade_service.dart';
@@ -59,13 +58,11 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   int? _selectedGradeLevel;
   List<String> _selectedSections = [];
 
-  // Exam type and subject - Loaded from BLoC
-  ExamTypeEntity? _selectedExamType;
+  // Subject - Loaded from BLoC
   SubjectEntity? _selectedSubject; // FIXED: Single subject, not list
   List<SubjectEntity> _filteredSubjects = [];
 
   // Store data loaded from BLoCs
-  List<ExamTypeEntity> _availableExamTypes = [];
   List<SubjectEntity> _availableSubjects = [];
 
   // Paper being edited
@@ -88,7 +85,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
 
     // Load all required data from BLoCs
     context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId));
-    context.read<QuestionPaperBloc>().add(const LoadExamTypes());
+    // Exam types removed - using dynamic sections
     context.read<SubjectBloc>().add(const LoadSubjects());
     context.read<GradeBloc>().add(const LoadGrades());
 
@@ -125,18 +122,6 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         } catch (e) {
           // If exact match not found, use first available grade
           _selectedGrade = _availableGrades.first;
-        }
-      }
-
-      // Find matching exam type from LOADED data
-      if (_availableExamTypes.isNotEmpty && paper.examTypeId.isNotEmpty) {
-        try {
-          _selectedExamType = _availableExamTypes.firstWhere(
-                (examType) => examType.id == paper.examTypeId,
-          );
-        } catch (e) {
-          // If exact match not found, use first available exam type
-          _selectedExamType = _availableExamTypes.first;
         }
       }
 
@@ -193,19 +178,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   _populateFormFromPaper(state.currentPaper!);
                 }
 
-                // Load exam types when available
-                if (state.examTypes.isNotEmpty) {
-                  setState(() {
-                    _availableExamTypes = state.examTypes;
-                    // Re-populate if paper is already loaded
-                    if (_currentPaper != null && _selectedExamType == null) {
-                      _selectedExamType = _availableExamTypes.firstWhere(
-                            (examType) => examType.name == _currentPaper!.examType,
-                        orElse: () => _availableExamTypes.first,
-                      );
-                    }
-                  });
-                }
+                // Exam types removed - using dynamic sections
               }
 
               if (state is QuestionPaperSuccess) {
@@ -445,13 +418,13 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             Divider(height: 24, color: AppColors.border),
             _buildLockedRow(Icons.class_rounded, 'Sections', _selectedSections.isNotEmpty ? _selectedSections.join(', ') : 'All sections'),
             Divider(height: 24, color: AppColors.border),
-            _buildLockedRow(Icons.quiz_rounded, 'Exam Type', _selectedExamType?.name ?? 'Loading...'),
-            if (_selectedExamType != null) ...[
+            _buildLockedRow(Icons.quiz_rounded, 'Paper Sections', '${_currentPaper?.paperSections.length ?? 0} sections'),
+            if (_currentPaper != null && _currentPaper!.paperSections.isNotEmpty) ...[
               SizedBox(height: UIConstants.spacing4),
               Padding(
                 padding: const EdgeInsets.only(left: 36),
                 child: Text(
-                  '${_selectedExamType!.formattedDuration} • ${_selectedExamType!.calculatedTotalMarks} marks • ${_selectedExamType!.sections.length} sections',
+                  '${_currentPaper!.totalMarks} marks • ${_currentPaper!.totalQuestions} questions',
                   style: TextStyle(
                     fontSize: UIConstants.fontSizeSmall,
                     color: AppColors.textSecondary,
@@ -652,11 +625,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _editQuestions() {
-    if (_currentPaper == null || _selectedExamType == null || _selectedSubject == null) {
+    if (_currentPaper == null || _selectedSubject == null) {
       // Show error message if required data is missing
       String missingData = '';
       if (_currentPaper == null) missingData = 'Paper data not loaded';
-      else if (_selectedExamType == null) missingData = 'Exam type not loaded';
       else if (_selectedSubject == null) missingData = 'Subject not loaded';
 
       UiHelpers.showErrorMessage(context, 'Cannot edit questions: $missingData');
@@ -680,8 +652,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
           },
           // In _editQuestions method, REPLACE the QuestionInputDialog call:
           child: QuestionInputDialog(
-            sections: _selectedExamType!.sections,
-            examType: _selectedExamType!,
+            paperSections: _currentPaper!.paperSections,
             selectedSubjects: _selectedSubject != null ? [_selectedSubject!] : [], // FIXED
             paperTitle: _titleController.text.trim(),
             gradeLevel: _selectedGradeLevel!,
@@ -732,13 +703,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _navigateBack() {
-    try {
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go(AppRoutes.home);
-      }
-    } catch (e) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
       context.go(AppRoutes.home);
     }
   }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../../core/presentation/utils/date_formatter_helper.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../../core/presentation/widgets/skeleton_loader.dart';
 import '../../../../core/presentation/widgets/connectivity_indicator.dart';
@@ -26,14 +27,19 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isRefreshing = false;
   bool _hasLoadedInitialData = false;
   Timer? _notificationRefreshTimer;
+  bool _isAppInForeground = true;
+
+  // Cache the last valid QuestionPaperLoaded state to preserve data across navigation
+  QuestionPaperLoaded? _cachedPaperState;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Load data only once when page is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_hasLoadedInitialData) {
@@ -44,9 +50,16 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isAppInForeground = state == AppLifecycleState.resumed;
+  }
+
   void _startNotificationRefresh() {
     _notificationRefreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
-      if (mounted) {
+      // Only refresh if app is in foreground
+      if (mounted && _isAppInForeground) {
         final authState = context.read<AuthBloc>().state;
         if (authState is AuthAuthenticated && authState.user.role != UserRole.admin) {
           context.read<NotificationBloc>().add(
@@ -59,6 +72,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationRefreshTimer?.cancel();
     super.dispose();
   }
@@ -66,26 +80,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Only reload data if we're returning from another page
-    // Check if we already loaded initial data to avoid redundant loads
-    if (_hasLoadedInitialData) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _refreshData();
-        }
-      });
-    }
-  }
-
-  void _refreshData() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) return;
-
-    final isAdmin = authState.user.role == UserRole.admin;
-    if (!isAdmin) {
-      // Only refresh unread count for teachers (lightweight operation)
-      context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
-    }
+    // No automatic reload - data persists across navigation
+    // User can pull-to-refresh if needed
   }
 
   void _loadInitialData() {
@@ -101,8 +97,8 @@ class _HomePageState extends State<HomePage> {
     if (isAdmin) {
       bloc.add(const LoadPapersForReview());
     } else {
-      bloc.add(const LoadDrafts());
-      bloc.add(const LoadUserSubmissions());
+      // Use atomic loading to prevent race conditions and inconsistent states
+      bloc.add(const LoadAllTeacherPapers());
 
       // Load notifications for teachers
       context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
@@ -222,26 +218,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            if (!isAdmin) ...[
-              SizedBox(height: UIConstants.spacing16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => context.go(AppRoutes.questionPaperCreate),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Create Question Paper'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    ),
-                    elevation: 2,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -252,8 +228,24 @@ class _HomePageState extends State<HomePage> {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
+        buildWhen: (previous, current) {
+          // Only rebuild if the state is relevant to home page
+          // Ignore state changes from other pages (e.g., ApprovedPapersPaginated)
+          if (current is QuestionPaperLoading ||
+              current is QuestionPaperLoaded ||
+              current is QuestionPaperError) {
+            return true;
+          }
+          // For other states, don't rebuild - keep showing cached data
+          return false;
+        },
         builder: (context, state) {
           if (state is QuestionPaperLoading) {
+            // If we have cached data, show it during loading
+            if (_cachedPaperState != null) {
+              final papers = _getAllPapers(_cachedPaperState!, isAdmin);
+              return _buildPapersList(papers, isAdmin);
+            }
             return _buildLoading();
           }
 
@@ -269,11 +261,24 @@ class _HomePageState extends State<HomePage> {
                 }
               });
             }
+            // If we have cached data, show it even on error
+            if (_cachedPaperState != null) {
+              final papers = _getAllPapers(_cachedPaperState!, isAdmin);
+              return _buildPapersList(papers, isAdmin);
+            }
             return _buildError(errorMessage);
           }
 
           if (state is QuestionPaperLoaded) {
+            // Cache this state for future use
+            _cachedPaperState = state;
             final papers = _getAllPapers(state, isAdmin);
+            return _buildPapersList(papers, isAdmin);
+          }
+
+          // Fallback: show cached data or empty state
+          if (_cachedPaperState != null) {
+            final papers = _getAllPapers(_cachedPaperState!, isAdmin);
             return _buildPapersList(papers, isAdmin);
           }
 
@@ -417,6 +422,27 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     PaperStatusBadge(status: paper.status, isCompact: true),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
+                      onSelected: (value) {
+                        if (value == 'duplicate') {
+                          _duplicatePaper(paper);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'duplicate',
+                          child: Row(
+                            children: [
+                              Icon(Icons.content_copy_rounded, size: 18, color: AppColors.textPrimary),
+                              const SizedBox(width: 12),
+                              const Text('Duplicate'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 SizedBox(height: UIConstants.spacing12),
@@ -447,7 +473,7 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      _formatDate(paper.modifiedAt),
+                      DateFormatterHelper.formatRelative(paper.modifiedAt),
                       style: TextStyle(
                         fontSize: UIConstants.fontSizeSmall,
                         color: AppColors.textTertiary,
@@ -470,8 +496,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildActionButton(QuestionPaperEntity paper) {
+    // For draft papers, show Edit button
+    if (paper.status == PaperStatus.draft) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => context.push(AppRoutes.questionPaperEditWithId(paper.id)),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_rounded, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Edit',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeSmall,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final (text, icon, color) = switch (paper.status) {
-      PaperStatus.draft => ('View Draft', Icons.visibility_rounded, AppColors.primary),
       PaperStatus.rejected => ('View Details', Icons.visibility_rounded, AppColors.accent),
       PaperStatus.approved => ('View', Icons.visibility_rounded, AppColors.success),
       _ => ('View Status', Icons.info_outline_rounded, AppColors.textSecondary),
@@ -585,24 +645,100 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final compareDate = DateTime(date.year, date.month, date.day);
-    final difference = today.difference(compareDate).inDays;
+  Future<void> _duplicatePaper(QuestionPaperEntity paper) async {
+    final TextEditingController titleController = TextEditingController(
+      text: '${paper.title} (Copy)',
+    );
 
-    if (difference == 0) {
-      return 'Today';
-    } else if (difference == 1) {
-      return 'Yesterday';
-    } else if (difference < 7) {
-      return '$difference days ago';
-    } else if (difference < 30) {
-      final weeks = (difference / 7).floor();
-      return '$weeks week${weeks > 1 ? 's' : ''} ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Duplicate Question Paper'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter a title for the new paper:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Title',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                ),
+                filled: true,
+                fillColor: AppColors.backgroundSecondary,
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.content_copy_rounded, size: 18),
+            label: const Text('Duplicate'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final newTitle = titleController.text.trim();
+      if (newTitle.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Title cannot be empty'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Create duplicate with new title
+      final duplicatedPaper = paper.copyWith(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: newTitle,
+        status: PaperStatus.draft,
+        createdAt: DateTime.now(),
+        modifiedAt: DateTime.now(),
+        submittedAt: null,
+        reviewedAt: null,
+        rejectionReason: null,
+      );
+
+      // Add to bloc
+      context.read<QuestionPaperBloc>().add(SaveDraft(duplicatedPaper));
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Paper duplicated successfully'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'EDIT',
+            textColor: Colors.white,
+            onPressed: () {
+              context.push(AppRoutes.questionPaperEditWithId(duplicatedPaper.id));
+            },
+          ),
+        ),
+      );
     }
+
+    titleController.dispose();
   }
 
   Widget _buildNotificationBell() {

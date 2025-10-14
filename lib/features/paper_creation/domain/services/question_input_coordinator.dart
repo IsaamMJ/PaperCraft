@@ -11,8 +11,12 @@ import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
+import '../../../catalog/domain/entities/teacher_pattern_entity.dart';
+import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
+import '../../../catalog/presentation/bloc/teacher_pattern_event.dart';
+import '../../../catalog/presentation/bloc/teacher_pattern_state.dart';
 import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
@@ -28,8 +32,7 @@ import '../../presentation/widgets/paper_preview_widget.dart';
 import 'paper_validation_service.dart';
 
 class QuestionInputCoordinator extends StatefulWidget {
-  final List<ExamSectionEntity> sections;
-  final ExamTypeEntity examType;
+  final List<PaperSectionEntity> paperSections;
   final List<SubjectEntity> selectedSubjects;
   final String paperTitle;
   final int gradeLevel;
@@ -49,8 +52,7 @@ class QuestionInputCoordinator extends StatefulWidget {
 
   const QuestionInputCoordinator({
     super.key,
-    required this.sections,
-    required this.examType,
+    required this.paperSections,
     required this.selectedSubjects,
     required this.paperTitle,
     required this.gradeLevel,
@@ -77,6 +79,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   bool _isProcessing = false;
   final _autoSaveService = AutoSaveService();
   DateTime? _lastAutoSave;
+  bool _showSaveIndicator = false;
 
   @override
   void initState() {
@@ -86,7 +89,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   void _initializeQuestions() {
-    for (var section in widget.sections) {
+    for (var section in widget.paperSections) {
       if (widget.existingQuestions != null && widget.existingQuestions!.containsKey(section.name)) {
         _allQuestions[section.name] = List.from(widget.existingQuestions![section.name]!);
       } else {
@@ -112,18 +115,17 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           title: widget.paperTitle,
           subjectId: widget.selectedSubjects.first.id,
           gradeId: widget.gradeId,
-          examTypeId: widget.examType.id,
           academicYear: widget.academicYear,
           createdBy: userId,
           createdAt: now,
           modifiedAt: now,
           status: PaperStatus.draft,
-          examTypeEntity: widget.examType,
+          paperSections: widget.paperSections,
           questions: _allQuestions,
           examDate: widget.examDate,
           subject: widget.selectedSubjects.map((s) => s.name).join(', '),
           grade: 'Grade ${widget.gradeLevel}',
-          examType: widget.examType.name,
+          examType: null, // No longer have exam type name
           gradeLevel: widget.gradeLevel,
           selectedSections: widget.selectedSections,
           tenantId: tenantId,
@@ -131,7 +133,17 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         );
 
         context.read<QuestionPaperBloc>().add(SaveDraft(paper));
-        _lastAutoSave = DateTime.now();
+        setState(() {
+          _lastAutoSave = DateTime.now();
+          _showSaveIndicator = true;
+        });
+
+        // Hide indicator after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() => _showSaveIndicator = false);
+          }
+        });
       },
       shouldSave: () {
         // Only save if there are questions and it's been at least 30 seconds
@@ -147,7 +159,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     super.dispose();
   }
 
-  ExamSectionEntity get _currentSection => widget.sections[_currentSectionIndex];
+  PaperSectionEntity get _currentSection => widget.paperSections[_currentSectionIndex];
   List<Question> get _currentSectionQuestions => _allQuestions[_currentSection.name] ?? [];
 
   @override
@@ -155,54 +167,113 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    return BlocListener<QuestionPaperBloc, QuestionPaperState>(
-      listener: _handleBlocState,
-      child: Container(
-        padding: const EdgeInsets.all(UIConstants.paddingLarge),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            )
-          ],
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<QuestionPaperBloc, QuestionPaperState>(
+          listener: _handleBlocState,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(isMobile),
-            SizedBox(height: UIConstants.spacing24),
-            _buildSectionTabs(),
-            SizedBox(height: UIConstants.spacing16),
-            SectionProgressWidget(
-              currentSection: _currentSectionIndex,
-              sections: widget.sections,
-              allQuestions: _allQuestions,
-            ),
-            SizedBox(height: isMobile ? 24 : 20),
-            QuestionListWidget(
-              sectionName: _currentSection.name,
-              questions: _currentSectionQuestions,
-              onEditQuestion: _editQuestion,
-              onRemoveQuestion: _removeQuestion,
-              isMobile: isMobile,
-            ),
-            SizedBox(height: isMobile ? 20 : 16),
-            _buildQuestionInput(isMobile),
-            SizedBox(height: isMobile ? 32 : 20),
-            _buildActions(isMobile),
-          ],
+        BlocListener<TeacherPatternBloc, TeacherPatternState>(
+          listener: (context, state) {
+            if (state is TeacherPatternSaved) {
+              debugPrint('✅ Pattern saved successfully: ${state.pattern.name}');
+              debugPrint('   Pattern ID: ${state.pattern.id}');
+              debugPrint('   Was incremented: ${state.wasIncremented}');
+              debugPrint('   Use count: ${state.pattern.useCount}');
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            state.wasIncremented
+                                ? 'Pattern usage updated'
+                                : 'New pattern saved: ${state.pattern.name}',
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: AppColors.success,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            } else if (state is TeacherPatternError) {
+              debugPrint('❌ Pattern save error: ${state.message}');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to save pattern: ${state.message}'),
+                    backgroundColor: AppColors.error,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+            }
+          },
         ),
+      ],
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(UIConstants.paddingLarge),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(isMobile),
+                SizedBox(height: UIConstants.spacing24),
+                _buildSectionTabs(),
+                SizedBox(height: UIConstants.spacing16),
+                SectionProgressWidget(
+                  currentSection: _currentSectionIndex,
+                  sections: widget.paperSections,
+                  allQuestions: _allQuestions,
+                ),
+                SizedBox(height: isMobile ? 24 : 20),
+                QuestionListWidget(
+                  sectionName: _currentSection.name,
+                  questions: _currentSectionQuestions,
+                  onEditQuestion: _editQuestion,
+                  onRemoveQuestion: _removeQuestion,
+                  onReorderQuestions: _reorderQuestions,
+                  isMobile: isMobile,
+                ),
+                SizedBox(height: isMobile ? 20 : 16),
+                _buildQuestionInput(isMobile),
+                SizedBox(height: isMobile ? 32 : 20),
+                _buildActions(isMobile),
+              ],
+            ),
+          ),
+          // Auto-save indicator
+          if (_showSaveIndicator || _lastAutoSave != null)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: _buildAutoSaveIndicator(),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildHeader(bool isMobile) {
     final currentMarks = _getCurrentMarks();
-    final totalMarks = widget.examType.calculatedTotalMarks;
+    final totalMarks = widget.paperSections.fold(0, (sum, section) => sum + section.totalMarks);
     final optionalMarks = _getOptionalMarks();
 
     return Column(
@@ -266,17 +337,80 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     );
   }
 
+  Widget _buildAutoSaveIndicator() {
+    String message;
+    Color bgColor;
+    IconData icon;
+
+    if (_showSaveIndicator) {
+      message = 'Saved just now';
+      bgColor = AppColors.success;
+      icon = Icons.check_circle_rounded;
+    } else if (_lastAutoSave != null) {
+      final now = DateTime.now();
+      final diff = now.difference(_lastAutoSave!);
+
+      if (diff.inMinutes < 1) {
+        message = 'Saved just now';
+      } else if (diff.inMinutes < 60) {
+        message = 'Saved ${diff.inMinutes} min ago';
+      } else {
+        message = 'Saved ${diff.inHours}h ago';
+      }
+      bgColor = AppColors.textSecondary;
+      icon = Icons.cloud_done_rounded;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedOpacity(
+      opacity: _showSaveIndicator ? 1.0 : 0.7,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTabs() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: widget.sections.asMap().entries.map((entry) {
+        children: widget.paperSections.asMap().entries.map((entry) {
           final index = entry.key;
           final section = entry.value;
           final isActive = index == _currentSectionIndex;
           final questions = _allQuestions[section.name] ?? [];
           final mandatoryCount = questions.where((q) => !q.isOptional).length;
-          final isComplete = mandatoryCount >= section.questions;
+          final isComplete = section.type == 'match_following'
+              ? mandatoryCount > 0  // For matching: just need 1 question
+              : mandatoryCount >= section.questions;  // For others: match count
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -338,7 +472,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   int _getOptionalMarks() {
     int total = 0;
-    for (var section in widget.sections) {
+    for (var section in widget.paperSections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
         if (question.isOptional) {
@@ -351,7 +485,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   int _getCurrentMarks() {
     int total = 0;
-    for (var section in widget.sections) {
+    for (var section in widget.paperSections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
         if (!question.isOptional) {
@@ -376,6 +510,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
+          title: 'Add Fill in the Blanks Question',
         );
 
       case 'misc_grammar':
@@ -390,7 +525,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         return MatchingInputWidget(
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
-          requiredPairs: _currentSection.marksPerQuestion,
+          requiredPairs: _currentSection.questions, // Number of pairs = questions in section
           isAdmin: widget.isAdmin,
         );
 
@@ -473,18 +608,17 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       title: widget.paperTitle,
       subjectId: widget.selectedSubjects.first.id,
       gradeId: widget.gradeId,
-      examTypeId: widget.examType.id,
       academicYear: widget.academicYear,
       createdBy: 'preview',
       createdAt: now,
       modifiedAt: now,
       status: PaperStatus.draft,
-      examTypeEntity: widget.examType,
+      paperSections: widget.paperSections,
       questions: _allQuestions,
       examDate: widget.examDate,
       subject: widget.selectedSubjects.map((s) => s.name).join(', '),
       grade: 'Grade ${widget.gradeLevel}',
-      examType: widget.examType.name,
+      examType: null,
       gradeLevel: widget.gradeLevel,
       selectedSections: widget.selectedSections,
     );
@@ -496,6 +630,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       builder: (context) => PaperPreviewWidget(
         paper: previewPaper,
         onSubmit: _createPaper,
+        isAdmin: widget.isAdmin,
       ),
     );
   }
@@ -547,14 +682,35 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     _showMessage('Question removed', AppColors.warning);
   }
 
+  void _reorderQuestions(int oldIndex, int newIndex) {
+    setState(() {
+      final questions = _allQuestions[_currentSection.name]!;
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final question = questions.removeAt(oldIndex);
+      questions.insert(newIndex, question);
+    });
+    UiHelpers.showSuccessMessage(context, 'Question order updated');
+  }
+
   void _checkSectionCompletion() {
     final section = _currentSection;
     final questions = _allQuestions[section.name]!;
-    final mandatoryQuestions = questions.where((q) => !q.isOptional).length;
+    final mandatoryQuestions = questions.where((q) => !q.isOptional).toList();
 
-    bool sectionComplete = mandatoryQuestions >= section.questions;
+    bool sectionComplete;
 
-    if (sectionComplete && _currentSectionIndex < widget.sections.length - 1) {
+    // Special handling for matching questions
+    if (section.type == 'match_following') {
+      // For matching: 1 question with N pairs = complete
+      sectionComplete = mandatoryQuestions.isNotEmpty;
+    } else {
+      // For other types: count must match section.questions
+      sectionComplete = mandatoryQuestions.length >= section.questions;
+    }
+
+    if (sectionComplete && _currentSectionIndex < widget.paperSections.length - 1) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) setState(() => _currentSectionIndex++);
       });
@@ -562,11 +718,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   bool _allComplete() {
-    for (var section in widget.sections) {
+    for (var section in widget.paperSections) {
       final questions = _allQuestions[section.name] ?? [];
-      final mandatoryCount = questions.where((q) => !q.isOptional).length;
+      final mandatoryQuestions = questions.where((q) => !q.isOptional).toList();
 
-      if (mandatoryCount < section.questions) return false;
+      // Special handling for matching questions
+      if (section.type == 'match_following') {
+        // For matching: just need at least 1 question
+        if (mandatoryQuestions.isEmpty) return false;
+      } else {
+        // For other types: count must match section.questions
+        if (mandatoryQuestions.length < section.questions) return false;
+      }
     }
     return true;
   }
@@ -598,7 +761,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
         selectedSubjects: widget.selectedSubjects,
-        examType: widget.examType,
+        paperSections: widget.paperSections,
       );
 
       if (errors.isNotEmpty) {
@@ -616,18 +779,17 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         title: widget.paperTitle,
         subjectId: widget.selectedSubjects.first.id,
         gradeId: widget.gradeId,
-        examTypeId: widget.examType.id,
         academicYear: widget.academicYear,
         createdBy: widget.isEditing ? (widget.existingUserId ?? userId) : userId,
         createdAt: widget.isEditing ? now.subtract(const Duration(hours: 1)) : now,
         modifiedAt: now,
         status: PaperStatus.draft,
-        examTypeEntity: widget.examType,
+        paperSections: widget.paperSections,
         questions: _allQuestions,
         examDate: widget.examDate,
         subject: widget.selectedSubjects.map((s) => s.name).join(', '),
         grade: 'Grade ${widget.gradeLevel}',
-        examType: widget.examType.name,
+        examType: null,
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
         tenantId: widget.isEditing ? (widget.existingTenantId ?? tenantId) : tenantId,
@@ -648,6 +810,12 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     if (state is QuestionPaperSuccess) {
       setState(() => _isProcessing = false);
       UiHelpers.showSuccessMessage(context, state.message);
+
+      // Save pattern for teachers (not admins) when paper is submitted
+      if (!widget.isAdmin && !widget.isEditing) {
+        _saveTeacherPattern(context);
+      }
+
       if (state.actionType == 'save') {
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) context.go(AppRoutes.home);
@@ -657,6 +825,69 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     if (state is QuestionPaperError) {
       setState(() => _isProcessing = false);
       UiHelpers.showErrorMessage(context, state.message);
+    }
+  }
+
+  void _saveTeacherPattern(BuildContext context) {
+    try {
+      final userStateService = sl<UserStateService>();
+      final userId = userStateService.currentUserId;
+      final tenantId = userStateService.currentTenantId;
+
+      if (userId == null || tenantId == null) return;
+
+      // Safety check: Ensure subjects list is not empty
+      if (widget.selectedSubjects.isEmpty) {
+        debugPrint('Cannot save pattern: No subjects selected');
+        return;
+      }
+
+      // Generate pattern name from paper title
+      final patternName = '${widget.paperTitle} - ${DateTime.now().year}';
+
+      final pattern = TeacherPatternEntity(
+        id: const Uuid().v4(),
+        tenantId: tenantId,
+        teacherId: userId,
+        subjectId: widget.selectedSubjects.first.id,
+        name: patternName,
+        sections: widget.paperSections,
+        totalQuestions: widget.paperSections.fold(0, (sum, s) => sum + s.questions),
+        totalMarks: widget.paperSections.fold(0, (sum, s) => sum + s.totalMarks),
+        useCount: 1,
+        lastUsedAt: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
+
+      // Save pattern (will auto-deduplicate if identical structure exists)
+      context.read<TeacherPatternBloc>().add(SaveTeacherPattern(pattern));
+
+      // Reload patterns after saving to update the UI
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && widget.selectedSubjects.isNotEmpty) {
+          context.read<TeacherPatternBloc>().add(
+            LoadTeacherPatterns(
+              teacherId: userId,
+              subjectId: widget.selectedSubjects.first.id,
+            ),
+          );
+        }
+      });
+
+      // Show success message (for debugging - can be removed later)
+      debugPrint('✅ Pattern save initiated: $patternName');
+    } catch (e) {
+      // Show error for debugging
+      debugPrint('❌ Failed to save pattern: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pattern save error: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

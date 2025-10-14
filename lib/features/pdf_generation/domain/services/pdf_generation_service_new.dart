@@ -117,7 +117,7 @@ class SimplePdfService implements IPdfGenerationService {
             }
 
             // Questions by section
-            paper.examTypeEntity.sections.forEach((section) {
+            for (final section in paper.paperSections) {
               final sectionQuestions = paper.questions[section.name] ?? [];
               if (sectionQuestions.isNotEmpty) {
                 widgets.add(_buildSectionHeader(section.name, compressed, fontSizeMultiplier));
@@ -136,7 +136,7 @@ class SimplePdfService implements IPdfGenerationService {
 
                 widgets.add(pw.SizedBox(height: sectionSpacing));
               }
-            });
+            }
 
             return widgets;
           },

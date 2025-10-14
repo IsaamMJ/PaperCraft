@@ -9,6 +9,7 @@ class QuestionListWidget extends StatelessWidget {
   final List<Question> questions;
   final Function(int index, Question updatedQuestion) onEditQuestion;
   final Function(int index) onRemoveQuestion;
+  final Function(int oldIndex, int newIndex)? onReorderQuestions;
   final bool isMobile;
 
   const QuestionListWidget({
@@ -17,6 +18,7 @@ class QuestionListWidget extends StatelessWidget {
     required this.questions,
     required this.onEditQuestion,
     required this.onRemoveQuestion,
+    this.onReorderQuestions,
     required this.isMobile,
   });
 
@@ -40,32 +42,65 @@ class QuestionListWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Questions Added (${questions.length})',
-          style: TextStyle(
-            fontSize: isMobile ? 18 : 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              'Questions Added (${questions.length})',
+              style: TextStyle(
+                fontSize: isMobile ? 18 : 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (onReorderQuestions != null && questions.length > 1) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.drag_indicator_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Drag to reorder',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
         ),
         SizedBox(height: UIConstants.spacing12),
         Container(
           constraints: BoxConstraints(maxHeight: isMobile ? 300 : 250),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: questions.length,
-            itemBuilder: (context, index) {
-              final question = questions[index];
-              return _buildQuestionCard(context, question, index);
-            },
-          ),
+          child: onReorderQuestions != null && questions.length > 1
+              ? ReorderableListView.builder(
+                  shrinkWrap: true,
+                  itemCount: questions.length,
+                  onReorder: onReorderQuestions!,
+                  buildDefaultDragHandles: false,
+                  itemBuilder: (context, index) {
+                    final question = questions[index];
+                    return _buildQuestionCard(context, question, index, key: ValueKey('question_$index'));
+                  },
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: questions.length,
+                  itemBuilder: (context, index) {
+                    final question = questions[index];
+                    return _buildQuestionCard(context, question, index);
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildQuestionCard(BuildContext context, Question question, int index) {
+  Widget _buildQuestionCard(BuildContext context, Question question, int index, {Key? key}) {
     return Container(
+      key: key,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -76,6 +111,20 @@ class QuestionListWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Drag handle (if reordering enabled)
+          if (onReorderQuestions != null && questions.length > 1)
+            ReorderableDragStartListener(
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Icon(
+                  Icons.drag_handle_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+
           // Question number badge
           Container(
             width: 24,
@@ -474,11 +523,83 @@ class QuestionListWidget extends StatelessWidget {
   void _showDeleteConfirmation(BuildContext context, int index) {
     debugPrint('🗑️ Opening delete confirmation for question ${index + 1}');
 
+    final question = questions[index];
+    final questionPreview = question.text.length > 100
+        ? '${question.text.substring(0, 100)}...'
+        : question.text;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete Question ${index + 1}'),
-        content: const Text('Are you sure you want to delete this question?'),
+        title: Row(
+          children: [
+            Icon(Icons.warning_rounded, color: AppColors.error, size: 24),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Delete Question ${index + 1}?')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundSecondary,
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          question.type.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${question.marks} marks',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    questionPreview,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -487,14 +608,28 @@ class QuestionListWidget extends StatelessWidget {
             },
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               debugPrint('✅ Deleting question ${index + 1}');
               onRemoveQuestion(index);
               Navigator.pop(context);
+
+              // Show undo snackbar
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Question ${index + 1} deleted'),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Delete'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.delete_rounded, size: 18),
+            label: const Text('Delete'),
           ),
         ],
       ),

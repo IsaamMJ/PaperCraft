@@ -11,12 +11,14 @@ import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../../core/presentation/widgets/step_progress_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../catalog/presentation/bloc/exam_type_bloc.dart' as exam_type;
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
+import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
+import '../../../catalog/presentation/widgets/pattern_selector_widget.dart';
+import '../../../catalog/presentation/widgets/section_builder_widget.dart';
 import '../../domain/services/question_input_coordinator.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {
@@ -42,12 +44,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   List<String> _selectedSections = [];
   bool _isSectionsLoading = false;
 
-  List<ExamTypeEntity> _availableExamTypes = [];
-  ExamTypeEntity? _selectedExamType;
+  List<PaperSectionEntity> _paperSections = [];
   DateTime? _selectedExamDate;
 
   List<SubjectEntity> _availableSubjects = [];
   SubjectEntity? _selectedSubject;
+
+  bool _showPatternSelector = false; // Manual toggle for pattern selector
 
   @override
   void initState() {
@@ -63,7 +66,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
 
     _loadInitialData();
-    context.read<exam_type.ExamTypeBloc>().add(const exam_type.LoadExamTypes());
 
     // Set smart default for exam date (7 days from now)
     _selectedExamDate = DateTime.now().add(const Duration(days: 7));
@@ -103,9 +105,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   String _generateAutoTitle() {
-    if (_selectedExamType != null && _selectedSubject != null && _selectedExamDate != null) {
+    if (_selectedSubject != null && _selectedExamDate != null && _selectedGradeLevel != null) {
       final dateStr = DateFormat('dd MMM yyyy').format(_selectedExamDate!);
-      return '${_selectedExamType!.name} - ${_selectedSubject!.name} - $dateStr';
+      return 'Grade $_selectedGradeLevel ${_selectedSubject!.name} - $dateStr';
     }
     return 'Untitled Paper';
   }
@@ -119,10 +121,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
-        // All metadata must be filled: Grade, Subject, Exam Type, Date, Sections
+        // All metadata must be filled: Grade, Subject, Paper Sections, Date, Class Sections
         return _selectedGradeLevel != null &&
             _selectedSubject != null &&
-            _selectedExamType != null &&
+            _paperSections.isNotEmpty &&
             _selectedExamDate != null &&
             !_isSectionsLoading &&
             (_availableSections.isEmpty || _selectedSections.isNotEmpty);
@@ -206,13 +208,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        BlocListener<exam_type.ExamTypeBloc, exam_type.ExamTypeState>(
-          listener: (context, state) {
-            if (state is exam_type.ExamTypesLoaded) {
-              setState(() => _availableExamTypes = state.examTypes);
-            }
-          },
-        ),
         BlocListener<GradeBloc, GradeState>(
           listener: (context, state) {
             if (state is GradesLoaded) {
@@ -222,6 +217,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               setState(() {
                 _availableSections = state.sections;
                 _isSectionsLoading = false;
+              });
+            }
+            // Handle error state for sections loading
+            if (state is GradeError) {
+              setState(() {
+                _isSectionsLoading = false;
+                _availableSections = [];
               });
             }
           },
@@ -320,6 +322,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Validation Summary (show if attempted to proceed with errors)
+            if (!_isStepValid(1)) _buildValidationSummary(),
             // Grade Selection
             BlocBuilder<GradeBloc, GradeState>(
               builder: (context, state) {
@@ -410,7 +414,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                       );
                     }).toList(),
                     onChanged: (subject) {
-                      setState(() => _selectedSubject = subject);
+                      setState(() {
+                        _selectedSubject = subject;
+                        _showPatternSelector = false; // Reset pattern selector when subject changes
+                      });
                     },
                   );
                 },
@@ -421,51 +428,113 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             if (_selectedGradeLevel != null) ...[
               SizedBox(height: UIConstants.spacing24),
               if (_isSectionsLoading)
-                const InfoBox(message: 'Loading sections...')
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Loading class sections...',
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeMedium,
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               else if (_availableSections.isEmpty)
                 const InfoBox(message: 'This paper will apply to all sections')
               else
                 _buildSectionSelector(),
             ],
 
-            // Exam Type Selection (only show if grade and subject selected)
+            // Pattern Selector and Section Builder (only show if grade and subject selected)
             if (_selectedGradeLevel != null && _selectedSubject != null) ...[
               SizedBox(height: UIConstants.spacing24),
-              BlocBuilder<exam_type.ExamTypeBloc, exam_type.ExamTypeState>(
-                builder: (context, state) {
-                  if (state is exam_type.ExamTypeLoading) {
-                    return const InfoBox(message: 'Loading exam types...');
-                  }
 
-                  if (state is exam_type.ExamTypeError) {
-                    return Text('Error: ${state.message}', style: TextStyle(color: AppColors.error));
-                  }
-
-                  if (_availableExamTypes.isEmpty) {
-                    return const InfoBox(message: 'No exam types available');
-                  }
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Exam Type',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+              // Manual Pattern Selector Toggle (click to load)
+              if (!_showPatternSelector)
+                Card(
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _showPatternSelector = true);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.history, color: AppColors.primary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Load Previous Pattern',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Tap to load a previously used pattern',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                        ],
                       ),
-                      SizedBox(height: UIConstants.spacing12),
-                      ..._availableExamTypes.map((type) => _buildExamTypeCard(type)),
-                    ],
-                  );
+                    ),
+                  ),
+                )
+              else
+                // Only load PatternSelectorWidget when user explicitly requests it
+                BlocProvider(
+                  create: (context) => sl<TeacherPatternBloc>(),
+                  child: PatternSelectorWidget(
+                    key: ValueKey(_selectedSubject!.id),
+                    teacherId: sl<UserStateService>().currentUser!.id,
+                    subjectId: _selectedSubject!.id,
+                    onPatternSelected: (sections) {
+                      setState(() => _paperSections = sections);
+                    },
+                  ),
+                ),
+
+              SizedBox(height: UIConstants.spacing24),
+
+              // Section Builder
+              SectionBuilderWidget(
+                initialSections: _paperSections,
+                onSectionsChanged: (sections) {
+                  setState(() => _paperSections = sections);
                 },
               ),
             ],
 
-            // Exam Date (only show if exam type selected)
-            if (_selectedExamType != null) ...[
+            // Exam Date (only show if sections are built)
+            if (_paperSections.isNotEmpty) ...[
               SizedBox(height: UIConstants.spacing24),
               Text(
                 'Exam Date',
@@ -530,6 +599,79 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
+  Widget _buildValidationSummary() {
+    final List<String> errors = [];
+
+    if (_selectedGradeLevel == null) {
+      errors.add('Grade level is required');
+    }
+    if (_selectedSubject == null) {
+      errors.add('Subject is required');
+    }
+    if (_paperSections.isEmpty) {
+      errors.add('At least one paper section is required');
+    }
+    if (_selectedExamDate == null) {
+      errors.add('Exam date is required');
+    }
+    if (_availableSections.isNotEmpty && _selectedSections.isEmpty) {
+      errors.add('At least one class section must be selected');
+    }
+    if (_isSectionsLoading) {
+      errors.add('Please wait while sections are loading');
+    }
+
+    if (errors.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: UIConstants.spacing24),
+      padding: const EdgeInsets.all(UIConstants.paddingMedium),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Please complete the following:',
+                style: TextStyle(
+                  fontSize: UIConstants.fontSizeMedium,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...errors.map((error) => Padding(
+            padding: const EdgeInsets.only(left: 28, top: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• ', style: TextStyle(color: AppColors.error, fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    error,
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeMedium,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,72 +716,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
 
-  Widget _buildExamTypeCard(ExamTypeEntity type) {
-    final isSelected = _selectedExamType?.id == type.id;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => setState(() => _selectedExamType = type),
-          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-          child: Container(
-            padding: const EdgeInsets.all(UIConstants.paddingMedium),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(
-                color: isSelected ? AppColors.primary : AppColors.border,
-                width: isSelected ? 2 : 1,
-              ),
-              color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.surface,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: 2,
-                    ),
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                  ),
-                  child: isSelected ? Icon(Icons.check, size: 12, color: Colors.white) : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        type.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '${type.formattedDuration} • ${type.totalMarks} marks • ${type.sections.length} sections',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeSmall,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildQuestionsStep() {
-    if (_selectedSubject == null || _selectedExamDate == null || _selectedGrade == null) {
+    if (_selectedSubject == null || _selectedExamDate == null || _selectedGrade == null || _paperSections.isEmpty) {
       return Container();
     }
 
@@ -647,20 +726,22 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     final userStateService = sl<UserStateService>();
     final academicYear = _getAcademicYear(_selectedExamDate!);
 
-    return QuestionInputCoordinator(
-      sections: _selectedExamType!.sections,
-      examType: _selectedExamType!,
-      selectedSubjects: [_selectedSubject!],
-      paperTitle: autoTitle,
-      gradeLevel: _selectedGradeLevel!,
-      gradeId: _selectedGrade!.id,
-      academicYear: academicYear,
-      selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
-      examDate: _selectedExamDate,
-      isAdmin: userStateService.isAdmin,
-      onPaperCreated: (paper) {
-        _showSuccess();
-      },
+    return BlocProvider(
+      create: (context) => sl<TeacherPatternBloc>(),
+      child: QuestionInputCoordinator(
+        paperSections: _paperSections,
+        selectedSubjects: [_selectedSubject!],
+        paperTitle: autoTitle,
+        gradeLevel: _selectedGradeLevel!,
+        gradeId: _selectedGrade!.id,
+        academicYear: academicYear,
+        selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
+        examDate: _selectedExamDate,
+        isAdmin: userStateService.isAdmin,
+        onPaperCreated: (paper) {
+          _showSuccess();
+        },
+      ),
     );
   }
 
@@ -793,9 +874,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   void _navigateBack() {
-    try {
-      context.canPop() ? context.pop() : context.go(AppRoutes.home);
-    } catch (e) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
       context.go(AppRoutes.home);
     }
   }

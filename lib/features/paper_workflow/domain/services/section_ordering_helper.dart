@@ -1,15 +1,15 @@
 // features/question_papers/domain/helpers/section_ordering_helper.dart
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 
 class SectionOrderingHelper {
   static List<OrderedSection> getOrderedSections(
-      ExamTypeEntity examTypeEntity,
+      List<PaperSectionEntity> paperSections,
       Map<String, List<dynamic>> questionsMap,
       ) {
     final orderedSections = <OrderedSection>[];
 
-    for (int i = 0; i < examTypeEntity.sections.length; i++) {
-      final section = examTypeEntity.sections[i];
+    for (int i = 0; i < paperSections.length; i++) {
+      final section = paperSections[i];
       final questions = questionsMap[section.name] ?? [];
 
       orderedSections.add(OrderedSection(
@@ -21,15 +21,15 @@ class SectionOrderingHelper {
       ));
     }
 
-    // Handle extra sections not in examTypeEntity
-    final definedSectionNames = examTypeEntity.sections.map((s) => s.name).toSet();
+    // Handle extra sections not in paperSections
+    final definedSectionNames = paperSections.map((s) => s.name).toSet();
     final extraSections = questionsMap.keys.where((name) => !definedSectionNames.contains(name)).toList();
 
     for (int i = 0; i < extraSections.length; i++) {
       final sectionName = extraSections[i];
       final questions = questionsMap[sectionName] ?? [];
 
-      final syntheticSection = ExamSectionEntity(
+      final syntheticSection = PaperSectionEntity(
         name: sectionName,
         type: 'mixed',
         questions: questions.length,
@@ -37,7 +37,7 @@ class SectionOrderingHelper {
       );
 
       orderedSections.add(OrderedSection(
-        sectionNumber: examTypeEntity.sections.length + i + 1,
+        sectionNumber: paperSections.length + i + 1,
         section: syntheticSection,
         questions: questions,
         questionCount: questions.length,
@@ -49,7 +49,7 @@ class SectionOrderingHelper {
     return orderedSections;
   }
 
-  static int _calculateSectionMarks(ExamSectionEntity section, List<dynamic> questions) {
+  static int _calculateSectionMarks(PaperSectionEntity section, List<dynamic> questions) {
     if (questions.isEmpty) return 0;
 
     int totalMarks = 0;
@@ -205,7 +205,7 @@ class SectionOrderingHelper {
 
 class OrderedSection {
   final int sectionNumber;
-  final ExamSectionEntity section;
+  final PaperSectionEntity section;
   final List<dynamic> questions;
   final int questionCount;
   final int totalMarks;
@@ -222,7 +222,7 @@ class OrderedSection {
 
   OrderedSection copyWith({
     int? sectionNumber,
-    ExamSectionEntity? section,
+    PaperSectionEntity? section,
     List<dynamic>? questions,
     int? questionCount,
     int? totalMarks,

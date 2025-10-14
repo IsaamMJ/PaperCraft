@@ -19,7 +19,11 @@
       "Bash(tail:*)",
       "Read(//e/**)",
       "Bash(ls:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(findstr:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter run:*)"
     ],
     "deny": [],
     "ask": []

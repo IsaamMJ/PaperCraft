@@ -396,7 +396,7 @@ class SimplePdfService implements IPdfGenerationService {
                   rollNumber: rollNumber,
                   fontSizeMultiplier: fontSizeMultiplier,
                 ),
-                pw.SizedBox(height: 6 * spacingMultiplier),
+                pw.SizedBox(height: 12 * spacingMultiplier), // Increased from 6
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -491,9 +491,6 @@ class SimplePdfService implements IPdfGenerationService {
                   style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
             if (paper.examDate != null)
               pw.Text('Date: ${_formatExamDate(paper.examDate!)}',
-                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
-            if (paper.examTypeEntity.durationMinutes != null)
-              pw.Text('Time: ${paper.examTypeEntity.formattedDuration}',
                   style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
             pw.Text('Total Marks: ${paper.totalMarks}',
                 style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
@@ -676,7 +673,7 @@ class SimplePdfService implements IPdfGenerationService {
           ),
         );
 
-        widgets.add(pw.SizedBox(height: 1 * spacingMultiplier));
+        widgets.add(pw.SizedBox(height: 4 * spacingMultiplier)); // Increased from 1
 
         // COMMON INSTRUCTION FOR BULK QUESTIONS
         final commonInstruction = _getCommonInstruction(questions.first.type);
@@ -684,7 +681,7 @@ class SimplePdfService implements IPdfGenerationService {
           widgets.add(
             pw.Container(
               padding: const pw.EdgeInsets.all(2),
-              margin: pw.EdgeInsets.only(bottom: 3 * spacingMultiplier),
+              margin: pw.EdgeInsets.only(bottom: 6 * spacingMultiplier), // Increased from 3
               decoration: pw.BoxDecoration(
                 color: PdfColors.grey100,
                 borderRadius: pw.BorderRadius.circular(3),
@@ -711,7 +708,7 @@ class SimplePdfService implements IPdfGenerationService {
             ));
 
             if (i < questions.length - 1) {
-              widgets.add(pw.SizedBox(height: 1 * spacingMultiplier));
+              widgets.add(pw.SizedBox(height: 6 * spacingMultiplier)); // Increased from 1 for better question separation
             }
           } catch (e) {
             // Skip malformed questions
@@ -724,7 +721,7 @@ class SimplePdfService implements IPdfGenerationService {
           }
         }
 
-        widgets.add(pw.SizedBox(height: 3 * spacingMultiplier));
+        widgets.add(pw.SizedBox(height: 12 * spacingMultiplier)); // Increased from 3 for section separation
         sectionIndex++;
       } catch (e) {
         // Skip entire section if there's an error

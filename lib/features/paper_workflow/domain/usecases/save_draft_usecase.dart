@@ -27,8 +27,8 @@ class SaveDraftUseCase {
       return Left(ValidationFailure('Grade is required'));
     }
 
-    if (paper.examTypeId.isEmpty) {
-      return Left(ValidationFailure('Exam type is required'));
+    if (paper.paperSections.isEmpty) {
+      return Left(ValidationFailure('Paper sections are required'));
     }
 
     return await repository.saveDraft(paper);

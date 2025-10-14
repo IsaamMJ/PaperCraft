@@ -25,7 +25,6 @@ class ApprovedPaperCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final subjectDisplay = paper.subject ?? 'Unknown Subject';
-    final examTypeDisplay = paper.examType ?? paper.examTypeEntity.name;
 
     return Container(
       key: ValueKey(paper.id),
@@ -47,7 +46,7 @@ class ApprovedPaperCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(subjectDisplay, examTypeDisplay),
+            _buildHeader(subjectDisplay),
             const SizedBox(height: UIConstants.spacing12),
             _buildMetricsAndActions(),
           ],
@@ -56,7 +55,7 @@ class ApprovedPaperCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String subjectDisplay, String examTypeDisplay) {
+  Widget _buildHeader(String subjectDisplay) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -92,7 +91,7 @@ class ApprovedPaperCard extends StatelessWidget {
                 runSpacing: 4,
                 children: [
                   PaperTag(text: subjectDisplay, color: AppColors.primary),
-                  PaperTag(text: examTypeDisplay, color: AppColors.accent),
+                  PaperTag(text: '${paper.paperSections.length} sections', color: AppColors.accent),
                 ],
               ),
             ],
@@ -137,9 +136,9 @@ class ApprovedPaperCard extends StatelessWidget {
                 label: 'Marks',
               ),
               PaperMetric(
-                icon: Icons.access_time_rounded,
-                value: paper.examTypeEntity.formattedDuration,
-                label: 'Duration',
+                icon: Icons.library_books_rounded,
+                value: '${paper.paperSections.length}',
+                label: 'Sections',
               ),
             ],
           ),

@@ -3,10 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
-import '../../../catalog/domain/usecases/get_exam_types_usecase.dart';
 import '../../../paper_review/domain/usecases/approve_paper_usecase.dart';
 import '../../domain/entities/question_paper_entity.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
@@ -142,6 +140,11 @@ class RefreshAll extends QuestionPaperEvent {
   const RefreshAll();
 }
 
+/// Load all teacher papers (drafts + submissions) atomically to prevent race conditions
+class LoadAllTeacherPapers extends QuestionPaperEvent {
+  const LoadAllTeacherPapers();
+}
+
 // =============== STATES ===============
 abstract class QuestionPaperState extends Equatable {
   const QuestionPaperState();
@@ -167,7 +170,6 @@ class QuestionPaperLoaded extends QuestionPaperState {
   final List<QuestionPaperEntity> papersForReview;
   final List<QuestionPaperEntity> allPapersForAdmin;
   final List<QuestionPaperEntity> approvedPapers;
-  final List<ExamTypeEntity> examTypes;
   final QuestionPaperEntity? currentPaper;
 
   const QuestionPaperLoaded({
@@ -176,7 +178,6 @@ class QuestionPaperLoaded extends QuestionPaperState {
     this.papersForReview = const [],
     this.allPapersForAdmin = const [],
     this.approvedPapers = const [],
-    this.examTypes = const [],
     this.currentPaper,
   });
 
@@ -187,7 +188,6 @@ class QuestionPaperLoaded extends QuestionPaperState {
     papersForReview,
     allPapersForAdmin,
     approvedPapers,
-    examTypes,
     currentPaper
   ];
 
@@ -197,7 +197,6 @@ class QuestionPaperLoaded extends QuestionPaperState {
     List<QuestionPaperEntity>? papersForReview,
     List<QuestionPaperEntity>? allPapersForAdmin,
     List<QuestionPaperEntity>? approvedPapers,
-    List<ExamTypeEntity>? examTypes,
     QuestionPaperEntity? currentPaper,
     bool clearCurrentPaper = false,
   }) {
@@ -207,7 +206,6 @@ class QuestionPaperLoaded extends QuestionPaperState {
       papersForReview: papersForReview ?? this.papersForReview,
       allPapersForAdmin: allPapersForAdmin ?? this.allPapersForAdmin,
       approvedPapers: approvedPapers ?? this.approvedPapers,
-      examTypes: examTypes ?? this.examTypes,
       currentPaper: clearCurrentPaper ? null : (currentPaper ?? this.currentPaper),
     );
   }
@@ -309,7 +307,6 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final GetApprovedPapersUseCase _getApprovedPapersUseCase;
   final GetApprovedPapersPaginatedUseCase _getApprovedPapersPaginatedUseCase;
-  final GetExamTypesUseCase _getExamTypesUseCase;
 
   QuestionPaperBloc({
     required SaveDraftUseCase saveDraftUseCase,
@@ -325,7 +322,6 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required GetApprovedPapersUseCase getApprovedPapersUseCase,
     required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
-    required GetExamTypesUseCase getExamTypesUseCase,
   })  : _saveDraftUseCase = saveDraftUseCase,
         _submitPaperUseCase = submitPaperUseCase,
         _getDraftsUseCase = getDraftsUseCase,
@@ -339,7 +335,6 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _getApprovedPapersUseCase = getApprovedPapersUseCase,
         _getApprovedPapersPaginatedUseCase = getApprovedPapersPaginatedUseCase,
-        _getExamTypesUseCase = getExamTypesUseCase,
         super(QuestionPaperInitial()) {
     on<LoadDrafts>(_onLoadDrafts);
     on<LoadUserSubmissions>(_onLoadUserSubmissions);
@@ -347,7 +342,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<LoadAllPapersForAdmin>(_onLoadAllPapersForAdmin);
     on<LoadApprovedPapers>(_onLoadApprovedPapers);
     on<LoadApprovedPapersPaginated>(_onLoadApprovedPapersPaginated);
-    on<LoadExamTypes>(_onLoadExamTypes);
+    // Exam types removed - using dynamic sections
     on<LoadPaperById>(_onLoadPaperById);
     on<SaveDraft>(_onSaveDraft);
     on<SubmitPaper>(_onSubmitPaper);
@@ -356,6 +351,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<DeleteDraft>(_onDeleteDraft);
     on<PullForEditing>(_onPullForEditing);
     on<RefreshAll>(_onRefreshAll);
+    on<LoadAllTeacherPapers>(_onLoadAllTeacherPapers);
   }
 
   Future<void> _onLoadDrafts(LoadDrafts event, Emitter<QuestionPaperState> emit) async {
@@ -514,21 +510,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     );
   }
 
-  Future<void> _onLoadExamTypes(LoadExamTypes event, Emitter<QuestionPaperState> emit) async {
-    final result = await _getExamTypesUseCase();
-
-    result.fold(
-          (failure) => emit(QuestionPaperError(failure.message)),
-          (examTypes) {
-        if (state is QuestionPaperLoaded) {
-          final currentState = state as QuestionPaperLoaded;
-          emit(currentState.copyWith(examTypes: examTypes));
-        } else {
-          emit(QuestionPaperLoaded(examTypes: examTypes));
-        }
-      },
-    );
-  }
+  // Exam types no longer needed - using dynamic sections instead
 
   Future<void> _onLoadPaperById(LoadPaperById event, Emitter<QuestionPaperState> emit) async {
     emit(const QuestionPaperLoading(message: 'Loading paper...'));
@@ -652,5 +634,65 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     add(const LoadAllPapersForAdmin());
     add(const LoadApprovedPapers());
     add(const LoadExamTypes());
+  }
+
+  /// Load all teacher papers atomically to prevent race conditions and partial loading
+  Future<void> _onLoadAllTeacherPapers(LoadAllTeacherPapers event, Emitter<QuestionPaperState> emit) async {
+    // Only show loading state if we don't have data yet
+    // This prevents UI from showing loading spinner when data already exists
+    if (state is! QuestionPaperLoaded) {
+      emit(QuestionPaperLoading());
+    }
+
+    try {
+      // Load both drafts and submissions in parallel
+      final results = await Future.wait([
+        _getDraftsUseCase(),
+        _getUserSubmissionsUseCase(),
+      ]);
+
+      final draftsResult = results[0];
+      final submissionsResult = results[1];
+
+      // Check if either failed
+      final draftFailure = draftsResult.fold((f) => f, (_) => null);
+      final submissionFailure = submissionsResult.fold((f) => f, (_) => null);
+
+      if (draftFailure != null) {
+        emit(QuestionPaperError(draftFailure.message));
+        return;
+      }
+
+      if (submissionFailure != null) {
+        emit(QuestionPaperError(submissionFailure.message));
+        return;
+      }
+
+      // Extract papers
+      final drafts = draftsResult.fold((_) => <QuestionPaperEntity>[], (papers) => papers);
+      final submissions = submissionsResult.fold((_) => <QuestionPaperEntity>[], (papers) => papers);
+
+      // Enrich both lists in parallel
+      final enrichedResults = await Future.wait([
+        sl<PaperDisplayService>().enrichPapers(drafts),
+        sl<PaperDisplayService>().enrichPapers(submissions),
+      ]);
+
+      // Preserve other state data if it exists
+      if (state is QuestionPaperLoaded) {
+        final currentState = state as QuestionPaperLoaded;
+        emit(currentState.copyWith(
+          drafts: enrichedResults[0],
+          submissions: enrichedResults[1],
+        ));
+      } else {
+        emit(QuestionPaperLoaded(
+          drafts: enrichedResults[0],
+          submissions: enrichedResults[1],
+        ));
+      }
+    } catch (e) {
+      emit(QuestionPaperError('Failed to load papers: ${e.toString()}'));
+    }
   }
 }

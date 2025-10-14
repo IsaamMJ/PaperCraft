@@ -1,3 +1,119 @@
+create table public.exam_types (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  subject_id uuid not null,
+  name text not null,
+  description text null,
+  duration_minutes integer null,
+  total_marks integer null,
+  total_sections integer null,
+  sections jsonb not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint exam_types_pkey primary key (id),
+  constraint exam_types_tenant_subject_name_unique unique (tenant_id, subject_id, name),
+  constraint exam_types_subject_id_fkey foreign KEY (subject_id) references subjects (id) on delete CASCADE,
+  constraint exam_types_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE,
+  constraint exam_types_sections_valid check (
+    (
+      (jsonb_typeof(sections) = 'array'::text)
+      and (jsonb_array_length(sections) > 0)
+    )
+  ),
+  constraint exam_types_marks_positive check (
+    (
+      (total_marks is null)
+      or (total_marks > 0)
+    )
+  ),
+  constraint exam_types_duration_positive check (
+    (
+      (duration_minutes is null)
+      or (duration_minutes > 0)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_exam_types_tenant_id on public.exam_types using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_exam_types_subject_id on public.exam_types using btree (subject_id) TABLESPACE pg_default;
+
+create index IF not exists idx_exam_types_tenant_subject_active on public.exam_types using btree (tenant_id, subject_id, is_active) TABLESPACE pg_default;
+
+create trigger set_exam_types_updated_at BEFORE
+update on exam_types for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.grades (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  grade_number integer not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint grades_pkey primary key (id),
+  constraint grades_tenant_number_unique unique (tenant_id, grade_number),
+  constraint grades_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE,
+  constraint grades_number_check check (
+    (
+      (grade_number >= 1)
+      and (grade_number <= 12)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_grades_tenant_id on public.grades using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_grades_tenant_number on public.grades using btree (tenant_id, grade_number) TABLESPACE pg_default;
+
+create trigger set_grades_updated_at BEFORE
+update on grades for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.grades (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  grade_number integer not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint grades_pkey primary key (id),
+  constraint grades_tenant_number_unique unique (tenant_id, grade_number),
+  constraint grades_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE,
+  constraint grades_number_check check (
+    (
+      (grade_number >= 1)
+      and (grade_number <= 12)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_grades_tenant_id on public.grades using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_grades_tenant_number on public.grades using btree (tenant_id, grade_number) TABLESPACE pg_default;
+
+create trigger set_grades_updated_at BEFORE
+update on grades for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.paper_rejection_history (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  paper_id uuid not null,
+  rejection_reason text not null,
+  constraint paper_rejection_history_pkey primary key (id),
+  constraint paper_rejection_history_paper_id_fkey foreign KEY (paper_id) references question_papers (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+create table public.paper_rejection_history (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  paper_id uuid not null,
+  rejection_reason text not null,
+  constraint paper_rejection_history_pkey primary key (id),
+  constraint paper_rejection_history_paper_id_fkey foreign KEY (paper_id) references question_papers (id) on delete CASCADE
+) TABLESPACE pg_default;
+
 create table public.question_papers (
   id uuid not null default gen_random_uuid (),
   tenant_id uuid not null,
@@ -94,4 +210,240 @@ execute FUNCTION handle_paper_status_change ();
 
 create trigger set_question_papers_updated_at BEFORE
 update on question_papers for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.question_papers (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  user_id uuid not null,
+  reviewed_by uuid null,
+  subject_id uuid not null,
+  grade_id uuid not null,
+  exam_type_id uuid not null,
+  academic_year text not null,
+  title text not null,
+  exam_date date null,
+  questions jsonb not null,
+  metadata jsonb null,
+  status text not null default 'draft'::text,
+  rejection_reason text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  submitted_at timestamp with time zone null,
+  reviewed_at timestamp with time zone null,
+  constraint question_papers_pkey primary key (id),
+  constraint question_papers_title_unique unique (
+    tenant_id,
+    subject_id,
+    grade_id,
+    academic_year,
+    title
+  ),
+  constraint question_papers_user_id_fkey foreign KEY (user_id) references profiles (id) on delete CASCADE,
+  constraint question_papers_grade_id_fkey foreign KEY (grade_id) references grades (id) on delete RESTRICT,
+  constraint question_papers_subject_id_fkey foreign KEY (subject_id) references subjects (id) on delete RESTRICT,
+  constraint question_papers_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE,
+  constraint question_papers_exam_type_id_fkey foreign KEY (exam_type_id) references exam_types (id) on delete RESTRICT,
+  constraint question_papers_reviewed_by_fkey foreign KEY (reviewed_by) references profiles (id) on delete set null,
+  constraint question_papers_rejection_reason_check check (
+    (
+      (status <> 'rejected'::text)
+      or (rejection_reason is not null)
+    )
+  ),
+  constraint question_papers_questions_size check ((pg_column_size(questions) < 1048576)),
+  constraint question_papers_status_check check (
+    (
+      status = any (
+        array[
+          'draft'::text,
+          'submitted'::text,
+          'approved'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_id on public.question_papers using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_user_id on public.question_papers using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_reviewed_by on public.question_papers using btree (reviewed_by) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_subject_id on public.question_papers using btree (subject_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_grade_id on public.question_papers using btree (grade_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_exam_type_id on public.question_papers using btree (exam_type_id) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_academic_year on public.question_papers using btree (academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_status_submitted on public.question_papers using btree (tenant_id, status, submitted_at desc) TABLESPACE pg_default
+where
+  (
+    status = any (
+      array[
+        'submitted'::text,
+        'approved'::text,
+        'rejected'::text
+      ]
+    )
+  );
+
+create index IF not exists idx_question_papers_user_status_created on public.question_papers using btree (user_id, status, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_tenant_subject_grade_year on public.question_papers using btree (tenant_id, subject_id, grade_id, academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_question_papers_pending_review on public.question_papers using btree (tenant_id, submitted_at desc) TABLESPACE pg_default
+where
+  (status = 'submitted'::text);
+
+create index IF not exists idx_question_papers_questions_gin on public.question_papers using gin (questions) TABLESPACE pg_default;
+
+create trigger handle_paper_status BEFORE
+update on question_papers for EACH row
+execute FUNCTION handle_paper_status_change ();
+
+create trigger set_question_papers_updated_at BEFORE
+update on question_papers for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.subjects (
+  id uuid not null default gen_random_uuid (),
+  tenant_id uuid not null,
+  catalog_subject_id uuid not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint subjects_pkey primary key (id),
+  constraint subjects_tenant_subject_unique unique (tenant_id, catalog_subject_id),
+  constraint subjects_catalog_subject_id_fkey foreign KEY (catalog_subject_id) references subject_catalog (id) on delete RESTRICT,
+  constraint subjects_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_subjects_tenant_active on public.subjects using btree (tenant_id, is_active) TABLESPACE pg_default;
+
+create index IF not exists idx_subjects_tenant_id on public.subjects using btree (tenant_id) TABLESPACE pg_default;
+
+create index IF not exists idx_subjects_catalog_subject_id on public.subjects using btree (catalog_subject_id) TABLESPACE pg_default;
+
+create trigger set_subjects_updated_at BEFORE
+update on subjects for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.teacher_grade_assignments (
+  id uuid not null default gen_random_uuid (),
+  teacher_id uuid not null,
+  grade_id uuid not null,
+  academic_year text not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  tenant_id uuid not null,
+  constraint teacher_grade_assignments_pkey primary key (id),
+  constraint teacher_grade_unique unique (tenant_id, teacher_id, grade_id, academic_year),
+  constraint teacher_grade_grade_id_fkey foreign KEY (grade_id) references grades (id) on delete CASCADE,
+  constraint teacher_grade_teacher_id_fkey foreign KEY (teacher_id) references profiles (id) on delete CASCADE,
+  constraint teacher_grade_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_grade_teacher_id on public.teacher_grade_assignments using btree (teacher_id) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_grade_grade_id on public.teacher_grade_assignments using btree (grade_id) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_grade_academic_year on public.teacher_grade_assignments using btree (academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_grade_active on public.teacher_grade_assignments using btree (teacher_id, is_active) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_grade_tenant_id on public.teacher_grade_assignments using btree (tenant_id) TABLESPACE pg_default;
+
+create table public.teacher_subject_assignments (
+  id uuid not null default gen_random_uuid (),
+  teacher_id uuid not null,
+  subject_id uuid not null,
+  academic_year text not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  tenant_id uuid not null,
+  constraint teacher_subject_assignments_pkey primary key (id),
+  constraint teacher_subject_unique unique (tenant_id, teacher_id, subject_id, academic_year),
+  constraint teacher_subject_subject_id_fkey foreign KEY (subject_id) references subjects (id) on delete CASCADE,
+  constraint teacher_subject_teacher_id_fkey foreign KEY (teacher_id) references profiles (id) on delete CASCADE,
+  constraint teacher_subject_tenant_id_fkey foreign KEY (tenant_id) references tenants (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_subject_teacher_id on public.teacher_subject_assignments using btree (teacher_id) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_subject_subject_id on public.teacher_subject_assignments using btree (subject_id) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_subject_academic_year on public.teacher_subject_assignments using btree (academic_year) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_subject_active on public.teacher_subject_assignments using btree (teacher_id, is_active) TABLESPACE pg_default;
+
+create index IF not exists idx_teacher_subject_tenant_id on public.teacher_subject_assignments using btree (tenant_id) TABLESPACE pg_default;
+
+
+create table public.tenants (
+  id uuid not null default gen_random_uuid (),
+  name text not null,
+  address text null,
+  domain text null,
+  current_academic_year text not null default '2024-2025'::text,
+  is_active boolean not null default true,
+  is_initialized boolean not null default false,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint tenants_pkey primary key (id),
+  constraint tenants_domain_key unique (domain),
+  constraint tenants_domain_not_empty check (
+    (
+      (domain is null)
+      or (
+        length(
+          TRIM(
+            both
+            from
+              domain
+          )
+        ) > 0
+      )
+    )
+  ),
+  constraint tenants_name_not_empty check (
+    (
+      length(
+        TRIM(
+          both
+          from
+            name
+        )
+      ) > 0
+    )
+  ),
+  constraint tenants_no_personal_domains check (
+    (
+      (domain is null)
+      or (
+        domain <> all (
+          array[
+            'gmail.com'::text,
+            'yahoo.com'::text,
+            'outlook.com'::text,
+            'hotmail.com'::text
+          ]
+        )
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_tenants_domain on public.tenants using btree (domain) TABLESPACE pg_default;
+
+create index IF not exists idx_tenants_initialized on public.tenants using btree (is_initialized) TABLESPACE pg_default;
+
+create index IF not exists idx_tenants_active on public.tenants using btree (is_active) TABLESPACE pg_default;
+
+create trigger set_tenants_updated_at BEFORE
+update on tenants for EACH row
 execute FUNCTION update_updated_at_column ();

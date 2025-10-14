@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -5,17 +6,18 @@ import 'package:printing/printing.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
+/// PDF layout density options for question papers
+/// Based on typography standards and teacher feedback
 enum PdfLayoutDensity {
-  normal,
-  spacious,
-  extraSpacious,
+  compact,      // Maximum questions per page (formerly "normal")
+  standard,     // Balanced spacing - recommended (formerly "spacious")
+  spacious,     // Extra breathing room (formerly "extraSpacious")
 }
 
 class PdfPreviewPage extends StatefulWidget {
   final Uint8List pdfBytes;
   final String paperTitle;
   final String layoutType;
-  final VoidCallback onDownload;
   final Future<Uint8List> Function(double fontMultiplier, double spacingMultiplier)? onRegeneratePdf;
 
   const PdfPreviewPage({
@@ -23,7 +25,6 @@ class PdfPreviewPage extends StatefulWidget {
     required this.pdfBytes,
     required this.paperTitle,
     required this.layoutType,
-    required this.onDownload,
     this.onRegeneratePdf,
   });
 
@@ -33,8 +34,16 @@ class PdfPreviewPage extends StatefulWidget {
 
 class _PdfPreviewPageState extends State<PdfPreviewPage> {
   late Uint8List _currentPdfBytes;
-  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.normal;
+  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.standard; // Default to Standard (recommended)
   bool _isRegenerating = false;
+  bool _showAdvancedSettings = false;
+
+  // Custom slider values (initialized to Standard preset values)
+  double _customFontMultiplier = 1.0;
+  double _customSpacingMultiplier = 1.5;
+
+  // Debounce timer for slider changes
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -42,27 +51,47 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     _currentPdfBytes = widget.pdfBytes;
   }
 
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Get font and spacing multipliers based on layout density
+  /// Returns (fontMultiplier, spacingMultiplier)
+  ///
+  /// These multipliers are applied on top of PdfLayoutConfig base values
+  /// to create the three density presets teachers can choose from
   (double, double) _getMultipliersForDensity(PdfLayoutDensity density) {
     switch (density) {
-      case PdfLayoutDensity.normal:
-        return (1.0, 1.0); // 100% font, 100% spacing (old compact)
+      case PdfLayoutDensity.compact:
+        // Compact: Minimal spacing, max questions per page
+        return (1.0, 1.0);  // Base config values as-is
+
+      case PdfLayoutDensity.standard:
+        // Standard (Recommended): Balanced professional appearance
+        return (1.0, 1.5);  // 50% more spacing than compact
+
       case PdfLayoutDensity.spacious:
-        return (1.15, 1.3); // 115% font, 130% spacing (old normal)
-      case PdfLayoutDensity.extraSpacious:
-        return (1.25, 1.5); // 125% font, 150% spacing (new extra)
+        // Spacious: Extra breathing room for short exams
+        return (1.1, 2.0);  // 110% font, double spacing
     }
   }
 
   Future<void> _handleDensityChange(PdfLayoutDensity density) async {
     if (_isRegenerating || widget.onRegeneratePdf == null || density == _selectedDensity) return;
 
+    final (fontMultiplier, spacingMultiplier) = _getMultipliersForDensity(density);
+
     setState(() {
       _isRegenerating = true;
       _selectedDensity = density;
+      // Sync slider values with preset
+      _customFontMultiplier = fontMultiplier;
+      _customSpacingMultiplier = spacingMultiplier;
     });
 
     try {
-      final (fontMultiplier, spacingMultiplier) = _getMultipliersForDensity(density);
       final newPdfBytes = await widget.onRegeneratePdf!(fontMultiplier, spacingMultiplier);
 
       if (mounted) {
@@ -84,9 +113,45 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     }
   }
 
-  void _handleDownload(BuildContext context) {
-    widget.onDownload();
-    Navigator.pop(context);
+  /// Handle custom slider changes with debouncing (500ms delay)
+  void _handleCustomSliderChange(double fontMultiplier, double spacingMultiplier) {
+    if (_isRegenerating || widget.onRegeneratePdf == null) return;
+
+    setState(() {
+      _customFontMultiplier = fontMultiplier;
+      _customSpacingMultiplier = spacingMultiplier;
+    });
+
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+
+    // Start new timer for regeneration (500ms delay)
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted || _isRegenerating) return;
+
+      setState(() => _isRegenerating = true);
+
+      try {
+        final newPdfBytes = await widget.onRegeneratePdf!(fontMultiplier, spacingMultiplier);
+
+        if (mounted) {
+          setState(() {
+            _currentPdfBytes = newPdfBytes;
+            _isRegenerating = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isRegenerating = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to regenerate PDF. Please try again.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    });
   }
 
   Future<void> _handlePrint(BuildContext context) async {
@@ -119,11 +184,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             onPressed: () => _handlePrint(context),
             icon: const Icon(Icons.print_rounded),
             tooltip: 'Print PDF',
-          ),
-          IconButton(
-            onPressed: () => _handleDownload(context),
-            icon: const Icon(Icons.download_rounded),
-            tooltip: 'Download PDF',
           ),
         ],
       ),
@@ -214,23 +274,23 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           Row(
             children: [
               _buildDensityOption(
-                PdfLayoutDensity.normal,
-                'Normal',
-                'Standard layout',
+                PdfLayoutDensity.compact,
+                'Compact',
+                'Max questions per page',
+                Icons.compress_rounded,
+              ),
+              SizedBox(width: 8),
+              _buildDensityOption(
+                PdfLayoutDensity.standard,
+                'Standard',
+                'Balanced (Recommended)',
                 Icons.view_agenda_rounded,
               ),
               SizedBox(width: 8),
               _buildDensityOption(
                 PdfLayoutDensity.spacious,
                 'Spacious',
-                'Larger fonts, more spacing',
-                Icons.expand_rounded,
-              ),
-              SizedBox(width: 8),
-              _buildDensityOption(
-                PdfLayoutDensity.extraSpacious,
-                'Extra Spacious',
-                'Maximum spacing',
+                'Extra breathing room',
                 Icons.open_in_full_rounded,
               ),
             ],
@@ -259,6 +319,8 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               ],
             ),
           ],
+          SizedBox(height: UIConstants.spacing12),
+          _buildAdvancedSettings(),
         ],
       ),
     );
@@ -327,6 +389,174 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     );
   }
 
+  Widget _buildAdvancedSettings() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          childrenPadding: EdgeInsets.only(left: 12, right: 12, bottom: 12),
+          initiallyExpanded: _showAdvancedSettings,
+          onExpansionChanged: (expanded) {
+            setState(() => _showAdvancedSettings = expanded);
+          },
+          leading: Icon(
+            Icons.tune_rounded,
+            color: _showAdvancedSettings ? AppColors.primary : AppColors.textSecondary,
+            size: 20,
+          ),
+          title: Text(
+            'Advanced Settings',
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeSmall,
+              fontWeight: FontWeight.w600,
+              color: _showAdvancedSettings ? AppColors.primary : AppColors.textPrimary,
+            ),
+          ),
+          subtitle: Text(
+            'Fine-tune font size and spacing',
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          children: [
+            // Font Size Slider
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Font Size',
+                      style: TextStyle(
+                        fontSize: UIConstants.fontSizeSmall,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${(_customFontMultiplier * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _customFontMultiplier,
+                  min: 0.8,
+                  max: 1.3,
+                  divisions: 10,
+                  activeColor: AppColors.primary,
+                  inactiveColor: AppColors.border,
+                  onChanged: _isRegenerating
+                      ? null
+                      : (value) {
+                          _handleCustomSliderChange(value, _customSpacingMultiplier);
+                        },
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Smaller', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                    Text('Larger', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            // Spacing Slider
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Spacing',
+                      style: TextStyle(
+                        fontSize: UIConstants.fontSizeSmall,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${_customSpacingMultiplier.toStringAsFixed(1)}×',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _customSpacingMultiplier,
+                  min: 0.5,
+                  max: 3.0,
+                  divisions: 10,
+                  activeColor: AppColors.primary,
+                  inactiveColor: AppColors.border,
+                  onChanged: _isRegenerating
+                      ? null
+                      : (value) {
+                          _handleCustomSliderChange(_customFontMultiplier, value);
+                        },
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Compact', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                    Text('Spacious', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            // Reset button
+            TextButton.icon(
+              onPressed: _isRegenerating
+                  ? null
+                  : () {
+                      // Reset to Standard preset
+                      _handleCustomSliderChange(1.0, 1.5);
+                    },
+              icon: Icon(Icons.restart_alt_rounded, size: 16),
+              label: Text('Reset to Standard'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPdfViewer() {
     return Expanded(
       child: Container(
@@ -376,46 +606,23 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _handlePrint(context),
-                    icon: Icon(Icons.print_rounded, color: AppColors.primary),
-                    label: Text(
-                      'Print',
-                      style: TextStyle(color: AppColors.primary),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        vertical: UIConstants.spacing12,
-                      ),
-                      side: BorderSide(color: AppColors.primary),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                      ),
-                    ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _handlePrint(context),
+                icon: Icon(Icons.print_rounded),
+                label: Text('Print PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    vertical: UIConstants.spacing12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                 ),
-                SizedBox(width: UIConstants.spacing12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _handleDownload(context),
-                    icon: const Icon(Icons.download_rounded),
-                    label: const Text('Download'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        vertical: UIConstants.spacing12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             SizedBox(height: UIConstants.spacing8),
             OutlinedButton.icon(

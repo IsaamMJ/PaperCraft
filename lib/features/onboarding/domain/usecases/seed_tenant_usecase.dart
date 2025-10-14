@@ -5,10 +5,8 @@ import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/data/datasources/subject_data_source.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../catalog/domain/repositories/exam_type_repository.dart';
 import '../../../catalog/domain/repositories/grade_repository.dart';
 import '../../../catalog/domain/repositories/subject_repository.dart';
 import '../../data/template/school_templates.dart';
@@ -18,13 +16,11 @@ typedef ProgressCallback = void Function(double progress, String currentItem);
 class SeedTenantUseCase {
   final SubjectRepository _subjectRepository;
   final GradeRepository _gradeRepository;
-  final ExamTypeRepository _examTypeRepository;
   final ILogger _logger;
 
   SeedTenantUseCase(
       this._subjectRepository,
       this._gradeRepository,
-      this._examTypeRepository,
       this._logger,
       );
 
@@ -45,9 +41,8 @@ class SeedTenantUseCase {
 
       final subjectTemplates = SchoolTemplates.getSubjects(schoolType);
       final grades = SchoolTemplates.getGrades(schoolType);
-      final examTypeTemplates = SchoolTemplates.getExamTypes(schoolType);
 
-      final totalItems = subjectTemplates.length + grades.length + examTypeTemplates.length;
+      final totalItems = subjectTemplates.length + grades.length;
       var completedItems = 0;
 
       // Step 1: Load subject catalog to get IDs
@@ -109,54 +104,6 @@ class SeedTenantUseCase {
         if (result.isLeft()) {
           _logger.warning('Failed to create grade',
               category: LogCategory.auth, context: {'gradeLevel': gradeNumber});
-        }
-
-        completedItems++;
-      }
-
-      // Step 4: Create exam types
-      for (final template in examTypeTemplates) {
-        onProgress(completedItems / totalItems, 'Creating ${template.name}...');
-
-        final subjectId = createdSubjects[template.subjectName];
-        if (subjectId == null) {
-          _logger.warning('Subject not found for exam type',
-              category: LogCategory.auth,
-              context: {
-                'examType': template.name,
-                'subjectName': template.subjectName
-              });
-          completedItems++;
-          continue;
-        }
-
-        final sections = template.sections
-            .map((s) => ExamSectionEntity(
-          name: s.name,
-          type: s.type,
-          questions: s.questions,
-          marksPerQuestion: s.marksPerQuestion,
-        ))
-            .toList();
-
-        final examType = ExamTypeEntity(
-          id: '',
-          tenantId: tenantId,
-          subjectId: subjectId,
-          name: template.name,
-          durationMinutes: template.durationMinutes,
-          totalMarks: null,
-          totalSections: sections.length,
-          sections: sections,
-          isActive: true,
-        );
-
-        final result = await _examTypeRepository.createExamType(examType);
-
-        if (result.isLeft()) {
-          _logger.warning('Failed to create exam type',
-              category: LogCategory.auth,
-              context: {'examTypeName': template.name});
         }
 
         completedItems++;

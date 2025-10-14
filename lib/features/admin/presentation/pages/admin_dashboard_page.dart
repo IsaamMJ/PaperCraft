@@ -679,12 +679,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   _buildMetric(Icons.quiz, '${paper.totalQuestions}', 'Questions'),
                   const SizedBox(width: UIConstants.spacing16),
                   _buildMetric(Icons.grade, '${paper.totalMarks}', 'Marks'),
-                  const SizedBox(width: UIConstants.spacing16),
-                  _buildMetric(
-                    Icons.timer,
-                    paper.examTypeEntity.formattedDuration,
-                    'Duration',
-                  ),
                 ] else
                   Expanded(
                     child: Wrap(
@@ -693,11 +687,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       children: [
                         _buildMetric(Icons.quiz, '${paper.totalQuestions}', 'Q'),
                         _buildMetric(Icons.grade, '${paper.totalMarks}', 'M'),
-                        _buildMetric(
-                          Icons.timer,
-                          paper.examTypeEntity.formattedDuration,
-                          'T',
-                        ),
                       ],
                     ),
                   ),

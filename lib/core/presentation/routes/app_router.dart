@@ -12,10 +12,8 @@ import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.
 import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_matrix_page.dart';
-import '../../../features/catalog/presentation/bloc/exam_type_bloc.dart';
 import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
 import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
-import '../../../features/catalog/presentation/pages/exam_type_management_page.dart';
 import '../../../features/catalog/presentation/pages/grade_management_page.dart';
 import '../../../features/catalog/presentation/pages/subject_management_page.dart';
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
@@ -177,7 +175,6 @@ class AppRouter {
   static QuestionPaperBloc _createQuestionPaperBloc() {
     return QuestionPaperBloc(
       saveDraftUseCase: sl(),
-      getExamTypesUseCase: sl(),
       submitPaperUseCase: sl(),
       getDraftsUseCase: sl(),
       getUserSubmissionsUseCase: sl(),
@@ -242,7 +239,6 @@ class AppRouter {
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
-              BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
             ],
             child: QuestionPaperDetailPage(
               questionPaperId: id,
@@ -261,7 +257,6 @@ class AppRouter {
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
-              BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
             ],
             child: QuestionPaperEditPage(questionPaperId: id),
           );
@@ -275,7 +270,6 @@ class AppRouter {
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
-            BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
           ],
           child: const QuestionBankPage(),
         ),
@@ -328,7 +322,6 @@ class AppRouter {
             BlocProvider(create: (_) => _createQuestionPaperBloc()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
-            BlocProvider(create: (_) => sl<ExamTypeBloc>()), // ✅ ADD THIS
           ],
           child: const QuestionPaperCreatePage(),
         ),
@@ -344,7 +337,6 @@ class AppRouter {
               BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
-              BlocProvider(create: (_) => sl<ExamTypeBloc>()),
             ],
             child: const AdminHomeDashboard(),
           );
@@ -397,14 +389,6 @@ class AppRouter {
         builder: (context, state) => BlocProvider(
           create: (_) => GradeBloc(repository: sl()),
           child: const GradeManagementPage(),
-        ),
-      ),
-
-      GoRoute(
-        path: AppRoutes.settingsExamTypes,
-        builder: (context, state) => BlocProvider(
-          create: (_) => sl<ExamTypeBloc>(),
-          child: const ExamTypeManagementPage(),
         ),
       ),
 

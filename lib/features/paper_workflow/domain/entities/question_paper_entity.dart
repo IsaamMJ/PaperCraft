@@ -1,7 +1,7 @@
 // features/paper_workflow/domain/entities/question_paper_entity.dart
 import 'package:equatable/equatable.dart';
 import 'question_entity.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../../core/domain/validators/input_validators.dart';
 import 'paper_status.dart';
 
@@ -12,7 +12,6 @@ class QuestionPaperEntity extends Equatable {
   // UUID references to catalog tables
   final String subjectId;
   final String gradeId;
-  final String examTypeId;
   final String academicYear;
 
   final String createdBy;
@@ -21,8 +20,8 @@ class QuestionPaperEntity extends Equatable {
   final PaperStatus status;
   final DateTime? examDate;
 
-  // Rich objects for display (NOT stored in database)
-  final ExamTypeEntity examTypeEntity;
+  // Dynamic paper sections (replaces examTypeEntity)
+  final List<PaperSectionEntity> paperSections;
   final Map<String, List<Question>> questions;
 
   // Display-only fields (resolved from IDs via BLoC/UI layer)
@@ -45,13 +44,12 @@ class QuestionPaperEntity extends Equatable {
     required this.title,
     required this.subjectId,
     required this.gradeId,
-    required this.examTypeId,
     required this.academicYear,
     required this.createdBy,
     required this.createdAt,
     required this.modifiedAt,
     required this.status,
-    required this.examTypeEntity,
+    required this.paperSections,
     required this.questions,
     this.examDate,
     this.subject,
@@ -88,7 +86,7 @@ class QuestionPaperEntity extends Equatable {
     if (questions.isEmpty) return false;
     if (title.trim().isEmpty) return false;
 
-    for (final section in examTypeEntity.sections) {
+    for (final section in paperSections) {
       final sectionQuestions = questions[section.name] ?? [];
       if (sectionQuestions.length < section.questions) {
         return false;
@@ -120,7 +118,7 @@ class QuestionPaperEntity extends Equatable {
       errors.add('Total questions cannot exceed ${InputValidators.MAX_TOTAL_QUESTIONS}');
     }
 
-    for (final section in examTypeEntity.sections) {
+    for (final section in paperSections) {
       final sectionQuestions = questions[section.name] ?? [];
       final required = section.questions;
       final actual = sectionQuestions.length;
@@ -187,14 +185,13 @@ class QuestionPaperEntity extends Equatable {
     String? title,
     String? subjectId,
     String? gradeId,
-    String? examTypeId,
     String? academicYear,
     String? createdBy,
     DateTime? createdAt,
     DateTime? modifiedAt,
     PaperStatus? status,
     DateTime? examDate,
-    ExamTypeEntity? examTypeEntity,
+    List<PaperSectionEntity>? paperSections,
     Map<String, List<Question>>? questions,
     String? subject,
     String? grade,
@@ -213,14 +210,13 @@ class QuestionPaperEntity extends Equatable {
       title: title ?? this.title,
       subjectId: subjectId ?? this.subjectId,
       gradeId: gradeId ?? this.gradeId,
-      examTypeId: examTypeId ?? this.examTypeId,
       academicYear: academicYear ?? this.academicYear,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       status: status ?? this.status,
       examDate: examDate ?? this.examDate,
-      examTypeEntity: examTypeEntity ?? this.examTypeEntity,
+      paperSections: paperSections ?? this.paperSections,
       questions: questions ?? this.questions,
       subject: subject ?? this.subject,
       grade: grade ?? this.grade,
@@ -242,14 +238,13 @@ class QuestionPaperEntity extends Equatable {
     title,
     subjectId,
     gradeId,
-    examTypeId,
     academicYear,
     createdBy,
     createdAt,
     modifiedAt,
     status,
     examDate,
-    examTypeEntity,
+    paperSections,
     questions,
     subject,
     grade,

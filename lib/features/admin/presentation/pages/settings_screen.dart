@@ -12,7 +12,6 @@ import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../catalog/domain/repositories/exam_type_repository.dart';
 import '../../../catalog/domain/repositories/grade_repository.dart';
 import '../../../catalog/domain/repositories/subject_repository.dart';
 
@@ -45,14 +44,13 @@ class _SettingsPageState extends State<SettingsPage> {
       final results = await Future.wait([
         sl<SubjectRepository>().getSubjects(),
         sl<GradeRepository>().getGrades(),
-        sl<ExamTypeRepository>().getExamTypes(),
       ]);
 
       if (mounted) {
         setState(() {
           _subjectCount = results[0].fold((_) => 0, (list) => list.length);
           _gradeCount = results[1].fold((_) => 0, (list) => list.length);
-          _examTypeCount = results[2].fold((_) => 0, (list) => list.length);
+          _examTypeCount = 0; // Exam types removed - using dynamic sections
         });
       }
     } catch (e) {
@@ -272,13 +270,6 @@ class _SettingsPageState extends State<SettingsPage> {
           icon: Icons.school_outlined,
           route: AppRoutes.settingsGrades,
           count: _gradeCount,
-        ),
-        _buildNavigationTile(
-          title: 'Manage Exam Types',
-          subtitle: 'Configure exam formats and sections',
-          icon: Icons.quiz_outlined,
-          route: AppRoutes.settingsExamTypes,
-          count: _examTypeCount,
         ),
         _buildNavigationTile(
           title: 'Manage Users',

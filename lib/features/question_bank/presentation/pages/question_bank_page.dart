@@ -49,6 +49,9 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   final int _pageSize = 20;
   final ScrollController _scrollController = ScrollController();
 
+  // Search debounce
+  Timer? _searchDebounce;
+
   // Dynamic data from BLoCs
   List<int> _availableGradeLevels = [];
   List<SubjectEntity> _availableSubjects = [];
@@ -57,6 +60,14 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   // User name cache
   final Map<String, String> _userNamesCache = {};
   final UserInfoService _userInfoService = sl<UserInfoService>();
+
+  // Assignment cache
+  String? _cachedGradeFilter;
+  String? _cachedSubjectFilter;
+  bool _hasLoadedAssignments = false;
+
+  // Cache the last valid ApprovedPapersPaginated state to preserve data across navigation
+  ApprovedPapersPaginated? _cachedPaginatedState;
 
   @override
   void initState() {
@@ -75,12 +86,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload when navigating back
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadInitialData();
-      }
-    });
+    // No automatic reload - data persists across navigation
+    // User can pull-to-refresh if needed
   }
 
   @override
@@ -89,6 +96,12 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     _animController.dispose();
     _tabController.dispose();
     _scrollController.dispose();
+    _searchDebounce?.cancel();
+    // Clear caches on disposal (e.g., logout)
+    _userNamesCache.clear();
+    _hasLoadedAssignments = false;
+    _cachedGradeFilter = null;
+    _cachedSubjectFilter = null;
     super.dispose();
   }
 
@@ -122,11 +135,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     final currentUser = userStateService.currentUser;
     final assignmentRepo = sl<AssignmentRepository>();
 
-    // Fetch teacher's assigned grades and subjects
+    // Fetch teacher's assigned grades and subjects (with caching)
     String? gradeFilter = _selectedGradeLevel?.toString();
     String? subjectFilter = _selectedSubjectId;
 
-    if (currentUser != null && currentUser.role == 'teacher') {
+    if (currentUser != null && currentUser.role == 'teacher' && !_hasLoadedAssignments) {
       // Get current academic year (you may want to make this dynamic)
       final currentYear = DateTime.now().year.toString();
 
@@ -149,6 +162,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             if (grades.isNotEmpty && gradeFilter == null) {
               // If no grade filter is set, use first assigned grade
               gradeFilter = grades.first.gradeNumber.toString();
+              _cachedGradeFilter = gradeFilter;
             }
           },
         );
@@ -159,13 +173,20 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
             if (subjects.isNotEmpty && subjectFilter == null) {
               // If no subject filter is set, use first assigned subject
               subjectFilter = subjects.first.id;
+              _cachedSubjectFilter = subjectFilter;
             }
           },
         );
+
+        _hasLoadedAssignments = true;
       } catch (e) {
         // If fetching assignments fails, proceed without filtering
         debugPrint('Failed to fetch teacher assignments: $e');
       }
+    } else if (_hasLoadedAssignments) {
+      // Use cached filters if available
+      gradeFilter ??= _cachedGradeFilter;
+      subjectFilter ??= _cachedSubjectFilter;
     }
 
     if (!mounted) return;
@@ -189,7 +210,8 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
     try {
       _loadInitialData();
-      await Future.delayed(const Duration(seconds: 2));
+      // Reduced delay from 2s to 800ms for better UX
+      await Future.delayed(const Duration(milliseconds: 800));
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);
@@ -271,7 +293,17 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     return PaperSearchBar(
       controller: _searchController,
       searchQuery: _searchQuery,
-      onSearchChanged: (query) => setState(() => _searchQuery = query),
+      onSearchChanged: (query) {
+        setState(() => _searchQuery = query);
+
+        // Debounce search - wait 500ms before triggering search
+        _searchDebounce?.cancel();
+        _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _loadInitialData();
+          }
+        });
+      },
       onClearSearch: _clearSearch,
     );
   }
@@ -282,8 +314,20 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       selectedSubjectId: _selectedSubjectId,
       availableGradeLevels: _availableGradeLevels,
       availableSubjects: _availableSubjects,
-      onGradeChanged: (value) => setState(() => _selectedGradeLevel = value),
-      onSubjectChanged: (value) => setState(() => _selectedSubjectId = value),
+      onGradeChanged: (value) {
+        setState(() {
+          _selectedGradeLevel = value;
+          _currentPage = 1; // Reset pagination
+        });
+        _loadInitialData();
+      },
+      onSubjectChanged: (value) {
+        setState(() {
+          _selectedSubjectId = value;
+          _currentPage = 1; // Reset pagination
+        });
+        _loadInitialData();
+      },
       onClearFilters: _clearAllFilters,
       hasActiveFilters: _hasActiveFilters(),
     );
@@ -330,11 +374,29 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       },
       builder: (context, state) {
         if (state is QuestionPaperLoading && !_isRefreshing) {
+          // If we have cached data, show it during loading
+          if (_cachedPaginatedState != null) {
+            return RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: AppColors.primary,
+              backgroundColor: AppColors.surface,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPaginatedPapersForPeriod(_cachedPaginatedState!, 'current'),
+                  _buildPaginatedPapersForPeriod(_cachedPaginatedState!, 'previous'),
+                  _buildPaginatedArchiveView(_cachedPaginatedState!),
+                ],
+              ),
+            );
+          }
           return _buildModernLoading();
         }
 
         // Handle paginated state
         if (state is ApprovedPapersPaginated) {
+          // Cache this state for future use
+          _cachedPaginatedState = state;
           return RefreshIndicator(
             onRefresh: _onRefresh,
             color: AppColors.primary,
@@ -361,6 +423,24 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
                 _buildPapersForPeriod(state.approvedPapers, 'current'),
                 _buildPapersForPeriod(state.approvedPapers, 'previous'),
                 _buildArchiveView(state.approvedPapers),
+              ],
+            ),
+          );
+        }
+
+        // For any other state type (e.g., QuestionPaperLoaded from home page),
+        // preserve and show the cached question bank data
+        if (_cachedPaginatedState != null) {
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: AppColors.primary,
+            backgroundColor: AppColors.surface,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPaginatedPapersForPeriod(_cachedPaginatedState!, 'current'),
+                _buildPaginatedPapersForPeriod(_cachedPaginatedState!, 'previous'),
+                _buildPaginatedArchiveView(_cachedPaginatedState!),
               ],
             ),
           );
@@ -982,7 +1062,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               pdfBytes: pdfBytes,
               paperTitle: paper.title,
               layoutType: layoutType,
-              onDownload: () => _downloadPdfFromBank(pdfBytes, paper.title, layoutType),
               onRegeneratePdf: layoutType == 'single'
                   ? (fontMultiplier, spacingMultiplier) async {
                       return await pdfService.generateStudentPdf(

@@ -1,10 +1,7 @@
 import 'dart:typed_data';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:papercraft/features/pdf_generation/presentation/pages/pdf_preview_page.dart';
 import '../../../pdf_generation/domain/services/pdf_generation_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
@@ -17,7 +14,6 @@ import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
-import '../../../pdf_generation/domain/services/pdf_generation_service.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
 import '../bloc/question_paper_bloc.dart';
@@ -288,7 +284,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               const SizedBox(width: 24),
               _buildStat(Icons.grade_rounded, '${paper.totalMarks}', 'Marks'),
               const SizedBox(width: 24),
-              _buildStat(Icons.access_time_rounded, paper.examTypeEntity.formattedDuration, 'Duration'),
+              _buildStat(Icons.library_books_rounded, '${paper.paperSections.length}', 'Sections'),
             ],
           ),
         ],
@@ -335,15 +331,15 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   Widget _buildActions(QuestionPaperEntity paper) {
     final actions = <Widget>[];
 
-    // View as PDF button (visible for draft, submitted, AND approved papers)
+    // Print PDF button (visible for draft, submitted, AND approved papers)
     if (paper.status == PaperStatus.draft ||
         paper.status == PaperStatus.submitted ||
         paper.status == PaperStatus.approved) {
       actions.add(_buildActionBtn(
-          Icons.download_rounded,
-          'Download PDF',
+          Icons.print_rounded,
+          'Print PDF',
           AppColors.accent,
-              () => _showPdfViewOptions(paper),
+              () => _generateAndShowPreview(paper),
           _isGeneratingPdf
       ));
     }
@@ -488,7 +484,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
   Widget _buildSummary(QuestionPaperEntity paper) {
     // Use the new section ordering helper
-    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.examTypeEntity, paper.questions);
+    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.paperSections, paper.questions);
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -561,7 +557,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       );
     }
 
-    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.examTypeEntity, paper.questions);
+    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.paperSections, paper.questions);
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -662,247 +658,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _navigateBack() {
-    try {
-      context.canPop() ? context.pop() : context.go(AppRoutes.home);
-    } catch (_) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
       context.go(AppRoutes.home);
     }
-  }
-
-  void _showPdfViewOptions(QuestionPaperEntity paper) {
-    bool showPreview = false;
-    bool compressed = false;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          margin: const EdgeInsets.all(UIConstants.paddingMedium),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 32,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing16),
-              Text(
-                'Download PDF',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing6),
-              Text(
-                paper.title,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: UIConstants.fontSizeSmall,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: UIConstants.spacing20),
-              // Compress toggle
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.compress_rounded, color: AppColors.primary, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Compress Content',
-                            style: TextStyle(
-                              fontSize: UIConstants.fontSizeMedium,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Reduce spacing between lines to fit more content',
-                            style: TextStyle(
-                              fontSize: UIConstants.fontSizeSmall,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: compressed,
-                      onChanged: (value) {
-                        setModalState(() {
-                          compressed = value;
-                        });
-                      },
-                      activeColor: AppColors.primary,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(height: UIConstants.spacing16),
-              InkWell(
-                onTap: () {
-                  setModalState(() {
-                    showPreview = !showPreview;
-                  });
-                },
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundSecondary,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: showPreview,
-                        onChanged: (value) {
-                          setModalState(() {
-                            showPreview = value ?? false;
-                          });
-                        },
-                        activeColor: AppColors.primary,
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Preview before download',
-                              style: TextStyle(
-                                fontSize: UIConstants.fontSizeMedium,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              'View PDF before saving to device',
-                              style: TextStyle(
-                                fontSize: UIConstants.fontSizeSmall,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing20),
-              // Generate PDF Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _generateAndHandlePdf(paper, showPreview, compressed: compressed);
-                  },
-                  icon: Icon(Icons.picture_as_pdf_rounded),
-                  label: Text('Generate PDF'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing12),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPdfLayoutOption(
-      String title,
-      String subtitle,
-      IconData icon,
-      Color color,
-      VoidCallback onTap,
-      ) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.pop(context);
-          onTap();
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.all(14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: UIConstants.fontSizeMedium,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _editPaper(QuestionPaperEntity paper) {
@@ -913,7 +673,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  Future<void> _generateAndHandlePdf(QuestionPaperEntity paper, bool showPreview, {bool compressed = false}) async {
+  Future<void> _generateAndShowPreview(QuestionPaperEntity paper) async {
     setState(() {
       _isGeneratingPdf = true;
       _cancelPdfGeneration = false;
@@ -977,11 +737,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
 
-      // Generate PDF with compress option
+      // Generate PDF with standard layout
       final pdfBytes = await pdfService.generateStudentPdf(
         paper: paper,
         schoolName: schoolName,
-        compressed: compressed,
       );
 
       // Check if cancelled
@@ -996,32 +755,25 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
-      if (showPreview) {
-        // Navigate to preview page
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PdfPreviewPage(
-                pdfBytes: pdfBytes,
-                paperTitle: paper.title,
-                layoutType: compressed ? 'compressed' : 'standard',
-                onDownload: () => _downloadPdf(pdfBytes, paper.title, compressed: compressed),
-                onRegeneratePdf: (fontMultiplier, spacingMultiplier) async {
-                  return await pdfService.generateStudentPdf(
-                    paper: paper,
-                    schoolName: schoolName,
-                    compressed: compressed,
-                    fontSizeMultiplier: fontMultiplier,
-                    spacingMultiplier: spacingMultiplier,
-                  );
-                },
-              ),
+      // Navigate directly to preview page
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PdfPreviewPage(
+              pdfBytes: pdfBytes,
+              paperTitle: paper.title,
+              layoutType: 'single',
+              onRegeneratePdf: (fontMultiplier, spacingMultiplier) async {
+                return await pdfService.generateStudentPdf(
+                  paper: paper,
+                  schoolName: schoolName,
+                  fontSizeMultiplier: fontMultiplier,
+                  spacingMultiplier: spacingMultiplier,
+                );
+              },
             ),
-          );
-        }
-      } else {
-        // Direct download without preview
-        await _downloadPdf(pdfBytes, paper.title, compressed: compressed);
+          ),
+        );
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -1033,48 +785,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     } finally {
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
-      }
-    }
-  }
-
-  Future<void> _downloadPdf(Uint8List pdfBytes, String paperTitle, {bool compressed = false}) async {
-    try {
-      final layoutSuffix = compressed ? 'Compressed' : 'Standard';
-      final fileName = '${paperTitle.replaceAll(RegExp(r'[^\w\s-]'), '')}_${layoutSuffix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-
-      File? savedFile;
-
-      if (Platform.isAndroid) {
-        final directory = await getExternalStorageDirectory();
-        if (directory != null) {
-          final downloadsPath = Directory('${directory.path}/Download');
-          if (!await downloadsPath.exists()) {
-            await downloadsPath.create(recursive: true);
-          }
-          savedFile = File('${downloadsPath.path}/$fileName');
-        }
-      } else if (Platform.isIOS) {
-        final directory = await getApplicationDocumentsDirectory();
-        savedFile = File('${directory.path}/$fileName');
-      }
-
-      if (savedFile != null) {
-        await savedFile.writeAsBytes(pdfBytes);
-
-        // Share the file so user can open with PDF viewer
-        await Share.shareXFiles(
-          [XFile(savedFile.path, mimeType: 'application/pdf')],
-          text: paperTitle,
-          subject: 'Question Paper PDF',
-        );
-
-        if (mounted) {
-          _showMessage('PDF saved and ready to share!', AppColors.success);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        _showMessage('Unable to save PDF. Please check storage permissions and try again.', AppColors.error);
       }
     }
   }

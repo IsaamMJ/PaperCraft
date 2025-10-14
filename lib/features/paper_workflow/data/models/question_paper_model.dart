@@ -2,7 +2,7 @@
 import 'dart:convert';
 import '../../domain/entities/question_entity.dart';
 import '../../domain/entities/question_paper_entity.dart';
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../domain/entities/paper_status.dart';
 
 class QuestionPaperModel extends QuestionPaperEntity {
@@ -11,13 +11,12 @@ class QuestionPaperModel extends QuestionPaperEntity {
     required super.title,
     required super.subjectId,
     required super.gradeId,
-    required super.examTypeId,
     required super.academicYear,
     required super.createdBy,
     required super.createdAt,
     required super.modifiedAt,
     required super.status,
-    required super.examTypeEntity,
+    required super.paperSections,
     required super.questions,
     super.examDate,
     super.subject,
@@ -39,13 +38,12 @@ class QuestionPaperModel extends QuestionPaperEntity {
       title: entity.title,
       subjectId: entity.subjectId,
       gradeId: entity.gradeId,
-      examTypeId: entity.examTypeId,
       academicYear: entity.academicYear,
       createdBy: entity.createdBy,
       createdAt: entity.createdAt,
       modifiedAt: entity.modifiedAt,
       status: entity.status,
-      examTypeEntity: entity.examTypeEntity,
+      paperSections: entity.paperSections,
       questions: entity.questions,
       examDate: entity.examDate,
       subject: entity.subject,
@@ -80,27 +78,17 @@ class QuestionPaperModel extends QuestionPaperEntity {
         });
       }
 
-      // Parse exam type entity from metadata
-      ExamTypeEntity examTypeEntity;
-      if (json['metadata'] != null && json['metadata']['exam_type_entity'] != null) {
-        examTypeEntity = ExamTypeEntity.fromJson(
-          json['metadata']['exam_type_entity'] as Map<String, dynamic>,
-        );
-      } else {
-        // Fallback: create minimal exam type entity
-        examTypeEntity = ExamTypeEntity(
-          id: json['exam_type_id'] ?? '',
-          tenantId: json['tenant_id'] ?? '',
-          subjectId: json['subject_id'] ?? '',
-          name: json['exam_type_name'] as String? ?? 'Unknown',
-          sections: const [],
-        );
+      // Parse paper sections from JSONB
+      List<PaperSectionEntity> paperSections = [];
+      if (json['paper_sections'] != null && json['paper_sections'] is List) {
+        paperSections = (json['paper_sections'] as List<dynamic>)
+            .map((section) => PaperSectionEntity.fromJson(section as Map<String, dynamic>))
+            .toList();
       }
 
       // Extract display fields from joined columns
       final subjectName = json['subject_name'] as String?;
       final gradeName = json['grade_name'] as String?;
-      final examTypeName = json['exam_type_name'] as String?;
       final gradeLevel = json['grade_level'] as int?;
 
       // Parse selected sections if exists
@@ -114,7 +102,6 @@ class QuestionPaperModel extends QuestionPaperEntity {
         title: json['title'] as String,
         subjectId: json['subject_id'] as String,
         gradeId: json['grade_id'] as String,
-        examTypeId: json['exam_type_id'] as String,
         academicYear: json['academic_year'] as String,
         createdBy: json['user_id'] as String,
         createdAt: DateTime.parse(json['created_at'] as String),
@@ -122,14 +109,14 @@ class QuestionPaperModel extends QuestionPaperEntity {
             ? DateTime.parse(json['updated_at'] as String)
             : DateTime.parse(json['created_at'] as String),
         status: PaperStatus.fromString(json['status'] as String),
-        examTypeEntity: examTypeEntity,
+        paperSections: paperSections,
         questions: questionsMap,
         examDate: json['exam_date'] != null
             ? DateTime.parse(json['exam_date'] as String)
             : null,
         subject: subjectName,
         grade: gradeName,
-        examType: examTypeName,
+        examType: null, // No longer have exam type name from database
         gradeLevel: gradeLevel,
         selectedSections: selectedSections,
         tenantId: json['tenant_id'] as String?,
@@ -166,8 +153,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
     if (gradeId.isEmpty) {
       throw ArgumentError('Grade ID cannot be empty');
     }
-    if (examTypeId.isEmpty) {
-      throw ArgumentError('Exam Type ID cannot be empty');
+    if (paperSections.isEmpty) {
+      throw ArgumentError('Paper sections cannot be empty');
     }
     if (reviewedBy != null && reviewedBy!.isEmpty) {
       throw ArgumentError('Reviewed By cannot be empty string (use null instead)');
@@ -179,10 +166,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       questionsJson[sectionName] = questionsList.map((q) => q.toJson()).toList();
     });
 
-    // Store exam type entity and selected sections in metadata
-    final Map<String, dynamic> metadata = {
-      'exam_type_entity': examTypeEntity.toJson(),
-    };
+    // Store selected sections in metadata
+    final Map<String, dynamic> metadata = {};
 
     if (selectedSections != null) {
       metadata['selected_sections'] = selectedSections;
@@ -194,12 +179,12 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'user_id': userId,
       'subject_id': subjectId,
       'grade_id': gradeId,
-      'exam_type_id': examTypeId,
       'academic_year': academicYear,
       'title': title,
       'exam_date': examDate?.toIso8601String(),
+      'paper_sections': paperSections.map((s) => s.toJson()).toList(),
       'questions': questionsJson,
-      'metadata': metadata,
+      'metadata': metadata.isNotEmpty ? metadata : null,
       'status': status.value,
       'submitted_at': submittedAt?.toIso8601String(),
       'reviewed_at': reviewedAt?.toIso8601String(),
@@ -223,13 +208,12 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'title': title,
       'subject_id': subjectId,
       'grade_id': gradeId,
-      'exam_type_id': examTypeId,
       'academic_year': academicYear,
       'created_by': createdBy,
       'created_at': createdAt.millisecondsSinceEpoch,
       'modified_at': modifiedAt.millisecondsSinceEpoch,
       'status': status.value,
-      'exam_type_entity': jsonEncode(examTypeEntity.toJson()),
+      'paper_sections': jsonEncode(paperSections.map((s) => s.toJson()).toList()),
       'questions': jsonEncode(questionsJson),
       'exam_date': examDate?.millisecondsSinceEpoch,
       'subject': subject,
@@ -249,8 +233,14 @@ class QuestionPaperModel extends QuestionPaperEntity {
   /// Parse from Hive storage
   factory QuestionPaperModel.fromHive(Map<String, dynamic> paperMap) {
     try {
-      final examTypeEntityJson = jsonDecode(paperMap['exam_type_entity'] as String);
-      final examTypeEntity = ExamTypeEntity.fromJson(examTypeEntityJson);
+      // Parse paper sections from JSON string
+      List<PaperSectionEntity> paperSections = [];
+      if (paperMap['paper_sections'] != null) {
+        final sectionsJson = jsonDecode(paperMap['paper_sections'] as String) as List<dynamic>;
+        paperSections = sectionsJson
+            .map((section) => PaperSectionEntity.fromJson(section as Map<String, dynamic>))
+            .toList();
+      }
 
       // Parse questions from JSON string
       Map<String, List<Question>> questionsMap = {};
@@ -276,13 +266,12 @@ class QuestionPaperModel extends QuestionPaperEntity {
         title: paperMap['title'] as String,
         subjectId: paperMap['subject_id'] as String,
         gradeId: paperMap['grade_id'] as String,
-        examTypeId: paperMap['exam_type_id'] as String,
         academicYear: paperMap['academic_year'] as String,
         createdBy: paperMap['created_by'] as String,
         createdAt: DateTime.fromMillisecondsSinceEpoch(paperMap['created_at'] as int),
         modifiedAt: DateTime.fromMillisecondsSinceEpoch(paperMap['modified_at'] as int),
         status: PaperStatus.fromString(paperMap['status'] as String),
-        examTypeEntity: examTypeEntity,
+        paperSections: paperSections,
         questions: questionsMap,
         examDate: paperMap['exam_date'] != null
             ? DateTime.fromMillisecondsSinceEpoch(paperMap['exam_date'] as int)
@@ -314,14 +303,13 @@ class QuestionPaperModel extends QuestionPaperEntity {
     String? title,
     String? subjectId,
     String? gradeId,
-    String? examTypeId,
     String? academicYear,
     String? createdBy,
     DateTime? createdAt,
     DateTime? modifiedAt,
     PaperStatus? status,
     DateTime? examDate,
-    ExamTypeEntity? examTypeEntity,
+    List<PaperSectionEntity>? paperSections,
     Map<String, List<Question>>? questions,
     String? subject,
     String? grade,
@@ -340,14 +328,13 @@ class QuestionPaperModel extends QuestionPaperEntity {
       title: title ?? this.title,
       subjectId: subjectId ?? this.subjectId,
       gradeId: gradeId ?? this.gradeId,
-      examTypeId: examTypeId ?? this.examTypeId,
       academicYear: academicYear ?? this.academicYear,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       status: status ?? this.status,
       examDate: examDate ?? this.examDate,
-      examTypeEntity: examTypeEntity ?? this.examTypeEntity,
+      paperSections: paperSections ?? this.paperSections,
       questions: questions ?? this.questions,
       subject: subject ?? this.subject,
       grade: grade ?? this.grade,

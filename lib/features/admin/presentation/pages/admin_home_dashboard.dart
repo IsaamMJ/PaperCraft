@@ -6,7 +6,6 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../catalog/domain/repositories/exam_type_repository.dart';
 import '../../../catalog/domain/repositories/grade_repository.dart';
 import '../../../catalog/domain/repositories/subject_repository.dart';
 import '../../../paper_workflow/presentation/bloc/user_management_bloc.dart';
@@ -44,14 +43,13 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       final results = await Future.wait([
         sl<SubjectRepository>().getSubjects(),
         sl<GradeRepository>().getGrades(),
-        sl<ExamTypeRepository>().getExamTypes(),
       ]);
 
       if (mounted) {
         setState(() {
           _subjectCount = results[0].fold((_) => 0, (list) => list.length);
           _gradeCount = results[1].fold((_) => 0, (list) => list.length);
-          _examTypeCount = results[2].fold((_) => 0, (list) => list.length);
+          _examTypeCount = 0; // Exam types removed - using dynamic sections
           _isLoading = false;
         });
 
@@ -272,13 +270,6 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
               icon: Icons.school_outlined,
               route: AppRoutes.settingsGrades,
               isConfigured: _gradeCount != null && _gradeCount! > 0,
-            ),
-            _buildStatCard(
-              title: 'Exam Types',
-              count: _examTypeCount,
-              icon: Icons.quiz_outlined,
-              route: AppRoutes.settingsExamTypes,
-              isConfigured: _examTypeCount != null && _examTypeCount! > 0,
             ),
             _buildStatCard(
               title: 'Teachers',

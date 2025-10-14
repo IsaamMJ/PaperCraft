@@ -42,7 +42,6 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   final ApiClient _apiClient;
   final ILogger _logger;
   static const String _tableName = 'question_papers';
-  static const String _viewName = 'question_papers_enriched';
 
   PaperCloudDataSourceImpl(this._apiClient, this._logger);
 
@@ -53,7 +52,6 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         'title': paper.title,
         'subjectId': paper.subjectId,
         'gradeId': paper.gradeId,
-        'examTypeId': paper.examTypeId,
         'academicYear': paper.academicYear,
         'tenantId': paper.tenantId,
         'userId': paper.userId,
@@ -116,7 +114,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           context: {'tenantId': tenantId});
 
       final response = await _apiClient.select<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {'tenant_id': tenantId},
         orderBy: 'submitted_at',
@@ -141,7 +139,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getApprovedPapers(String tenantId) async {
     try {
       final response = await _apiClient.select<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {
           'tenant_id': tenantId,
@@ -181,7 +179,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
 
       // Build base query
       var queryBuilder = Supabase.instance.client
-          .from(_viewName)
+          .from(_tableName)
           .select()
           .eq('tenant_id', tenantId)
           .eq('status', 'approved');
@@ -211,7 +209,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
 
       // Get total count separately for pagination
       final countResponse = await Supabase.instance.client
-          .from(_viewName)
+          .from(_tableName)
           .select()
           .eq('tenant_id', tenantId)
           .eq('status', 'approved')
@@ -245,7 +243,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId) async {
     try {
       final response = await _apiClient.select<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {
           'tenant_id': tenantId,
@@ -273,7 +271,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId) async {
     try {
       final response = await _apiClient.select<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {
           'tenant_id': tenantId,
@@ -318,7 +316,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
 
       final response = await _apiClient.select<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: filters,
         orderBy: 'created_at',
@@ -503,7 +501,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<QuestionPaperModel?> getPaperById(String id) async {
     try {
       final response = await _apiClient.selectSingle<QuestionPaperModel>(
-        table: _viewName,
+        table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {'id': id},
       );

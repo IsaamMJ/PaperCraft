@@ -71,7 +71,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
     final question = Question(
       text: _questionController.text.trim(),
-      type: 'fill_blanks',
+      type: 'fill_in_blanks',
       marks: _extractedBlanks.length, // 1 mark per blank
       isOptional: _isOptional,
     );

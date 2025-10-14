@@ -1,5 +1,5 @@
 // features/paper_workflow/domain/services/paper_validation_service.dart
-import '../../../catalog/domain/entities/exam_type_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
@@ -10,7 +10,7 @@ class PaperValidationService {
     required int? gradeLevel,
     required List<String> selectedSections,
     required List<SubjectEntity> selectedSubjects,
-    required ExamTypeEntity? examType,
+    required List<PaperSectionEntity> paperSections,
   }) {
     final errors = <String>[];
 
@@ -28,8 +28,8 @@ class PaperValidationService {
       errors.add('At least one subject must be selected');
     }
 
-    if (examType == null) {
-      errors.add('Exam type must be selected');
+    if (paperSections.isEmpty) {
+      errors.add('At least one paper section must be added');
     }
 
     // Note: selectedSections can be empty if there are no sections for the grade

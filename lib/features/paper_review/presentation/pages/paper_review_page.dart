@@ -390,8 +390,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             ),
             SizedBox(height: UIConstants.spacing16),
             _buildInfoRow('Subject', paper.subject ?? 'Unknown Subject'),
-            _buildInfoRow('Exam Type', paper.examType ?? paper.examTypeEntity.name),
-            _buildInfoRow('Duration', paper.examTypeEntity.formattedDuration),
+            _buildInfoRow('Sections', '${paper.paperSections.length} sections'),
             _buildInfoRow('Total Questions', paper.totalQuestions.toString()),
             _buildInfoRow('Total Marks', paper.totalMarks.toString()),
             SizedBox(height: UIConstants.spacing16),
@@ -404,7 +403,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
               ),
             ),
             SizedBox(height: UIConstants.spacing8),
-            ...paper.examTypeEntity.sections.map((section) {
+            ...paper.paperSections.map((section) {
               final sectionQuestions = paper.questions[section.name] ?? [];
               return Padding(
                 padding: EdgeInsets.only(
@@ -486,7 +485,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
               ],
             ),
             SizedBox(height: UIConstants.spacing20),
-            ...paper.examTypeEntity.sections.map((section) {
+            ...paper.paperSections.map((section) {
               final questions = paper.questions[section.name] ?? [];
               if (questions.isEmpty) return const SizedBox.shrink();
 
