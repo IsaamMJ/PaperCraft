@@ -1,37 +1,149 @@
-// lib/core/services/groq_service.dart
+// lib/core/ai/services/groq_service.dart
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-class GroqService {
-  static const apiKey = 'YOUR_GROQ_API_KEY'; // Or use env variable
-  static const baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
+/// Result of AI text polishing with changes tracked
+class PolishResult {
+  final String original;
+  final String polished;
+  final bool hasChanges;
+  final List<String> changesSummary;
 
-  static Future<String> polishText(String text) async {
-    final response = await http.post(
-      Uri.parse(baseUrl),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': 'llama-3.1-8b-instant', // Fastest free model
-        'messages': [
-          {
-            'role': 'system',
-            'content': 'Fix grammar, spelling, and punctuation only. Keep meaning same.'
-          },
-          {'role': 'user', 'content': text}
-        ],
-        'temperature': 0.1,
-        'max_tokens': 300,
-      }),
+  PolishResult({
+    required this.original,
+    required this.polished,
+    required this.hasChanges,
+    required this.changesSummary,
+  });
+
+  factory PolishResult.noChanges(String text) {
+    return PolishResult(
+      original: text,
+      polished: text,
+      hasChanges: false,
+      changesSummary: [],
     );
+  }
+}
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['choices'][0]['message']['content'];
+class GroqService {
+  // TODO: Move to .env file for production
+  static const apiKey = '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';
+  static const baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
+  static const timeoutDuration = Duration(seconds: 15);
+  static const maxRetries = 3;
+
+  /// Polish educational question text with grammar, spelling, and punctuation fixes
+  static Future<PolishResult> polishText(String text) async {
+    if (text.trim().isEmpty) {
+      return PolishResult.noChanges(text);
     }
-    throw Exception('Failed: ${response.statusCode}');
+
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse(baseUrl),
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'model': 'llama-3.1-8b-instant',
+                'messages': [
+                  {
+                    'role': 'system',
+                    'content':
+                        'You are a proofreader for exam questions. Fix ONLY spelling and grammar mistakes.\n\n'
+                        'STRICT RULES:\n'
+                        '1. Do NOT answer questions that start with "What", "Define", "Explain", "Describe", etc.\n'
+                        '2. Do NOT provide definitions or explanations\n'
+                        '3. Do NOT add, remove, or change ANY words except to fix spelling/grammar\n'
+                        '4. The output must remain a QUESTION - never turn it into a statement or answer\n'
+                        '5. If the input is a question, output must also be a question\n'
+                        '6. Preserve ALL technical terms, numbers, formulas, names exactly\n'
+                        '7. Only fix: typos, spelling, grammar, punctuation\n'
+                        '8. Return ONLY the corrected text with no explanations\n\n'
+                        'Examples:\n'
+                        'Input: "What is photosyntesis?"\n'
+                        'Output: "What is photosynthesis?"\n\n'
+                        'Input: "Define democrasy"\n'
+                        'Output: "Define democracy"\n\n'
+                        'Input: "Explain the proces of evaporation"\n'
+                        'Output: "Explain the process of evaporation"'
+                  },
+                  {
+                    'role': 'user',
+                    'content': 'Proofread this exam question (fix only spelling/grammar):\n\n' + text
+                  }
+                ],
+                'temperature': 0.1,
+                'max_tokens': 500,
+              }),
+            )
+            .timeout(timeoutDuration);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final polished = data['choices'][0]['message']['content'].trim();
+
+          // Detect if changes were made
+          final hasChanges = polished != text.trim();
+          final changes = hasChanges ? _detectChanges(text, polished) : <String>[];
+
+          return PolishResult(
+            original: text,
+            polished: polished,
+            hasChanges: hasChanges,
+            changesSummary: changes,
+          );
+        } else if (response.statusCode == 429) {
+          // Rate limit - wait and retry
+          if (attempt < maxRetries - 1) {
+            await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+            continue;
+          }
+          throw Exception('Rate limit exceeded. Please try again later.');
+        } else {
+          throw Exception('API error: ${response.statusCode} - ${response.body}');
+        }
+      } catch (e) {
+        if (attempt == maxRetries - 1) {
+          // Last attempt failed
+          throw Exception('Failed to polish text after $maxRetries attempts: $e');
+        }
+        // Retry after delay
+        await Future.delayed(Duration(seconds: attempt + 1));
+      }
+    }
+
+    // Fallback: return original text if all retries failed
+    return PolishResult.noChanges(text);
+  }
+
+  /// Detect changes between original and polished text (simple word-level diff)
+  static List<String> _detectChanges(String original, String polished) {
+    final changes = <String>[];
+
+    // Simple word comparison
+    final originalWords = original.split(RegExp(r'\s+'));
+    final polishedWords = polished.split(RegExp(r'\s+'));
+
+    // Track word replacements
+    for (int i = 0; i < originalWords.length && i < polishedWords.length; i++) {
+      if (originalWords[i] != polishedWords[i]) {
+        changes.add('${originalWords[i]} → ${polishedWords[i]}');
+      }
+    }
+
+    // Check for added/removed words
+    if (polishedWords.length > originalWords.length) {
+      changes.add('Added ${polishedWords.length - originalWords.length} word(s)');
+    } else if (originalWords.length > polishedWords.length) {
+      changes.add('Removed ${originalWords.length - polishedWords.length} word(s)');
+    }
+
+    return changes.take(5).toList(); // Limit to first 5 changes
   }
 }

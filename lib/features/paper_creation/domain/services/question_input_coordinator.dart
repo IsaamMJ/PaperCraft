@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../core/ai/services/groq_service.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/infrastructure/services/auto_save_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
@@ -21,6 +22,8 @@ import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../presentation/widgets/ai_polish_review_dialog.dart';
+import '../../presentation/widgets/polish_loading_dialog.dart';
 import '../../presentation/widgets/question_input/bulk_input_widget.dart';
 import '../../presentation/widgets/question_input/essay_input_widget.dart';
 import '../../presentation/widgets/question_input/fill_blanks_input_widget.dart';
@@ -601,7 +604,30 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     );
   }
 
-  void _showPreviewAndSubmit() {
+  Future<void> _showPreviewAndSubmit() async {
+    // Step 1: Run mandatory AI polish
+    final polishedQuestions = await _runAIPolish();
+
+    if (polishedQuestions == null) {
+      // Polish failed or was cancelled
+      _showMessage('Unable to proceed without AI polish', AppColors.error);
+      return;
+    }
+
+    // Step 2: Show review dialog with undo options
+    final finalQuestions = await _showPolishReview(polishedQuestions);
+
+    if (finalQuestions == null) {
+      // User cancelled at review step
+      return;
+    }
+
+    // Step 3: Update questions with reviewed (and possibly reverted) changes
+    setState(() {
+      _allQuestions = finalQuestions;
+    });
+
+    // Step 4: Show paper preview
     final now = DateTime.now();
     final previewPaper = QuestionPaperEntity(
       id: widget.existingPaperId ?? const Uuid().v4(),
@@ -623,6 +649,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       selectedSections: widget.selectedSections,
     );
 
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -633,6 +661,113 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         isAdmin: widget.isAdmin,
       ),
     );
+  }
+
+  /// Run AI polish on all questions with progress dialog
+  Future<Map<String, List<Question>>?> _runAIPolish() async {
+    // Calculate total questions
+    int totalQuestions = 0;
+    for (var section in widget.paperSections) {
+      totalQuestions += (_allQuestions[section.name] ?? []).length;
+    }
+
+    if (totalQuestions == 0) {
+      return _allQuestions; // No questions to polish
+    }
+
+    // Track progress
+    int processedQuestions = 0;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PolishLoadingDialog(
+        totalQuestions: totalQuestions,
+        processedQuestions: processedQuestions,
+      ),
+    );
+
+    try {
+      final polished = <String, List<Question>>{};
+
+      // Process each section
+      for (var section in widget.paperSections) {
+        final sectionName = section.name;
+        final sectionQuestions = _allQuestions[sectionName] ?? [];
+        final polishedList = <Question>[];
+
+        // Process in batches of 5 for parallel processing
+        for (int i = 0; i < sectionQuestions.length; i += 5) {
+          final end = (i + 5 < sectionQuestions.length) ? i + 5 : sectionQuestions.length;
+          final batch = sectionQuestions.sublist(i, end);
+
+          // Parallel processing of batch
+          final futures = batch.map((q) async {
+            try {
+              final result = await GroqService.polishText(q.text);
+
+              // Update progress
+              processedQuestions++;
+              if (mounted) {
+                // Update dialog (rebuild with new progress)
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => PolishLoadingDialog(
+                    totalQuestions: totalQuestions,
+                    processedQuestions: processedQuestions,
+                  ),
+                );
+              }
+
+              return q.copyWith(
+                text: result.polished,
+                originalText: result.original,
+                polishChanges: result.changesSummary,
+              );
+            } catch (e) {
+              // If polishing fails for one question, keep original
+              return q;
+            }
+          }).toList();
+
+          polishedList.addAll(await Future.wait(futures));
+        }
+
+        polished[sectionName] = polishedList;
+      }
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+      }
+
+      return polished;
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showMessage('AI Polish failed: $e', AppColors.error);
+      }
+      return null;
+    }
+  }
+
+  /// Show polish review dialog with undo options
+  Future<Map<String, List<Question>>?> _showPolishReview(
+    Map<String, List<Question>> polished,
+  ) async {
+    final result = await showDialog<Map<String, List<Question>>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AIPolishReviewDialog(
+        originalQuestions: _allQuestions,
+        polishedQuestions: polished,
+        paperSections: widget.paperSections,
+      ),
+    );
+
+    return result; // Returns null if cancelled, or final questions map if accepted
   }
 
   String _getProcessingText() {

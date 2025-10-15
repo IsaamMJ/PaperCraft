@@ -11,6 +11,10 @@ class Question extends Equatable {
   final List<SubQuestion> subQuestions; // For essay/complex questions only
   final bool isOptional;
 
+  // AI Polish tracking fields
+  final String? originalText; // Original text before AI polish (for diff view)
+  final List<String>? polishChanges; // List of changes made by AI
+
   const Question({
     required this.text,
     required this.type,
@@ -19,6 +23,8 @@ class Question extends Equatable {
     required this.marks,
     this.subQuestions = const [],
     this.isOptional = false,
+    this.originalText,
+    this.polishChanges,
   });
 
   // Validation: A question should have EITHER options OR subQuestions, not both
@@ -101,6 +107,8 @@ class Question extends Equatable {
       'marks': marks,
       'sub_questions': subQuestions.map((sq) => sq.toJson()).toList(),
       'is_optional': isOptional,
+      // Note: originalText and polishChanges are not persisted to database
+      // They are only used during UI flow
     };
   }
 
@@ -130,6 +138,8 @@ class Question extends Equatable {
     int? marks,
     List<SubQuestion>? subQuestions,
     bool? isOptional,
+    String? originalText,
+    List<String>? polishChanges,
   }) {
     return Question(
       text: text ?? this.text,
@@ -139,6 +149,8 @@ class Question extends Equatable {
       marks: marks ?? this.marks,
       subQuestions: subQuestions ?? this.subQuestions,
       isOptional: isOptional ?? this.isOptional,
+      originalText: originalText ?? this.originalText,
+      polishChanges: polishChanges ?? this.polishChanges,
     );
   }
 
@@ -151,6 +163,8 @@ class Question extends Equatable {
     marks,
     subQuestions,
     isOptional,
+    originalText,
+    polishChanges,
   ];
 }
 
