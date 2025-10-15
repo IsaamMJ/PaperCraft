@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Result of AI text polishing with changes tracked
 class PolishResult {
@@ -28,8 +29,8 @@ class PolishResult {
 }
 
 class GroqService {
-  // TODO: Move to .env file for production
-  static const apiKey = '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';
+  // API key is loaded from .env file
+  static String get apiKey => dotenv.get('GROQ_API_KEY', fallback: '');
   static const baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   static const timeoutDuration = Duration(seconds: 15);
   static const maxRetries = 3;
