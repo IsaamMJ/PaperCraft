@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:papercraft/features/paper_creation/domain/services/question_input_coordinator.dart';
 import '../../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../../catalog/domain/entities/subject_entity.dart';
+import '../../../../catalog/domain/entities/exam_type.dart';
 import '../../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
@@ -17,6 +18,10 @@ class QuestionInputDialog extends StatelessWidget {
   final Function(QuestionPaperEntity) onPaperCreated;
   final DateTime? examDate;
   final bool isAdmin;
+
+  // Exam type fields
+  final ExamType examType;
+  final int? examNumber;
 
   // Edit mode parameters
   final Map<String, List<Question>>? existingQuestions;
@@ -36,6 +41,8 @@ class QuestionInputDialog extends StatelessWidget {
     required this.selectedSections,
     required this.onPaperCreated,
     required this.isAdmin,
+    required this.examType,
+    this.examNumber,
     this.existingQuestions,
     this.isEditing = false,
     this.existingPaperId,
@@ -97,6 +104,8 @@ class QuestionInputDialog extends StatelessWidget {
                   selectedSections: selectedSections,
                   onPaperCreated: onPaperCreated,
                   isAdmin: isAdmin,
+                  examType: examType,
+                  examNumber: examNumber,
                   existingQuestions: existingQuestions,
                   isEditing: isEditing,
                   existingPaperId: existingPaperId,

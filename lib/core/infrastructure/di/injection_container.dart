@@ -43,6 +43,9 @@ import '../../../features/paper_workflow/domain/usecases/get_user_submissions_us
 import '../../../features/paper_workflow/domain/usecases/pull_for_editing_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/save_draft_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.dart';
+import '../../../features/home/presentation/bloc/home_bloc.dart';
+import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
+import '../../../features/assignments/presentation/bloc/teacher_preferences_bloc.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
@@ -203,6 +206,9 @@ class _DatabaseModule {
         anonKey: EnvironmentConfig.supabaseAnonKey,
         debug: EnvironmentConfig.current == Environment.dev &&
             sl<IFeatureFlags>().enableDebugLogging,
+        authOptions: FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.pkce,
+        ),
       );
 
       sl<ILogger>().debug('Initializing Hive database', category: LogCategory.storage);
@@ -593,6 +599,33 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => GetAllPapersForAdminUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersPaginatedUseCase(repository));
+
+    // Register BLoCs
+    _setupBlocs();
+  }
+
+  static void _setupBlocs() {
+    sl<ILogger>().debug('Setting up question papers BLoCs', category: LogCategory.paper);
+
+    // Register as factories - new instance each time, auto-disposed
+    sl.registerFactory(() => HomeBloc(
+      getDraftsUseCase: sl(),
+      getSubmissionsUseCase: sl(),
+      getPapersForReviewUseCase: sl(),
+      getAllPapersForAdminUseCase: sl(),
+    ));
+
+    // Question Bank BLoC - singleton to preserve state across rebuilds
+    sl.registerLazySingleton(() => QuestionBankBloc(
+      getApprovedPapersPaginatedUseCase: sl(),
+    ));
+
+    // Teacher preferences BLoC - singleton for global access
+    sl.registerLazySingleton(() => TeacherPreferencesBloc(
+      assignmentRepository: sl(),
+    ));
+
+    sl<ILogger>().debug('Question papers BLoCs registered successfully', category: LogCategory.paper);
   }
 }
 

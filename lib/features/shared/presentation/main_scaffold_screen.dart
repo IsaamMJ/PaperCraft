@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/domain/interfaces/i_logger.dart';
+import '../../../core/infrastructure/logging/app_logger.dart';
 import '../../../../../core/presentation/constants/ui_constants.dart';
 
 import '../../../core/infrastructure/di/injection_container.dart';
@@ -290,11 +292,8 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   void _handleLogout(BuildContext context) {
-    print('🔥 DEBUG: _handleLogout called');
-
     // Prevent multiple logout attempts
     if (_isLoggingOut) {
-      print('🔥 DEBUG: Logout already in progress, ignoring');
       return;
     }
 
@@ -305,23 +304,23 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     // Check if AuthBloc is available
     try {
       final authBloc = context.read<AuthBloc>();
-      print('🔥 DEBUG: AuthBloc found, state: ${authBloc.state.runtimeType}');
-      print('🔥 DEBUG: AuthBloc is closed: ${authBloc.isClosed}');
 
       if (authBloc.isClosed) {
-        print('🔥 ERROR: AuthBloc is closed!');
+        AppLogger.error('AuthBloc is closed during logout', category: LogCategory.auth);
         setState(() => _isLoggingOut = false);
         _logoutAnimationController.stop();
         return;
       }
 
-      print('🔥 DEBUG: About to dispatch AuthSignOut event');
       authBloc.add(const AuthSignOut());
-      print('🔥 DEBUG: AuthSignOut event dispatched successfully');
 
     } catch (e, stackTrace) {
-      print('🔥 ERROR: Failed to get AuthBloc: $e');
-      print('🔥 ERROR: StackTrace: $stackTrace');
+      AppLogger.error(
+        'Failed to get AuthBloc during logout',
+        category: LogCategory.auth,
+        error: e,
+        stackTrace: stackTrace,
+      );
       setState(() => _isLoggingOut = false);
       _logoutAnimationController.stop();
     }

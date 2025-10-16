@@ -14,6 +14,7 @@ import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../../catalog/domain/entities/teacher_pattern_entity.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_event.dart';
@@ -46,6 +47,10 @@ class QuestionInputCoordinator extends StatefulWidget {
   final DateTime? examDate;
   final bool isAdmin;
 
+  // Exam type fields
+  final ExamType examType;
+  final int? examNumber;
+
   // Edit mode parameters
   final Map<String, List<Question>>? existingQuestions;
   final bool isEditing;
@@ -64,6 +69,8 @@ class QuestionInputCoordinator extends StatefulWidget {
     required this.selectedSections,
     required this.isAdmin,
     required this.onPaperCreated,
+    required this.examType,
+    this.examNumber,
     this.existingQuestions,
     this.isEditing = false,
     this.existingPaperId,
@@ -125,10 +132,11 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           status: PaperStatus.draft,
           paperSections: widget.paperSections,
           questions: _allQuestions,
+          examType: widget.examType,
           examDate: widget.examDate,
+          examNumber: widget.examNumber,
           subject: widget.selectedSubjects.map((s) => s.name).join(', '),
           grade: 'Grade ${widget.gradeLevel}',
-          examType: null, // No longer have exam type name
           gradeLevel: widget.gradeLevel,
           selectedSections: widget.selectedSections,
           tenantId: tenantId,
@@ -641,10 +649,11 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       status: PaperStatus.draft,
       paperSections: widget.paperSections,
       questions: _allQuestions,
+      examType: widget.examType,
       examDate: widget.examDate,
+      examNumber: widget.examNumber,
       subject: widget.selectedSubjects.map((s) => s.name).join(', '),
       grade: 'Grade ${widget.gradeLevel}',
-      examType: null,
       gradeLevel: widget.gradeLevel,
       selectedSections: widget.selectedSections,
     );
@@ -921,10 +930,11 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         status: PaperStatus.draft,
         paperSections: widget.paperSections,
         questions: _allQuestions,
+        examType: widget.examType,
         examDate: widget.examDate,
+        examNumber: widget.examNumber,
         subject: widget.selectedSubjects.map((s) => s.name).join(', '),
         grade: 'Grade ${widget.gradeLevel}',
-        examType: null,
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
         tenantId: widget.isEditing ? (widget.existingTenantId ?? tenantId) : tenantId,

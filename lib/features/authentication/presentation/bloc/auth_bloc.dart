@@ -22,14 +22,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Timer? _syncTimer;
 
   AuthBloc(this._authUseCase, this._userStateService) : super(const AuthInitial()) {
-    print('🔥 DEBUG: AuthBloc constructor called at ${DateTime.now()}');
-
     on<AuthInitialize>(_onInitialize);
     on<AuthSignInGoogle>(_onSignInGoogle);
     on<AuthSignOut>(_onSignOut);
     on<AuthCheckStatus>(_onCheckStatus);
 
-    print('🔥 DEBUG: AuthBloc event handlers registered');
     AppLogger.blocEvent('AuthBloc', 'initialized');
     _listenToAuthChanges();
 

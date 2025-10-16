@@ -89,7 +89,7 @@ class PaperPreviewWidget extends StatelessWidget {
                         children: [
                           _buildMetadataRow(Icons.subject_rounded, 'Subject', paper.subject ?? 'N/A'),
                           _buildMetadataRow(Icons.school_rounded, 'Grade', paper.gradeDisplayName),
-                          _buildMetadataRow(Icons.quiz_rounded, 'Exam Type', paper.examType ?? 'N/A'),
+                          _buildMetadataRow(Icons.quiz_rounded, 'Exam Type', paper.examNumber != null ? '${paper.examType.displayName} - ${paper.examNumber}' : paper.examType.displayName),
                           _buildMetadataRow(Icons.numbers_rounded, 'Total Questions', '${paper.totalQuestions}'),
                           _buildMetadataRow(Icons.stars_rounded, 'Total Marks', '${paper.totalMarks}'),
                         ],

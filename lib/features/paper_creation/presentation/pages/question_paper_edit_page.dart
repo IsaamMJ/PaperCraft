@@ -659,6 +659,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             gradeId: _selectedGrade!.id, // ADD THIS
             academicYear: _currentPaper!.academicYear, // ADD THIS
             selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
+            examType: _currentPaper!.examType,
+            examNumber: _currentPaper?.examNumber,
             existingQuestions: _currentPaper?.questions,
             isEditing: true,
             existingPaperId: _currentPaper?.id,

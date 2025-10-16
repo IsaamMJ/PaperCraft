@@ -26,6 +26,7 @@ import '../../../features/paper_workflow/presentation/bloc/user_management_bloc.
 import '../../../features/paper_creation/presentation/pages/question_paper_edit_page.dart';
 import '../../../features/paper_workflow/presentation/pages/question_paper_detail_page.dart';
 import '../../../features/question_bank/presentation/pages/question_bank_page.dart';
+import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
 import '../../../features/shared/presentation/main_scaffold_screen.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
@@ -267,7 +268,7 @@ class AppRouter {
         path: AppRoutes.questionBank,
         builder: (context, state) => MultiBlocProvider(
           providers: [
-            BlocProvider(create: (_) => _createQuestionPaperBloc()),
+            BlocProvider(create: (_) => sl<QuestionBankBloc>()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
           ],

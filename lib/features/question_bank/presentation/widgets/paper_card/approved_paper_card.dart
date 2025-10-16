@@ -21,6 +21,33 @@ class ApprovedPaperCard extends StatelessWidget {
     required this.onPreview,
   });
 
+  /// Format paper title for UI display
+  /// Format: "Daily Test 2 • G5 Social Science • 23/10"
+  String _formatDisplayTitle() {
+    final parts = <String>[];
+
+    // 1. Exam type and number (e.g., "Daily Test 2")
+    final examName = paper.examType.displayName;
+    if (paper.examNumber != null) {
+      parts.add('$examName ${paper.examNumber}');
+    } else {
+      parts.add(examName);
+    }
+
+    // 2. Grade and subject (e.g., "G5 Social Science")
+    final gradePrefix = paper.gradeLevel != null ? 'G${paper.gradeLevel}' : 'Grade ?';
+    final subject = paper.subject ?? 'Unknown';
+    parts.add('$gradePrefix $subject');
+
+    // 3. Date (e.g., "23/10")
+    if (paper.examDate != null) {
+      final date = paper.examDate!;
+      parts.add('${date.day}/${date.month}');
+    }
+
+    return parts.join(' • ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -64,7 +91,7 @@ class ApprovedPaperCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                paper.title,
+                _formatDisplayTitle(),
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeMedium,
                   fontWeight: FontWeight.w600,

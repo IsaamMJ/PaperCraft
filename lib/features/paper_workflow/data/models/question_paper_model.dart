@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../domain/entities/question_entity.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../domain/entities/paper_status.dart';
 
 class QuestionPaperModel extends QuestionPaperEntity {
@@ -18,10 +19,11 @@ class QuestionPaperModel extends QuestionPaperEntity {
     required super.status,
     required super.paperSections,
     required super.questions,
+    required super.examType,
     super.examDate,
+    super.examNumber,
     super.subject,
     super.grade,
-    super.examType,
     super.gradeLevel,
     super.selectedSections,
     super.tenantId,
@@ -45,10 +47,11 @@ class QuestionPaperModel extends QuestionPaperEntity {
       status: entity.status,
       paperSections: entity.paperSections,
       questions: entity.questions,
+      examType: entity.examType,
       examDate: entity.examDate,
+      examNumber: entity.examNumber,
       subject: entity.subject,
       grade: entity.grade,
-      examType: entity.examType,
       gradeLevel: entity.gradeLevel,
       selectedSections: entity.selectedSections,
       tenantId: entity.tenantId,
@@ -111,12 +114,15 @@ class QuestionPaperModel extends QuestionPaperEntity {
         status: PaperStatus.fromString(json['status'] as String),
         paperSections: paperSections,
         questions: questionsMap,
+        examType: json['exam_type'] != null
+            ? ExamType.fromJson(json['exam_type'] as String)
+            : ExamType.monthlyTest, // Default fallback
         examDate: json['exam_date'] != null
             ? DateTime.parse(json['exam_date'] as String)
             : null,
+        examNumber: json['exam_number'] as int?,
         subject: subjectName,
         grade: gradeName,
-        examType: null, // No longer have exam type name from database
         gradeLevel: gradeLevel,
         selectedSections: selectedSections,
         tenantId: json['tenant_id'] as String?,
@@ -181,6 +187,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'grade_id': gradeId,
       'academic_year': academicYear,
       'title': title,
+      'exam_type': examType.toJson(),
+      'exam_number': examNumber,
       'exam_date': examDate?.toIso8601String(),
       'paper_sections': paperSections.map((s) => s.toJson()).toList(),
       'questions': questionsJson,
@@ -215,10 +223,11 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'status': status.value,
       'paper_sections': jsonEncode(paperSections.map((s) => s.toJson()).toList()),
       'questions': jsonEncode(questionsJson),
+      'exam_type': examType.toJson(),
+      'exam_number': examNumber,
       'exam_date': examDate?.millisecondsSinceEpoch,
       'subject': subject,
       'grade': grade,
-      'exam_type': examType,
       'grade_level': gradeLevel,
       'selected_sections': selectedSections != null ? jsonEncode(selectedSections) : null,
       'tenant_id': tenantId,
@@ -273,12 +282,15 @@ class QuestionPaperModel extends QuestionPaperEntity {
         status: PaperStatus.fromString(paperMap['status'] as String),
         paperSections: paperSections,
         questions: questionsMap,
+        examType: paperMap['exam_type'] != null
+            ? ExamType.fromJson(paperMap['exam_type'] as String)
+            : ExamType.monthlyTest,
         examDate: paperMap['exam_date'] != null
             ? DateTime.fromMillisecondsSinceEpoch(paperMap['exam_date'] as int)
             : null,
+        examNumber: paperMap['exam_number'] as int?,
         subject: paperMap['subject'] as String?,
         grade: paperMap['grade'] as String?,
-        examType: paperMap['exam_type'] as String?,
         gradeLevel: paperMap['grade_level'] as int?,
         selectedSections: selectedSections,
         tenantId: paperMap['tenant_id'] as String?,
@@ -311,9 +323,10 @@ class QuestionPaperModel extends QuestionPaperEntity {
     DateTime? examDate,
     List<PaperSectionEntity>? paperSections,
     Map<String, List<Question>>? questions,
+    ExamType? examType,
+    int? examNumber,
     String? subject,
     String? grade,
-    String? examType,
     int? gradeLevel,
     List<String>? selectedSections,
     String? tenantId,
@@ -336,9 +349,10 @@ class QuestionPaperModel extends QuestionPaperEntity {
       examDate: examDate ?? this.examDate,
       paperSections: paperSections ?? this.paperSections,
       questions: questions ?? this.questions,
+      examType: examType ?? this.examType,
+      examNumber: examNumber ?? this.examNumber,
       subject: subject ?? this.subject,
       grade: grade ?? this.grade,
-      examType: examType ?? this.examType,
       gradeLevel: gradeLevel ?? this.gradeLevel,
       selectedSections: selectedSections ?? this.selectedSections,
       tenantId: tenantId ?? this.tenantId,

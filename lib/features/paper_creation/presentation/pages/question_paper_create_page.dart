@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,7 @@ import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
@@ -50,6 +52,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   List<SubjectEntity> _availableSubjects = [];
   SubjectEntity? _selectedSubject;
 
+  // Exam type fields
+  ExamType? _selectedExamType;
+  final TextEditingController _examNumberController = TextEditingController();
+
   bool _showPatternSelector = false; // Manual toggle for pattern selector
 
   @override
@@ -79,6 +85,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   @override
   void dispose() {
     _animController.dispose();
+    _examNumberController.dispose();
     super.dispose();
   }
 
@@ -121,9 +128,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
-        // All metadata must be filled: Grade, Subject, Paper Sections, Date, Class Sections
+        // All metadata must be filled: Grade, Subject, Exam Type, Paper Sections, Date, Class Sections
         return _selectedGradeLevel != null &&
             _selectedSubject != null &&
+            _selectedExamType != null &&
             _paperSections.isNotEmpty &&
             _selectedExamDate != null &&
             !_isSectionsLoading &&
@@ -424,6 +432,68 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               ),
             ],
 
+            // Exam Type Selection (only show if subject selected)
+            if (_selectedSubject != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              DropdownButtonFormField<ExamType>(
+                value: _selectedExamType,
+                hint: const Text('Select Exam Type'),
+                decoration: InputDecoration(
+                  labelText: 'Exam Type',
+                  filled: true,
+                  fillColor: AppColors.backgroundSecondary,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.assignment_outlined, color: AppColors.textSecondary),
+                ),
+                items: ExamType.allTypes.map((examType) {
+                  return DropdownMenuItem(
+                    value: examType,
+                    child: Text(examType.displayName),
+                  );
+                }).toList(),
+                onChanged: (examType) {
+                  setState(() {
+                    _selectedExamType = examType;
+                  });
+                },
+              ),
+            ],
+
+            // Exam Number Input (only show if exam type selected)
+            if (_selectedExamType != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              TextFormField(
+                controller: _examNumberController,
+                decoration: InputDecoration(
+                  labelText: 'Exam Number (Optional)',
+                  hintText: 'e.g., 1 for "Daily Test - 1"',
+                  filled: true,
+                  fillColor: AppColors.backgroundSecondary,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.numbers_outlined, color: AppColors.textSecondary),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(3),
+                ],
+              ),
+            ],
+
             // Sections (only show if grade selected)
             if (_selectedGradeLevel != null) ...[
               SizedBox(height: UIConstants.spacing24),
@@ -608,6 +678,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     if (_selectedSubject == null) {
       errors.add('Subject is required');
     }
+    if (_selectedExamType == null) {
+      errors.add('Exam type is required');
+    }
     if (_paperSections.isEmpty) {
       errors.add('At least one paper section is required');
     }
@@ -736,6 +809,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         gradeId: _selectedGrade!.id,
         academicYear: academicYear,
         selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
+        examType: _selectedExamType!,
+        examNumber: _examNumberController.text.isEmpty ? null : int.tryParse(_examNumberController.text),
         examDate: _selectedExamDate,
         isAdmin: userStateService.isAdmin,
         onPaperCreated: (paper) {

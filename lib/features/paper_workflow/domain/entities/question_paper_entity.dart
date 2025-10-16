@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import 'question_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../../../core/domain/validators/input_validators.dart';
 import 'paper_status.dart';
 
@@ -24,10 +25,13 @@ class QuestionPaperEntity extends Equatable {
   final List<PaperSectionEntity> paperSections;
   final Map<String, List<Question>> questions;
 
+  // Exam type fields
+  final ExamType examType;  // Required: Monthly Test, Daily Test, etc.
+  final int? examNumber;    // Optional: For "Daily Test - 1", "Monthly Test - 2"
+
   // Display-only fields (resolved from IDs via BLoC/UI layer)
   final String? subject;  // Resolved from subjectId
   final String? grade;    // Resolved from gradeId (e.g., "Grade 10")
-  final String? examType; // Resolved from examTypeId
   final int? gradeLevel;  // Numeric grade level (e.g., 10)
   final List<String>? selectedSections; // Selected sections (if applicable)
 
@@ -51,10 +55,11 @@ class QuestionPaperEntity extends Equatable {
     required this.status,
     required this.paperSections,
     required this.questions,
+    required this.examType,
     this.examDate,
+    this.examNumber,
     this.subject,
     this.grade,
-    this.examType,
     this.gradeLevel,
     this.selectedSections,
     this.tenantId,
@@ -153,10 +158,14 @@ class QuestionPaperEntity extends Equatable {
     return 'Unknown Grade';
   }
 
-  // Clean PDF title without date (for professional PDF display)
+  // Clean PDF title with exam type and number (for professional PDF display)
+  // Example: "Daily Test - 1 - Mathematics" or "Monthly Test - Mathematics"
   String get pdfTitle {
-    if (examType != null && subject != null) {
-      return '$examType - $subject';
+    if (subject != null) {
+      if (examNumber != null) {
+        return '${examType.displayName} - $examNumber - $subject';
+      }
+      return '${examType.displayName} - $subject';
     }
     return title;
   }
@@ -193,9 +202,10 @@ class QuestionPaperEntity extends Equatable {
     DateTime? examDate,
     List<PaperSectionEntity>? paperSections,
     Map<String, List<Question>>? questions,
+    ExamType? examType,
+    int? examNumber,
     String? subject,
     String? grade,
-    String? examType,
     int? gradeLevel,
     List<String>? selectedSections,
     String? tenantId,
@@ -218,9 +228,10 @@ class QuestionPaperEntity extends Equatable {
       examDate: examDate ?? this.examDate,
       paperSections: paperSections ?? this.paperSections,
       questions: questions ?? this.questions,
+      examType: examType ?? this.examType,
+      examNumber: examNumber ?? this.examNumber,
       subject: subject ?? this.subject,
       grade: grade ?? this.grade,
-      examType: examType ?? this.examType,
       gradeLevel: gradeLevel ?? this.gradeLevel,
       selectedSections: selectedSections ?? this.selectedSections,
       tenantId: tenantId ?? this.tenantId,
@@ -246,9 +257,10 @@ class QuestionPaperEntity extends Equatable {
     examDate,
     paperSections,
     questions,
+    examType,
+    examNumber,
     subject,
     grade,
-    examType,
     gradeLevel,
     selectedSections,
     tenantId,

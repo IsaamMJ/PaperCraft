@@ -1235,23 +1235,20 @@ class SimplePdfService implements IPdfGenerationService {
       Map<String, List<Question>> questions) {
     final entries = questions.entries.toList();
 
+    // Sort sections by average marks per question (easy → hard)
     entries.sort((a, b) {
-      final sectionA = a.key.toLowerCase();
-      final sectionB = b.key.toLowerCase();
+      // Calculate average marks for section A
+      final avgMarksA = a.value.isEmpty
+          ? 0.0
+          : a.value.fold(0, (sum, q) => sum + q.totalMarks) / a.value.length;
 
-      final regexA = RegExp(r'section\s*([a-z])', caseSensitive: false);
-      final regexB = RegExp(r'section\s*([a-z])', caseSensitive: false);
+      // Calculate average marks for section B
+      final avgMarksB = b.value.isEmpty
+          ? 0.0
+          : b.value.fold(0, (sum, q) => sum + q.totalMarks) / b.value.length;
 
-      final matchA = regexA.firstMatch(sectionA);
-      final matchB = regexB.firstMatch(sectionB);
-
-      if (matchA != null && matchB != null) {
-        final letterA = matchA.group(1)!;
-        final letterB = matchB.group(1)!;
-        return letterA.compareTo(letterB);
-      }
-
-      return sectionA.compareTo(sectionB);
+      // Sort ascending (easy questions with low marks first)
+      return avgMarksA.compareTo(avgMarksB);
     });
 
     return entries;

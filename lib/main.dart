@@ -15,6 +15,8 @@ import 'core/infrastructure/logging/app_logger.dart';
 import 'core/presentation/constants/ui_constants.dart';
 import 'core/presentation/routes/app_router.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
+import 'features/authentication/presentation/bloc/auth_state.dart';
+import 'features/assignments/presentation/bloc/teacher_preferences_bloc.dart';
 import 'firebase_options.dart';
 
 import 'features/authentication/domain/services/user_state_service.dart';
@@ -50,11 +52,17 @@ Future<void> _initializeServices() async {
 
   for (final service in services) {
     try {
-      if (kDebugMode) debugPrint('Initializing ${service.name}...');
+      if (kDebugMode) {
+        debugPrint('Initializing ${service.name}...');
+      }
       await service.initialize();
-      if (kDebugMode) debugPrint('${service.name} initialized successfully');
+      if (kDebugMode) {
+        debugPrint('${service.name} initialized successfully');
+      }
     } catch (e, stackTrace) {
-      debugPrint('Failed to initialize ${service.name}: $e');
+      if (kDebugMode) {
+        debugPrint('Failed to initialize ${service.name}: $e');
+      }
       rethrow;
     }
   }
@@ -67,11 +75,15 @@ Future<void> _initializeFirebase() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    if (kDebugMode) debugPrint('Firebase initialized successfully');
+    if (kDebugMode) {
+      debugPrint('Firebase initialized successfully');
+    }
   } catch (e, stackTrace) {
-    debugPrint('Firebase initialization failed: $e');
+    if (kDebugMode) {
+      debugPrint('Firebase initialization failed: $e');
+      debugPrint('Continuing without Firebase services');
+    }
     // Continue without Firebase - app can still work without Crashlytics
-    if (kDebugMode) debugPrint('Continuing without Firebase services');
   }
 }
 
@@ -125,7 +137,9 @@ Future<void> _performDebugTasks() async {
   try {
     sl<UserStateService>().debugUserInfo();
   } catch (e) {
-    debugPrint('Failed to debug user info: $e');
+    if (kDebugMode) {
+      debugPrint('Failed to debug user info: $e');
+    }
   }
 }
 
@@ -194,7 +208,9 @@ void _handleZoneError(Object error, StackTrace stackTrace) {
       category: LogCategory.system,
     );
   } catch (e) {
-    debugPrint('Failed to log zone error: $e');
+    if (kDebugMode) {
+      debugPrint('Failed to log zone error: $e');
+    }
   }
 }
 
@@ -213,7 +229,9 @@ void _logFlutterError(FlutterErrorDetails details) {
       },
     );
   } catch (e) {
-    debugPrint('Failed to log Flutter error: $e');
+    if (kDebugMode) {
+      debugPrint('Failed to log Flutter error: $e');
+    }
   }
 }
 
@@ -223,7 +241,9 @@ void _sendToCrashlytics(VoidCallback crashlyticsAction) {
   try {
     crashlyticsAction();
   } catch (e) {
-    debugPrint('Failed to send to Crashlytics: $e');
+    if (kDebugMode) {
+      debugPrint('Failed to send to Crashlytics: $e');
+    }
     // Don't rethrow - continue normal operation
   }
 }
@@ -239,8 +259,10 @@ void _logAppStart() {
 
 /// Log critical error with console output
 void _logCriticalError(Object error, StackTrace stackTrace) {
-  debugPrint('💥 CRITICAL ERROR in main(): $error');
-  debugPrint('Stack trace: $stackTrace');
+  if (kDebugMode) {
+    debugPrint('💥 CRITICAL ERROR in main(): $error');
+    debugPrint('Stack trace: $stackTrace');
+  }
 }
 
 /// Get common app context for logging
@@ -264,23 +286,31 @@ class PaperCraftApp extends StatelessWidget {
     // FIXED: Safe service locator access
     try {
       final authBloc = sl<AuthBloc>();
+      final teacherPrefsBloc = sl<TeacherPreferencesBloc>();
 
-      print('🔥 DEBUG: AuthBloc state is ${authBloc.state}');
+      if (kDebugMode) {
+        debugPrint('AuthBloc state is ${authBloc.state}');
+      }
 
       // FIXED: Don't double-initialize - AuthBloc constructor already handles this
       // Remove the manual AuthInitialize event - let the router handle auth initialization
 
-      return BlocProvider<AuthBloc>.value(
-        value: authBloc,
-        child: Builder(
-          builder: (context) => _buildMaterialApp(context, authBloc),
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: authBloc),
+          BlocProvider<TeacherPreferencesBloc>.value(value: teacherPrefsBloc),
+        ],
+        child: _AuthListener(
+          child: Builder(
+            builder: (context) => _buildMaterialApp(context, authBloc),
+          ),
         ),
       );
     } catch (e, stackTrace) {
       AppLogger.recordNonFatalError(
         e,
         stackTrace,
-        reason: 'Failed to get AuthBloc from service locator',
+        reason: 'Failed to get BLoCs from service locator',
         category: LogCategory.system,
       );
       return _buildErrorApp(e);
@@ -419,6 +449,33 @@ class _UserFriendlyErrorWidget extends StatelessWidget {
           iconColor: Colors.orange,
         ),
       ),
+    );
+  }
+}
+
+/// Listens to AuthBloc and loads teacher preferences when user logs in
+class _AuthListener extends StatelessWidget {
+  final Widget child;
+
+  const _AuthListener({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated) {
+          // Load teacher preferences when user logs in
+          context.read<TeacherPreferencesBloc>().add(
+            LoadTeacherPreferences(state.user),
+          );
+        } else if (state is AuthUnauthenticated) {
+          // Clear preferences when user logs out
+          context.read<TeacherPreferencesBloc>().add(
+            const ClearTeacherPreferences(),
+          );
+        }
+      },
+      child: child,
     );
   }
 }

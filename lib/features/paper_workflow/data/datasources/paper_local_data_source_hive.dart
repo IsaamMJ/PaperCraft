@@ -8,6 +8,7 @@ import '../../../../core/infrastructure/database/hive_database_helper.dart';
 import '../../domain/entities/question_entity.dart';
 import '../models/question_paper_model.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../domain/entities/paper_status.dart';
 
 class PaperLocalDataSourceHive implements PaperLocalDataSource {
@@ -553,9 +554,13 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         status: PaperStatus.fromString(paperMap['status'] as String),
         paperSections: paperSections,
         questions: questionsMap,
+        examType: paperMap['exam_type'] != null
+            ? ExamType.fromJson(paperMap['exam_type'] as String)
+            : ExamType.monthlyTest,
         examDate: paperMap['exam_date'] != null
             ? DateTime.fromMillisecondsSinceEpoch(paperMap['exam_date'] as int)
             : null,
+        examNumber: paperMap['exam_number'] as int?,
         tenantId: paperMap['tenant_id'] as String?,
         userId: paperMap['user_id'] as String?,
         submittedAt: paperMap['submitted_at'] != null

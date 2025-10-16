@@ -19,6 +19,9 @@ import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
 import '../../../notifications/presentation/bloc/notification_bloc.dart';
+import '../bloc/home_bloc.dart';
+import '../bloc/home_event.dart';
+import '../bloc/home_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,8 +36,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _notificationRefreshTimer;
   bool _isAppInForeground = true;
 
-  // Cache the last valid QuestionPaperLoaded state to preserve data across navigation
-  QuestionPaperLoaded? _cachedPaperState;
+  // Cache the last valid HomeLoaded state to preserve data across navigation
+  HomeLoaded? _cachedHomeState;
 
   @override
   void initState() {
@@ -80,8 +83,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // No automatic reload - data persists across navigation
-    // User can pull-to-refresh if needed
+
+    // Auto-reload if coming from another page with stale data
+    final currentState = context.read<HomeBloc>().state;
+    if (currentState is! HomeLoaded && currentState is! HomeLoading) {
+      if (_hasLoadedInitialData) {
+        _loadInitialData();
+      }
+    }
   }
 
   void _loadInitialData() {
@@ -91,16 +100,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
 
-    final bloc = context.read<QuestionPaperBloc>();
     final isAdmin = authState.user.role == UserRole.admin;
 
-    if (isAdmin) {
-      bloc.add(const LoadPapersForReview());
-    } else {
-      // Use atomic loading to prevent race conditions and inconsistent states
-      bloc.add(const LoadAllTeacherPapers());
+    // Load home page data using HomeBloc
+    context.read<HomeBloc>().add(LoadHomePapers(
+      isAdmin: isAdmin,
+      userId: isAdmin ? null : authState.user.id,
+    ));
 
-      // Load notifications for teachers
+    // Load notifications for teachers
+    if (!isAdmin) {
       context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
     }
   }
@@ -227,29 +236,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildContent(bool isAdmin) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
-        buildWhen: (previous, current) {
-          // Only rebuild if the state is relevant to home page
-          // Ignore state changes from other pages (e.g., ApprovedPapersPaginated)
-          if (current is QuestionPaperLoading ||
-              current is QuestionPaperLoaded ||
-              current is QuestionPaperError) {
-            return true;
-          }
-          // For other states, don't rebuild - keep showing cached data
-          return false;
-        },
+      sliver: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
-          if (state is QuestionPaperLoading) {
+          if (state is HomeLoading) {
             // If we have cached data, show it during loading
-            if (_cachedPaperState != null) {
-              final papers = _getAllPapers(_cachedPaperState!, isAdmin);
+            if (_cachedHomeState != null) {
+              final papers = _getAllPapers(_cachedHomeState!, isAdmin);
               return _buildPapersList(papers, isAdmin);
             }
             return _buildLoading();
           }
 
-          if (state is QuestionPaperError) {
+          if (state is HomeError) {
             String errorMessage = state.message;
             if (errorMessage.toLowerCase().contains('admin') ||
                 errorMessage.toLowerCase().contains('privilege')) {
@@ -262,23 +260,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               });
             }
             // If we have cached data, show it even on error
-            if (_cachedPaperState != null) {
-              final papers = _getAllPapers(_cachedPaperState!, isAdmin);
+            if (_cachedHomeState != null) {
+              final papers = _getAllPapers(_cachedHomeState!, isAdmin);
               return _buildPapersList(papers, isAdmin);
             }
             return _buildError(errorMessage);
           }
 
-          if (state is QuestionPaperLoaded) {
+          if (state is HomeLoaded) {
             // Cache this state for future use
-            _cachedPaperState = state;
+            _cachedHomeState = state;
             final papers = _getAllPapers(state, isAdmin);
             return _buildPapersList(papers, isAdmin);
           }
 
           // Fallback: show cached data or empty state
-          if (_cachedPaperState != null) {
-            final papers = _getAllPapers(_cachedPaperState!, isAdmin);
+          if (_cachedHomeState != null) {
+            final papers = _getAllPapers(_cachedHomeState!, isAdmin);
             return _buildPapersList(papers, isAdmin);
           }
 
@@ -620,9 +618,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return 'Good evening';
   }
 
-  List<QuestionPaperEntity> _getAllPapers(QuestionPaperLoaded state, bool isAdmin) {
+  List<QuestionPaperEntity> _getAllPapers(HomeLoaded state, bool isAdmin) {
     if (isAdmin) {
-      return state.papersForReview;
+      return [...state.papersForReview, ...state.allPapersForAdmin];
     }
 
     final allPapers = [...state.drafts, ...state.submissions];
@@ -633,10 +631,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
 
+    if (!mounted) return;
     setState(() => _isRefreshing = true);
 
     try {
-      _loadInitialData();
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated) {
+        final isAdmin = authState.user.role == UserRole.admin;
+        context.read<HomeBloc>().add(RefreshHomePapers(
+          isAdmin: isAdmin,
+          userId: isAdmin ? null : authState.user.id,
+        ));
+      }
       await Future.delayed(const Duration(milliseconds: 800));
     } finally {
       if (mounted) {
