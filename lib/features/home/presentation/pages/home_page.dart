@@ -238,7 +238,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
-          if (state is HomeLoading) {
+          // Show loading for both Initial and Loading states
+          if (state is HomeInitial || state is HomeLoading) {
             // If we have cached data, show it during loading
             if (_cachedHomeState != null) {
               final papers = _getAllPapers(_cachedHomeState!, isAdmin);

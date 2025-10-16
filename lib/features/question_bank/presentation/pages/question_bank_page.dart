@@ -161,6 +161,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   Future<void> _onRefresh() async {
     if (_isRefreshing) return;
 
+    if (!mounted) return;
     setState(() => _isRefreshing = true);
 
     try {
@@ -191,6 +192,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
               if (state.hasFilters &&
                   _selectedGradeLevel == null &&
                   _selectedSubjectId == null) {
+                if (!mounted) return;
                 setState(() {
                   if (state.defaultGradeFilter != null) {
                     _selectedGradeLevel = int.tryParse(state.defaultGradeFilter!);
@@ -208,6 +210,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         BlocListener<GradeBloc, GradeState>(
           listener: (context, state) {
             if (state is GradeLevelsLoaded) {
+              if (!mounted) return;
               setState(() {
                 _availableGradeLevels = state.gradeLevels;
                 if (_selectedGradeLevel != null &&
@@ -221,6 +224,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         BlocListener<SubjectBloc, SubjectState>(
           listener: (context, state) {
             if (state is SubjectsLoaded) {
+              if (!mounted) return;
               setState(() {
                 _availableSubjects = state.subjects;
                 if (_selectedSubjectId != null &&
@@ -316,6 +320,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       availableGradeLevels: _availableGradeLevels,
       availableSubjects: _availableSubjects,
       onGradeChanged: (value) {
+        if (!mounted) return;
         setState(() {
           _selectedGradeLevel = value;
           _currentPage = 1; // Reset pagination
@@ -323,6 +328,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         _loadInitialData();
       },
       onSubjectChanged: (value) {
+        if (!mounted) return;
         setState(() {
           _selectedSubjectId = value;
           _currentPage = 1; // Reset pagination
@@ -853,6 +859,7 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
   void _clearAllFilters() {
     _clearSearch();
+    if (!mounted) return;
     setState(() {
       _selectedGradeLevel = null;
       _selectedSubjectId = null;
@@ -1012,15 +1019,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       final pdfService = SimplePdfService();
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
-
-      if (kDebugMode) {
-        print('🔵 [PDF Generation] School name: $schoolName');
-        print('   Has tenant data: ${userStateService.hasTenantData}');
-        print('   Is tenant loading: ${userStateService.isTenantLoading}');
-        print('   Tenant load error: ${userStateService.tenantLoadError}');
-        print('   Current tenant: ${userStateService.currentTenant?.name}');
-        print('   Current user tenant ID: ${userStateService.currentTenantId}');
-      }
 
       final pdfBytes = layoutType == 'single'
           ? await pdfService.generateStudentPdf(paper: paper, schoolName: schoolName)

@@ -919,8 +919,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   void _showSuccess() {
     _showMessage('Question paper created successfully!', AppColors.success);
     Future.delayed(
-      const Duration(seconds: 1),
-          () => mounted ? context.go(AppRoutes.home) : null,
+      const Duration(milliseconds: 1500),
+      () {
+        if (!mounted) return;
+        // Navigate back to home using proper navigation
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      },
     );
   }
 

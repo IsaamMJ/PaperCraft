@@ -16,10 +16,21 @@ class UserStateService extends ChangeNotifier {
   TenantEntity? _currentTenant;
 
 
+  /// Calculate current academic year based on current date
+  /// Academic year starts in July
   String get currentAcademicYear {
-    // TODO: Implement proper academic year management
-    // For now, return a default value
-    return '2024-2025';
+    final now = DateTime.now();
+    final year = now.year;
+    final month = now.month;
+
+    // Academic year starts in July (month 7)
+    // If current month is July or later, academic year is current year to next year
+    // Otherwise, academic year is previous year to current year
+    if (month >= 7) {
+      return '$year-${year + 1}';
+    } else {
+      return '${year - 1}-$year';
+    }
   }
 
   // SECURITY FIX: Periodic permission refresh
@@ -105,24 +116,11 @@ class UserStateService extends ChangeNotifier {
         'operation': 'update_user_state',
       });
 
-      if (kDebugMode) {
-        print('🔵 [UserStateService] updateUser called');
-        print('   Previous tenant ID: $previousTenantId');
-        print('   New tenant ID: ${user?.tenantId}');
-        print('   Will load tenant: ${user?.tenantId != null && user!.tenantId != previousTenantId}');
-      }
-
       // Load tenant data if user has a tenant ID and it changed
       if (user?.tenantId != null && user!.tenantId != previousTenantId) {
-        if (kDebugMode) {
-          print('🔵 [UserStateService] Calling _loadTenantData');
-        }
         await _loadTenantData(user.tenantId!);
       } else if (user?.tenantId == null) {
         // Clear tenant data if user has no tenant ID
-        if (kDebugMode) {
-          print('🟡 [UserStateService] User has no tenantId, clearing tenant data');
-        }
         _clearTenantData();
       }
 
@@ -167,16 +165,8 @@ class UserStateService extends ChangeNotifier {
         'operation': 'load_tenant',
       });
 
-      if (kDebugMode) {
-        print('🔵 [UserStateService] Loading tenant data for tenantId: $tenantId');
-      }
-
       final getTenantUseCase = sl<GetTenantUseCase>();
       final result = await getTenantUseCase(tenantId);
-
-      if (kDebugMode) {
-        print('🔵 [UserStateService] GetTenantUseCase returned result');
-      }
 
       result.fold(
             (failure) {
@@ -186,10 +176,6 @@ class UserStateService extends ChangeNotifier {
             'error': failure.message,
             'fallback': 'using_default_name',
           });
-
-          if (kDebugMode) {
-            print('🔴 [UserStateService] Failed to load tenant: ${failure.message}');
-          }
         },
             (tenant) {
           _currentTenant = tenant;
@@ -200,22 +186,12 @@ class UserStateService extends ChangeNotifier {
               'tenantName': tenant.displayName,
               'isActive': tenant.isActive,
             });
-
-            if (kDebugMode) {
-              print('🟢 [UserStateService] Tenant loaded: ${tenant.name}');
-              print('   Display name: ${tenant.displayName}');
-              print('   Is active: ${tenant.isActive}');
-            }
           } else {
             _logger.warning('Tenant not found', category: LogCategory.auth, context: {
               'tenantId': tenantId,
               'reason': 'tenant_not_found',
             });
             _tenantLoadError = 'Tenant not found';
-
-            if (kDebugMode) {
-              print('🔴 [UserStateService] Tenant is null');
-            }
           }
         },
       );

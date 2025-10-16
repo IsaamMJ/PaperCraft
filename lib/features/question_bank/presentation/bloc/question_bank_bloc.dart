@@ -22,23 +22,14 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
     LoadQuestionBankPaginated event,
     Emitter<QuestionBankState> emit,
   ) async {
-    if (kDebugMode) {
-      print('🔵 [QuestionBankBloc] Event received: LoadQuestionBankPaginated');
-      print('   page=${event.page}, grade=${event.gradeFilter}, subject=${event.subjectFilter}');
-    }
-
     // If loading more, set loading flag on existing state
     if (event.isLoadMore && state is QuestionBankLoaded) {
       final currentState = state as QuestionBankLoaded;
       emit(currentState.copyWith(isLoadingMore: true));
-      if (kDebugMode) print('🟡 [QuestionBankBloc] Emitted: Loading More');
     } else if (!event.isLoadMore) {
       // Fresh load or filter change - show loading
       emit(const QuestionBankLoading(message: 'Loading papers...'));
-      if (kDebugMode) print('🟡 [QuestionBankBloc] Emitted: Loading');
     }
-
-    if (kDebugMode) print('🔵 [QuestionBankBloc] Calling usecase...');
 
     // Use provided filters directly - no blocking async operations
     final result = await _getApprovedPapersPaginatedUseCase(
@@ -49,18 +40,13 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
       gradeFilter: event.gradeFilter,
     );
 
-    if (kDebugMode) print('🔵 [QuestionBankBloc] Usecase returned');
-
     await result.fold(
       (failure) async {
-        if (kDebugMode) print('🔴 [QuestionBankBloc] Error: ${failure.message}');
         emit(QuestionBankError(failure.message));
       },
       (paginatedResult) async {
-        if (kDebugMode) print('🟢 [QuestionBankBloc] Success: ${paginatedResult.items.length} papers');
         // Enrich papers with display names
         final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(paginatedResult.items);
-        if (kDebugMode) print('🟢 [QuestionBankBloc] Papers enriched');
 
         if (event.isLoadMore && state is QuestionBankLoaded) {
           // Append to existing papers
@@ -78,7 +64,6 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
             subjectFilter: event.subjectFilter,
             gradeFilter: event.gradeFilter,
           ));
-          if (kDebugMode) print('🟢 [QuestionBankBloc] Emitted: Loaded (load more)');
         } else {
           // Fresh load - replace papers
           emit(QuestionBankLoaded(
@@ -92,11 +77,9 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
             subjectFilter: event.subjectFilter,
             gradeFilter: event.gradeFilter,
           ));
-          if (kDebugMode) print('🟢 [QuestionBankBloc] Emitted: Loaded (fresh)');
         }
       },
     );
-    if (kDebugMode) print('🔵 [QuestionBankBloc] Event handler complete');
   }
 
   Future<void> _onRefreshQuestionBank(
