@@ -61,6 +61,7 @@ import '../network/network_service_impl.dart';
 import '../utils/platform_utils.dart';
 import '../database/hive_database_helper.dart';
 import '../network/api_client.dart';
+import '../realtime/realtime_service.dart';
 
 // Authentication feature
 import '../../../features/authentication/data/datasources/auth_data_source.dart';
@@ -193,6 +194,12 @@ void _registerCoreServices() {
 
   // Network service third (depends on logger)
   sl.registerLazySingleton<INetworkService>(() => NetworkServiceImpl(sl<ILogger>()));
+
+  // Realtime service (depends on Supabase client and logger)
+  sl.registerLazySingleton<RealtimeService>(() => RealtimeService(
+    Supabase.instance.client,
+    sl<ILogger>(),
+  ));
 }
 
 /// Database layer dependencies
@@ -613,11 +620,13 @@ class _QuestionPapersModule {
       getSubmissionsUseCase: sl(),
       getPapersForReviewUseCase: sl(),
       getAllPapersForAdminUseCase: sl(),
+      realtimeService: sl(),
     ));
 
     // Question Bank BLoC - singleton to preserve state across rebuilds
     sl.registerLazySingleton(() => QuestionBankBloc(
       getApprovedPapersPaginatedUseCase: sl(),
+      realtimeService: sl(),
     ));
 
     // Teacher preferences BLoC - singleton for global access

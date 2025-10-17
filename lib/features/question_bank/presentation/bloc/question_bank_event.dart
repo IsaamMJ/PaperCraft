@@ -59,3 +59,27 @@ class RefreshQuestionBank extends QuestionBankEvent {
     gradeFilter,
   ];
 }
+
+/// Enable realtime subscriptions for question bank updates
+class EnableQuestionBankRealtime extends QuestionBankEvent {
+  const EnableQuestionBankRealtime();
+}
+
+/// Disable realtime subscriptions
+class DisableQuestionBankRealtime extends QuestionBankEvent {
+  const DisableQuestionBankRealtime();
+}
+
+/// Handle realtime paper update (only for approved papers)
+class QuestionBankPaperRealtimeUpdate extends QuestionBankEvent {
+  final Map<String, dynamic> paperData;
+  final String eventType; // 'INSERT', 'UPDATE', 'DELETE'
+
+  const QuestionBankPaperRealtimeUpdate({
+    required this.paperData,
+    required this.eventType,
+  });
+
+  @override
+  List<Object?> get props => [paperData, eventType];
+}

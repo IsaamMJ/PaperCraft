@@ -150,6 +150,9 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       isLoadMore: false,
     ));
 
+    // Enable realtime updates for instant paper changes
+    context.read<QuestionBankBloc>().add(const EnableQuestionBankRealtime());
+
     if (kDebugMode) {
       print('🔵 [QuestionBankPage] Event dispatched to QuestionBankBloc');
     }

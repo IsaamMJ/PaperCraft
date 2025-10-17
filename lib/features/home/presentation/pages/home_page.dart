@@ -108,6 +108,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       userId: isAdmin ? null : authState.user.id,
     ));
 
+    // Enable realtime updates for instant paper changes
+    context.read<HomeBloc>().add(EnableRealtimeUpdates(
+      isAdmin: isAdmin,
+      userId: isAdmin ? null : authState.user.id,
+    ));
+
     // Load notifications for teachers
     if (!isAdmin) {
       context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));

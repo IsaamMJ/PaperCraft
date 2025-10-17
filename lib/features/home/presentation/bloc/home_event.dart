@@ -35,3 +35,36 @@ class RefreshHomePapers extends HomeEvent {
   @override
   List<Object?> get props => [isAdmin, userId];
 }
+
+/// Enable realtime subscriptions for live updates
+class EnableRealtimeUpdates extends HomeEvent {
+  final bool isAdmin;
+  final String? userId;
+
+  const EnableRealtimeUpdates({
+    required this.isAdmin,
+    this.userId,
+  });
+
+  @override
+  List<Object?> get props => [isAdmin, userId];
+}
+
+/// Disable realtime subscriptions
+class DisableRealtimeUpdates extends HomeEvent {
+  const DisableRealtimeUpdates();
+}
+
+/// Handle realtime paper update from subscription
+class PaperRealtimeUpdate extends HomeEvent {
+  final Map<String, dynamic> paperData;
+  final String eventType; // 'INSERT', 'UPDATE', 'DELETE'
+
+  const PaperRealtimeUpdate({
+    required this.paperData,
+    required this.eventType,
+  });
+
+  @override
+  List<Object?> get props => [paperData, eventType];
+}
