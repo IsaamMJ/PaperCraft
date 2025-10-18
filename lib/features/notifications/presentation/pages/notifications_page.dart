@@ -107,15 +107,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isUnread
-            ? AppColors.primary.withValues(alpha: 0.05)
+            ? AppColors.primary05
             : AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: isUnread
-            ? Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 1.5)
+            ? Border.all(color: AppColors.primary20, width: 1.5)
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

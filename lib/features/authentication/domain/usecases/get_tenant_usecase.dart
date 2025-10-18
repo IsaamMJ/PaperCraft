@@ -1,4 +1,4 @@
-// features/authentication/domain/usecases/get_tenant_usecase.dart
+// features/authentication/domain/usecases/get_tenant_usecase_test.dart
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../entities/tenant_entity.dart';

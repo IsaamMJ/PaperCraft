@@ -78,10 +78,10 @@ class PaperPreviewWidget extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.05),
+                        color: AppColors.primary05,
                         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                         border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
+                          color: AppColors.primary20,
                         ),
                       ),
                       child: Column(
@@ -204,6 +204,49 @@ class PaperPreviewWidget extends StatelessWidget {
                                     }),
                                   ],
 
+                                  // Sub-questions
+                                  if (q.value.subQuestions.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    ...q.value.subQuestions.asMap().entries.map((subQ) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(left: 40, top: 8),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.secondary10,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  String.fromCharCode(97 + subQ.key), // a, b, c...
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                    color: AppColors.secondary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                subQ.value.text,
+                                                style: TextStyle(
+                                                  color: AppColors.textSecondary,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ],
+
                                   // Marks
                                   const SizedBox(height: 8),
                                   Padding(
@@ -211,7 +254,7 @@ class PaperPreviewWidget extends StatelessWidget {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppColors.success.withValues(alpha: 0.1),
+                                        color: AppColors.success10,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -243,7 +286,7 @@ class PaperPreviewWidget extends StatelessWidget {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: AppColors.black08,
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),

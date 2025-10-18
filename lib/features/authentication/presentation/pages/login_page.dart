@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  Timer? _animationTimer; // Track timer to prevent memory leak
 
   @override
   void initState() {
@@ -45,8 +47,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
-    // Start animations
-    Future.delayed(Duration(milliseconds: UIConstants.durationFast), () {
+    // Start animations with a timer (to prevent memory leak)
+    _animationTimer = Timer(Duration(milliseconds: UIConstants.durationFast), () {
       if (mounted) {
         _fadeController.forward();
         _slideController.forward();
@@ -56,6 +58,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _animationTimer?.cancel(); // Cancel timer to prevent memory leak
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
@@ -262,6 +265,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
         position: slideAnimation,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: logoSize,
@@ -271,7 +275,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 borderRadius: BorderRadius.circular(logoSize * 0.25),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
+                    color: AppColors.primary30,
                     blurRadius: logoSize * 0.25,
                     offset: Offset(0, logoSize * 0.125),
                   ),
@@ -285,7 +289,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: isShortScreen ? UIConstants.spacing20 : UIConstants.spacing32),
+            SizedBox(height: isShortScreen ? UIConstants.spacing12 : UIConstants.spacing24),
             Text(
               'Papercraft',
               style: TextStyle(
@@ -295,14 +299,16 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 letterSpacing: -0.5,
               ),
             ),
-            SizedBox(height: isShortScreen ? UIConstants.spacing8 : UIConstants.spacing12),
-            Text(
-              'Create, organize, and manage\nyour question papers easily',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: subtitleFontSize,
-                color: AppColors.textSecondary,
-                height: 1.5,
+            SizedBox(height: isShortScreen ? UIConstants.spacing4 : UIConstants.spacing8),
+            Flexible(
+              child: Text(
+                'Create, organize, and manage\nyour question papers easily',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: subtitleFontSize,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
             ),
           ],
@@ -314,22 +320,25 @@ class _ResponsiveLoginLayout extends StatelessWidget {
   Widget _buildActionSection() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (isLoading)
           const _LoadingIndicator()
         else ...[
           _SignInButton(
             onPressed: onSignIn,
-            height: buttonHeight,
+            height: isShortScreen ? 52 : buttonHeight, // Reduce button height on small screens
           ),
-          SizedBox(height: isShortScreen ? UIConstants.spacing16 : UIConstants.spacing24),
-          Text(
-            'Currently supporting Google sign-in.\nMore providers coming soon.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isMobile ? UIConstants.fontSizeSmall + 1 : UIConstants.fontSizeMedium,
-              color: AppColors.textTertiary,
-              height: 1.4,
+          SizedBox(height: isShortScreen ? UIConstants.spacing8 : UIConstants.spacing16),
+          Flexible(
+            child: Text(
+              'Currently supporting Google sign-in.\nMore providers coming soon.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: isMobile ? UIConstants.fontSizeSmall + 1 : UIConstants.fontSizeMedium,
+                color: AppColors.textTertiary,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -416,7 +425,7 @@ class _SignInButtonState extends State<_SignInButton> {
             border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: AppColors.overlayLight.withValues(alpha: 0.8),
+                color: AppColors.overlayDark,
                 blurRadius: isDesktop ? 15 : 10,
                 offset: const Offset(0, 4),
               ),
@@ -453,12 +462,14 @@ class _SignInButtonState extends State<_SignInButton> {
                       ),
                     ),
                     SizedBox(width: UIConstants.spacing16),
-                    Text(
-                      'Continue with Google',
-                      style: TextStyle(
-                        fontSize: isDesktop ? UIConstants.fontSizeXLarge - 1 : UIConstants.fontSizeLarge,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    Flexible(
+                      child: Text(
+                        'Continue with Google',
+                        style: TextStyle(
+                          fontSize: isDesktop ? UIConstants.fontSizeXLarge - 1 : UIConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],

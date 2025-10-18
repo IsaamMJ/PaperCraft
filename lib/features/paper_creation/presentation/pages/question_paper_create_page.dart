@@ -202,7 +202,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       },
     );
 
-    if (selectedDate != null) {
+    if (selectedDate != null && mounted) {
       setState(() => _selectedExamDate = selectedDate);
     }
   }
@@ -219,9 +219,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         BlocListener<GradeBloc, GradeState>(
           listener: (context, state) {
             if (state is GradesLoaded) {
+              if (!mounted) return;
               setState(() => _availableGrades = state.grades);
             }
             if (state is SectionsLoaded) {
+              if (!mounted) return;
               setState(() {
                 _availableSections = state.sections;
                 _isSectionsLoading = false;
@@ -229,6 +231,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             }
             // Handle error state for sections loading
             if (state is GradeError) {
+              if (!mounted) return;
               setState(() {
                 _isSectionsLoading = false;
                 _availableSections = [];
@@ -239,6 +242,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         BlocListener<SubjectBloc, SubjectState>(
           listener: (context, state) {
             if (state is SubjectsLoaded) {
+              if (!mounted) return;
               setState(() => _availableSubjects = state.subjects);
             }
           },
@@ -501,9 +505,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
+                    color: AppColors.primary05,
                     borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    border: Border.all(color: AppColors.primary20),
                   ),
                   child: Row(
                     children: [
@@ -582,12 +586,25 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 // Only load PatternSelectorWidget when user explicitly requests it
                 BlocProvider(
                   create: (context) => sl<TeacherPatternBloc>(),
-                  child: PatternSelectorWidget(
-                    key: ValueKey(_selectedSubject!.id),
-                    teacherId: sl<UserStateService>().currentUser!.id,
-                    subjectId: _selectedSubject!.id,
-                    onPatternSelected: (sections) {
-                      setState(() => _paperSections = sections);
+                  child: Builder(
+                    builder: (context) {
+                      final currentUser = sl<UserStateService>().currentUser;
+                      if (currentUser == null) {
+                        return Center(
+                          child: Text(
+                            'User not logged in. Please restart the app.',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        );
+                      }
+                      return PatternSelectorWidget(
+                        key: ValueKey(_selectedSubject!.id),
+                        teacherId: currentUser.id,
+                        subjectId: _selectedSubject!.id,
+                        onPatternSelected: (sections) {
+                          setState(() => _paperSections = sections);
+                        },
+                      );
                     },
                   ),
                 ),
@@ -626,7 +643,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                       width: _selectedExamDate != null ? 2 : 1,
                     ),
                     color: _selectedExamDate != null
-                        ? AppColors.primary.withValues(alpha: 0.05)
+                        ? AppColors.primary05
                         : AppColors.backgroundSecondary,
                   ),
                   child: Row(
@@ -700,9 +717,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       margin: const EdgeInsets.only(bottom: UIConstants.spacing24),
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
+        color: AppColors.error10,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: AppColors.error, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -768,7 +785,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               selected: isSelected,
               onSelected: (selected) => _onSectionToggled(section, selected),
               backgroundColor: AppColors.surface,
-              selectedColor: AppColors.primary.withValues(alpha: 0.1),
+              selectedColor: AppColors.primary10,
               checkmarkColor: AppColors.primary,
               side: BorderSide(
                 color: isSelected ? AppColors.primary : AppColors.border,
@@ -828,7 +845,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           )

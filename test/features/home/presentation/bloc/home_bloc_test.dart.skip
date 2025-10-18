@@ -1,0 +1,203 @@
+// test/features/home/presentation/bloc/home_bloc_test.dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:bloc_test/bloc_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:dartz/dartz.dart';
+
+import 'package:papercraft/core/domain/errors/failures.dart';
+import 'package:papercraft/features/home/presentation/bloc/home_bloc.dart';
+import 'package:papercraft/features/home/presentation/bloc/home_event.dart';
+import 'package:papercraft/features/home/presentation/bloc/home_state.dart';
+import 'package:papercraft/features/paper_workflow/domain/entities/question_paper_entity.dart';
+import 'package:papercraft/features/paper_workflow/domain/entities/paper_status.dart';
+import 'package:papercraft/features/paper_workflow/domain/usecases/get_drafts_usecase.dart';
+import 'package:papercraft/features/paper_workflow/domain/usecases/get_user_submissions_usecase.dart';
+import 'package:papercraft/features/paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
+import 'package:papercraft/features/paper_workflow/domain/usecases/get_all_papers_for_admin_usecase.dart';
+import 'package:papercraft/features/paper_workflow/domain/services/paper_display_service.dart';
+import 'package:papercraft/core/infrastructure/realtime/realtime_service.dart';
+
+/// Mock classes for testing
+/// These are fake versions of the real classes that we can control in tests
+class MockGetDraftsUseCase extends Mock implements GetDraftsUseCase {}
+class MockGetUserSubmissionsUseCase extends Mock implements GetUserSubmissionsUseCase {}
+class MockGetPapersForReviewUseCase extends Mock implements GetPapersForReviewUseCase {}
+class MockGetAllPapersForAdminUseCase extends Mock implements GetAllPapersForAdminUseCase {}
+class MockRealtimeService extends Mock implements RealtimeService {}
+class MockPaperDisplayService extends Mock implements PaperDisplayService {}
+
+void main() {
+  // Variables we'll use across all tests
+  late HomeBloc homeBloc;
+  late MockGetDraftsUseCase mockGetDrafts;
+  late MockGetUserSubmissionsUseCase mockGetSubmissions;
+  late MockGetPapersForReviewUseCase mockGetPapersForReview;
+  late MockGetAllPapersForAdminUseCase mockGetAllPapersForAdmin;
+  late MockRealtimeService mockRealtimeService;
+  late MockPaperDisplayService mockPaperDisplayService;
+
+  // We'll create simple test data in individual tests as needed
+
+  /// setUp runs before EACH test
+  /// This ensures each test starts with a clean state
+  setUp(() {
+    // Create fresh mocks for each test
+    mockGetDrafts = MockGetDraftsUseCase();
+    mockGetSubmissions = MockGetUserSubmissionsUseCase();
+    mockGetPapersForReview = MockGetPapersForReviewUseCase();
+    mockGetAllPapersForAdmin = MockGetAllPapersForAdminUseCase();
+    mockRealtimeService = MockRealtimeService();
+    mockPaperDisplayService = MockPaperDisplayService();
+
+    // Setup default behavior for paper display service (no enrichment)
+    when(() => mockPaperDisplayService.enrichPapers(any()))
+        .thenAnswer((invocation) async {
+      final papers = invocation.positionalArguments[0] as List<QuestionPaperEntity>;
+      return papers;
+    });
+
+    // Setup default behavior for realtime service
+    when(() => mockRealtimeService.unsubscribe(any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockRealtimeService.subscribeToTable(
+      table: any(named: 'table'),
+      channelName: any(named: 'channelName'),
+      onInsert: any(named: 'onInsert'),
+      onUpdate: any(named: 'onUpdate'),
+      onDelete: any(named: 'onDelete'),
+    )).thenReturn(null);
+
+    // Create the BLoC with mocked dependencies
+    homeBloc = HomeBloc(
+      getDraftsUseCase: mockGetDrafts,
+      getSubmissionsUseCase: mockGetSubmissions,
+      getPapersForReviewUseCase: mockGetPapersForReview,
+      getAllPapersForAdminUseCase: mockGetAllPapersForAdmin,
+      realtimeService: mockRealtimeService,
+      paperDisplayService: mockPaperDisplayService,
+    );
+  });
+
+  /// tearDown runs after EACH test
+  /// This cleans up resources
+  tearDown(() {
+    homeBloc.close();
+  });
+
+  /// TEST 1: Testing our loading state fix!
+  /// This verifies that the BLoC starts with HomeLoading instead of HomeInitial
+  test('initial state is HomeLoading (our bug fix!)', () {
+    // Check the initial state
+    expect(homeBloc.state, isA<HomeLoading>());
+
+    // Make sure it's NOT HomeInitial
+    expect(homeBloc.state, isNot(isA<HomeInitial>()));
+  });
+
+  /// TEST 2: Testing successful teacher data load
+  /// This uses blocTest which is specifically designed for testing BLoCs
+  blocTest<HomeBloc, HomeState>(
+    'emits [HomeLoading, HomeLoaded] when loading teacher papers succeeds',
+
+    // build: Create the BLoC (we do extra setup here)
+    build: () {
+      // Mock successful responses with empty lists (simplest case)
+      when(() => mockGetDrafts()).thenAnswer(
+        (_) async => Right([]), // Return empty list
+      );
+      when(() => mockGetSubmissions()).thenAnswer(
+        (_) async => Right([]), // Return empty list
+      );
+      return homeBloc;
+    },
+
+    // act: Perform the action we want to test
+    act: (bloc) => bloc.add(
+      LoadHomePapers(isAdmin: false, userId: 'teacher-1'),
+    ),
+
+    // expect: Check what states were emitted
+    expect: () => [
+      isA<HomeLoading>(), // First: loading state
+      isA<HomeLoaded>(),   // Then: loaded state (even with empty data)
+    ],
+
+    // verify: Check that our mocks were called correctly
+    verify: (_) {
+      verify(() => mockGetDrafts()).called(1);
+      verify(() => mockGetSubmissions()).called(1);
+    },
+  );
+
+  /// TEST 3: Testing error handling
+  blocTest<HomeBloc, HomeState>(
+    'emits [HomeLoading, HomeError] when loading papers fails',
+
+    build: () {
+      // Mock a failure response
+      when(() => mockGetDrafts()).thenAnswer(
+        (_) async => Left(ServerFailure('Network error', code: 'NETWORK_ERROR')),
+      );
+      return homeBloc;
+    },
+
+    act: (bloc) => bloc.add(
+      LoadHomePapers(isAdmin: false, userId: 'teacher-1'),
+    ),
+
+    expect: () => [
+      isA<HomeLoading>(),
+      isA<HomeError>()
+        .having((s) => s.message, 'error message', 'Network error'),
+    ],
+  );
+
+  /// TEST 4: Testing admin data load
+  blocTest<HomeBloc, HomeState>(
+    'loads admin papers (papersForReview and allPapers) successfully',
+
+    build: () {
+      when(() => mockGetPapersForReview()).thenAnswer(
+        (_) async => Right([]), // Empty list
+      );
+      when(() => mockGetAllPapersForAdmin()).thenAnswer(
+        (_) async => Right([]), // Empty list
+      );
+      return homeBloc;
+    },
+
+    act: (bloc) => bloc.add(
+      LoadHomePapers(isAdmin: true, userId: null),
+    ),
+
+    expect: () => [
+      isA<HomeLoading>(),
+      isA<HomeLoaded>(), // Loaded successfully
+    ],
+  );
+
+  /// TEST 5: Testing refresh (shouldn't show loading on refresh)
+  blocTest<HomeBloc, HomeState>(
+    'refresh keeps current data visible (no loading state)',
+
+    build: () {
+      when(() => mockGetDrafts()).thenAnswer(
+        (_) async => Right([]),
+      );
+      when(() => mockGetSubmissions()).thenAnswer(
+        (_) async => Right([]),
+      );
+      return homeBloc;
+    },
+
+    act: (bloc) => bloc.add(
+      RefreshHomePapers(isAdmin: false, userId: 'teacher-1'),
+    ),
+
+    // On refresh, we should NOT emit HomeLoading
+    // (to keep current data visible)
+    expect: () => [
+      isA<HomeLoaded>(),
+    ],
+  );
+}

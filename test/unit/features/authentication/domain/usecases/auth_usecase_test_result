@@ -1,0 +1,1313 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS E:\New folder (2)\papercraft> flutter test test/unit/features/authentication/data/models/user_model_test.dart
+00:01 +21: All tests passed!
+PS E:\New folder (2)\papercraft> flutter test test/unit/features/authentication/domain/usecases/auth_usecase_test.dart
+00:01 +0 -1: AuthUseCase - initialize calls repository initialize method [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - initialize calls repository initialize method"
+00:01 +0 -2: AuthUseCase - initialize returns Right with user when initialization succeeds [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - initialize returns Right with user when initialization succeeds"
+00:01 +0 -3: AuthUseCase - initialize returns Right with null when no user exists [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - initialize returns Right with null when no user exists"
+00:01 +0 -4: AuthUseCase - initialize returns Left with failure when initialization fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - initialize returns Left with failure when initialization fails"
+00:01 +0 -5: AuthUseCase - signInWithGoogle calls repository signInWithGoogle method [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle calls repository signInWithGoogle method"
+00:01 +0 -6: AuthUseCase - signInWithGoogle returns Right with AuthResult when sign-in succeeds [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle returns Right with AuthResult when sign-in succeeds"
+00:01 +0 -7: AuthUseCase - signInWithGoogle returns AuthResult with isFirstLogin=true for new users [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle returns AuthResult with isFirstLogin=true for new users"
+00:01 +0 -8: AuthUseCase - signInWithGoogle returns Left with AuthFailure when sign-in fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle returns Left with AuthFailure when sign-in fails"
+00:01 +0 -9: AuthUseCase - signInWithGoogle returns Left with UnauthorizedDomainFailure for unauthorized domain [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle returns Left with UnauthorizedDomainFailure for unauthorized domain"
+00:01 +0 -10: AuthUseCase - signInWithGoogle returns Left with DeactivatedAccountFailure for deactivated account [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signInWithGoogle returns Left with DeactivatedAccountFailure for deactivated account"
+00:02 +0 -11: AuthUseCase - getCurrentUser calls repository getCurrentUser method [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getCurrentUser calls repository getCurrentUser method"
+00:02 +0 -12: AuthUseCase - getCurrentUser returns Right with user when user exists [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getCurrentUser returns Right with user when user exists"
+00:02 +0 -13: AuthUseCase - getCurrentUser returns Right with null when no user exists [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getCurrentUser returns Right with null when no user exists"
+00:02 +0 -14: AuthUseCase - getCurrentUser returns Left with failure when getCurrentUser fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getCurrentUser returns Left with failure when getCurrentUser fails"
+00:02 +0 -15: AuthUseCase - signOut calls repository signOut method [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signOut calls repository signOut method"
+00:02 +0 -16: AuthUseCase - signOut returns Right when sign-out succeeds [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signOut returns Right when sign-out succeeds"
+00:02 +0 -17: AuthUseCase - signOut returns Left with failure when sign-out fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - signOut returns Left with failure when sign-out fails"
+00:02 +0 -18: AuthUseCase - getUserById calls repository getUserById with correct userId [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById calls repository getUserById with correct userId"
+00:02 +0 -19: AuthUseCase - getUserById logs debug message when fetching user [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById logs debug message when fetching user"
+00:02 +0 -20: AuthUseCase - getUserById returns Right with user when user is found [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById returns Right with user when user is found"
+00:02 +0 -21: AuthUseCase - getUserById logs success when user is found [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById logs success when user is found"
+00:02 +0 -22: AuthUseCase - getUserById returns Right with null when user not found [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById returns Right with null when user not found"
+00:02 +0 -23: AuthUseCase - getUserById logs debug message when user not found [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById logs debug message when user not found"
+00:02 +0 -24: AuthUseCase - getUserById returns Left with failure when repository fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById returns Left with failure when repository fails"
+00:02 +0 -25: AuthUseCase - getUserById logs warning when fetching user fails [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById logs warning when fetching user fails"
+00:02 +0 -26: AuthUseCase - getUserById handles exceptions and returns Left with AuthFailure [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById handles exceptions and returns Left with AuthFailure"
+00:02 +0 -27: AuthUseCase - getUserById logs error when exception occurs [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - getUserById logs error when exception occurs"
+00:02 +0 -28: AuthUseCase - isAuthenticated getter returns true when repository isAuthenticated is true [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - isAuthenticated getter returns true when repository isAuthenticated is true"
+00:02 +0 -29: AuthUseCase - isAuthenticated getter returns false when repository isAuthenticated is false [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - isAuthenticated getter returns false when repository isAuthenticated is false"
+00:02 +0 -30: AuthUseCase - Integration scenarios complete sign-in flow with logging [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - Integration scenarios complete sign-in flow with logging"
+00:02 +0 -31: AuthUseCase - Integration scenarios getUserById after successful authentication [E]
+  Bad state: A test tried to use `any` or `captureAny` on a parameter of type `LogCategory`, but
+  registerFallbackValue was not previously called to register a fallback value for `LogCategory`.
+
+  To fix, do:
+
+  ```
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(/* create a dummy instance of `LogCategory` */);
+    });
+  }
+  ```
+
+  This instance of `LogCategory` will only be passed around, but never be interacted with.
+  Therefore, if `LogCategory` is a function, it does not have to return a valid object and
+  could throw unconditionally.
+  If you cannot easily create an instance of `LogCategory`, consider defining a `Fake`:
+
+  ```
+  class MyTypeFake extends Fake implements MyType {}
+
+  void main() {
+    setUpAll(() {
+      registerFallbackValue(MyTypeFake());
+    });
+  }
+  ```
+
+  Fallbacks are required because mocktail has to know of a valid `LogCategory` to prevent
+  TypeErrors from being thrown in Dart's sound null safe mode, while still
+  providing a convenient syntax.
+
+  package:mocktail/src/_register_matcher.dart 49:5                                _getFallbackValue
+  package:mocktail/src/_register_matcher.dart 160:25                              _registerMatcher
+  package:mocktail/src/_register_matcher.dart 104:10                              any
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:50  main.<fn>.<fn>
+  package:mocktail/src/mocktail.dart 211:9                                        when.<fn>
+  test\unit\features\authentication\domain\usecases\auth_usecase_test.dart 68:9   main.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/authentication/domain/usecases/auth_usecase_test.dart -p vm --plain-name "AuthUseCase - Integration scenarios getUserById after successful authentication"
+00:02 +0 -31: Some tests failed.
+PS E:\New folder (2)\papercraft>
+

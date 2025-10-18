@@ -3,19 +3,28 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
 /// Loading dialog shown during AI polishing with progress
-class PolishLoadingDialog extends StatelessWidget {
+/// This is now a stateful widget with a ValueNotifier to avoid rebuilding the entire dialog
+class PolishLoadingDialog extends StatefulWidget {
   final int totalQuestions;
-  final int processedQuestions;
+  final ValueNotifier<int> processedQuestionsNotifier;
 
   const PolishLoadingDialog({
     super.key,
     required this.totalQuestions,
-    required this.processedQuestions,
+    required this.processedQuestionsNotifier,
   });
 
   @override
+  State<PolishLoadingDialog> createState() => _PolishLoadingDialogState();
+}
+
+class _PolishLoadingDialogState extends State<PolishLoadingDialog> {
+  @override
   Widget build(BuildContext context) {
-    final progress = totalQuestions > 0 ? processedQuestions / totalQuestions : 0.0;
+    return ValueListenableBuilder<int>(
+      valueListenable: widget.processedQuestionsNotifier,
+      builder: (context, processedQuestions, child) {
+        final progress = widget.totalQuestions > 0 ? processedQuestions / widget.totalQuestions : 0.0;
 
     return WillPopScope(
       onWillPop: () async => false, // Prevent dismissal
@@ -32,7 +41,7 @@ class PolishLoadingDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.primary10,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -79,7 +88,7 @@ class PolishLoadingDialog extends StatelessWidget {
 
               // Counter
               Text(
-                '$processedQuestions of $totalQuestions questions',
+                '$processedQuestions of ${widget.totalQuestions} questions',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -89,7 +98,7 @@ class PolishLoadingDialog extends StatelessWidget {
               const SizedBox(height: 8),
 
               // Estimated time
-              if (processedQuestions < totalQuestions)
+              if (processedQuestions < widget.totalQuestions)
                 Text(
                   'This may take a few seconds...',
                   style: TextStyle(
@@ -101,6 +110,8 @@ class PolishLoadingDialog extends StatelessWidget {
           ),
         ),
       ),
+        );
+      },
     );
   }
 }

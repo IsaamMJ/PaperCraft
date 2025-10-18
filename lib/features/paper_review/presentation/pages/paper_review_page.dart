@@ -508,9 +508,9 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
             horizontal: UIConstants.paddingMedium,
           ),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: AppColors.primary10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.primary30),
           ),
           child: Text(
             sectionName,
@@ -571,7 +571,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                   vertical: UIConstants.spacing4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.primary10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                 ),
                 child: Text(
@@ -591,7 +591,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.1),
+                    color: AppColors.warning10,
                     borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Text(
@@ -675,7 +675,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
                   bottom: UIConstants.spacing4,
                 ),
                 child: Text(
-                  '${subIndex + 1}. ${subQuestion.text} (${subQuestion.marks} marks)',
+                  '${String.fromCharCode(97 + subIndex)}) ${subQuestion.text}',
                   style: TextStyle(
                     fontSize: UIConstants.fontSizeSmall,
                     color: AppColors.textSecondary,
@@ -692,7 +692,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
   Widget _buildRejectionFeedback(QuestionPaperEntity paper) {
     return Card(
       elevation: UIConstants.elevationMedium,
-      color: AppColors.error.withValues(alpha: 0.05),
+      color: AppColors.error05,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
       ),
@@ -722,7 +722,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(color: AppColors.error30),
               ),
               child: Text(
                 paper.rejectionReason!,
@@ -755,7 +755,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.3),
+            color: AppColors.overlayDark,
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, -2),
@@ -835,9 +835,9 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
+                color: AppColors.error10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(color: AppColors.error30),
               ),
               child: Text(_reasonController.text.trim()),
             ),
@@ -908,7 +908,7 @@ class _RejectPaperDialogState extends State<RejectPaperDialog> {
                   });
                 },
                 backgroundColor: _reasonController.text == reason
-                    ? AppColors.primary.withValues(alpha: 0.1)
+                    ? AppColors.primary10
                     : AppColors.surface,
                 side: BorderSide(
                   color: _reasonController.text == reason

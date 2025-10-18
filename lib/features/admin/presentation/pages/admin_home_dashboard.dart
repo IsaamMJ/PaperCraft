@@ -165,15 +165,15 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
             ? AppColors.primaryGradient
             : LinearGradient(
                 colors: [
-                  AppColors.primary.withValues(alpha: 0.1),
-                  AppColors.secondary.withValues(alpha: 0.1),
+                  AppColors.primary10,
+                  AppColors.secondary10,
                 ],
               ),
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(
           color: isComplete
               ? Colors.transparent
-              : AppColors.primary.withValues(alpha: 0.3),
+              : AppColors.primary30,
         ),
       ),
       child: Column(
@@ -213,7 +213,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
             child: LinearProgressIndicator(
               value: progress / 100,
               backgroundColor: isComplete
-                  ? Colors.white.withValues(alpha: 0.3)
+                  ? AppColors.white30
                   : AppColors.border,
               valueColor: AlwaysStoppedAnimation(
                 isComplete ? Colors.white : AppColors.primary,
@@ -250,12 +250,15 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
         ),
         SizedBox(height: UIConstants.spacing16),
         GridView.count(
-          shrinkWrap: true,
+          shrinkWrap: false,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
           mainAxisSpacing: UIConstants.spacing12,
           crossAxisSpacing: UIConstants.spacing12,
           childAspectRatio: 1.5,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
+          cacheExtent: 100,
           children: [
             _buildStatCard(
               title: 'Subjects',
@@ -301,7 +304,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           border: Border.all(
             color: isConfigured
-                ? AppColors.success.withValues(alpha: 0.3)
+                ? AppColors.success10
                 : AppColors.border,
             width: isConfigured ? 2 : 1,
           ),
@@ -406,7 +409,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: AppColors.black04,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -417,7 +420,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
             Container(
               padding: EdgeInsets.all(UIConstants.spacing12),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Icon(icon, color: color, size: UIConstants.iconLarge),

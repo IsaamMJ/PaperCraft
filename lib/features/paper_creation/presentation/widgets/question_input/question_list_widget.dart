@@ -24,19 +24,8 @@ class QuestionListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('🔍 QuestionListWidget build - Section: $sectionName, Questions: ${questions.length}');
-
     if (questions.isEmpty) {
-      debugPrint('⚠️ No questions to display for section: $sectionName');
       return const SizedBox.shrink();
-    }
-
-    // Debug each question
-    for (int i = 0; i < questions.length; i++) {
-      final q = questions[i];
-      debugPrint('📝 Question ${i + 1}: ${q.text.substring(0, q.text.length > 50 ? 50 : q.text.length)}...');
-      debugPrint('   Type: ${q.type}, Marks: ${q.marks}, Optional: ${q.isOptional}');
-      debugPrint('   Options: ${q.options?.length ?? 0}, SubQuestions: ${q.subQuestions.length}');
     }
 
     return Column(
@@ -76,7 +65,7 @@ class QuestionListWidget extends StatelessWidget {
           constraints: BoxConstraints(maxHeight: isMobile ? 300 : 250),
           child: onReorderQuestions != null && questions.length > 1
               ? ReorderableListView.builder(
-                  shrinkWrap: true,
+                  shrinkWrap: false, // Performance fix: removed shrinkWrap
                   itemCount: questions.length,
                   onReorder: onReorderQuestions!,
                   buildDefaultDragHandles: false,
@@ -86,8 +75,11 @@ class QuestionListWidget extends StatelessWidget {
                   },
                 )
               : ListView.builder(
-                  shrinkWrap: true,
+                  shrinkWrap: false, // Performance fix: removed shrinkWrap
                   itemCount: questions.length,
+                  addAutomaticKeepAlives: false, // Don't keep offscreen items alive
+                  addRepaintBoundaries: true, // Isolate repaints
+                  cacheExtent: 100, // Limited cache for better memory
                   itemBuilder: (context, index) {
                     final question = questions[index];
                     return _buildQuestionCard(context, question, index);
@@ -130,7 +122,7 @@ class QuestionListWidget extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.primary10,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Center(
@@ -201,7 +193,7 @@ class QuestionListWidget extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.warning.withValues(alpha: 0.1),
+                          color: AppColors.warning10,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -230,7 +222,7 @@ class QuestionListWidget extends StatelessWidget {
                 },
                 icon: const Icon(Icons.edit, size: 16),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  backgroundColor: AppColors.primary10,
                   minimumSize: const Size(28, 28),
                 ),
                 color: AppColors.primary,
@@ -243,7 +235,7 @@ class QuestionListWidget extends StatelessWidget {
                 },
                 icon: const Icon(Icons.delete_outline, size: 16),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.error.withValues(alpha: 0.1),
+                  backgroundColor: AppColors.error10,
                   minimumSize: const Size(28, 28),
                 ),
                 color: AppColors.error,
@@ -275,9 +267,9 @@ class QuestionListWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingSmall),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
+        color: AppColors.primary05,
         borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primary20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,7 +402,7 @@ class QuestionListWidget extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(UIConstants.paddingSmall),
                     decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.1),
+                      color: AppColors.warning10,
                       borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Row(
@@ -562,7 +554,7 @@ class QuestionListWidget extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: AppColors.primary10,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

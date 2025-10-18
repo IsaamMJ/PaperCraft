@@ -125,7 +125,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Container(
               padding: const EdgeInsets.all(UIConstants.paddingSmall),
               decoration: BoxDecoration(
-                color: confirmColor.withValues(alpha: 0.1),
+                color: confirmColor == AppColors.success ? AppColors.success10 : AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Icon(icon, color: confirmColor, size: 20),
@@ -185,89 +185,93 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
-  Future<String?> _showRejectDialog(String paperTitle) {
+  Future<String?> _showRejectDialog(String paperTitle) async {
     final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(UIConstants.paddingSmall),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-              child: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
-            ),
-            const SizedBox(width: UIConstants.spacing12),
-            const Expanded(
-              child: Text(
-                'Reject Paper',
-                style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(UIConstants.spacing12),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-              child: Text(
-                'Paper: $paperTitle',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-            const SizedBox(height: UIConstants.spacing16),
-            const Text(
-              'Rejection reason:',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: UIConstants.spacing8),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'Enter reason...',
-                border: OutlineInputBorder(
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(UIConstants.paddingSmall),
+                decoration: BoxDecoration(
+                  color: AppColors.error10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
-                contentPadding: const EdgeInsets.all(UIConstants.spacing12),
+                child: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
               ),
-              maxLines: 3,
+              const SizedBox(width: UIConstants.spacing12),
+              const Expanded(
+                child: Text(
+                  'Reject Paper',
+                  style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(UIConstants.spacing12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                ),
+                child: Text(
+                  'Paper: $paperTitle',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(height: UIConstants.spacing16),
+              const Text(
+                'Rejection reason:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: UIConstants.spacing8),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: 'Enter reason...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                  ),
+                  contentPadding: const EdgeInsets.all(UIConstants.spacing12),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                ),
+              ),
+              child: const Text('Reject'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-            ),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      controller.dispose(); // Always dispose controller after dialog closes
+    }
   }
 
   List<QuestionPaperEntity> _filterPapers(List<QuestionPaperEntity> papers) {
@@ -349,7 +353,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         color: AppColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: AppColors.black04,
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -361,7 +365,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+              border: Border.all(color: AppColors.border),
             ),
             child: TextField(
               decoration: InputDecoration(
@@ -410,7 +414,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       vertical: UIConstants.spacing8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
+                      color: AppColors.error10,
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: const Row(
@@ -451,13 +455,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       height: 36,
       decoration: BoxDecoration(
         color: value.isNotEmpty
-            ? AppColors.primary.withValues(alpha: 0.1)
+            ? AppColors.primary10
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: Border.all(
           color: value.isNotEmpty
               ? AppColors.primary
-              : AppColors.border.withValues(alpha: 0.5),
+              : AppColors.border,
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -551,14 +555,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.primary10),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(UIConstants.paddingSmall),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.primary10,
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: const Icon(
@@ -607,7 +611,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -707,7 +711,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         vertical: UIConstants.spacing4,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color == AppColors.primary ? AppColors.primary10 : color == AppColors.success ? AppColors.success10 : color == AppColors.error ? AppColors.error10 : AppColors.warning10,
         borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
       ),
       child: Text(
@@ -796,7 +800,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color == AppColors.primary ? AppColors.primary10 : color == AppColors.success ? AppColors.success10 : color == AppColors.error ? AppColors.error10 : AppColors.warning10,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Material(

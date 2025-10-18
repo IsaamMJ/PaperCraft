@@ -23,14 +23,14 @@ class PaperSearchBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.border),
       ),
       child: TextField(
         controller: controller,
         decoration: InputDecoration(
           hintText: 'Search papers, subjects...',
           hintStyle: TextStyle(
-            color: AppColors.textSecondary.withValues(alpha: 0.7),
+            color: AppColors.textSecondary70,
             fontSize: UIConstants.fontSizeMedium,
           ),
           prefixIcon: Icon(

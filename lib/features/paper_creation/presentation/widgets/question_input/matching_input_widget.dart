@@ -36,12 +36,15 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
   void initState() {
     super.initState();
     _pairCount = widget.requiredPairs; // Set to exactly the required number of pairs
-    _questionController.addListener(() => setState(() {}));
 
-    // Add listeners to pair controllers
+    // Add listeners to pair controllers for validation
     for (int i = 0; i < _leftColumnControllers.length; i++) {
-      _leftColumnControllers[i].addListener(() => setState(() {}));
-      _rightColumnControllers[i].addListener(() => setState(() {}));
+      _leftColumnControllers[i].addListener(() {
+        if (mounted) setState(() {});
+      });
+      _rightColumnControllers[i].addListener(() {
+        if (mounted) setState(() {});
+      });
     }
   }
 
@@ -58,8 +61,6 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
   }
 
   bool get _isValid {
-    if (_questionController.text.trim().isEmpty) return false;
-
     // Check if ALL required pairs are filled
     int validPairs = 0;
     for (int i = 0; i < _pairCount; i++) {
@@ -72,7 +73,6 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
   }
 
   void _clear() {
-    _questionController.clear();
     for (var controller in _leftColumnControllers) {
       controller.clear();
     }
@@ -98,10 +98,11 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
       rightItems.add(right);
     }
 
-    // FIXED: Create the question with proper type and structure
+    // Create the question with proper type and structure
+    // For matching questions, use a default instruction text
     final question = Question(
-      text: _questionController.text.trim(),
-      type: 'match_following', // Use the correct type from your exam configuration
+      text: 'Match the following',
+      type: 'match_following',
       options: [...leftItems, '---SEPARATOR---', ...rightItems], // Store both columns
       marks: _pairCount, // Total marks = number of pairs
       subQuestions: [], // Keep empty for matching questions
@@ -133,9 +134,9 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: AppColors.primary10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.primary30),
           ),
           child: Row(
             children: [
@@ -156,39 +157,13 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
 
         SizedBox(height: UIConstants.spacing16),
 
-        // Question instruction
-        TextField(
-          controller: _questionController,
-          textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.newline,
-          maxLines: widget.isMobile ? 3 : 2,
-          style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
-          decoration: InputDecoration(
-            hintText: 'Enter instructions (e.g., "Match the following countries with their capitals:")',
-            hintStyle: TextStyle(fontSize: widget.isMobile ? 14 : 12),
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              borderSide: BorderSide(color: AppColors.primary, width: 2),
-            ),
-            contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
-          ),
-        ),
-
-        SizedBox(height: UIConstants.spacing20),
-
         // Show required pairs count
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.secondary.withValues(alpha: 0.1),
+            color: AppColors.secondary10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.secondary),
           ),
           child: Row(
             children: [
@@ -280,7 +255,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
+                            color: AppColors.primary10,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Center(
@@ -341,7 +316,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: AppColors.secondary.withValues(alpha: 0.1),
+                            color: AppColors.secondary10,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Center(
@@ -379,8 +354,8 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: validPairs == _pairCount
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : AppColors.warning.withValues(alpha: 0.1),
+                  ? AppColors.success10
+                  : AppColors.warning10,
               borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Row(

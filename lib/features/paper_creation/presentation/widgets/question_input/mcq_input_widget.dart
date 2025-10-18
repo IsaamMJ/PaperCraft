@@ -23,7 +23,6 @@ class McqInputWidget extends StatefulWidget {
 class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
   final _optionControllers = List.generate(4, (_) => TextEditingController());
-  bool _isOptional = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -32,9 +31,13 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
   void initState() {
     super.initState();
     // Add listeners to trigger UI updates
-    _questionController.addListener(() => setState(() {}));
+    _questionController.addListener(() {
+      if (mounted) setState(() {});
+    });
     for (var controller in _optionControllers) {
-      controller.addListener(() => setState(() {}));
+      controller.addListener(() {
+        if (mounted) setState(() {});
+      });
     }
   }
 
@@ -60,7 +63,6 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
     for (var controller in _optionControllers) {
       controller.clear();
     }
-    setState(() => _isOptional = false);
   }
 
 
@@ -79,7 +81,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
       options: options,
       correctAnswer: null,
       marks: 1, // Default marks for MCQ
-      isOptional: _isOptional,
+      isOptional: false, // MCQ questions are always mandatory
     );
 
     widget.onQuestionAdded(question);
@@ -184,7 +186,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
                   width: widget.isMobile ? 28 : 24,
                   height: widget.isMobile ? 28 : 24,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: AppColors.primary10,
                     borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Center(
@@ -202,30 +204,6 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             ),
           );
         }),
-
-        SizedBox(height: UIConstants.spacing16),
-
-        // Optional checkbox
-        InkWell(
-          onTap: () => setState(() => _isOptional = !_isOptional),
-          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: _isOptional,
-                  onChanged: (v) => setState(() => _isOptional = v ?? false),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                Text(
-                  'Optional question',
-                  style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
-                ),
-              ],
-            ),
-          ),
-        ),
 
         SizedBox(height: UIConstants.spacing24),
 

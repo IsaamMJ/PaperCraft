@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/infrastructure/realtime/realtime_service.dart';
 import '../../../paper_workflow/data/models/question_paper_model.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/domain/services/paper_display_service.dart';
 import '../../../paper_workflow/domain/usecases/get_approved_papers_paginated_usecase.dart';
 import 'question_bank_event.dart';
@@ -12,14 +13,17 @@ import 'question_bank_state.dart';
 class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
   final GetApprovedPapersPaginatedUseCase _getApprovedPapersPaginatedUseCase;
   final RealtimeService _realtimeService;
+  final PaperDisplayService _paperDisplayService;
 
   static const String _channelName = 'question_bank_approved_papers';
 
   QuestionBankBloc({
     required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
     required RealtimeService realtimeService,
+    required PaperDisplayService paperDisplayService,
   })  : _getApprovedPapersPaginatedUseCase = getApprovedPapersPaginatedUseCase,
         _realtimeService = realtimeService,
+        _paperDisplayService = paperDisplayService,
         super(const QuestionBankInitial()) {
     on<LoadQuestionBankPaginated>(_onLoadQuestionBankPaginated);
     on<RefreshQuestionBank>(_onRefreshQuestionBank);
@@ -62,38 +66,38 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
       },
       (paginatedResult) async {
         // Enrich papers with display names
-        final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(paginatedResult.items);
+        final enrichedPapers = await _paperDisplayService.enrichPapers(paginatedResult.items);
 
+        List<QuestionPaperEntity> finalPapers;
         if (event.isLoadMore && state is QuestionBankLoaded) {
           // Append to existing papers
           final currentState = state as QuestionBankLoaded;
-          final allPapers = [...currentState.papers, ...enrichedPapers];
-
-          emit(QuestionBankLoaded(
-            papers: allPapers,
-            currentPage: paginatedResult.currentPage,
-            totalPages: paginatedResult.totalPages,
-            totalItems: paginatedResult.totalItems,
-            hasMore: paginatedResult.hasMore,
-            isLoadingMore: false,
-            searchQuery: event.searchQuery,
-            subjectFilter: event.subjectFilter,
-            gradeFilter: event.gradeFilter,
-          ));
+          finalPapers = [...currentState.papers, ...enrichedPapers];
         } else {
           // Fresh load - replace papers
-          emit(QuestionBankLoaded(
-            papers: enrichedPapers,
-            currentPage: paginatedResult.currentPage,
-            totalPages: paginatedResult.totalPages,
-            totalItems: paginatedResult.totalItems,
-            hasMore: paginatedResult.hasMore,
-            isLoadingMore: false,
-            searchQuery: event.searchQuery,
-            subjectFilter: event.subjectFilter,
-            gradeFilter: event.gradeFilter,
-          ));
+          finalPapers = enrichedPapers;
         }
+
+        // Pre-compute all grouped data
+        final groupedData = _computeGroupedData(finalPapers);
+
+        emit(QuestionBankLoaded(
+          papers: finalPapers,
+          currentPage: paginatedResult.currentPage,
+          totalPages: paginatedResult.totalPages,
+          totalItems: paginatedResult.totalItems,
+          hasMore: paginatedResult.hasMore,
+          isLoadingMore: false,
+          searchQuery: event.searchQuery,
+          subjectFilter: event.subjectFilter,
+          gradeFilter: event.gradeFilter,
+          thisMonthGroupedByClass: groupedData['thisMonthByClass']!,
+          thisMonthGroupedByMonth: groupedData['thisMonthByMonth']!,
+          previousMonthGroupedByClass: groupedData['previousMonthByClass']!,
+          previousMonthGroupedByMonth: groupedData['previousMonthByMonth']!,
+          archiveGroupedByClass: groupedData['archiveByClass']!,
+          archiveGroupedByMonth: groupedData['archiveByMonth']!,
+        ));
       },
     );
   }
@@ -118,7 +122,10 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
       },
       (paginatedResult) async {
         // Enrich papers with display names
-        final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(paginatedResult.items);
+        final enrichedPapers = await _paperDisplayService.enrichPapers(paginatedResult.items);
+
+        // Pre-compute all grouped data
+        final groupedData = _computeGroupedData(enrichedPapers);
 
         emit(QuestionBankLoaded(
           papers: enrichedPapers,
@@ -130,6 +137,12 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
           searchQuery: event.searchQuery,
           subjectFilter: event.subjectFilter,
           gradeFilter: event.gradeFilter,
+          thisMonthGroupedByClass: groupedData['thisMonthByClass']!,
+          thisMonthGroupedByMonth: groupedData['thisMonthByMonth']!,
+          previousMonthGroupedByClass: groupedData['previousMonthByClass']!,
+          previousMonthGroupedByMonth: groupedData['previousMonthByMonth']!,
+          archiveGroupedByClass: groupedData['archiveByClass']!,
+          archiveGroupedByMonth: groupedData['archiveByMonth']!,
         ));
       },
     );
@@ -181,30 +194,155 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
       // Only process approved papers
       if (paperModel.status.value != 'approved') return;
 
-      final enrichedPaper = (await sl<PaperDisplayService>().enrichPapers([paperModel])).first;
+      final enrichedPaper = (await _paperDisplayService.enrichPapers([paperModel])).first;
+
+      List<QuestionPaperEntity> updatedPapers;
+      int updatedTotalItems = currentState.totalItems;
 
       if (event.eventType == 'INSERT') {
-        // Add new approved paper to the beginning
-        emit(currentState.copyWith(
-          papers: [enrichedPaper, ...currentState.papers],
-          totalItems: currentState.totalItems + 1,
-        ));
+        updatedPapers = [enrichedPaper, ...currentState.papers];
+        updatedTotalItems += 1;
       } else if (event.eventType == 'UPDATE') {
-        // Update existing paper
-        final updatedPapers = currentState.papers
+        updatedPapers = currentState.papers
             .map((p) => p.id == enrichedPaper.id ? enrichedPaper : p)
             .toList();
-        emit(currentState.copyWith(papers: updatedPapers));
       } else if (event.eventType == 'DELETE') {
-        // Remove paper
-        final filteredPapers = currentState.papers.where((p) => p.id != enrichedPaper.id).toList();
-        emit(currentState.copyWith(
-          papers: filteredPapers,
-          totalItems: currentState.totalItems - 1,
-        ));
+        updatedPapers = currentState.papers.where((p) => p.id != enrichedPaper.id).toList();
+        updatedTotalItems -= 1;
+      } else {
+        return;
       }
+
+      // Recompute all grouped data with updated papers
+      final groupedData = _computeGroupedData(updatedPapers);
+
+      emit(currentState.copyWith(
+        papers: updatedPapers,
+        totalItems: updatedTotalItems,
+        thisMonthGroupedByClass: groupedData['thisMonthByClass'],
+        thisMonthGroupedByMonth: groupedData['thisMonthByMonth'],
+        previousMonthGroupedByClass: groupedData['previousMonthByClass'],
+        previousMonthGroupedByMonth: groupedData['previousMonthByMonth'],
+        archiveGroupedByClass: groupedData['archiveByClass'],
+        archiveGroupedByMonth: groupedData['archiveByMonth'],
+      ));
     } catch (e) {
       // Log error but don't fail - just skip this update
     }
+  }
+
+  /// Pre-compute all filtered and grouped data for performance
+  Map<String, Map<String, List<QuestionPaperEntity>>> _computeGroupedData(
+    List<QuestionPaperEntity> papers,
+  ) {
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final previousMonth = DateTime(now.year, now.month - 1);
+
+    // Filter papers by period
+    final thisMonthPapers = <QuestionPaperEntity>[];
+    final previousMonthPapers = <QuestionPaperEntity>[];
+    final archivePapers = <QuestionPaperEntity>[];
+
+    for (final paper in papers) {
+      if (!paper.status.isApproved) continue;
+
+      final paperDate = paper.reviewedAt ?? paper.createdAt;
+      final paperMonth = DateTime(paperDate.year, paperDate.month);
+
+      if (paperMonth.isAtSameMomentAs(currentMonth)) {
+        thisMonthPapers.add(paper);
+      } else if (paperMonth.isAtSameMomentAs(previousMonth)) {
+        previousMonthPapers.add(paper);
+      } else if (paperMonth.isBefore(previousMonth)) {
+        archivePapers.add(paper);
+      }
+    }
+
+    return {
+      'thisMonthByClass': _groupPapersByClass(thisMonthPapers),
+      'thisMonthByMonth': _groupPapersByMonth(thisMonthPapers),
+      'previousMonthByClass': _groupPapersByClass(previousMonthPapers),
+      'previousMonthByMonth': _groupPapersByMonth(previousMonthPapers),
+      'archiveByClass': _groupPapersByClass(archivePapers),
+      'archiveByMonth': _groupPapersByMonth(archivePapers),
+    };
+  }
+
+  /// Group papers by class/grade level
+  Map<String, List<QuestionPaperEntity>> _groupPapersByClass(
+    List<QuestionPaperEntity> papers,
+  ) {
+    final grouped = <String, List<QuestionPaperEntity>>{};
+
+    for (final paper in papers) {
+      final className = paper.gradeDisplayName;
+      grouped.putIfAbsent(className, () => []).add(paper);
+    }
+
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) {
+        final aGrade = _extractGradeNumber(a);
+        final bGrade = _extractGradeNumber(b);
+        if (aGrade != null && bGrade != null) {
+          return aGrade.compareTo(bGrade);
+        }
+        return a.compareTo(b);
+      });
+
+    final sortedGrouped = <String, List<QuestionPaperEntity>>{};
+    for (final key in sortedKeys) {
+      grouped[key]!.sort((a, b) =>
+        (b.reviewedAt ?? b.createdAt).compareTo(a.reviewedAt ?? a.createdAt)
+      );
+      sortedGrouped[key] = grouped[key]!;
+    }
+
+    return sortedGrouped;
+  }
+
+  /// Group papers by month-year
+  Map<String, List<QuestionPaperEntity>> _groupPapersByMonth(
+    List<QuestionPaperEntity> papers,
+  ) {
+    final grouped = <String, List<QuestionPaperEntity>>{};
+
+    for (final paper in papers) {
+      final date = paper.reviewedAt ?? paper.createdAt;
+      final monthYear = '${_getMonthName(date.month)} ${date.year}';
+      grouped.putIfAbsent(monthYear, () => []).add(paper);
+    }
+
+    final sortedGrouped = <String, List<QuestionPaperEntity>>{};
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) {
+        final aDate = grouped[a]!.first.reviewedAt ?? grouped[a]!.first.createdAt;
+        final bDate = grouped[b]!.first.reviewedAt ?? grouped[b]!.first.createdAt;
+        return bDate.compareTo(aDate);
+      });
+
+    for (final key in sortedKeys) {
+      grouped[key]!.sort((a, b) =>
+        (b.reviewedAt ?? b.createdAt).compareTo(a.reviewedAt ?? a.createdAt)
+      );
+      sortedGrouped[key] = grouped[key]!;
+    }
+
+    return sortedGrouped;
+  }
+
+  /// Extract grade number from display string (e.g., "Grade 10" -> 10)
+  int? _extractGradeNumber(String gradeDisplay) {
+    final match = RegExp(r'Grade (\d+)').firstMatch(gradeDisplay);
+    return match != null ? int.tryParse(match.group(1)!) : null;
+  }
+
+  /// Get month name from month number
+  String _getMonthName(int month) {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return monthNames[month - 1];
   }
 }

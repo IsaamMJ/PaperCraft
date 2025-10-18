@@ -322,7 +322,7 @@ class SimplePdfService implements IPdfGenerationService {
           pw.Padding(
             padding: const pw.EdgeInsets.only(left: 16, top: 2),
             child: pw.Text(
-              '  ${String.fromCharCode(97 + i)}) ${subQ.text} [${subQ.marks} mark${subQ.marks > 1 ? 's' : ''}]',
+              '  ${String.fromCharCode(97 + i)}) ${subQ.text}',
               style: pw.TextStyle(fontSize: optionSize),
             ),
           ),

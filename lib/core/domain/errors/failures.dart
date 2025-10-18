@@ -37,3 +37,7 @@ class NotFoundFailure extends Failure {
 class NetworkFailure extends Failure {
   const NetworkFailure(String message, {String? code}) : super(message, code: code);
 }
+
+class FileOperationFailure extends Failure {
+  const FileOperationFailure(String message, {String? code}) : super(message, code: code);
+}

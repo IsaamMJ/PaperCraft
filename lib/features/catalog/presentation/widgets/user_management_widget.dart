@@ -136,9 +136,9 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
+        color: AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primary20),
       ),
       child: Row(
         children: [
@@ -310,7 +310,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.success.withValues(alpha: 0.1) : AppColors.error.withValues(alpha: 0.1),
+        color: isActive ? AppColors.success10 : AppColors.error10,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Text(

@@ -240,7 +240,7 @@ class _TeacherAssignmentMatrixPageState
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.withOpacity(color, 0.3)),
       ),
       child: Column(
         children: [
@@ -274,7 +274,7 @@ class _TeacherAssignmentMatrixPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -344,8 +344,11 @@ class _TeacherAssignmentMatrixPageState
           ),
           // Rows
           ListView.separated(
-            shrinkWrap: true,
+            shrinkWrap: false,
             physics: const NeverScrollableScrollPhysics(),
+            addAutomaticKeepAlives: false,
+            addRepaintBoundaries: true,
+            cacheExtent: 100,
             itemCount: teachers.length,
             separatorBuilder: (_, __) => Divider(
               height: 1,

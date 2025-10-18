@@ -37,7 +37,9 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   @override
   void initState() {
     super.initState();
-    _questionController.addListener(() => setState(() {}));
+    _questionController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -60,12 +62,36 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   }
 
   void _addSubQuestion() {
-    if (_subQuestionController.text.trim().isEmpty) return;
+    final text = _subQuestionController.text.trim();
+
+    // Validation
+    if (text.isEmpty) return;
+
+    // Prevent too many subquestions (max 26 = a to z)
+    if (_subQuestions.length >= 26) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Maximum 26 sub-questions allowed'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Check for duplicates
+    if (_subQuestions.any((sq) => sq.text.toLowerCase() == text.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('This sub-question already exists'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _subQuestions.add(SubQuestion(
-        text: _subQuestionController.text.trim(),
-        marks: 1,
+        text: text,
       ));
       _subQuestionController.clear();
     });
@@ -230,7 +256,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: AppColors.primary10,
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Text(
@@ -320,7 +346,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
                       width: widget.isMobile ? 24 : 20,
                       height: widget.isMobile ? 24 : 20,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.primary10,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(

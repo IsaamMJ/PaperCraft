@@ -1,6 +1,7 @@
 // features/catalog/presentation/widgets/add_edit_section_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/presentation/constants/app_colors.dart';
 import '../../domain/entities/paper_section_entity.dart';
 
 /// Dialog for adding or editing a paper section
@@ -125,7 +126,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
         color: isHighMarks ? Colors.orange.shade50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isHighMarks ? Colors.orange.shade200 : Colors.blue.shade200,
+          color: isHighMarks ? AppColors.warning : Colors.blue.shade200,
         ),
       ),
       child: Column(

@@ -434,7 +434,6 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
             final subQuestionMap = {
               'question_key': questionKey,
               'text': subQuestion.text,
-              'marks': subQuestion.marks,
             };
 
             await _databaseHelper.subQuestions.put(subQuestionKey, subQuestionMap);
@@ -519,7 +518,6 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         final subQuestionsData = _subQuestionsByQuestion![questionKey] ?? [];
         final subQuestions = subQuestionsData.map((subData) => SubQuestion(
           text: subData['text'] as String,
-          marks: subData['marks'] as int,
         )).toList();
 
         final question = Question(

@@ -185,7 +185,7 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+          backgroundColor: AppColors.primary20,
           child: Text(
             grade.gradeNumber.toString(),
             style: TextStyle(

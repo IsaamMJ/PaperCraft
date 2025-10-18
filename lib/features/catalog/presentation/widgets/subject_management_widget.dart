@@ -224,7 +224,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          backgroundColor: AppColors.primary10,
           child: Icon(Icons.subject, color: AppColors.primary, size: 20),
         ),
         title: Text(

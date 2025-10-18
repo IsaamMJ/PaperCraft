@@ -231,9 +231,9 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
+                  color: AppColors.warning10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.warning),
                 ),
                 child: Row(
                   children: [
@@ -631,7 +631,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                       borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
+                          color: AppColors.primary30,
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -675,10 +675,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       ),
       decoration: BoxDecoration(
         gradient: isAdminRole ? AppColors.accentGradient : null,
-        color: isAdminRole ? null : AppColors.primary.withValues(alpha: 0.1),
+        color: isAdminRole ? null : AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdminRole ? null : Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
+          color: AppColors.primary20,
         ),
       ),
       child: Center(
@@ -702,7 +702,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: AppColors.black08,
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -779,7 +779,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AppColors.white20,
                       borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     ),
                     child: Center(
@@ -807,7 +807,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                   Text(
                     user.email ?? '',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white,
                       fontSize: UIConstants.fontSizeMedium,
                     ),
                     overflow: TextOverflow.ellipsis,

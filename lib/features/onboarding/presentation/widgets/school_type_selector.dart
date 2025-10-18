@@ -33,7 +33,7 @@ class SchoolTypeSelector extends StatelessWidget {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppColors.white20,
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: const Icon(
@@ -59,7 +59,7 @@ class SchoolTypeSelector extends StatelessWidget {
                       Text(
                         'Let\'s set up your school in just 2 steps',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: Colors.white,
                           fontSize: 14,
                         ),
                       ),
@@ -120,9 +120,9 @@ class SchoolTypeSelector extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.05),
+              color: AppColors.primary05,
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              border: Border.all(color: AppColors.primary20),
             ),
             child: Row(
               children: [
@@ -170,7 +170,7 @@ class SchoolTypeSelector extends StatelessWidget {
             border: Border.all(color: color.withValues(alpha: 0.3)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: AppColors.black04,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

@@ -24,7 +24,7 @@ class StepProgressIndicator extends StatelessWidget {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           )

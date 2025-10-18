@@ -41,7 +41,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
 
     // Add listeners to trigger UI updates
     for (var controller in _controllers) {
-      controller.addListener(() => setState(() {}));
+      controller.addListener(() {
+        if (mounted) setState(() {});
+      });
     }
   }
 
@@ -197,9 +199,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: AppColors.primary10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.primary30),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +226,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                 _getInstructionPreview(),
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.primary.withValues(alpha: 0.8),
+                  color: AppColors.primary,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -279,7 +281,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                     width: widget.isMobile ? 28 : 24,
                     height: widget.isMobile ? 28 : 24,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: AppColors.primary10,
                       borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                     ),
                     child: Center(
@@ -305,8 +307,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: _isValid
-                ? AppColors.success.withValues(alpha: 0.1)
-                : AppColors.warning.withValues(alpha: 0.1),
+                ? AppColors.success10
+                : AppColors.warning10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           ),
           child: Row(

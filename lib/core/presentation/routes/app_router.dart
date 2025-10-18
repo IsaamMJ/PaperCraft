@@ -14,6 +14,7 @@ import '../../../features/assignments/presentation/pages/teacher_assignment_mana
 import '../../../features/assignments/presentation/pages/teacher_assignment_matrix_page.dart';
 import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
 import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
+import '../../../features/catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../features/catalog/presentation/pages/grade_management_page.dart';
 import '../../../features/catalog/presentation/pages/subject_management_page.dart';
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
@@ -258,6 +259,7 @@ class AppRouter {
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
+              BlocProvider(create: (_) => sl<TeacherPatternBloc>()), // Add TeacherPatternBloc for pattern loading
             ],
             child: QuestionPaperEditPage(questionPaperId: id),
           );

@@ -246,7 +246,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary.withValues(alpha: 0.05), AppColors.secondary.withValues(alpha: 0.05)],
+          colors: [AppColors.primary05, AppColors.secondary08],
         ),
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(color: AppColors.border),
@@ -401,7 +401,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.black04, blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,9 +435,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             Container(
               padding: const EdgeInsets.all(UIConstants.paddingMedium),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.05),
+                color: AppColors.error05,
                 borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+                border: Border.all(color: AppColors.error20),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +450,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ],
                   ),
                   SizedBox(height: UIConstants.spacing12),
-                  Text(paper.rejectionReason!, style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.error.withValues(alpha: 0.8), height: 1.4)),
+                  Text(paper.rejectionReason!, style: TextStyle(fontSize: UIConstants.fontSizeMedium, color: AppColors.error80, height: 1.4)),
                 ],
               ),
             ),
@@ -491,7 +491,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.black04, blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,9 +503,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
+                color: AppColors.primary05,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+                border: Border.all(color: AppColors.primary10),
               ),
               child: Row(
                 children: [
@@ -564,7 +564,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.black04, blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,7 +633,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                           children: [
                             Container(
                               width: 24, height: 24,
-                              decoration: BoxDecoration(color: AppColors.textTertiary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(UIConstants.radiusSmall)),
+                              decoration: BoxDecoration(color: AppColors.overlayLight, borderRadius: BorderRadius.circular(UIConstants.radiusSmall)),
                               child: Center(child: Text(label, style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
                             ),
                             const SizedBox(width: 8),
@@ -649,7 +649,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+            decoration: BoxDecoration(color: AppColors.primary10, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
             child: Text('${question.marks} marks', style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.primary)),
           ),
         ],
@@ -811,9 +811,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
+        color: AppColors.primary05,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primary20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -43,14 +43,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Load data only once when page is created
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_hasLoadedInitialData) {
-        _loadInitialData();
-        _hasLoadedInitialData = true;
-        _startNotificationRefresh();
-      }
-    });
+    // Load data immediately - no delay for instant skeleton display
+    if (!_hasLoadedInitialData) {
+      _loadInitialData();
+      _hasLoadedInitialData = true;
+      _startNotificationRefresh();
+    }
   }
 
   @override
@@ -86,7 +84,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Auto-reload if coming from another page with stale data
     final currentState = context.read<HomeBloc>().state;
-    if (currentState is! HomeLoaded && currentState is! HomeLoading) {
+    if (currentState is! HomeLoaded && currentState is! HomeLoading && currentState is! HomeError) {
       if (_hasLoadedInitialData) {
         _loadInitialData();
       }
@@ -164,8 +162,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.primary.withValues(alpha: 0.08),
-              AppColors.secondary.withValues(alpha: 0.08),
+              AppColors.primary08,
+              AppColors.secondary08,
             ],
           ),
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
@@ -214,7 +212,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
+                        color: AppColors.primary30,
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -244,13 +242,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
-          // Show loading for both Initial and Loading states
-          if (state is HomeInitial || state is HomeLoading) {
-            // If we have cached data, show it during loading
+          // Show loading skeleton immediately for Loading state
+          if (state is HomeLoading) {
+            // If we have cached data and it's a refresh, show data with loading indicator
             if (_cachedHomeState != null) {
               final papers = _getAllPapers(_cachedHomeState!, isAdmin);
               return _buildPapersList(papers, isAdmin);
             }
+            // Show skeleton for initial load
             return _buildLoading();
           }
 
@@ -319,10 +318,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildLoading() {
-    return const SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        child: PaperListSkeleton(itemCount: 5),
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your papers...',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -396,7 +416,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -427,27 +447,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     ),
                     PaperStatusBadge(status: paper.status, isCompact: true),
-                    const SizedBox(width: 4),
-                    PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
-                      onSelected: (value) {
-                        if (value == 'duplicate') {
-                          _duplicatePaper(paper);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'duplicate',
-                          child: Row(
-                            children: [
-                              Icon(Icons.content_copy_rounded, size: 18, color: AppColors.textPrimary),
-                              const SizedBox(width: 12),
-                              const Text('Duplicate'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
                 SizedBox(height: UIConstants.spacing12),
@@ -512,7 +511,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -545,7 +544,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color == AppColors.success ? AppColors.success10 : color == AppColors.accent ? AppColors.primary10 : AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Row(
@@ -570,9 +569,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.05),
+        color: AppColors.error05,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.error20),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,7 +595,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   reason,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.error.withValues(alpha: 0.8),
+                    color: AppColors.error80,
                   ),
                 ),
               ],
@@ -630,9 +629,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return [...state.papersForReview, ...state.allPapersForAdmin];
     }
 
-    final allPapers = [...state.drafts, ...state.submissions];
-    allPapers.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
-    return allPapers;
+    // Papers are already sorted in the BLoC - just combine them
+    return [...state.drafts, ...state.submissions];
   }
 
   Future<void> _handleRefresh() async {
@@ -658,101 +656,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _duplicatePaper(QuestionPaperEntity paper) async {
-    final TextEditingController titleController = TextEditingController(
-      text: '${paper.title} (Copy)',
-    );
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Duplicate Question Paper'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Enter a title for the new paper:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Title',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                ),
-                filled: true,
-                fillColor: AppColors.backgroundSecondary,
-              ),
-              maxLines: 2,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.content_copy_rounded, size: 18),
-            label: const Text('Duplicate'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      final newTitle = titleController.text.trim();
-      if (newTitle.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Title cannot be empty'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-
-      // Create duplicate with new title
-      final duplicatedPaper = paper.copyWith(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: newTitle,
-        status: PaperStatus.draft,
-        createdAt: DateTime.now(),
-        modifiedAt: DateTime.now(),
-        submittedAt: null,
-        reviewedAt: null,
-        rejectionReason: null,
-      );
-
-      // Add to bloc
-      context.read<QuestionPaperBloc>().add(SaveDraft(duplicatedPaper));
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Paper duplicated successfully'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'EDIT',
-            textColor: Colors.white,
-            onPressed: () {
-              context.push(AppRoutes.questionPaperEditWithId(duplicatedPaper.id));
-            },
-          ),
-        ),
-      );
-    }
-
-    titleController.dispose();
-  }
 
   Widget _buildNotificationBell() {
     return BlocBuilder<NotificationBloc, NotificationState>(

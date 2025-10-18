@@ -25,6 +25,9 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
   // Track which questions have been reverted to original
   final Set<String> _revertedQuestions = {};
 
+  // Track manually edited questions
+  final Map<String, Question> _editedQuestions = {};
+
   @override
   Widget build(BuildContext context) {
     final stats = _calculateStats();
@@ -42,7 +45,7 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary10,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(UIConstants.radiusXLarge),
                 ),
@@ -73,7 +76,7 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
+                      color: AppColors.success10,
                       borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                     ),
                     child: Row(
@@ -112,7 +115,7 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: AppColors.black08,
                     blurRadius: 8,
                     offset: const Offset(0, -2),
                   ),
@@ -191,6 +194,8 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
             questionKey: questionKey,
             isReverted: isReverted,
             hasChanges: hasChanges,
+            sectionName: sectionName,
+            questionIndex: i,
           ),
         );
         globalIndex++;
@@ -207,6 +212,8 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
     required String questionKey,
     required bool isReverted,
     required bool hasChanges,
+    required String sectionName,
+    required int questionIndex,
   }) {
     if (!hasChanges) {
       // No changes - show simple card
@@ -241,7 +248,11 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
     }
 
     // Has changes - show diff card
-    final displayText = isReverted ? original!.text : polished.text;
+    final isEdited = _editedQuestions.containsKey(questionKey);
+    final displayQuestion = isEdited
+        ? _editedQuestions[questionKey]!
+        : (isReverted ? original! : polished);
+    final displayText = displayQuestion.text;
     final changes = polished.polishChanges ?? [];
 
     return Container(
@@ -250,10 +261,10 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
       decoration: BoxDecoration(
         color: isReverted
             ? Colors.orange.shade50
-            : AppColors.success.withValues(alpha: 0.05),
+            : AppColors.success05,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(
-          color: isReverted ? Colors.orange.shade200 : AppColors.success.withValues(alpha: 0.2),
+          color: isReverted ? AppColors.warning : AppColors.success10,
           width: 2,
         ),
       ),
@@ -271,7 +282,23 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
                 ),
               ),
               const Spacer(),
-              if (isReverted)
+              if (isEdited)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'EDITED',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              else if (isReverted)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -288,6 +315,16 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
                   ),
                 ),
               const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () => _editQuestion(questionKey, sectionName, questionIndex, displayQuestion),
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(width: 4),
               TextButton.icon(
                 onPressed: () => _toggleRevert(questionKey),
                 icon: Icon(
@@ -328,11 +365,11 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
 
           // Current text
           Text(
-            isReverted ? 'Original:' : 'Polished:',
+            isEdited ? 'Edited:' : (isReverted ? 'Original:' : 'Polished:'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isReverted ? Colors.orange.shade700 : AppColors.success,
+              color: isEdited ? AppColors.primary : (isReverted ? Colors.orange.shade700 : AppColors.success),
             ),
           ),
           const SizedBox(height: 4),
@@ -344,6 +381,45 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
               fontSize: 14,
             ),
           ),
+
+          // Show subquestions if present
+          if (displayQuestion.subQuestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary05,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sub-questions:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...displayQuestion.subQuestions.asMap().entries.map((entry) {
+                    final label = String.fromCharCode(97 + entry.key);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '$label) ${entry.value.text}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
 
           // Changes summary
           if (!isReverted && changes.isNotEmpty) ...[
@@ -420,6 +496,21 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
     });
   }
 
+  Future<void> _editQuestion(String questionKey, String sectionName, int questionIndex, Question currentQuestion) async {
+    final edited = await showDialog<String>(
+      context: context,
+      builder: (context) => _EditQuestionDialog(initialText: currentQuestion.text),
+    );
+
+    if (edited != null && edited.isNotEmpty && edited != currentQuestion.text && mounted) {
+      setState(() {
+        _editedQuestions[questionKey] = currentQuestion.copyWith(text: edited);
+        // Remove from reverted when edited
+        _revertedQuestions.remove(questionKey);
+      });
+    }
+  }
+
   void _undoAll() {
     // Revert all changed questions
     setState(() {
@@ -450,7 +541,10 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
 
       for (int i = 0; i < polishedList.length; i++) {
         final questionKey = '$sectionName-$i';
-        if (_revertedQuestions.contains(questionKey) && i < originalList.length) {
+        if (_editedQuestions.containsKey(questionKey)) {
+          // Use manually edited version
+          finalList.add(_editedQuestions[questionKey]!);
+        } else if (_revertedQuestions.contains(questionKey) && i < originalList.length) {
           // Use original
           finalList.add(originalList[i]);
         } else {
@@ -463,5 +557,61 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
     }
 
     Navigator.pop(context, finalQuestions);
+  }
+}
+
+/// Separate stateful dialog for editing questions to properly manage controller lifecycle
+class _EditQuestionDialog extends StatefulWidget {
+  final String initialText;
+
+  const _EditQuestionDialog({required this.initialText});
+
+  @override
+  State<_EditQuestionDialog> createState() => _EditQuestionDialogState();
+}
+
+class _EditQuestionDialogState extends State<_EditQuestionDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Question'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          labelText: 'Question Text',
+          border: OutlineInputBorder(),
+        ),
+        maxLines: 3,
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

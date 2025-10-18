@@ -193,7 +193,7 @@ There are **155 `print()` and `debugPrint()` statements** scattered across the c
 // main.dart:268
 print('🔥 DEBUG: AuthBloc state is ${authBloc.state}');
 
-// auth_bloc.dart:25
+// auth_bloc_test.dart:25
 print('🔥 DEBUG: AuthBloc constructor called at ${DateTime.now()}');
 
 // main_scaffold_screen.dart:293

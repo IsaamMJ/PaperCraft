@@ -13,6 +13,7 @@ import '../../../catalog/domain/entities/subject_entity.dart';
 import '../../../catalog/domain/services/subject_grade_service.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
+import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
@@ -103,6 +104,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
 
   void _populateFormFromPaper(QuestionPaperEntity paper) {
     if (_isLoaded) return;
+    if (!mounted) return; // Safety check
 
     setState(() {
       _currentPaper = paper;
@@ -375,7 +377,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.warning.withValues(alpha: 0.1),
+            color: AppColors.warning10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           ),
           child: Row(
@@ -495,9 +497,9 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.05),
+                  color: AppColors.primary05,
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+                  border: Border.all(color: AppColors.primary10),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +529,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
+                color: AppColors.warning10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -595,7 +597,7 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           )
@@ -625,21 +627,43 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _editQuestions() {
-    if (_currentPaper == null || _selectedSubject == null) {
-      // Show error message if required data is missing
-      String missingData = '';
-      if (_currentPaper == null) missingData = 'Paper data not loaded';
-      else if (_selectedSubject == null) missingData = 'Subject not loaded';
-
-      UiHelpers.showErrorMessage(context, 'Cannot edit questions: $missingData');
+    // Comprehensive validation to prevent crashes
+    if (_currentPaper == null) {
+      UiHelpers.showErrorMessage(context, 'Paper data not loaded. Please try again.');
       return;
     }
 
+    if (_selectedSubject == null) {
+      UiHelpers.showErrorMessage(context, 'Please select a subject first.');
+      return;
+    }
+
+    if (_selectedGrade == null || _selectedGradeLevel == null) {
+      UiHelpers.showErrorMessage(context, 'Please select a grade first.');
+      return;
+    }
+
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      UiHelpers.showErrorMessage(context, 'Please enter a paper title first.');
+      return;
+    }
+
+    // Check if paper has required data
+    if (_currentPaper!.paperSections.isEmpty) {
+      UiHelpers.showErrorMessage(context, 'Paper must have at least one section.');
+      return;
+    }
+
+    // All validations passed - safe to open dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => BlocProvider.value(
-        value: context.read<QuestionPaperBloc>(),
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: context.read<QuestionPaperBloc>()),
+          BlocProvider.value(value: context.read<TeacherPatternBloc>()),
+        ],
         child: BlocListener<QuestionPaperBloc, QuestionPaperState>(
           listener: (context, state) {
             if (state is QuestionPaperSuccess) {
@@ -650,22 +674,21 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               UiHelpers.showErrorMessage(context, state.message);
             }
           },
-          // In _editQuestions method, REPLACE the QuestionInputDialog call:
           child: QuestionInputDialog(
             paperSections: _currentPaper!.paperSections,
-            selectedSubjects: _selectedSubject != null ? [_selectedSubject!] : [], // FIXED
-            paperTitle: _titleController.text.trim(),
+            selectedSubjects: [_selectedSubject!],
+            paperTitle: title,
             gradeLevel: _selectedGradeLevel!,
-            gradeId: _selectedGrade!.id, // ADD THIS
-            academicYear: _currentPaper!.academicYear, // ADD THIS
+            gradeId: _selectedGrade!.id,
+            academicYear: _currentPaper!.academicYear,
             selectedSections: _selectedSections.isNotEmpty ? _selectedSections : ['All'],
             examType: _currentPaper!.examType,
             examNumber: _currentPaper?.examNumber,
             existingQuestions: _currentPaper?.questions,
             isEditing: true,
             existingPaperId: _currentPaper?.id,
-            existingTenantId: _currentPaper?.tenantId, // ADD THIS
-            existingUserId: _currentPaper?.createdBy, // ADD THIS
+            existingTenantId: _currentPaper?.tenantId,
+            existingUserId: _currentPaper?.createdBy,
             examDate: _currentPaper?.examDate,
             isAdmin: _userStateService.isAdmin,
             onPaperCreated: (_) {},
@@ -684,6 +707,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   void _showMessage(String message, Color color) {
+    if (!mounted) return; // Prevent errors if widget is disposed
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

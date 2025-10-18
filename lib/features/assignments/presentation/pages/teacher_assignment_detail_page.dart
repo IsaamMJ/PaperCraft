@@ -156,7 +156,7 @@ class _TeacherAssignmentDetailPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: Border.all(
           color: hasAssignments
-              ? AppColors.primary.withValues(alpha: 0.3)
+              ? AppColors.primary30
               : AppColors.border,
         ),
       ),
@@ -202,7 +202,7 @@ class _TeacherAssignmentDetailPageState
                 vertical: UIConstants.spacing8,
               ),
               decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.1),
+                color: AppColors.success10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -309,7 +309,7 @@ class _TeacherAssignmentDetailPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -343,7 +343,7 @@ class _TeacherAssignmentDetailPageState
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
+                    color: AppColors.success10,
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: Text(
@@ -418,7 +418,7 @@ class _TeacherAssignmentDetailPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -452,7 +452,7 @@ class _TeacherAssignmentDetailPageState
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: AppColors.primary10,
                     borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                   ),
                   child: Text(
@@ -520,12 +520,12 @@ class _TeacherAssignmentDetailPageState
       ),
       decoration: BoxDecoration(
         color: isAssigned
-            ? AppColors.success.withValues(alpha: 0.1)
+            ? AppColors.success10
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(
           color: isAssigned
-              ? AppColors.success.withValues(alpha: 0.3)
+              ? AppColors.success
               : AppColors.border,
           width: 1.5,
         ),
@@ -568,12 +568,12 @@ class _TeacherAssignmentDetailPageState
       ),
       decoration: BoxDecoration(
         color: isAssigned
-            ? AppColors.success.withValues(alpha: 0.1)
+            ? AppColors.success10
             : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(
           color: isAssigned
-              ? AppColors.success.withValues(alpha: 0.3)
+              ? AppColors.success
               : AppColors.border,
           width: 1.5,
         ),

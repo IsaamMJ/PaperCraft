@@ -116,7 +116,7 @@ class DataPreviewScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
+                          color: AppColors.black04,
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -151,7 +151,7 @@ class DataPreviewScreen extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 8,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.primary10,
                             valueColor: AlwaysStoppedAnimation(AppColors.primary),
                           ),
                         ),
@@ -253,7 +253,7 @@ class DataPreviewScreen extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

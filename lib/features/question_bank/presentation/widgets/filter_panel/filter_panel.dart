@@ -136,10 +136,10 @@ class FilterPanel extends StatelessWidget {
     return Container(
       height: 32,
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.background,
+        color: isSelected ? AppColors.primary10 : AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(
-          color: isSelected ? AppColors.primary : AppColors.border.withValues(alpha: 0.5),
+          color: isSelected ? AppColors.primary : AppColors.border,
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -193,9 +193,9 @@ class FilterPanel extends StatelessWidget {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
+        color: AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.primary30),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -226,9 +226,9 @@ class FilterPanel extends StatelessWidget {
     return Container(
       height: 32,
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
+        color: AppColors.error10,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.error),
       ),
       child: Material(
         color: Colors.transparent,
@@ -265,9 +265,9 @@ class FilterPanel extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.1),
+          color: AppColors.error10,
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.error),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

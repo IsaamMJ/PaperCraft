@@ -45,10 +45,8 @@ class Question extends Equatable {
     return true;
   }
 
-  int get totalMarks {
-    if (subQuestions.isEmpty) return marks;
-    return marks + subQuestions.fold(0, (sum, sub) => sum + sub.marks);
-  }
+  // Total marks is just the main question marks (subquestions don't have separate marks)
+  int get totalMarks => marks;
 
   String get validationError {
     // Validate question text length
@@ -170,37 +168,31 @@ class Question extends Equatable {
 
 class SubQuestion extends Equatable {
   final String text;
-  final int marks;
 
   const SubQuestion({
     required this.text,
-    required this.marks,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'text': text,
-      'marks': marks,
     };
   }
 
   factory SubQuestion.fromJson(Map<String, dynamic> json) {
     return SubQuestion(
       text: json['text'] ?? '',
-      marks: json['marks'] ?? 1,
     );
   }
 
   SubQuestion copyWith({
     String? text,
-    int? marks,
   }) {
     return SubQuestion(
       text: text ?? this.text,
-      marks: marks ?? this.marks,
     );
   }
 
   @override
-  List<Object?> get props => [text, marks];
+  List<Object?> get props => [text];
 }

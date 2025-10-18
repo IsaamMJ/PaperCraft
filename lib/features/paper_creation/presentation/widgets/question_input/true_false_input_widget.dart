@@ -30,7 +30,9 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
   @override
   void initState() {
     super.initState();
-    _questionController.addListener(() => setState(() {}));
+    _questionController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -112,9 +114,9 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: AppColors.primary10,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.primary30),
           ),
           child: Row(
             children: [

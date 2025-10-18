@@ -18,6 +18,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetPapersForReviewUseCase _getPapersForReviewUseCase;
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final RealtimeService _realtimeService;
+  final PaperDisplayService _paperDisplayService;
 
   static const String _adminChannelName = 'home_admin_papers';
   static const String _teacherChannelName = 'home_teacher_papers';
@@ -28,12 +29,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required GetPapersForReviewUseCase getPapersForReviewUseCase,
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required RealtimeService realtimeService,
+    required PaperDisplayService paperDisplayService,
   })  : _getDraftsUseCase = getDraftsUseCase,
         _getSubmissionsUseCase = getSubmissionsUseCase,
         _getPapersForReviewUseCase = getPapersForReviewUseCase,
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _realtimeService = realtimeService,
-        super(const HomeInitial()) {
+        _paperDisplayService = paperDisplayService,
+        super(const HomeLoading(message: 'Initializing...')) {
     on<LoadHomePapers>(_onLoadHomePapers);
     on<RefreshHomePapers>(_onRefreshHomePapers);
     on<EnableRealtimeUpdates>(_onEnableRealtimeUpdates);
@@ -98,8 +101,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           (failure) async => emit(HomeError(failure.message)),
           (allPapers) async {
             // Enrich papers with display names
-            final enrichedReview = await sl<PaperDisplayService>().enrichPapers(papersForReview);
-            final enrichedAll = await sl<PaperDisplayService>().enrichPapers(allPapers);
+            final enrichedReview = await _paperDisplayService.enrichPapers(papersForReview);
+            final enrichedAll = await _paperDisplayService.enrichPapers(allPapers);
 
             emit(HomeLoaded(
               papersForReview: enrichedReview,
@@ -130,8 +133,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           (failure) async => emit(HomeError(failure.message)),
           (submissions) async {
             // Enrich papers with display names
-            final enrichedDrafts = await sl<PaperDisplayService>().enrichPapers(drafts);
-            final enrichedSubmissions = await sl<PaperDisplayService>().enrichPapers(submissions);
+            final enrichedDrafts = await _paperDisplayService.enrichPapers(drafts);
+            final enrichedSubmissions = await _paperDisplayService.enrichPapers(submissions);
+
+            // Pre-sort by modifiedAt to avoid sorting in build method
+            enrichedDrafts.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+            enrichedSubmissions.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
 
             emit(HomeLoaded(
               drafts: enrichedDrafts,
@@ -190,7 +197,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final currentState = state as HomeLoaded;
       final paperModel = QuestionPaperModel.fromSupabase(event.paperData);
-      final enrichedPaper = (await sl<PaperDisplayService>().enrichPapers([paperModel])).first;
+      final enrichedPaper = (await _paperDisplayService.enrichPapers([paperModel])).first;
 
       if (event.eventType == 'INSERT') {
         // Add new paper to appropriate list

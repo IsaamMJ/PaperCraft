@@ -97,6 +97,9 @@ import '../../../features/notifications/domain/usecases/get_user_notifications_u
 import '../../../features/notifications/domain/usecases/mark_notification_read_usecase.dart';
 import '../../../features/notifications/domain/usecases/get_unread_count_usecase.dart';
 
+// PDF generation feature
+import '../../../features/pdf_generation/domain/usecases/download_pdf_usecase.dart';
+
 /// Global service locator instance
 final sl = GetIt.instance;
 
@@ -607,6 +610,9 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => GetApprovedPapersUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersPaginatedUseCase(repository));
 
+    // PDF generation use cases
+    sl.registerLazySingleton(() => DownloadPdfUseCase());
+
     // Register BLoCs
     _setupBlocs();
   }
@@ -621,12 +627,14 @@ class _QuestionPapersModule {
       getPapersForReviewUseCase: sl(),
       getAllPapersForAdminUseCase: sl(),
       realtimeService: sl(),
+      paperDisplayService: sl(),
     ));
 
     // Question Bank BLoC - singleton to preserve state across rebuilds
     sl.registerLazySingleton(() => QuestionBankBloc(
       getApprovedPapersPaginatedUseCase: sl(),
       realtimeService: sl(),
+      paperDisplayService: sl(),
     ));
 
     // Teacher preferences BLoC - singleton for global access

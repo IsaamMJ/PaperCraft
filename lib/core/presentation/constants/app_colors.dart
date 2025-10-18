@@ -11,12 +11,26 @@ class AppColors {
   static const Color primaryDark = Color(0xFF0056CC);
   static const Color primaryLight = Color(0xFF4DA2FF);
 
+  // Primary color opacity variants (pre-computed for performance)
+  static const Color primary05 = Color(0x0D007AFF); // 5% opacity
+  static const Color primary10 = Color(0x1A007AFF); // 10% opacity
+  static const Color primary20 = Color(0x33007AFF); // 20% opacity
+  static const Color primary30 = Color(0x4D007AFF); // 30% opacity
+  static const Color primary40 = Color(0x66007AFF); // 40% opacity
+  static const Color primary50 = Color(0x80007AFF); // 50% opacity
+
   // MARK: - Secondary Colors
   static const Color secondary = Color(0xFF5856D6); // Apple purple
   static const Color accent = Color(0xFFFF9500); // Apple orange
   static const Color success = Color(0xFF30D158); // Apple green
   static const Color warning = Color(0xFFFF9F0A); // Apple yellow
   static const Color error = Color(0xFFFF3B30); // Apple red
+
+  // Secondary color opacity variants
+  static const Color secondary10 = Color(0x1A5856D6); // 10% opacity
+  static const Color success10 = Color(0x1A30D158); // 10% opacity
+  static const Color warning10 = Color(0x1AFF9F0A); // 10% opacity
+  static const Color error10 = Color(0x1AFF3B30); // 10% opacity
 
   // MARK: - Neutral Colors
   static const Color textPrimary = Color(0xFF1D1D1F);
@@ -85,9 +99,28 @@ class AppColors {
   static const Color buttonSecondary = Color(0xFFF2F2F7);
   static const Color buttonDestructive = error;
 
-  static const Color overlayLight = Color(0x1A000000);
-  static const Color overlayDark = Color(0x4D000000);
+  static const Color overlayLight = Color(0x1A000000); // 10% black
+  static const Color overlayMedium = Color(0x33000000); // 20% black
+  static const Color overlayDark = Color(0x4D000000); // 30% black
   static const Color shimmer = Color(0xFFF0F0F0);
+
+  // White opacity variants (for overlays on colored backgrounds)
+  static const Color white05 = Color(0x0DFFFFFF); // 5% white
+  static const Color white10 = Color(0x1AFFFFFF); // 10% white
+  static const Color white20 = Color(0x33FFFFFF); // 20% white
+  static const Color white30 = Color(0x4DFFFFFF); // 30% white
+
+  // Additional opacity variants for common use cases
+  static const Color black04 = Color(0x0A000000); // 4% black (for subtle shadows)
+  static const Color black08 = Color(0x14000000); // 8% black
+  static const Color primary08 = Color(0x14007AFF); // 8% primary
+  static const Color secondary08 = Color(0x145856D6); // 8% secondary
+  static const Color error05 = Color(0x0DFF3B30); // 5% error
+  static const Color error20 = Color(0x33FF3B30); // 20% error
+  static const Color error30 = Color(0x4DFF3B30); // 30% error
+  static const Color error80 = Color(0xCCFF3B30); // 80% error
+  static const Color success05 = Color(0x0D30D158); // 5% success (not 10)
+  static const Color textSecondary70 = Color(0xB36E6E73); // 70% text secondary
 
   // MARK: - Status Colors
   static const Color online = Color(0xFF30D158);

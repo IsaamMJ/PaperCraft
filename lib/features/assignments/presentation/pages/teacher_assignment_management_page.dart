@@ -82,43 +82,26 @@ class _TeacherAssignmentManagementPageState
       ),
       body: BlocBuilder<UserManagementBloc, UserManagementState>(
         builder: (context, state) {
-          // ========== DEBUG LOGGING ==========
-          print('🔍 ========== TEACHER ASSIGNMENT PAGE DEBUG ==========');
-          print('🔍 UserManagementBloc State Type: ${state.runtimeType}');
-
           if (state is UserManagementLoading) {
-            print('🔍 State: LOADING');
             return _buildLoadingState();
           }
 
           if (state is UserManagementError) {
-            print('🔍 State: ERROR');
-            print('🔍 Error Message: ${state.message}');
             return _buildErrorState(state.message);
           }
 
           if (state is UserManagementLoaded) {
-            print('🔍 State: LOADED');
-            print('🔍 Total users loaded: ${state.users.length}');
-            print('🔍 All user roles: ${state.users.map((u) => '${u.fullName}: ${u.role.value}').toList()}');
-
             // Filter only teachers and admins
             final teachers = state.users
                 .where((user) =>
             user.role == UserRole.teacher || user.role == UserRole.admin)
                 .toList();
 
-            print('🔍 Teachers/Admins count after filter: ${teachers.length}');
-            print('🔍 Filtered teachers: ${teachers.map((t) => '${t.fullName} (${t.role.value})').toList()}');
-
             if (teachers.isEmpty) {
-              print('🔍 No teachers found - showing empty state');
               return _buildEmptyState();
             }
 
             final filteredTeachers = _filterTeachers(teachers);
-            print('🔍 Search query: "$_searchQuery"');
-            print('🔍 Teachers after search filter: ${filteredTeachers.length}');
 
             return Column(
               children: [
@@ -133,7 +116,6 @@ class _TeacherAssignmentManagementPageState
             );
           }
 
-          print('🔍 State: UNKNOWN/INITIAL - showing empty state');
           return _buildEmptyState();
         },
       ),
@@ -152,14 +134,14 @@ class _TeacherAssignmentManagementPageState
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient.scale(0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primary20),
       ),
       child: Row(
         children: [
           Container(
             padding: EdgeInsets.all(UIConstants.spacing12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.primary10,
               borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             ),
             child: Icon(
@@ -246,7 +228,10 @@ class _TeacherAssignmentManagementPageState
         itemCount: teachers.length,
         itemBuilder: (context, index) {
           final teacher = teachers[index];
-          return _buildTeacherCard(teacher);
+          return KeyedSubtree(
+            key: ValueKey(teacher.id),
+            child: _buildTeacherCard(teacher),
+          );
         },
       ),
     );
@@ -260,7 +245,7 @@ class _TeacherAssignmentManagementPageState
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -366,11 +351,11 @@ class _TeacherAssignmentManagementPageState
       ),
       decoration: BoxDecoration(
         gradient: isAdmin ? AppColors.accentGradient : null,
-        color: isAdmin ? null : AppColors.primary.withValues(alpha: 0.1),
+        color: isAdmin ? null : AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdmin
             ? null
-            : Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            : Border.all(color: AppColors.primary20),
       ),
       child: Text(
         role.displayName,

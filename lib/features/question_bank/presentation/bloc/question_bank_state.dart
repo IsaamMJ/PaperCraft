@@ -36,6 +36,14 @@ class QuestionBankLoaded extends QuestionBankState {
   final String? subjectFilter;
   final String? gradeFilter;
 
+  // Pre-computed filtered and grouped data for performance
+  final Map<String, List<QuestionPaperEntity>> thisMonthGroupedByClass;
+  final Map<String, List<QuestionPaperEntity>> thisMonthGroupedByMonth;
+  final Map<String, List<QuestionPaperEntity>> previousMonthGroupedByClass;
+  final Map<String, List<QuestionPaperEntity>> previousMonthGroupedByMonth;
+  final Map<String, List<QuestionPaperEntity>> archiveGroupedByClass;
+  final Map<String, List<QuestionPaperEntity>> archiveGroupedByMonth;
+
   const QuestionBankLoaded({
     required this.papers,
     required this.currentPage,
@@ -46,6 +54,12 @@ class QuestionBankLoaded extends QuestionBankState {
     this.searchQuery,
     this.subjectFilter,
     this.gradeFilter,
+    required this.thisMonthGroupedByClass,
+    required this.thisMonthGroupedByMonth,
+    required this.previousMonthGroupedByClass,
+    required this.previousMonthGroupedByMonth,
+    required this.archiveGroupedByClass,
+    required this.archiveGroupedByMonth,
   });
 
   QuestionBankLoaded copyWith({
@@ -58,6 +72,12 @@ class QuestionBankLoaded extends QuestionBankState {
     String? searchQuery,
     String? subjectFilter,
     String? gradeFilter,
+    Map<String, List<QuestionPaperEntity>>? thisMonthGroupedByClass,
+    Map<String, List<QuestionPaperEntity>>? thisMonthGroupedByMonth,
+    Map<String, List<QuestionPaperEntity>>? previousMonthGroupedByClass,
+    Map<String, List<QuestionPaperEntity>>? previousMonthGroupedByMonth,
+    Map<String, List<QuestionPaperEntity>>? archiveGroupedByClass,
+    Map<String, List<QuestionPaperEntity>>? archiveGroupedByMonth,
   }) {
     return QuestionBankLoaded(
       papers: papers ?? this.papers,
@@ -69,6 +89,12 @@ class QuestionBankLoaded extends QuestionBankState {
       searchQuery: searchQuery ?? this.searchQuery,
       subjectFilter: subjectFilter ?? this.subjectFilter,
       gradeFilter: gradeFilter ?? this.gradeFilter,
+      thisMonthGroupedByClass: thisMonthGroupedByClass ?? this.thisMonthGroupedByClass,
+      thisMonthGroupedByMonth: thisMonthGroupedByMonth ?? this.thisMonthGroupedByMonth,
+      previousMonthGroupedByClass: previousMonthGroupedByClass ?? this.previousMonthGroupedByClass,
+      previousMonthGroupedByMonth: previousMonthGroupedByMonth ?? this.previousMonthGroupedByMonth,
+      archiveGroupedByClass: archiveGroupedByClass ?? this.archiveGroupedByClass,
+      archiveGroupedByMonth: archiveGroupedByMonth ?? this.archiveGroupedByMonth,
     );
   }
 
@@ -83,6 +109,12 @@ class QuestionBankLoaded extends QuestionBankState {
     searchQuery,
     subjectFilter,
     gradeFilter,
+    thisMonthGroupedByClass,
+    thisMonthGroupedByMonth,
+    previousMonthGroupedByClass,
+    previousMonthGroupedByMonth,
+    archiveGroupedByClass,
+    archiveGroupedByMonth,
   ];
 }
 

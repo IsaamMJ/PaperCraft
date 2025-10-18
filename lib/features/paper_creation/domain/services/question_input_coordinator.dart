@@ -236,7 +236,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
               borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: AppColors.black04,
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 )
@@ -306,8 +306,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: currentMarks == totalMarks
-                    ? AppColors.success.withValues(alpha: 0.1)
-                    : AppColors.primary.withValues(alpha: 0.1),
+                    ? AppColors.success10
+                    : AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
               ),
               child: Text(
@@ -324,7 +324,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
+                  color: AppColors.warning10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusXXLarge),
                 ),
                 child: Text(
@@ -384,7 +384,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppColors.overlayLight,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -439,7 +439,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                       width: isActive ? 2 : 1,
                     ),
                     color: isActive
-                        ? AppColors.primary.withValues(alpha: 0.1)
+                        ? AppColors.primary10
                         : AppColors.surface,
                   ),
                   child: Row(
@@ -684,16 +684,16 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       return _allQuestions; // No questions to polish
     }
 
-    // Track progress
-    int processedQuestions = 0;
+    // Track progress with ValueNotifier to avoid rebuilding dialog
+    final processedQuestionsNotifier = ValueNotifier<int>(0);
 
-    // Show loading dialog
+    // Show loading dialog once
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => PolishLoadingDialog(
         totalQuestions: totalQuestions,
-        processedQuestions: processedQuestions,
+        processedQuestionsNotifier: processedQuestionsNotifier,
       ),
     );
 
@@ -714,27 +714,50 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           // Parallel processing of batch
           final futures = batch.map((q) async {
             try {
-              final result = await GroqService.polishText(q.text);
+              // Polish question text
+              final textResult = await GroqService.polishText(q.text);
 
-              // Update progress
-              processedQuestions++;
-              if (mounted) {
-                // Update dialog (rebuild with new progress)
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => PolishLoadingDialog(
-                    totalQuestions: totalQuestions,
-                    processedQuestions: processedQuestions,
-                  ),
-                );
+              // Polish MCQ options if present
+              List<String>? polishedOptions;
+              if (q.type == 'multiple_choice' && q.options != null && q.options!.isNotEmpty) {
+                polishedOptions = [];
+                for (final option in q.options!) {
+                  try {
+                    final optionResult = await GroqService.polishText(option);
+                    polishedOptions.add(optionResult.polished);
+                  } catch (e) {
+                    // If option polish fails, keep original
+                    polishedOptions.add(option);
+                  }
+                }
               }
 
+              // Polish subquestions if present
+              List<SubQuestion>? polishedSubQuestions;
+              if (q.subQuestions.isNotEmpty) {
+                polishedSubQuestions = [];
+                for (final subQ in q.subQuestions) {
+                  try {
+                    final subQResult = await GroqService.polishText(subQ.text);
+                    polishedSubQuestions.add(SubQuestion(
+                      text: subQResult.polished,
+                    ));
+                  } catch (e) {
+                    // If subquestion polish fails, keep original
+                    polishedSubQuestions.add(subQ);
+                  }
+                }
+              }
+
+              // Update progress via ValueNotifier (no need to rebuild dialog)
+              processedQuestionsNotifier.value++;
+
               return q.copyWith(
-                text: result.polished,
-                originalText: result.original,
-                polishChanges: result.changesSummary,
+                text: textResult.polished,
+                options: polishedOptions ?? q.options,
+                subQuestions: polishedSubQuestions ?? q.subQuestions,
+                originalText: textResult.original,
+                polishChanges: textResult.changesSummary,
               );
             } catch (e) {
               // If polishing fails for one question, keep original
@@ -751,6 +774,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
       }
+      processedQuestionsNotifier.dispose(); // Clean up notifier
 
       return polished;
     } catch (e) {
@@ -758,6 +782,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         Navigator.pop(context); // Close loading dialog
         _showMessage('AI Polish failed: $e', AppColors.error);
       }
+      processedQuestionsNotifier.dispose(); // Clean up notifier
       return null;
     }
   }
@@ -796,6 +821,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   void _addQuestion(Question question) {
+    // Prevent adding more than 1000 questions per section to avoid OOM
+    const maxQuestionsPerSection = 1000;
+    final currentQuestions = _allQuestions[_currentSection.name]!;
+
+    if (currentQuestions.length >= maxQuestionsPerSection) {
+      UiHelpers.showErrorMessage(
+        context,
+        'Cannot add more than $maxQuestionsPerSection questions per section. Please create a new paper.'
+      );
+      return;
+    }
+
     final correctedQuestion = Question(
       text: question.text,
       type: _currentSection.type,

@@ -223,9 +223,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.primary10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.primary30),
                 ),
                 child: Text(
                   layoutName,
@@ -342,13 +342,13 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.1)
+                ? AppColors.primary10
                 : AppColors.background,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(
               color: isSelected
                   ? AppColors.primary
-                  : AppColors.border.withValues(alpha: 0.3),
+                  : AppColors.border,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -394,7 +394,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -444,7 +444,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.primary10,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -499,7 +499,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.primary10,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -565,7 +565,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppColors.overlayLight,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -596,7 +596,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),

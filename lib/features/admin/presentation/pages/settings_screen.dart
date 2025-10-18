@@ -81,7 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               padding: EdgeInsets.all(UIConstants.spacing12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Row(
@@ -323,7 +323,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   vertical: UIConstants.spacing4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.primary10,
                   borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                 ),
                 child: Text(
@@ -397,7 +397,7 @@ class _SettingsPageState extends State<SettingsPage> {
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black04,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -452,7 +452,7 @@ class _SettingsPageState extends State<SettingsPage> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: AppColors.white20,
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
             ),
             child: Center(
@@ -484,7 +484,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   user.role.displayName,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white,
                     fontSize: UIConstants.fontSizeMedium,
                   ),
                 ),
@@ -575,11 +575,11 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       decoration: BoxDecoration(
         gradient: isAdminRole ? AppColors.accentGradient : null,
-        color: isAdminRole ? null : AppColors.primary.withValues(alpha: 0.1),
+        color: isAdminRole ? null : AppColors.primary10,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
         border: isAdminRole
             ? null
-            : Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            : Border.all(color: AppColors.primary20),
       ),
       child: Text(
         role.displayName,
@@ -601,19 +601,19 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.primary.withValues(alpha: 0.1),
-              AppColors.secondary.withValues(alpha: 0.1),
+              AppColors.primary10,
+              AppColors.secondary10,
             ],
           ),
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.primary30),
         ),
         child: Row(
           children: [
             Container(
               padding: EdgeInsets.all(UIConstants.spacing12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary10,
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
               ),
               child: Icon(
