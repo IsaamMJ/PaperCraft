@@ -1,10 +1,8 @@
 // features/question_papers/data/repositories/question_paper_repository_impl.dart
 import 'package:dartz/dartz.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/domain/models/paginated_result.dart';
-import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
@@ -18,18 +16,20 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   final PaperLocalDataSource _localDataSource;
   final PaperCloudDataSource _cloudDataSource;
   final ILogger _logger;
+  final UserStateService _userStateService;
 
   QuestionPaperRepositoryImpl(
       this._localDataSource,
       this._cloudDataSource,
       this._logger,
+      this._userStateService,
       );
 
-  Future<String?> _getTenantId() async => sl<UserStateService>().currentTenantId;
-  Future<String?> _getUserId() async => sl<UserStateService>().currentUserId;
-  UserRole _getUserRole() => sl<UserStateService>().currentRole;
-  bool _canCreatePapers() => sl<UserStateService>().canCreatePapers();
-  bool _canApprovePapers() => sl<UserStateService>().canApprovePapers();
+  Future<String?> _getTenantId() async => _userStateService.currentTenantId;
+  Future<String?> _getUserId() async => _userStateService.currentUserId;
+  UserRole _getUserRole() => _userStateService.currentRole;
+  bool _canCreatePapers() => _userStateService.canCreatePapers();
+  bool _canApprovePapers() => _userStateService.canApprovePapers();
 
   @override
   Future<Either<Failure, QuestionPaperEntity>> saveDraft(QuestionPaperEntity paper) async {
@@ -274,9 +274,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   @override
   Future<Either<Failure, QuestionPaperEntity>> pullForEditing(String id) async {
     try {
-      final userStateService = sl<UserStateService>();
-
-      if (!userStateService.isAuthenticated) {
+      if (!_userStateService.isAuthenticated) {
         return Left(AuthFailure('User not authenticated'));
       }
 
@@ -292,7 +290,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
         return Left(ValidationFailure('Only rejected papers can be edited'));
       }
 
-      if (!userStateService.canEditPaper(cloudEntity.userId ?? '')) {
+      if (!_userStateService.canEditPaper(cloudEntity.userId ?? '')) {
         return Left(PermissionFailure('Can only edit own papers'));
       }
 

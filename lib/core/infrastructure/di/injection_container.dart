@@ -3,6 +3,9 @@ import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Core domain interfaces
+import '../../domain/interfaces/i_auth_provider.dart';
+import '../../domain/interfaces/i_clock.dart';
+import '../auth/supabase_auth_provider.dart';
 import '../../../features/authentication/data/datasources/tenant_data_source.dart';
 import '../../../features/authentication/data/datasources/user_data_source.dart';
 import '../../../features/authentication/data/repositories/tenant_repository_impl.dart';
@@ -192,6 +195,14 @@ void _registerCoreServices() {
   // Logger second (depends on feature flags)
   sl.registerLazySingleton<ILogger>(() => AppLoggerImpl(sl<IFeatureFlags>()));
 
+  // Clock abstraction (no dependencies)
+  sl.registerLazySingleton<IClock>(() => const SystemClock());
+
+  // Auth Provider abstraction (no dependencies)
+  sl.registerLazySingleton<IAuthProvider>(
+    () => SupabaseAuthProvider(Supabase.instance.client),
+  );
+
   // Analytics service (depends on nothing - can be stubbed)
   sl.registerLazySingleton<IAnalyticsService>(() => AnalyticsService());
 
@@ -307,7 +318,8 @@ class _AuthModule {
             () => AuthDataSource(
           sl<ApiClient>(),
           sl<ILogger>(),
-          Supabase.instance.client,
+          sl<IAuthProvider>(),
+          sl<IClock>(),
         ),
       );
 
@@ -329,16 +341,21 @@ class _AuthModule {
 
       // User data layer BEFORE UserStateService
       sl.registerLazySingleton<UserDataSource>(
-            () => UserDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
+            () => UserDataSourceImpl(sl<ApiClient>(), sl<ILogger>()),
       );
 
       sl.registerLazySingleton<UserRepository>(
             () => UserRepositoryImpl(sl<UserDataSource>(), sl<ILogger>()),
       );
 
-      // Domain services - CORRECT: Only pass ILogger
+      // Domain services - Now with all dependencies injected
       sl.registerLazySingleton<UserStateService>(
-            () => UserStateService(sl<ILogger>()), // ✅ CORRECT - single positional parameter
+            () => UserStateService(
+          sl<ILogger>(),
+          sl<GetTenantUseCase>(),
+          sl<AuthUseCase>(),
+          sl<IClock>(),
+        ),
       );
 
       // Setup onboarding dependencies (after all dependencies are ready)
@@ -349,6 +366,8 @@ class _AuthModule {
       sl.registerLazySingleton<AuthBloc>(() => AuthBloc(
         sl<AuthUseCase>(),
         sl<UserStateService>(),
+        sl<IAuthProvider>().onAuthStateChange,
+        sl<IClock>(),
       ));
 
       sl<ILogger>().info(
@@ -407,7 +426,10 @@ class _AuthModule {
 
     // 2. Then register TenantRepository that depends on TenantDataSource
     sl.registerLazySingleton<TenantRepository>(
-          () => TenantRepositoryImpl(sl<TenantDataSource>(), sl<ILogger>()),
+          () => TenantRepositoryImpl(
+            sl<TenantDataSource>(),
+            sl<ILogger>(),
+          ),
     );
 
     // 3. Finally register the UseCase
@@ -579,6 +601,7 @@ class _QuestionPapersModule {
         sl<PaperLocalDataSource>(),
         sl<PaperCloudDataSource>(),
         sl<ILogger>(),
+        sl<UserStateService>(),
       ),
     );
   }

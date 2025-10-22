@@ -1,0 +1,52 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS E:\New folder (2)\papercraft> flutter test test/widgets/features/authentication/pages/login_page_test.dart
+00:03 +9: LoginPage - BLoC State Handling should show different error messages correctly
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "Invalid credentials": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:283:13)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart line 283
+The test description was:
+  should show different error messages correctly
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:03 +9 -1: LoginPage - BLoC State Handling should show different error messages correctly [E]
+  Test failed. See exception logs above.
+  The test description was: should show different error messages correctly
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart -p vm --plain-name "LoginPage - BLoC State Handling should show different error messages correctly"
+00:03 +22 -1: Some tests failed.
+PS E:\New folder (2)\papercraft> flutter test test/widgets/features/authentication/pages/login_page_test.dart
+00:03 +25: All tests passed!
+PS E:\New folder (2)\papercraft> flutter test test/helpers/mock_clock.dart
+00:01 +0: loading E:/New folder (2)/papercraft/test/helpers/mock_clock.dart                                                                                                                  /C:/Users/Jahir/AppData/Local/Temp/flutter_tools.6e61d488/flutter_test_listener.a2561a23/listener.dart:21:21: Error: Undefined name 'main'.
+  await Future(test.main);
+                    ^^^^
+00:01 +0 -1: loading E:/New folder (2)/papercraft/test/helpers/mock_clock.dart [E]
+  Failed to load "E:/New folder (2)/papercraft/test/helpers/mock_clock.dart":
+  Compilation failed for testPath=E:/New folder (2)/papercraft/test/helpers/mock_clock.dart: /C:/Users/Jahir/AppData/Local/Temp/flutter_tools.6e61d488/flutter_test_listener.a2561a23/listener.dart:21:21: Error: Undefined name 'main'.
+    await Future(test.main);
+                      ^^^^
+  .
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/helpers/mock_clock.dart -p vm --plain-name "loading E:/New folder (2)/papercraft/test/helpers/mock_clock.dart"
+00:01 +0 -1: Some tests failed.
+PS E:\New folder (2)\papercraft>
+

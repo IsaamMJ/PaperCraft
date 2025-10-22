@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _startNotificationRefresh() {
+    _notificationRefreshTimer?.cancel(); // Cancel existing timer first to prevent memory leaks
     _notificationRefreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       // Only refresh if app is in foreground
       if (mounted && _isAppInForeground) {
@@ -75,6 +76,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _notificationRefreshTimer?.cancel();
+    _cachedHomeState = null; // Clear cached state to free memory
     super.dispose();
   }
 
@@ -637,9 +639,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (_isRefreshing) return;
 
     if (!mounted) return;
-    setState(() => _isRefreshing = true);
 
     try {
+      setState(() => _isRefreshing = true);
+
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
         final isAdmin = authState.user.role == UserRole.admin;
@@ -660,11 +663,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildNotificationBell() {
     return BlocBuilder<NotificationBloc, NotificationState>(
       builder: (context, state) {
-        int unreadCount = 0;
-
-        if (state is NotificationLoaded) {
-          unreadCount = state.unreadCount;
-        }
+        final int unreadCount = state is NotificationLoaded
+            ? state.unreadCount
+            : 0;
 
         return Stack(
           clipBehavior: Clip.none,

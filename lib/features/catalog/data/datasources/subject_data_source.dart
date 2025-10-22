@@ -61,6 +61,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
           )
         ''')
           .eq('tenant_id', tenantId)
+          .eq('teacher_subject_assignments.tenant_id', tenantId)
           .eq('teacher_subject_assignments.teacher_id', teacherId)
           .eq('teacher_subject_assignments.academic_year', academicYear)
           .eq('teacher_subject_assignments.is_active', true)

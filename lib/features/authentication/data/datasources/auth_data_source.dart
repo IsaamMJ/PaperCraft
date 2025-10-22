@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:dartz/dartz.dart';
+import '../../../../core/domain/interfaces/i_auth_provider.dart';
+import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/config/auth_config.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
@@ -12,18 +14,24 @@ import '../models/user_model.dart';
 class AuthDataSource {
   final ApiClient _apiClient;
   final ILogger _logger;
-  final SupabaseClient _supabase;
+  final IAuthProvider _authProvider;
+  final IClock _clock;
 
-  AuthDataSource(this._apiClient, this._logger, this._supabase);
+  AuthDataSource(
+    this._apiClient,
+    this._logger,
+    this._authProvider,
+    this._clock,
+  );
 
   Future<Either<AuthFailure, UserModel?>> initialize() async {
     _logger.authEvent('initialize_started', 'system', context: {
       'method': 'session_check',
-      'timestamp': DateTime.now().toIso8601String(),
+      'timestamp': _clock.now().toIso8601String(),
     });
 
     try {
-      final session = _supabase.auth.currentSession;
+      final session = _authProvider.currentSession;
       if (session?.user == null) {
         _logger.authEvent('initialize_no_session', 'system', context: {
           'hasSession': false,
@@ -68,7 +76,7 @@ class AuthDataSource {
   }
 
   Future<Either<AuthFailure, UserModel>> signInWithGoogle() async {
-    final operationId = DateTime.now().millisecondsSinceEpoch.toString();
+    final operationId = _clock.now().millisecondsSinceEpoch.toString();
 
 
     print('🔍 ACTUAL REDIRECT URL: ${AuthConfig.redirectUrl}');
@@ -82,9 +90,9 @@ class AuthDataSource {
     });
 
     try {
-      final bool launched = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: AuthConfig.redirectUrl,
+      final bool launched = await _authProvider.signInWithOAuth(
+        provider: OAuthProvider.google,
+        redirectUrl: AuthConfig.redirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
         queryParams: {
           'prompt': 'select_account',
@@ -182,7 +190,7 @@ class AuthDataSource {
         'delayMs': delay.inMilliseconds,
       });
 
-      await Future.delayed(delay);
+      await _clock.delay(delay);
 
       final result = await _getUserProfile(userId);
 
@@ -236,7 +244,7 @@ class AuthDataSource {
 
   Future<Either<AuthFailure, UserModel?>> getCurrentUser() async {
     try {
-      final user = _supabase.auth.currentUser;
+      final user = _authProvider.currentUser;
       if (user == null) {
         return const Right(null);
       }
@@ -269,18 +277,18 @@ class AuthDataSource {
   }
 
   Future<Either<AuthFailure, void>> signOut() async {
-    final currentUserId = _supabase.auth.currentUser?.id ?? 'unknown';
+    final currentUserId = _authProvider.currentUser?.id ?? 'unknown';
 
     _logger.authEvent('signout_started', currentUserId, context: {
-      'hasCurrentUser': _supabase.auth.currentUser != null,
-      'timestamp': DateTime.now().toIso8601String(),
+      'hasCurrentUser': _authProvider.currentUser != null,
+      'timestamp': _clock.now().toIso8601String(),
     });
 
     try {
       await _signOut();
 
       _logger.authEvent('signout_success', currentUserId, context: {
-        'completedAt': DateTime.now().toIso8601String(),
+        'completedAt': _clock.now().toIso8601String(),
       });
 
       return const Right(null);
@@ -292,7 +300,7 @@ class AuthDataSource {
     }
   }
 
-  bool get isAuthenticated => _supabase.auth.currentUser != null;
+  bool get isAuthenticated => _authProvider.isAuthenticated;
 
   // =============== PRIVATE METHODS ===============
 
@@ -321,22 +329,22 @@ class AuthDataSource {
     final completer = Completer<Session?>();
     late StreamSubscription subscription;
 
-    final currentSession = _supabase.auth.currentSession;
+    final currentSession = _authProvider.currentSession;
     if (currentSession?.user != null) {
       return currentSession;
     }
 
-    subscription = _supabase.auth.onAuthStateChange.listen((data) {
-      if (data.session?.user != null && !completer.isCompleted) {
-        completer.complete(data.session);
+    subscription = _authProvider.onAuthStateChange.listen((event) {
+      if (event.session?.user != null && !completer.isCompleted) {
+        completer.complete(event.session);
         subscription.cancel();
-      } else if (data.event == AuthChangeEvent.signedOut && !completer.isCompleted) {
+      } else if (event.event == AuthChangeEvent.signedOut && !completer.isCompleted) {
         completer.complete(null);
         subscription.cancel();
       }
     });
 
-    Timer(const Duration(seconds: 45), () {
+    _clock.timer(const Duration(seconds: 45), () {
       if (!completer.isCompleted) {
         subscription.cancel();
         completer.complete(null);
@@ -348,7 +356,7 @@ class AuthDataSource {
 
   Future<void> _signOut() async {
     try {
-      await _supabase.auth.signOut(scope: SignOutScope.global)
+      await _authProvider.signOut(scope: SignOutScope.global)
           .timeout(const Duration(seconds: 5));
 
       _logger.debug('Global signout completed', category: LogCategory.auth);
@@ -356,7 +364,7 @@ class AuthDataSource {
       _logger.warning('Global signout failed, trying local', category: LogCategory.auth);
 
       try {
-        await _supabase.auth.signOut(scope: SignOutScope.local)
+        await _authProvider.signOut(scope: SignOutScope.local)
             .timeout(const Duration(seconds: 3));
 
         _logger.debug('Local signout completed', category: LogCategory.auth);

@@ -1,8 +1,8 @@
 // features/authentication/domain/services/user_state_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
-import '../../../../core/infrastructure/di/injection_container.dart';
 import '../entities/user_entity.dart';
 import '../entities/user_role.dart';
 import '../entities/tenant_entity.dart';
@@ -12,6 +12,10 @@ import '../usecases/get_tenant_usecase.dart';
 /// Enhanced user state service with tenant management
 class UserStateService extends ChangeNotifier {
   final ILogger _logger;
+  final GetTenantUseCase _getTenantUseCase;
+  final AuthUseCase _authUseCase;
+  final IClock _clock;
+
   UserEntity? _currentUser;
   TenantEntity? _currentTenant;
 
@@ -19,7 +23,7 @@ class UserStateService extends ChangeNotifier {
   /// Calculate current academic year based on current date
   /// Academic year starts in July
   String get currentAcademicYear {
-    final now = DateTime.now();
+    final now = _clock.now();
     final year = now.year;
     final month = now.month;
 
@@ -41,7 +45,12 @@ class UserStateService extends ChangeNotifier {
   bool _isTenantLoading = false;
   String? _tenantLoadError;
 
-  UserStateService(this._logger) {
+  UserStateService(
+    this._logger,
+    this._getTenantUseCase,
+    this._authUseCase,
+    this._clock,
+  ) {
     _logger.debug('UserStateService initialized', category: LogCategory.auth, context: {
       'serviceType': 'domain_service',
       'responsibilities': ['user_state', 'permissions', 'tenant_management'],
@@ -100,8 +109,13 @@ class UserStateService extends ChangeNotifier {
   // =============== USER STATE MANAGEMENT ===============
 
   /// Update user state and load tenant data
-  void updateUser(UserEntity? user) async {
-    if (_currentUser != user) {
+  Future<void> updateUser(UserEntity? user) async {
+    if (_currentUser == null ||
+        user == null ||
+        _currentUser!.id != user.id ||
+        _currentUser!.role != user.role ||
+        _currentUser!.isActive != user.isActive ||
+        _currentUser!.tenantId != user.tenantId) {
       final previousUserId = _currentUser?.id;
       final previousTenantId = _currentUser?.tenantId;
 
@@ -165,8 +179,7 @@ class UserStateService extends ChangeNotifier {
         'operation': 'load_tenant',
       });
 
-      final getTenantUseCase = sl<GetTenantUseCase>();
-      final result = await getTenantUseCase(tenantId);
+      final result = await _getTenantUseCase(tenantId);
 
       result.fold(
             (failure) {
@@ -235,7 +248,7 @@ class UserStateService extends ChangeNotifier {
 
   void _startPermissionRefreshTimer() {
     _permissionRefreshTimer?.cancel();
-    _permissionRefreshTimer = Timer.periodic(_permissionRefreshInterval, (_) {
+    _permissionRefreshTimer = _clock.periodic(_permissionRefreshInterval, (_) {
       if (isAuthenticated) {
         _refreshUserPermissions();
       }
@@ -253,8 +266,7 @@ class UserStateService extends ChangeNotifier {
         'currentRole': currentRole.value,
       });
 
-      final authUseCase = sl<AuthUseCase>();
-      final result = await authUseCase.getCurrentUser();
+      final result = await _authUseCase.getCurrentUser();
 
       result.fold(
             (failure) {
@@ -289,14 +301,15 @@ class UserStateService extends ChangeNotifier {
               });
             }
 
-            updateUser(freshUser);
-
-            if (_currentUser!.isActive && !freshUser.isActive) {
+            // Check for deactivation BEFORE updating user
+            if (!freshUser.isActive) {
               _logger.warning('User was deactivated, clearing state', category: LogCategory.auth, context: {
                 'userId': currentUserId,
                 'securityAction': 'account_deactivated',
               });
               clearUser();
+            } else {
+              updateUser(freshUser);
             }
           } else if (freshUser == null) {
             _logger.warning('User no longer exists, clearing state', category: LogCategory.auth, context: {

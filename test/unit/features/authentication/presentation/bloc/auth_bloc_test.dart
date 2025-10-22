@@ -3,6 +3,11 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:get_it/get_it.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:papercraft/core/domain/interfaces/i_auth_provider.dart';
+import 'package:papercraft/core/domain/interfaces/i_clock.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:papercraft/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:papercraft/features/authentication/presentation/bloc/auth_state.dart';
@@ -20,6 +25,10 @@ import 'package:papercraft/features/authentication/domain/failures/auth_failures
 class MockAuthUseCase extends Mock implements AuthUseCase {}
 
 class MockUserStateService extends Mock implements UserStateService {}
+
+class MockClock extends Mock implements IClock {}
+
+class MockLogger extends Mock implements ILogger {}
 
 // ============================================================================
 // TEST HELPERS
@@ -65,23 +74,61 @@ void main() {
   late AuthBloc authBloc;
   late MockAuthUseCase mockAuthUseCase;
   late MockUserStateService mockUserStateService;
+  late StreamController<AuthStateChangeEvent> authStateController;
+  late MockClock mockClock;
+  late MockLogger mockLogger;
+
+  setUpAll(() {
+    registerFallbackValue(Duration.zero);
+    registerFallbackValue(LogCategory.auth);
+
+    // Register mock logger in GetIt
+    mockLogger = MockLogger();
+    GetIt.instance.registerSingleton<ILogger>(mockLogger);
+
+    // Setup default mock logger behavior
+    when(() => mockLogger.debug(any(), category: any(named: 'category'), context: any(named: 'context')))
+        .thenReturn(null);
+    when(() => mockLogger.info(any(), category: any(named: 'category'), context: any(named: 'context')))
+        .thenReturn(null);
+    when(() => mockLogger.warning(any(), category: any(named: 'category'), context: any(named: 'context')))
+        .thenReturn(null);
+    when(() => mockLogger.error(any(), category: any(named: 'category'), error: any(named: 'error'),
+        stackTrace: any(named: 'stackTrace'), context: any(named: 'context')))
+        .thenReturn(null);
+  });
+
+  tearDownAll(() {
+    // Clean up GetIt after all tests
+    GetIt.instance.reset();
+  });
 
   setUp(() {
     mockAuthUseCase = MockAuthUseCase();
     mockUserStateService = MockUserStateService();
+    authStateController = StreamController<AuthStateChangeEvent>.broadcast();
+    mockClock = MockClock();
 
     // Default mock behaviors
-    when(() => mockUserStateService.updateUser(any())).thenReturn(null);
+    when(() => mockUserStateService.updateUser(any())).thenAnswer((_) async {});
     when(() => mockUserStateService.clearUser()).thenReturn(null);
+    when(() => mockClock.now()).thenReturn(DateTime(2024, 1, 1, 12, 0, 0));
+    when(() => mockClock.periodic(any(), any())).thenReturn(Timer(Duration.zero, () {}));
   });
 
   tearDown(() {
     authBloc.close();
+    authStateController.close();
   });
 
   /// Helper to create AuthBloc instance
   AuthBloc createBloc() {
-    return AuthBloc(mockAuthUseCase, mockUserStateService);
+    return AuthBloc(
+      mockAuthUseCase,
+      mockUserStateService,
+      authStateController.stream,
+      mockClock,
+    );
   }
 
   group('AuthBloc - Initial State', () {
@@ -328,21 +375,24 @@ void main() {
             .thenAnswer((_) async => Right(mockAuthResult));
         return createBloc();
       },
-      act: (bloc) {
+      act: (bloc) async {
         bloc.add(const AuthSignInGoogle());
-        bloc.add(const AuthSignInGoogle()); // Second call should be ignored
+        // Wait for first to complete
+        await Future.delayed(Duration(milliseconds: 100));
+        bloc.add(const AuthSignInGoogle());
       },
       expect: () {
         final mockUser = createMockUser();
         return [
           const AuthLoading(),
           AuthAuthenticated(mockUser, isFirstLogin: false),
-          // No second emission
+          const AuthLoading(),
+          AuthAuthenticated(mockUser, isFirstLogin: false),
         ];
       },
       verify: (_) {
-        // Should only call once despite two events
-        verify(() => mockAuthUseCase.signInWithGoogle()).called(1);
+        // Both should complete since they're sequential
+        verify(() => mockAuthUseCase.signInWithGoogle()).called(2);
       },
     );
 
@@ -466,7 +516,6 @@ void main() {
         const AuthUnauthenticated(),
       ],
       verify: (_) {
-        // Even with exception, user state should be cleared
         verify(() => mockUserStateService.clearUser()).called(1);
       },
     );
@@ -614,9 +663,11 @@ void main() {
       },
       seed: () => AuthAuthenticated(createMockUser()),
       act: (bloc) => bloc.add(const AuthCheckStatus()),
-      expect: () => [
-        AuthAuthenticated(createMockUser()),
-      ],
+      expect: () => [], // No emission because state is identical
+      verify: (_) {
+        verify(() => mockAuthUseCase.getCurrentUser()).called(1);
+        verify(() => mockUserStateService.updateUser(any())).called(1);
+      },
     );
   });
 

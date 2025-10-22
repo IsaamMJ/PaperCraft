@@ -8,7 +8,6 @@ class TenantModel extends TenantEntity {
     super.domain,
     required super.isActive,
     required super.isInitialized,
-    required super.currentAcademicYear, // ADD THIS
     required super.createdAt,
   });
 
@@ -20,7 +19,6 @@ class TenantModel extends TenantEntity {
       domain: json['domain'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       isInitialized: json['is_initialized'] as bool? ?? false,
-      currentAcademicYear: json['current_academic_year'] as String? ?? '2024-2025', // ADD THIS
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -33,7 +31,6 @@ class TenantModel extends TenantEntity {
       'domain': domain,
       'is_active': isActive,
       'is_initialized': isInitialized,
-      'current_academic_year': currentAcademicYear, // ADD THIS
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -46,7 +43,6 @@ class TenantModel extends TenantEntity {
       domain: domain,
       isActive: isActive,
       isInitialized: isInitialized,
-      currentAcademicYear: currentAcademicYear, // ADD THIS
       createdAt: createdAt,
     );
   }
@@ -59,7 +55,6 @@ class TenantModel extends TenantEntity {
       domain: entity.domain,
       isActive: entity.isActive,
       isInitialized: entity.isInitialized,
-      currentAcademicYear: entity.currentAcademicYear, // ADD THIS
       createdAt: entity.createdAt,
     );
   }

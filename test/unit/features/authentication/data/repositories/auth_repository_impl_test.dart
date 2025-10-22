@@ -9,12 +9,16 @@ import 'package:papercraft/features/authentication/domain/entities/user_entity.d
 import 'package:papercraft/features/authentication/domain/entities/user_role.dart';
 import 'package:papercraft/features/authentication/domain/failures/auth_failures.dart';
 
+
+
 // ============================================================================
 // MOCKS
 // ============================================================================
 
 class MockAuthDataSource extends Mock implements AuthDataSource {}
 class MockLogger extends Mock implements ILogger {}
+
+
 
 // ============================================================================
 // TEST HELPERS
@@ -50,13 +54,15 @@ void main() {
   late AuthRepositoryImpl repository;
   late MockAuthDataSource mockDataSource;
   late MockLogger mockLogger;
+  setUpAll(() {
+    registerFallbackValue(LogCategory.auth);
+  });
 
   setUp(() {
     mockDataSource = MockAuthDataSource();
     mockLogger = MockLogger();
-    repository = AuthRepositoryImpl(mockDataSource, mockLogger);
 
-    // Default logger behavior
+    // Setup mocks BEFORE creating repository (constructor logs immediately)
     when(() => mockLogger.info(any(), category: any(named: 'category'), context: any(named: 'context')))
         .thenReturn(null);
     when(() => mockLogger.debug(any(), category: any(named: 'category'), context: any(named: 'context')))
@@ -68,6 +74,9 @@ void main() {
     when(() => mockLogger.error(any(), category: any(named: 'category'), error: any(named: 'error'),
         stackTrace: any(named: 'stackTrace'), context: any(named: 'context')))
         .thenReturn(null);
+
+    // NOW create repository (after mocks are set up)
+    repository = AuthRepositoryImpl(mockDataSource, mockLogger);
   });
 
   group('AuthRepositoryImpl - Construction', () {

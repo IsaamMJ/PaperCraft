@@ -59,10 +59,18 @@ void main() {
   late MockAuthRepository mockRepository;
   late MockLogger mockLogger;
 
+
+
+  setUpAll(() {
+    registerFallbackValue(LogCategory.auth);
+  });
+
   setUp(() {
     mockRepository = MockAuthRepository();
     mockLogger = MockLogger();
     authUseCase = AuthUseCase(mockRepository, mockLogger);
+    // ... rest of setUp
+
 
     // Default logger behavior
     when(() => mockLogger.debug(any(), category: any(named: 'category'), context: any(named: 'context')))

@@ -10,7 +10,6 @@ void main() {
     const testDomain = 'example.com';
     const testIsActive = true;
     const testIsInitialized = true;
-    const testAcademicYear = '2024-2025';
     final testCreatedAt = DateTime(2024, 1, 1, 8, 0);
 
     final validJson = {
@@ -20,7 +19,6 @@ void main() {
       'domain': testDomain,
       'is_active': testIsActive,
       'is_initialized': testIsInitialized,
-      'current_academic_year': testAcademicYear,
       'created_at': testCreatedAt.toIso8601String(),
     };
 
@@ -36,7 +34,6 @@ void main() {
         expect(model.domain, testDomain);
         expect(model.isActive, testIsActive);
         expect(model.isInitialized, testIsInitialized);
-        expect(model.currentAcademicYear, testAcademicYear);
         expect(model.createdAt, testCreatedAt);
       });
 
@@ -90,17 +87,6 @@ void main() {
         expect(model.isInitialized, false);
       });
 
-      test('defaults currentAcademicYear to 2024-2025 when missing', () {
-        // Arrange
-        final json = Map<String, dynamic>.from(validJson)
-          ..remove('current_academic_year');
-
-        // Act
-        final model = TenantModel.fromJson(json);
-
-        // Assert
-        expect(model.currentAcademicYear, '2024-2025');
-      });
 
       test('parses isActive as true when explicitly set', () {
         // Arrange
@@ -138,21 +124,6 @@ void main() {
         expect(model.isInitialized, true);
       });
 
-      test('parses different academic year formats', () {
-        // Arrange
-        final academicYears = ['2023-2024', '2024-2025', '2025-2026'];
-
-        for (final year in academicYears) {
-          final json = Map<String, dynamic>.from(validJson)
-            ..['current_academic_year'] = year;
-
-          // Act
-          final model = TenantModel.fromJson(json);
-
-          // Assert
-          expect(model.currentAcademicYear, year);
-        }
-      });
 
       test('parses ISO8601 datetime strings correctly', () {
         // Arrange
@@ -180,7 +151,6 @@ void main() {
           domain: testDomain,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -194,7 +164,6 @@ void main() {
         expect(json['domain'], testDomain);
         expect(json['is_active'], testIsActive);
         expect(json['is_initialized'], testIsInitialized);
-        expect(json['current_academic_year'], testAcademicYear);
         expect(json['created_at'], testCreatedAt.toIso8601String());
       });
 
@@ -207,7 +176,6 @@ void main() {
           domain: testDomain,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -226,7 +194,6 @@ void main() {
           domain: null,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -244,7 +211,6 @@ void main() {
           name: testName,
           isActive: false,
           isInitialized: true,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -267,7 +233,6 @@ void main() {
           domain: testDomain,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -282,7 +247,6 @@ void main() {
         expect(entity.domain, testDomain);
         expect(entity.isActive, testIsActive);
         expect(entity.isInitialized, testIsInitialized);
-        expect(entity.currentAcademicYear, testAcademicYear);
         expect(entity.createdAt, testCreatedAt);
       });
 
@@ -295,7 +259,6 @@ void main() {
           domain: null,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -314,7 +277,6 @@ void main() {
           name: 'Very Long School Name That Exceeds Twenty Characters',
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -338,7 +300,6 @@ void main() {
           domain: testDomain,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -352,7 +313,6 @@ void main() {
         expect(model.domain, entity.domain);
         expect(model.isActive, entity.isActive);
         expect(model.isInitialized, entity.isInitialized);
-        expect(model.currentAcademicYear, entity.currentAcademicYear);
         expect(model.createdAt, entity.createdAt);
       });
 
@@ -365,7 +325,6 @@ void main() {
           domain: null,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -394,7 +353,6 @@ void main() {
         expect(resultJson['domain'], originalJson['domain']);
         expect(resultJson['is_active'], originalJson['is_active']);
         expect(resultJson['is_initialized'], originalJson['is_initialized']);
-        expect(resultJson['current_academic_year'], originalJson['current_academic_year']);
         expect(resultJson['created_at'], originalJson['created_at']);
       });
 
@@ -412,7 +370,6 @@ void main() {
         expect(resultJson['id'], originalJson['id']);
         expect(resultJson['name'], originalJson['name']);
         expect(resultJson['address'], originalJson['address']);
-        expect(resultJson['current_academic_year'], originalJson['current_academic_year']);
       });
     });
 
@@ -546,7 +503,6 @@ void main() {
           name: testName,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -565,7 +521,6 @@ void main() {
           name: longName,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 
@@ -585,7 +540,6 @@ void main() {
           name: shortName,
           isActive: testIsActive,
           isInitialized: testIsInitialized,
-          currentAcademicYear: testAcademicYear,
           createdAt: testCreatedAt,
         );
 

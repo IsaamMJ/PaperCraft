@@ -48,6 +48,7 @@ class GradeDataSourceImpl implements GradeDataSource {
           )
         ''')
           .eq('tenant_id', tenantId)
+          .eq('teacher_grade_assignments.tenant_id', tenantId)
           .eq('teacher_grade_assignments.teacher_id', teacherId)
           .eq('teacher_grade_assignments.academic_year', academicYear)
           .eq('teacher_grade_assignments.is_active', true)

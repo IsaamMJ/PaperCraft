@@ -7,7 +7,6 @@ class TenantEntity extends Equatable {
   final String? domain;
   final bool isActive;
   final bool isInitialized;
-  final String currentAcademicYear; // ADD THIS
   final DateTime createdAt;
 
   const TenantEntity({
@@ -17,7 +16,6 @@ class TenantEntity extends Equatable {
     this.domain,
     required this.isActive,
     required this.isInitialized,
-    required this.currentAcademicYear, // ADD THIS
     required this.createdAt,
   });
 
@@ -36,7 +34,6 @@ class TenantEntity extends Equatable {
     domain,
     isActive,
     isInitialized,
-    currentAcademicYear, // ADD THIS
     createdAt,
   ];
 }

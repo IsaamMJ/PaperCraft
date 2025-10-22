@@ -1,0 +1,131 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS E:\New folder (2)\papercraft> flutter test test/unit/features/home/presentation/bloc/home_bloc_test.dart
+00:02 +2 -1: HomeBloc LoadHomePapers - Teacher emits [HomeLoading, HomeError] when loading drafts fails [E]
+  Expected: [
+              HomeLoading:HomeLoading(Loading...),
+              HomeError:HomeError(Failed to load drafts)
+            ]
+    Actual: [
+              HomeLoading:HomeLoading(Loading...),
+              HomeError:HomeError(Failed to load papers: type 'Null' is not a subtype of type 'Future<Either<Failure, List<QuestionPaperEntity>>>')
+            ]
+     Which: at location [1] is HomeError:<HomeError(Failed to load papers: type 'Null' is not a subtype of type 'Future<Either<Failure, List<QuestionPaperEntity>>>')> instead of HomeError:<HomeError(Failed to load drafts)>
+
+  ==== diff ========================================
+
+  [HomeLoading(Loading...), HomeError(Failed to load [-d-]{+pape+}r{+s: type 'Null' is not +}a{+ subtype o+}f{+ +}t{+ype 'Future<Either<Failure, Li+}s{+t<QuestionPaperEntity>>>'+})]
+
+  ==== end diff ====================================
+
+  package:bloc_test/src/bloc_test.dart 224:11  testBloc.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _Completer.completeError
+  package:bloc_test/src/bloc_test.dart 255:43  _runZonedGuarded.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _CustomZone.registerBinaryCallback
+  package:bloc_test/src/bloc_test.dart 252:5   _runZonedGuarded.<fn>
+  dart:async                                   runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 251:3   _runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 198:11  testBloc
+  package:bloc_test/src/bloc_test.dart 156:13  blocTest.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/home/presentation/bloc/home_bloc_test.dart -p vm --plain-name "HomeBloc LoadHomePapers - Teacher emits [HomeLoading, HomeError] when loading drafts fails"
+00:02 +5 -2: HomeBloc LoadHomePapers - Admin emits [HomeLoading, HomeError] when loading papers for review fails [E]
+  Expected: [
+              HomeLoading:HomeLoading(Loading...),
+              HomeError:HomeError(Failed to load papers)
+            ]
+    Actual: [
+              HomeLoading:HomeLoading(Loading...),
+              HomeError:HomeError(Failed to load papers: type 'Null' is not a subtype of type 'Future<Either<Failure, List<QuestionPaperEntity>>>')
+            ]
+     Which: at location [1] is HomeError:<HomeError(Failed to load papers: type 'Null' is not a subtype of type 'Future<Either<Failure, List<QuestionPaperEntity>>>')> instead of HomeError:<HomeError(Failed to load papers)>
+
+  ==== diff ========================================
+
+  [HomeLoading(Loading...), HomeError(Failed to load papers{+: type 'Null' is not a subtype of type 'Future<Either<Failure, List<QuestionPaperEntity>>>'+})]
+
+  ==== end diff ====================================
+
+  package:bloc_test/src/bloc_test.dart 224:11  testBloc.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _Completer.completeError
+  package:bloc_test/src/bloc_test.dart 255:43  _runZonedGuarded.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _CustomZone.registerBinaryCallback
+  package:bloc_test/src/bloc_test.dart 252:5   _runZonedGuarded.<fn>
+  dart:async                                   runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 251:3   _runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 198:11  testBloc
+  package:bloc_test/src/bloc_test.dart 156:13  blocTest.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/home/presentation/bloc/home_bloc_test.dart -p vm --plain-name "HomeBloc LoadHomePapers - Admin emits [HomeLoading, HomeError] when loading papers for review fails"
+00:02 +10 -3: HomeBloc PaperRealtimeUpdate handles INSERT event by adding paper to review list [E]
+  Expected: [<<Instance of 'HomeLoaded'> with `review count`: a value greater than <1>>]
+    Actual: []
+     Which: at location [0] is [] which shorter than expected
+
+  package:matcher                              expect
+  package:bloc_test/src/bloc_test.dart 218:16  testBloc.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _Completer.completeError
+  package:bloc_test/src/bloc_test.dart 255:43  _runZonedGuarded.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _CustomZone.registerBinaryCallback
+  package:bloc_test/src/bloc_test.dart 252:5   _runZonedGuarded.<fn>
+  dart:async                                   runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 251:3   _runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 198:11  testBloc
+  package:bloc_test/src/bloc_test.dart 156:13  blocTest.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/home/presentation/bloc/home_bloc_test.dart -p vm --plain-name "HomeBloc PaperRealtimeUpdate handles INSERT event by adding paper to review list"
+00:02 +10 -4: HomeBloc PaperRealtimeUpdate handles UPDATE event by updating paper in lists [E]
+  Expected: [<<Instance of 'HomeLoaded'> with `has drafts`: <true>>]
+    Actual: []
+     Which: at location [0] is [] which shorter than expected
+
+  package:matcher                              expect
+  package:bloc_test/src/bloc_test.dart 218:16  testBloc.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _Completer.completeError
+  package:bloc_test/src/bloc_test.dart 255:43  _runZonedGuarded.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _CustomZone.registerBinaryCallback
+  package:bloc_test/src/bloc_test.dart 252:5   _runZonedGuarded.<fn>
+  dart:async                                   runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 251:3   _runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 198:11  testBloc
+  package:bloc_test/src/bloc_test.dart 156:13  blocTest.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/home/presentation/bloc/home_bloc_test.dart -p vm --plain-name "HomeBloc PaperRealtimeUpdate handles UPDATE event by updating paper in lists"
+00:02 +10 -5: HomeBloc PaperRealtimeUpdate handles DELETE event by removing paper from lists [E]
+  Expected: [<<Instance of 'HomeLoaded'> with `drafts count`: a value less than <1>>]
+    Actual: []
+     Which: at location [0] is [] which shorter than expected
+
+  package:matcher                              expect
+  package:bloc_test/src/bloc_test.dart 218:16  testBloc.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _Completer.completeError
+  package:bloc_test/src/bloc_test.dart 255:43  _runZonedGuarded.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                   _CustomZone.registerBinaryCallback
+  package:bloc_test/src/bloc_test.dart 252:5   _runZonedGuarded.<fn>
+  dart:async                                   runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 251:3   _runZonedGuarded
+  package:bloc_test/src/bloc_test.dart 198:11  testBloc
+  package:bloc_test/src/bloc_test.dart 156:13  blocTest.<fn>
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/unit/features/home/presentation/bloc/home_bloc_test.dart -p vm --plain-name "HomeBloc PaperRealtimeUpdate handles DELETE event by removing paper from lists"
+00:02 +12 -5: Some tests failed.
+PS E:\New folder (2)\papercraft>
+

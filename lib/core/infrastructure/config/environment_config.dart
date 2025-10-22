@@ -3,9 +3,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'environment.dart';
 
 class EnvironmentConfig {
-  static late final Environment _current;
-  static late final String _supabaseUrl;
-  static late final String _supabaseAnonKey;
+  static late Environment _current;
+  static late String _supabaseUrl;
+  static late String _supabaseAnonKey;
 
   // Public getters
   static Environment get current => _current;
@@ -28,6 +28,18 @@ class EnvironmentConfig {
             ? 'https://papercraft.app/auth/callback'
             : 'com.pearl.papercraft://login-callback/';
     }
+  }
+
+  // Add this static method in EnvironmentConfig class
+  @visibleForTesting
+  static void loadForTest({
+    required Environment environment,
+    required String supabaseUrl,
+    required String supabaseAnonKey,
+  }) {
+    _current = environment;
+    _supabaseUrl = supabaseUrl;
+    _supabaseAnonKey = supabaseAnonKey;
   }
 
   /// Initialize environment configuration

@@ -55,10 +55,43 @@ class DisableRealtimeUpdates extends HomeEvent {
   const DisableRealtimeUpdates();
 }
 
+/// Type-safe enum for realtime event types
+enum RealtimeEventType {
+  insert,
+  update,
+  delete;
+
+  /// Convert from string (for backward compatibility with Supabase callbacks)
+  static RealtimeEventType fromString(String value) {
+    switch (value.toUpperCase()) {
+      case 'INSERT':
+        return RealtimeEventType.insert;
+      case 'UPDATE':
+        return RealtimeEventType.update;
+      case 'DELETE':
+        return RealtimeEventType.delete;
+      default:
+        throw ArgumentError('Invalid realtime event type: $value');
+    }
+  }
+
+  /// Convert to string
+  String get value {
+    switch (this) {
+      case RealtimeEventType.insert:
+        return 'INSERT';
+      case RealtimeEventType.update:
+        return 'UPDATE';
+      case RealtimeEventType.delete:
+        return 'DELETE';
+    }
+  }
+}
+
 /// Handle realtime paper update from subscription
 class PaperRealtimeUpdate extends HomeEvent {
   final Map<String, dynamic> paperData;
-  final String eventType; // 'INSERT', 'UPDATE', 'DELETE'
+  final RealtimeEventType eventType;
 
   const PaperRealtimeUpdate({
     required this.paperData,

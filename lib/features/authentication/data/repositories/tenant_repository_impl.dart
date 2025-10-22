@@ -2,10 +2,8 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
-import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../domain/entities/tenant_entity.dart';
 import '../../domain/repositories/tenant_repository.dart';
-import '../../domain/services/user_state_service.dart';
 import '../datasources/tenant_data_source.dart';
 import '../models/tenant_model.dart';
 
@@ -13,9 +11,10 @@ class TenantRepositoryImpl implements TenantRepository {
   final TenantDataSource _dataSource;
   final ILogger _logger;
 
-  TenantRepositoryImpl(this._dataSource, this._logger);
-
-  // In tenant_repository_impl.dart, add this method:
+  TenantRepositoryImpl(
+      this._dataSource,
+      this._logger,
+      );
 
   @override
   Future<Either<Failure, void>> markAsInitialized(String tenantId) async {
@@ -57,11 +56,8 @@ class TenantRepositoryImpl implements TenantRepository {
   @override
   Future<Either<Failure, TenantEntity>> updateTenant(TenantEntity tenant) async {
     try {
-      final userStateService = sl<UserStateService>();
-
-      if (!userStateService.canManageUsers()) {
-        return Left(PermissionFailure('Admin privileges required'));
-      }
+      // REMOVED: Permission check - this should be done in the use case layer
+      // The repository is just responsible for data operations
 
       final model = TenantModel.fromEntity(tenant);
       final updatedModel = await _dataSource.updateTenant(model);

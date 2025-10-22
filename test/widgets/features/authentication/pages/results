@@ -1,0 +1,261 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS E:\New folder (2)\papercraft> flutter test login_page_test.dart
+00:00 +0 -1: loading E:/New folder (2)/papercraft/login_page_test.dart [E]
+  Failed to load "E:/New folder (2)/papercraft/login_page_test.dart": Does not exist.
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/login_page_test.dart -p vm --plain-name "loading E:/New folder (2)/papercraft/login_page_test.dart"
+00:00 +0 -1: Some tests failed.
+PS E:\New folder (2)\papercraft> flutter test test/widgets/features/authentication/pages/login_page_test.dart
+00:06 +23: LoginPage - BLoC State Handling should handle AuthAuthenticated without GoRouter gracefully
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+No GoRouter found in context
+'package:go_router/src/router.dart':
+Failed assertion: line 544 pos 12: 'inherited != null'
+
+When the exception was thrown, this was the stack:
+#2      GoRouter.of (package:go_router/src/router.dart:544:12)
+#3      GoRouterHelper.go (package:go_router/src/misc/extensions.dart:29:16)
+#4      _LoginPageState._navigateToHome (package:papercraft/features/authentication/presentation/pages/login_page.dart:112:13)
+#5      _LoginPageState._handleAuthState (package:papercraft/features/authentication/presentation/pages/login_page.dart:72:7)
+#6      _BlocListenerBaseState._subscribe.<anonymous closure> (package:flutter_bloc/src/bloc_listener.dart:216:24)
+#26     FakeAsync.run.<anonymous closure>.<anonymous closure> (package:fake_async/fake_async.dart:189:18)
+#27     FakeAsync.flushMicrotasks (package:fake_async/fake_async.dart:200:32)
+#28     AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1342:26)
+#31     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#32     AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1329:27)
+#33     WidgetTester.pump.<anonymous closure> (package:flutter_test/src/widget_tester.dart:653:53)
+#36     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#37     WidgetTester.pump (package:flutter_test/src/widget_tester.dart:653:27)
+#38     main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:501:20)
+<asynchronous suspension>
+#39     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#40     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 26 frames from class _AssertionError, dart:async, and package:stack_trace)
+
+The test description was:
+  should handle AuthAuthenticated without GoRouter gracefully
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +23 -1: LoginPage - BLoC State Handling should handle AuthAuthenticated without GoRouter gracefully [E]
+  Test failed. See exception logs above.
+  The test description was: should handle AuthAuthenticated without GoRouter gracefully
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart -p vm --plain-name "LoginPage - BLoC State Handling should handle AuthAuthenticated without GoRouter gracefully"
+00:06 +32 -1: LoginPage - Animation Tests should handle state change during animation
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TypeWidgetFinder:<Found 0 widgets with type "CircularProgressIndicator": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:709:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart line 709
+The test description was:
+  should handle state change during animation
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +32 -2: LoginPage - Animation Tests should handle state change during animation [E]
+  Test failed. See exception logs above.
+  The test description was: should handle state change during animation
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart -p vm --plain-name "LoginPage - Animation Tests should handle state change during animation"
+00:07 +40 -2: LoginPage - Edge Cases should handle stream errors gracefully
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following _Exception was thrown running a test:
+Exception: Stream error
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:884:18)
+#6      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:880:7)
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:29)
+#9      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:190:25)
+#10     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:19)
+#12     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1053:5)
+#15     TestWidgetsFlutterBinding._runTest (package:flutter_test/src/binding.dart:1038:10)
+#16     AutomatedTestWidgetsFlutterBinding.runTest.<anonymous closure> (package:flutter_test/src/binding.dart:1573:24)
+#17     FakeAsync.run.<anonymous closure>.<anonymous closure> (package:fake_async/fake_async.dart:182:47)
+#22     withClock (package:clock/src/default.dart:52:10)
+#23     FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:182:15)
+#28     FakeAsync.run (package:fake_async/fake_async.dart:181:52)
+#29     AutomatedTestWidgetsFlutterBinding.runTest (package:flutter_test/src/binding.dart:1570:15)
+#30     testWidgets.<anonymous closure> (package:flutter_test/src/widget_tester.dart:185:24)
+#31     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:229:19)
+#33     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:228:9)
+#38     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:227:13)
+#39     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:258:17)
+#44     Invoker._waitForOutstandingCallbacks (package:test_api/src/backend/invoker.dart:254:5)
+#45     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:394:17)
+#47     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:392:11)
+#52     Invoker._onRun.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:383:9)
+#53     Invoker._guardIfGuarded (package:test_api/src/backend/invoker.dart:426:15)
+#54     Invoker._onRun.<anonymous closure> (package:test_api/src/backend/invoker.dart:382:7)
+#61     Invoker._onRun (package:test_api/src/backend/invoker.dart:381:11)
+#62     LiveTestController.run (package:test_api/src/backend/live_test_controller.dart:153:11)
+#63     RemoteListener._runLiveTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:273:16)
+#68     RemoteListener._runLiveTest (package:test_api/src/backend/remote_listener.dart:272:5)
+#69     RemoteListener._serializeTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:220:7)
+#87     _GuaranteeSink.add (package:stream_channel/src/guarantee_channel.dart:125:12)
+#88     new _MultiChannel.<anonymous closure> (package:stream_channel/src/multi_channel.dart:159:31)
+#90     CastStreamSubscription._onData (dart:_internal/async_cast.dart:96:11)
+#116    new _WebSocketImpl._fromSocket.<anonymous closure> (dart:_http/websocket_impl.dart:1258:31)
+#122    _WebSocketProtocolTransformer._messageFrameEnd (dart:_http/websocket_impl.dart:348:23)
+#123    _WebSocketProtocolTransformer.add (dart:_http/websocket_impl.dart:238:46)
+#131    _Socket._onData (dart:io-patch/socket_patch.dart:2907:41)
+#138    new _RawSocket.<anonymous closure> (dart:io-patch/socket_patch.dart:2326:31)
+#139    _NativeSocket.issueReadEvent.issue (dart:io-patch/socket_patch.dart:1649:14)
+(elided 103 frames from dart:async and package:stack_trace)
+
+The test description was:
+  should handle stream errors gracefully
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:07 +40 -3: LoginPage - Edge Cases should handle stream errors gracefully [E]
+  Test failed. See exception logs above.
+  The test description was: should handle stream errors gracefully
+
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following _Exception was thrown running a test (but after the test had completed):
+Exception: Stream error
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:884:18)
+#6      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:880:7)
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:29)
+#9      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:190:25)
+#10     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:19)
+#12     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1053:5)
+#15     TestWidgetsFlutterBinding._runTest (package:flutter_test/src/binding.dart:1038:10)
+#16     AutomatedTestWidgetsFlutterBinding.runTest.<anonymous closure> (package:flutter_test/src/binding.dart:1573:24)
+#17     FakeAsync.run.<anonymous closure>.<anonymous closure> (package:fake_async/fake_async.dart:182:47)
+#22     withClock (package:clock/src/default.dart:52:10)
+#23     FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:182:15)
+#28     FakeAsync.run (package:fake_async/fake_async.dart:181:52)
+#29     AutomatedTestWidgetsFlutterBinding.runTest (package:flutter_test/src/binding.dart:1570:15)
+#30     testWidgets.<anonymous closure> (package:flutter_test/src/widget_tester.dart:185:24)
+#31     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:229:19)
+#33     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:228:9)
+#38     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:227:13)
+#39     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:258:17)
+#44     Invoker._waitForOutstandingCallbacks (package:test_api/src/backend/invoker.dart:254:5)
+#45     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:394:17)
+#47     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:392:11)
+#52     Invoker._onRun.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:383:9)
+#53     Invoker._guardIfGuarded (package:test_api/src/backend/invoker.dart:426:15)
+#54     Invoker._onRun.<anonymous closure> (package:test_api/src/backend/invoker.dart:382:7)
+#61     Invoker._onRun (package:test_api/src/backend/invoker.dart:381:11)
+#62     LiveTestController.run (package:test_api/src/backend/live_test_controller.dart:153:11)
+#63     RemoteListener._runLiveTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:273:16)
+#68     RemoteListener._runLiveTest (package:test_api/src/backend/remote_listener.dart:272:5)
+#69     RemoteListener._serializeTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:220:7)
+#87     _GuaranteeSink.add (package:stream_channel/src/guarantee_channel.dart:125:12)
+#88     new _MultiChannel.<anonymous closure> (package:stream_channel/src/multi_channel.dart:159:31)
+#90     CastStreamSubscription._onData (dart:_internal/async_cast.dart:96:11)
+#116    new _WebSocketImpl._fromSocket.<anonymous closure> (dart:_http/websocket_impl.dart:1258:31)
+#122    _WebSocketProtocolTransformer._messageFrameEnd (dart:_http/websocket_impl.dart:348:23)
+#123    _WebSocketProtocolTransformer.add (dart:_http/websocket_impl.dart:238:46)
+#131    _Socket._onData (dart:io-patch/socket_patch.dart:2907:41)
+#138    new _RawSocket.<anonymous closure> (dart:io-patch/socket_patch.dart:2326:31)
+#139    _NativeSocket.issueReadEvent.issue (dart:io-patch/socket_patch.dart:1649:14)
+(elided 103 frames from dart:async and package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  Test failed. See exception logs above.
+  The test description was: should handle stream errors gracefully
+
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following _Exception was thrown running a test (but after the test had completed):
+Exception: Stream error
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:884:18)
+#6      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:880:7)
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:29)
+#9      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:190:25)
+#10     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:19)
+#12     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1053:5)
+#15     TestWidgetsFlutterBinding._runTest (package:flutter_test/src/binding.dart:1038:10)
+#16     AutomatedTestWidgetsFlutterBinding.runTest.<anonymous closure> (package:flutter_test/src/binding.dart:1573:24)
+#17     FakeAsync.run.<anonymous closure>.<anonymous closure> (package:fake_async/fake_async.dart:182:47)
+#22     withClock (package:clock/src/default.dart:52:10)
+#23     FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:182:15)
+#28     FakeAsync.run (package:fake_async/fake_async.dart:181:52)
+#29     AutomatedTestWidgetsFlutterBinding.runTest (package:flutter_test/src/binding.dart:1570:15)
+#30     testWidgets.<anonymous closure> (package:flutter_test/src/widget_tester.dart:185:24)
+#31     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:229:19)
+#33     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:228:9)
+#38     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:227:13)
+#39     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:258:17)
+#44     Invoker._waitForOutstandingCallbacks (package:test_api/src/backend/invoker.dart:254:5)
+#45     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:394:17)
+#47     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:392:11)
+#52     Invoker._onRun.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:383:9)
+#53     Invoker._guardIfGuarded (package:test_api/src/backend/invoker.dart:426:15)
+#54     Invoker._onRun.<anonymous closure> (package:test_api/src/backend/invoker.dart:382:7)
+#61     Invoker._onRun (package:test_api/src/backend/invoker.dart:381:11)
+#62     LiveTestController.run (package:test_api/src/backend/live_test_controller.dart:153:11)
+#63     RemoteListener._runLiveTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:273:16)
+#68     RemoteListener._runLiveTest (package:test_api/src/backend/remote_listener.dart:272:5)
+#69     RemoteListener._serializeTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:220:7)
+#87     _GuaranteeSink.add (package:stream_channel/src/guarantee_channel.dart:125:12)
+#88     new _MultiChannel.<anonymous closure> (package:stream_channel/src/multi_channel.dart:159:31)
+#90     CastStreamSubscription._onData (dart:_internal/async_cast.dart:96:11)
+#116    new _WebSocketImpl._fromSocket.<anonymous closure> (dart:_http/websocket_impl.dart:1258:31)
+#122    _WebSocketProtocolTransformer._messageFrameEnd (dart:_http/websocket_impl.dart:348:23)
+#123    _WebSocketProtocolTransformer.add (dart:_http/websocket_impl.dart:238:46)
+#131    _Socket._onData (dart:io-patch/socket_patch.dart:2907:41)
+#138    new _RawSocket.<anonymous closure> (dart:io-patch/socket_patch.dart:2326:31)
+#139    _NativeSocket.issueReadEvent.issue (dart:io-patch/socket_patch.dart:1649:14)
+(elided 103 frames from dart:async and package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  Test failed. See exception logs above.
+  The test description was: should handle stream errors gracefully
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart -p vm --plain-name "LoginPage - Edge Cases should handle stream errors gracefully"
+00:07 +42 -3: LoginPage - Accessibility should have tappable button with proper area
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: a value greater than <48>
+  Actual: <46.0>
+   Which: is not a value greater than <48>
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure>.<anonymous closure> (file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart:946:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///E:/New%20folder%20(2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart line 946
+The test description was:
+  should have tappable button with proper area
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:07 +42 -4: LoginPage - Accessibility should have tappable button with proper area [E]
+  Test failed. See exception logs above.
+  The test description was: should have tappable button with proper area
+
+
+To run this test again: C:\Users\Jahir\flutter\bin\cache\dart-sdk\bin\dart.exe test E:/New folder (2)/papercraft/test/widgets/features/authentication/pages/login_page_test.dart -p vm --plain-name "LoginPage - Accessibility should have tappable button with proper area"
+00:08 +55 -4: Some tests failed.
+PS E:\New folder (2)\papercraft>
+

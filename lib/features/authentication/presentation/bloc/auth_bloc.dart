@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import '../../../../core/domain/interfaces/i_auth_provider.dart';
+import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/logging/app_logger.dart';
 import '../../domain/services/user_state_service.dart';
@@ -12,6 +14,8 @@ import 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthUseCase _authUseCase;
   final UserStateService _userStateService;
+  final Stream<AuthStateChangeEvent> _authStateStream;
+  final IClock _clock;
   late StreamSubscription _authSubscription;
 
   // FIXED: Prevent multiple OAuth attempts and resource leaks
@@ -21,7 +25,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   // SECURITY FIX: Auth state synchronization
   Timer? _syncTimer;
 
-  AuthBloc(this._authUseCase, this._userStateService) : super(const AuthInitial()) {
+  AuthBloc(
+    this._authUseCase,
+    this._userStateService,
+    this._authStateStream,
+    this._clock,
+  ) : super(const AuthInitial()) {
     on<AuthInitialize>(_onInitialize);
     on<AuthSignInGoogle>(_onSignInGoogle);
     on<AuthSignOut>(_onSignOut);
@@ -35,20 +44,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   void _listenToAuthChanges() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-          (data) {
-        AppLogger.authEvent('auth_state_changed', data.session?.user.id ?? 'unknown', context: {
-          'event': data.event.name,
-          'hasSession': data.session != null,
-          'timestamp': DateTime.now().toIso8601String(),
+    _authSubscription = _authStateStream.listen(
+          (event) {
+        AppLogger.authEvent('auth_state_changed', event.session?.user.id ?? 'unknown', context: {
+          'event': event.event.name,
+          'hasSession': event.session != null,
+          'timestamp': _clock.now().toIso8601String(),
         });
 
-        if (data.event == AuthChangeEvent.signedOut && state is AuthAuthenticated) {
+        if (event.event == AuthChangeEvent.signedOut && state is AuthAuthenticated) {
           AppLogger.warning('Session expired, redirecting to login',
               category: LogCategory.auth,
               context: {
                 'previousUserId': (state as AuthAuthenticated).user.id,
-                'sessionEvent': data.event.name,
+                'sessionEvent': event.event.name,
               }
           );
           _handleSessionExpiry();
@@ -81,7 +90,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// Start periodic auth state synchronization timer
   void _startAuthStateSyncTimer() {
     _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+    _syncTimer = _clock.periodic(const Duration(minutes: 2), (_) {
       if (state is AuthAuthenticated) {
         _syncAuthState();
       }
@@ -263,9 +272,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _userStateService.clearUser();
       emit(AuthError('Sign-in failed: ${e.toString()}'));
     } finally {
+      // IMPORTANT: Reset flag in finally to ensure it's always reset
       _isOAuthInProgress = false;
     }
   }
+
 
   Future<void> _onSignOut(AuthSignOut event, Emitter<AuthState> emit) async {
     print('🔥 DEBUG: SignOut started');
@@ -287,6 +298,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final result = await _authUseCase.signOut();
       print('🔥 DEBUG: _authUseCase.signOut() completed with result: $result');
 
+      // ALWAYS clear user state, regardless of result
       _userStateService.clearUser();
       print('🔥 DEBUG: UserStateService.clearUser() completed');
 
@@ -298,7 +310,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'operation': 'signout',
             'failureType': failure.runtimeType.toString(),
           });
-          // ALWAYS emit final state
           emit(const AuthUnauthenticated());
           print('🔥 DEBUG: AuthUnauthenticated emitted after failure');
         },
@@ -307,7 +318,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           AppLogger.authEvent('signout_success', currentUserId, context: {
             'completedAt': DateTime.now().toIso8601String(),
           });
-          // ALWAYS emit final state
           emit(const AuthUnauthenticated());
           print('🔥 DEBUG: AuthUnauthenticated emitted after success');
         },
@@ -315,12 +325,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e, stackTrace) {
       print('🔥 DEBUG: Unhandled exception in signOut: $e');
       print('🔥 DEBUG: StackTrace: $stackTrace');
+
+      // CRITICAL FIX: Always clear user state even on exception
+      _userStateService.clearUser();
+
       AppLogger.authError('Unhandled sign out error', e, context: {
         'userId': currentUserId,
         'operation': 'signout',
         'errorType': e.runtimeType.toString(),
       });
-      // Force emit to break loading
+
       emit(const AuthUnauthenticated());
       print('🔥 DEBUG: AuthUnauthenticated emitted after exception');
     }

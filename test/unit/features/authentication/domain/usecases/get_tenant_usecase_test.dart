@@ -32,7 +32,6 @@ TenantEntity createMockTenant({
     domain: domain,
     isActive: isActive,
     isInitialized: isInitialized,
-    currentAcademicYear: currentAcademicYear,
     createdAt: DateTime.now(),
   );
 }
