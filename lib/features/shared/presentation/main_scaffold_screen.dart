@@ -8,22 +8,25 @@ import '../../../core/domain/interfaces/i_logger.dart';
 import '../../../core/infrastructure/logging/app_logger.dart';
 import '../../../../../core/presentation/constants/ui_constants.dart';
 
-import '../../../core/infrastructure/di/injection_container.dart';
 import '../../../core/presentation/constants/app_colors.dart';
 import '../../../core/presentation/routes/app_routes.dart';
-import '../../admin/presentation/pages/admin_dashboard_page.dart';
-import '../../admin/presentation/pages/settings_screen.dart';
 import '../../authentication/domain/entities/user_role.dart';
 import '../../authentication/domain/services/user_state_service.dart';
 import '../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../authentication/presentation/bloc/auth_event.dart';
 import '../../authentication/presentation/bloc/auth_state.dart';
-import '../../home/presentation/pages/home_page.dart';
-import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
-import '../../question_bank/presentation/pages/question_bank_page.dart';
 
 class MainScaffoldPage extends StatefulWidget {
-  const MainScaffoldPage({super.key});
+  final UserStateService userStateService;
+  final List<Widget> adminPages;
+  final List<Widget> teacherPages;
+
+  const MainScaffoldPage({
+    super.key,
+    required this.userStateService,
+    required this.adminPages,
+    required this.teacherPages,
+  });
 
   @override
   State<MainScaffoldPage> createState() => _MainScaffoldPageState();
@@ -44,13 +47,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   // User state subscription
   StreamSubscription<void>? _userStateSubscription;
-  late UserStateService _userStateService;
 
   @override
   void initState() {
     super.initState();
-    _initializeServices();
     _initializeAnimations();
+    _checkUserRole();
     _subscribeToUserStateChanges();
   }
 
@@ -74,13 +76,11 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     final authState = context.read<AuthBloc>().state;
     if (authState is! AuthAuthenticated) return;
 
-    // Only check for admins
-    if (!_userStateService.isAdmin) return;
+    if (!widget.userStateService.isAdmin) return;
 
-    final tenant = _userStateService.currentTenant;
+    final tenant = widget.userStateService.currentTenant;
 
-    // If tenant data is still loading, wait
-    if (tenant == null && _userStateService.isTenantLoading) {
+    if (tenant == null && widget.userStateService.isTenantLoading) {
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
         _checkOnboardingStatus();
@@ -88,7 +88,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       return;
     }
 
-    // If tenant is not initialized, navigate to onboarding
     if (tenant != null && !tenant.isInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -98,10 +97,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     }
   }
 
-  void _initializeServices() {
-    _userStateService = sl<UserStateService>();
-    _checkUserRole();
-  }
 
   void _initializeAnimations() {
     _tabAnimationController = AnimationController(
@@ -122,13 +117,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   void _subscribeToUserStateChanges() {
-    _userStateSubscription = _userStateService.addListener(() {
+    _userStateSubscription = widget.userStateService.addListener(() {
       if (mounted) {
-        final newAdminStatus = _userStateService.isAdmin;
+        final newAdminStatus = widget.userStateService.isAdmin;
         if (_isAdmin != newAdminStatus) {
           setState(() {
             _isAdmin = newAdminStatus;
-            // Set default screen based on user role
             _selectedIndex = _getDefaultScreenIndex();
           });
         }
@@ -137,11 +131,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   void _checkUserRole() {
-    final isAdmin = _userStateService.isAdmin;
+    final isAdmin = widget.userStateService.isAdmin;
     if (mounted && _isAdmin != isAdmin) {
       setState(() {
         _isAdmin = isAdmin;
-        // Set default screen based on user role
         _selectedIndex = _getDefaultScreenIndex();
       });
     }
@@ -177,22 +170,18 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
                 ),
-                child: Center(
-                  child: Text(
-                    user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: UIConstants.fontSizeMedium,
-                    ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                  child: Image.asset(
+                    'assets/images/roundedlogo.png',
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              Flexible(  // Changed from nothing to Flexible
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -331,20 +320,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   List<Widget> _getPages() {
-    if (_isAdmin) {
-      // For admins: Admin Dashboard, Question Bank, Settings
-      return [
-        SharedBlocProvider(child: const AdminDashboardPage()),
-        SharedBlocProvider(child: const QuestionBankPage()),
-        SharedBlocProvider(child: const SettingsPage()),
-      ];
-    } else {
-      // For teachers: Home, Question Bank ONLY (no Settings)
-      return [
-        SharedBlocProvider(child: const HomePage()),
-        SharedBlocProvider(child: const QuestionBankPage()),
-      ];
-    }
+    return _isAdmin ? widget.adminPages : widget.teacherPages;
   }
 
   List<_NavItem> _getNavigationItems() {
@@ -450,12 +426,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   void _handleAuthStateChanges(BuildContext context, AuthState state) {
-    if (_isLoggingOut && state is! AuthLoading) {
-      setState(() => _isLoggingOut = false);
-      _logoutAnimationController.stop();
-      _logoutAnimationController.reset();
-    }
-
+    // Handle logout errors first, before resetting the flag
     if (state is AuthError && _isLoggingOut) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -472,6 +443,13 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           ),
         ),
       );
+    }
+
+    // Then reset the logging out flag for any non-loading state
+    if (_isLoggingOut && state is! AuthLoading) {
+      setState(() => _isLoggingOut = false);
+      _logoutAnimationController.stop();
+      _logoutAnimationController.reset();
     }
 
     if (state is AuthAuthenticated) {
@@ -712,7 +690,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,  // Changed from spaceAround
             children: items.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;
@@ -832,7 +810,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                         gradient: isSelected ? AppColors.primaryGradient : null,
                         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
                       ),
-                      child: Semantics(
+                      child: Semantics(  // Removed Flexible, added child
                         label: item.semanticLabel,
                         button: true,
                         selected: isSelected,

@@ -342,6 +342,48 @@ class ApiClient {
     );
   }
 
+  /// Insert or update a record (upsert) - single database operation
+  ///
+  /// Performs an upsert (insert if not exists, update if exists) in a single query.
+  /// More efficient than checking existence then deciding to insert/update.
+  ///
+  /// Parameters:
+  /// - [table]: Table name
+  /// - [data]: Column data to insert/update
+  /// - [fromJson]: Function to parse the result
+  /// - [onConflict]: Optional column name for conflict resolution (default: 'id')
+  ///
+  /// Returns: [ApiResponse<T>] with the inserted/updated record
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = await upsert<Paper>(
+  ///   table: 'question_papers',
+  ///   data: paper.toJson(),
+  ///   fromJson: Paper.fromJson,
+  /// );
+  /// ```
+  Future<ApiResponse<T>> upsert<T>({
+    required String table,
+    required Map<String, dynamic> data,
+    required T Function(Map<String, dynamic>) fromJson,
+    String onConflict = 'id',
+  }) async {
+    return await query<T>(
+      table: table,
+      operation: 'UPSERT',
+      apiCall: () async {
+        return await _supabase
+            .from(table)
+            .upsert(data, onConflict: onConflict)
+            .select()
+            .single();
+      },
+      parser: (data) => fromJson(data as Map<String, dynamic>),
+      enableRetry: false, // Don't retry write operations
+    );
+  }
+
   /// Update an existing record in a table
   ///
   /// Does NOT retry on failure (write operations should not be retried).
@@ -382,6 +424,7 @@ class ApiClient {
         return await query.select().single();
       },
       parser: (data) => fromJson(data as Map<String, dynamic>),
+      enableRetry: false, // Don't retry write operations
     );
   }
 

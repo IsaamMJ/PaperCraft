@@ -59,7 +59,8 @@
       "Bash(flutter test test/widgets/features/home/pages/home_page_test.dart test/widgets/features/paper_creation/pages/question_paper_create_page_test.dart test/widgets/features/paper_review/pages/paper_review_page_test.dart --reporter=compact)",
       "Bash(flutter test:*)",
       "Bash(timeout 180 flutter test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(stat \"E:\\New folder (2)\\papercraft\\test\\widgets\\shared\\presentation\\main_test\")"
     ],
     "deny": [],
     "ask": []

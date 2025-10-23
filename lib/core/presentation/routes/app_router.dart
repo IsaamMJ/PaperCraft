@@ -28,7 +28,7 @@ import '../../../features/paper_creation/presentation/pages/question_paper_edit_
 import '../../../features/paper_workflow/presentation/pages/question_paper_detail_page.dart';
 import '../../../features/question_bank/presentation/pages/question_bank_page.dart';
 import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
-import '../../../features/shared/presentation/main_scaffold_screen.dart';
+import '../../../features/shared/presentation/main_scaffold_wrapper.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
 import '../../infrastructure/logging/app_logger.dart';
@@ -227,7 +227,7 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => _AuthenticatedBuilder(
-          builder: (context, user) => const MainScaffoldPage(),
+          builder: (context, user) => const MainScaffoldWrapper(),
         ),
       ),
 
