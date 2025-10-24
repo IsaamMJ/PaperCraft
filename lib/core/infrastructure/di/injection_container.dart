@@ -65,6 +65,7 @@ import '../utils/platform_utils.dart';
 import '../database/hive_database_helper.dart';
 import '../network/api_client.dart';
 import '../realtime/realtime_service.dart';
+import '../cache/cache_service.dart';
 
 // Authentication feature
 import '../../../features/authentication/data/datasources/auth_data_source.dart';
@@ -214,6 +215,9 @@ void _registerCoreServices() {
     Supabase.instance.client,
     sl<ILogger>(),
   ));
+
+  // Cache service (no dependencies)
+  sl.registerLazySingleton<CacheService>(() => CacheService());
 }
 
 /// Database layer dependencies
@@ -517,7 +521,7 @@ class _QuestionPapersModule {
 
     // Data Sources
     sl.registerLazySingleton<SubjectDataSource>(
-          () => SubjectDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
+          () => SubjectDataSourceImpl(Supabase.instance.client, sl<ILogger>(), sl<CacheService>()),
     );
 
     // Repositories
@@ -589,7 +593,7 @@ class _QuestionPapersModule {
     );
 
     sl.registerLazySingleton<PaperCloudDataSource>(
-          () => PaperCloudDataSourceImpl(sl<ApiClient>(), sl<ILogger>()),
+          () => PaperCloudDataSourceImpl(sl<ApiClient>(), sl<ILogger>(), sl<CacheService>()),
     );
   }
 
@@ -707,7 +711,7 @@ class _GradeModule {
     sl<ILogger>().debug('Setting up grade data sources', category: LogCategory.system);
 
     sl.registerLazySingleton<GradeDataSource>(
-          () => GradeDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
+          () => GradeDataSourceImpl(Supabase.instance.client, sl<ILogger>(), sl<CacheService>()),
     );
   }
 
@@ -920,7 +924,7 @@ Future<void> cleanupDependencies() async {
         logger.warning(error, category: LogCategory.system);
       }
     } catch (e) {
-      // Logger might already be disposed, use print
+      // Logger might already be disposed, use stderr
       print('Errors during cleanup (logger unavailable):');
       for (final error in errors) {
         print('  - $error');
@@ -931,10 +935,24 @@ Future<void> cleanupDependencies() async {
   // Reset all registrations
   try {
     await sl.reset();
-    print('✅ Dependencies cleaned up successfully${errors.isNotEmpty ? ' (with ${errors.length} warnings)' : ''}');
+    if (sl.isRegistered<ILogger>()) {
+      sl<ILogger>().info(
+        'Dependencies cleaned up successfully',
+        category: LogCategory.system,
+        context: {
+          'warningsCount': errors.length,
+        },
+      );
+    }
   } catch (e, stackTrace) {
-    print('❌ Failed to reset dependency injection container: $e');
-    print('StackTrace: $stackTrace');
+    if (sl.isRegistered<ILogger>()) {
+      sl<ILogger>().critical(
+        'Failed to reset dependency injection container',
+        error: e,
+        stackTrace: stackTrace,
+        category: LogCategory.system,
+      );
+    }
     rethrow;
   }
 }

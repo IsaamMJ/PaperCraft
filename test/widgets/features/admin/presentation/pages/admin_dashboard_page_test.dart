@@ -20,6 +20,7 @@ import '../../../../../features/admin/presentation/pages/admin_dashboard_page_te
 void main() {
   late MockQuestionPaperBloc mockBloc;
   late MockUserStateService mockUserStateService;
+  late MockUserInfoService mockUserInfoService;
   late MockNavigatorObserver mockNavigatorObserver;
   late GetIt sl;
 
@@ -34,18 +35,20 @@ void main() {
     // Create fresh mocks for each test
     mockBloc = MockQuestionPaperBloc();
     mockUserStateService = MockUserStateService();
+    mockUserInfoService = MockUserInfoService();
     mockNavigatorObserver = MockNavigatorObserver();
 
     // Setup GetIt
     sl = GetIt.asNewInstance();
     sl.registerSingleton<UserStateService>(mockUserStateService);
+    sl.registerSingleton<UserInfoService>(mockUserInfoService);
 
     // Default mock behaviors
     when(() => mockUserStateService.isAdmin).thenReturn(true);
-    when(() => mockBloc.stream).thenAnswer((_) => Stream.value(QuestionPaperInitial()));
-    when(() => mockBloc.state).thenReturn(QuestionPaperInitial());
     when(() => mockUserInfoService.getUserFullName(any()))
         .thenAnswer((_) async => 'John Doe');
+    when(() => mockBloc.stream).thenAnswer((_) => Stream.value(QuestionPaperInitial()));
+    when(() => mockBloc.state).thenReturn(QuestionPaperInitial());
   });
 
   tearDown(() {

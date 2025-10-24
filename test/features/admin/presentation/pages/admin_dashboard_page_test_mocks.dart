@@ -10,6 +10,7 @@ import 'package:papercraft/features/catalog/domain/entities/paper_section_entity
 import 'package:papercraft/features/paper_workflow/domain/entities/paper_status.dart';
 import 'package:papercraft/features/paper_workflow/domain/entities/question_entity.dart';
 import 'package:papercraft/features/paper_workflow/domain/entities/question_paper_entity.dart';
+import 'package:papercraft/features/paper_workflow/domain/services/user_info_service.dart';
 import 'package:papercraft/features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
 
 
@@ -19,6 +20,7 @@ class MockQuestionPaperBloc extends MockBloc<QuestionPaperEvent, QuestionPaperSt
 
 // Mock Services
 class MockUserStateService extends Mock implements UserStateService {}
+class MockUserInfoService extends Mock implements UserInfoService {}
 class MockNavigatorObserver extends Mock implements NavigatorObserver {}
 class MockILogger extends Mock implements ILogger {}
 
@@ -32,7 +34,7 @@ class TestDataFactory {
   static QuestionPaperEntity createPaper({
     String id = 'paper-1',
     String title = 'Mathematics Test',
-    String subject = 'Mathematics',
+    String? subject = 'Mathematics',
     String createdBy = 'user-123',
     DateTime? createdAt,
     PaperStatus status = PaperStatus.submitted,

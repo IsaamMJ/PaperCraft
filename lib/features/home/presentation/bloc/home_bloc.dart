@@ -1,4 +1,6 @@
 // features/home/presentation/bloc/home_bloc.dart
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/domain/errors/failures.dart';
@@ -32,6 +34,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   static const String _adminChannelName = 'home_admin_papers';
   static const String _teacherChannelName = 'home_teacher_papers';
 
+  // Debouncing for realtime updates (batch multiple updates)
+  Timer? _realtimeDebounceTimer;
+  final List<PaperRealtimeUpdate> _pendingRealtimeUpdates = [];
+  static const Duration _realtimeDebounceInterval = Duration(milliseconds: 500);
+
   HomeBloc({
     required GetDraftsUseCase getDraftsUseCase,
     required GetUserSubmissionsUseCase getSubmissionsUseCase,
@@ -55,6 +62,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   @override
   Future<void> close() async {
+    // Cancel pending debounce timer
+    _realtimeDebounceTimer?.cancel();
+    _pendingRealtimeUpdates.clear();
+
+    // Unsubscribe from realtime
     await _realtimeService.unsubscribe(_adminChannelName);
     await _realtimeService.unsubscribe(_teacherChannelName);
     return super.close();
@@ -139,21 +151,57 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // Only process if we have loaded state
     if (state is! HomeLoaded) return;
 
+    // Add to pending updates
+    _pendingRealtimeUpdates.add(event);
+
+    // Cancel existing timer and start new one
+    _realtimeDebounceTimer?.cancel();
+    _realtimeDebounceTimer = Timer(_realtimeDebounceInterval, () async {
+      try {
+        await _processPendingRealtimeUpdates(emit);
+      } catch (e) {
+        // Log error but don't fail
+      }
+    });
+  }
+
+  /// Process all pending realtime updates in batch
+  /// This reduces cascading rebuilds from rapid-fire updates
+  Future<void> _processPendingRealtimeUpdates(Emitter<HomeState> emit) async {
+    if (_pendingRealtimeUpdates.isEmpty || state is! HomeLoaded) return;
+
     try {
       final currentState = state as HomeLoaded;
-      final paperModel = QuestionPaperModel.fromSupabase(event.paperData);
-      final enrichedPaper = (await _paperDisplayService.enrichPapers([paperModel])).first;
+      var newState = currentState;
 
-      switch (event.eventType) {
-        case RealtimeEventType.insert:
-          emit(_handleInsert(currentState, enrichedPaper));
-        case RealtimeEventType.update:
-          emit(_handleUpdate(currentState, enrichedPaper));
-        case RealtimeEventType.delete:
-          emit(_handleDelete(currentState, enrichedPaper.id));
+      // Process each pending update
+      for (final event in _pendingRealtimeUpdates) {
+        try {
+          // Skip enrichment for realtime updates - use basic paper data
+          // This avoids unnecessary API calls and improves performance
+          final paperModel = QuestionPaperModel.fromSupabase(event.paperData);
+
+          switch (event.eventType) {
+            case RealtimeEventType.insert:
+              newState = _handleInsert(newState, paperModel);
+            case RealtimeEventType.update:
+              newState = _handleUpdate(newState, paperModel);
+            case RealtimeEventType.delete:
+              newState = _handleDelete(newState, paperModel.id);
+          }
+        } catch (e) {
+          // Skip individual update on error
+        }
       }
+
+      // Emit single state after batching all updates
+      if (newState != currentState) {
+        emit(newState);
+      }
+
+      _pendingRealtimeUpdates.clear();
     } catch (e) {
-      // Log error but don't fail - just skip this update
+      // Log error but don't fail
     }
   }
 

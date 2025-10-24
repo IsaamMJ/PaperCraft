@@ -1,6 +1,7 @@
 // features/catalog/data/datasources/grade_data_source.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/infrastructure/cache/cache_service.dart';
 import '../models/grade_model.dart';
 
 abstract class GradeDataSource {
@@ -19,8 +20,13 @@ abstract class GradeDataSource {
 class GradeDataSourceImpl implements GradeDataSource {
   final SupabaseClient _supabase;
   final ILogger _logger;
+  final CacheService _cache;
 
-  GradeDataSourceImpl(this._supabase, this._logger);
+  // Cache key prefixes
+  static const String _cacheKeyGrades = 'grades_';
+  static const String _cacheKeyAssignedGrades = 'assigned_grades_';
+
+  GradeDataSourceImpl(this._supabase, this._logger, this._cache);
 
   @override
   Future<List<GradeModel>> getAssignedGrades(
@@ -29,6 +35,20 @@ class GradeDataSourceImpl implements GradeDataSource {
       String academicYear,
       ) async {
     try {
+      // OPTIMIZATION: Check cache first
+      final cacheKey = '$_cacheKeyAssignedGrades${tenantId}_${teacherId}_$academicYear';
+      final cachedData = _cache.get<List<GradeModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getAssignedGrades',
+            category: LogCategory.storage,
+            context: {
+              'tenantId': tenantId,
+              'teacherId': teacherId,
+              'count': cachedData.length
+            });
+        return cachedData;
+      }
+
       _logger.debug('Fetching assigned grades for teacher',
           category: LogCategory.storage,
           context: {
@@ -37,10 +57,15 @@ class GradeDataSourceImpl implements GradeDataSource {
             'academicYear': academicYear,
           });
 
+      // OPTIMIZATION: Only fetch needed columns from both tables
       final response = await _supabase
           .from('grades')
           .select('''
-          *,
+          id,
+          tenant_id,
+          grade_number,
+          is_active,
+          created_at,
           teacher_grade_assignments!inner(
             teacher_id,
             academic_year,
@@ -55,17 +80,22 @@ class GradeDataSourceImpl implements GradeDataSource {
           .eq('is_active', true)
           .order('grade_number');
 
+      final result = (response as List)
+          .map((json) => GradeModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      // OPTIMIZATION: Cache the result
+      _cache.set(cacheKey, result, duration: const Duration(minutes: 10));
+
       _logger.info('Assigned grades fetched',
           category: LogCategory.storage,
           context: {
             'tenantId': tenantId,
             'teacherId': teacherId,
-            'count': (response as List).length,
+            'count': result.length,
           });
 
-      return (response as List)
-          .map((json) => GradeModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      return result;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch assigned grades',
           category: LogCategory.storage,
@@ -80,27 +110,43 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<List<GradeModel>> getGrades(String tenantId) async {
     try {
+      // OPTIMIZATION: Check cache first
+      final cacheKey = '$_cacheKeyGrades$tenantId';
+      final cachedData = _cache.get<List<GradeModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getGrades',
+            category: LogCategory.storage,
+            context: {'tenantId': tenantId, 'count': cachedData.length});
+        return cachedData;
+      }
+
       _logger.debug('Fetching grades',
           category: LogCategory.storage,
           context: {'tenantId': tenantId});
 
+      // OPTIMIZATION: Only fetch needed columns
       final response = await _supabase
           .from('grades')
-          .select()
+          .select('id,tenant_id,grade_number,is_active,created_at')
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
           .order('grade_number');
+
+      final result = (response as List)
+          .map((json) => GradeModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      // OPTIMIZATION: Cache the result
+      _cache.set(cacheKey, result, duration: const Duration(minutes: 10));
 
       _logger.info('Grades fetched',
           category: LogCategory.storage,
           context: {
             'tenantId': tenantId,
-            'count': (response as List).length,
+            'count': result.length,
           });
 
-      return (response as List)
-          .map((json) => GradeModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      return result;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch grades',
           category: LogCategory.storage,
@@ -113,9 +159,10 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<GradeModel?> getGradeById(String id) async {
     try {
+      // OPTIMIZATION: Only fetch needed columns
       final response = await _supabase
           .from('grades')
-          .select()
+          .select('id,tenant_id,grade_number,is_active,created_at')
           .eq('id', id)
           .maybeSingle();
 

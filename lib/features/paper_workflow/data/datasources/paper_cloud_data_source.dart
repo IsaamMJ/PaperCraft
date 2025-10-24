@@ -4,6 +4,7 @@ import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../../../core/infrastructure/network/models/api_response.dart';
+import '../../../../core/infrastructure/cache/cache_service.dart';
 import '../models/question_paper_model.dart';
 
 abstract class PaperCloudDataSource {
@@ -41,9 +42,16 @@ abstract class PaperCloudDataSource {
 class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   final ApiClient _apiClient;
   final ILogger _logger;
+  final CacheService _cache;
   static const String _tableName = 'question_papers';
 
-  PaperCloudDataSourceImpl(this._apiClient, this._logger);
+  // Cache key prefixes
+  static const String _cacheKeyApprovedPapers = 'approved_papers_';
+  static const String _cacheKeyUserSubmissions = 'user_submissions_';
+  static const String _cacheKeyPapersForReview = 'papers_for_review_';
+  static const String _cacheKeyAllPapersAdmin = 'all_papers_admin_';
+
+  PaperCloudDataSourceImpl(this._apiClient, this._logger, this._cache);
 
   @override
   Future<QuestionPaperModel> submitPaper(QuestionPaperModel paper) async {
@@ -59,48 +67,30 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
 
       final data = paper.toSupabaseMap();
 
-      // Check if this is a resubmission (paper already exists in cloud)
-      final existingPaper = await getPaperById(paper.id);
-
-      ApiResponse<QuestionPaperModel> response;
-
-      if (existingPaper != null) {
-        // This is a resubmission - UPDATE the existing paper
-        _logger.info('Resubmitting existing paper', category: LogCategory.paper, context: {
-          'paperId': paper.id,
-          'title': paper.title,
-        });
-
-        response = await _apiClient.update<QuestionPaperModel>(
-          table: _tableName,
-          data: data,
-          filters: {'id': paper.id},
-          fromJson: QuestionPaperModel.fromSupabase,
-        );
-      } else {
-        // This is a new submission - INSERT
-        _logger.info('Submitting new paper', category: LogCategory.paper, context: {
-          'title': paper.title,
-        });
-
-        response = await _apiClient.insert<QuestionPaperModel>(
-          table: _tableName,
-          data: data,
-          fromJson: QuestionPaperModel.fromSupabase,
-        );
-      }
+      // OPTIMIZATION: Use upsert instead of checking if exists then insert/update
+      // This is a single database operation instead of 2 queries (N+1 problem fixed)
+      final response = await _apiClient.upsert<QuestionPaperModel>(
+        table: _tableName,
+        data: data,
+        fromJson: QuestionPaperModel.fromSupabase,
+      );
 
       if (response.isSuccess) {
+        // OPTIMIZATION: Invalidate cache when paper is submitted
+        _cache.remove('$_cacheKeyApprovedPapers${paper.tenantId}');
+        _cache.remove('$_cacheKeyUserSubmissions${paper.tenantId}_${paper.userId}');
+        _cache.remove('$_cacheKeyPapersForReview${paper.tenantId}');
+        _cache.remove('$_cacheKeyAllPapersAdmin${paper.tenantId}');
+
         _logger.paperAction('submit_paper_success', response.data!.id, context: {
           'title': paper.title,
           'submittedAt': response.data!.submittedAt?.toIso8601String(),
-          'isResubmission': existingPaper != null,
         });
         return response.data!;
       } else {
         throw Exception(response.message ?? 'Failed to submit paper');
       }
-    } catch (e, stackTrace) {
+    } catch (e, _) {
       _logger.paperError('submit_paper', paper.id, e);
       rethrow;
     }
@@ -113,12 +103,18 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           category: LogCategory.storage,
           context: {'tenantId': tenantId});
 
+      // OPTIMIZATION: Only fetch columns needed for list view, exclude heavy arrays
+      // This significantly reduces payload size (avoids fetching questions, paperSections arrays)
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
         filters: {'tenant_id': tenantId},
         orderBy: 'submitted_at',
         ascending: false,
+        selectColumns: lightweightColumns,
       );
 
       if (response.isSuccess) {
@@ -138,6 +134,20 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getApprovedPapers(String tenantId) async {
     try {
+      // OPTIMIZATION: Check cache first to avoid database query
+      final cacheKey = '$_cacheKeyApprovedPapers$tenantId';
+      final cachedData = _cache.get<List<QuestionPaperModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getApprovedPapers',
+            category: LogCategory.storage,
+            context: {'tenantId': tenantId, 'itemCount': cachedData.length});
+        return cachedData;
+      }
+
+      // OPTIMIZATION: Only fetch columns needed for list view
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
@@ -147,9 +157,15 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         },
         orderBy: 'reviewed_at',
         ascending: false,
+        selectColumns: lightweightColumns,
       );
 
       if (response.isSuccess) {
+        // OPTIMIZATION: Cache the result for 5 minutes
+        _cache.set(cacheKey, response.data!, duration: const Duration(minutes: 5));
+        _logger.debug('Cached: getApprovedPapers',
+            category: LogCategory.storage,
+            context: {'tenantId': tenantId, 'itemCount': response.data!.length});
         return response.data!;
       } else {
         throw Exception(response.message ?? 'Failed to get approved papers');
@@ -177,10 +193,10 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       final from = (page - 1) * pageSize;
       final to = from + pageSize - 1;
 
-      // Build base query
-      var queryBuilder = Supabase.instance.client
-          .from(_tableName)
-          .select()
+      // Build query builder with all filters
+      var queryBuilder = Supabase.instance.client.from(_tableName).select();
+
+      queryBuilder = queryBuilder
           .eq('tenant_id', tenantId)
           .eq('status', 'approved');
 
@@ -188,33 +204,42 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       if (searchQuery != null && searchQuery.isNotEmpty) {
         queryBuilder = queryBuilder.ilike('title', '%$searchQuery%');
       }
-
       if (subjectFilter != null && subjectFilter.isNotEmpty) {
         queryBuilder = queryBuilder.eq('subject_id', subjectFilter);
       }
-
       if (gradeFilter != null && gradeFilter.isNotEmpty) {
         queryBuilder = queryBuilder.eq('grade_id', gradeFilter);
       }
 
-      // Execute query with ordering and pagination
+      // Execute paginated query
       final response = await queryBuilder
           .order('reviewed_at', ascending: false)
           .range(from, to);
 
-      // Parse response
+      // Parse response data
       final items = (response as List)
           .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
           .toList();
 
-      // Get total count separately for pagination
-      final countResponse = await Supabase.instance.client
+      // OPTIMIZATION: Build a matching filter list for count query to ensure accuracy
+      var countBuilder = Supabase.instance.client
           .from(_tableName)
-          .select()
+          .select('id')
           .eq('tenant_id', tenantId)
-          .eq('status', 'approved')
-          .count();
+          .eq('status', 'approved');
 
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        countBuilder = countBuilder.ilike('title', '%$searchQuery%');
+      }
+      if (subjectFilter != null && subjectFilter.isNotEmpty) {
+        countBuilder = countBuilder.eq('subject_id', subjectFilter);
+      }
+      if (gradeFilter != null && gradeFilter.isNotEmpty) {
+        countBuilder = countBuilder.eq('grade_id', gradeFilter);
+      }
+
+      // Get count with exact same filters by using count method
+      final countResponse = await countBuilder.count(CountOption.exact);
       final totalItems = countResponse.count;
 
       _logger.info('Fetched paginated approved papers', category: LogCategory.storage, context: {
@@ -242,6 +267,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId) async {
     try {
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
@@ -251,6 +279,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         },
         orderBy: 'submitted_at',
         ascending: false,
+        selectColumns: lightweightColumns,
       );
 
       if (response.isSuccess) {
@@ -270,6 +299,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId) async {
     try {
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
         fromJson: QuestionPaperModel.fromSupabase,
@@ -279,6 +311,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         },
         orderBy: 'submitted_at',
         ascending: false,
+        selectColumns: lightweightColumns,
       );
 
       if (response.isSuccess) {
@@ -303,6 +336,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         String? userId,
       }) async {
     try {
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+
       final filters = <String, dynamic>{
         'tenant_id': tenantId,
       };
@@ -321,6 +357,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         filters: filters,
         orderBy: 'created_at',
         ascending: false,
+        selectColumns: lightweightColumns,
       );
 
       if (!response.isSuccess) {
@@ -395,7 +432,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       } else {
         throw Exception(response.message ?? 'Failed to update paper status');
       }
-    } catch (e, stackTrace) {
+    } catch (e, _) {
       _logger.paperError('update_paper_status', id, e);
       rethrow;
     }
@@ -537,7 +574,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       } else {
         throw Exception(response.message ?? 'Failed to delete paper');
       }
-    } catch (e, stackTrace) {
+    } catch (e, _) {
       _logger.paperError('delete_paper', id, e);
       rethrow;
     }

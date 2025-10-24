@@ -1,6 +1,7 @@
 // features/catalog/data/datasources/subject_data_source.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/infrastructure/cache/cache_service.dart';
 import '../models/subject_catalog_model.dart';
 import '../models/subject_model.dart';
 
@@ -22,8 +23,14 @@ abstract class SubjectDataSource {
 class SubjectDataSourceImpl implements SubjectDataSource {
   final SupabaseClient _supabase;
   final ILogger _logger;
+  final CacheService _cache;
 
-  SubjectDataSourceImpl(this._supabase, this._logger);
+  // Cache key prefixes
+  static const String _cacheKeySubjectCatalog = 'subject_catalog';
+  static const String _cacheKeySubjects = 'subjects_';
+  static const String _cacheKeyAssignedSubjects = 'assigned_subjects_';
+
+  SubjectDataSourceImpl(this._supabase, this._logger, this._cache);
 
   @override
   Future<List<SubjectModel>> getAssignedSubjects(
@@ -32,6 +39,20 @@ class SubjectDataSourceImpl implements SubjectDataSource {
       String academicYear,
       ) async {
     try {
+      // OPTIMIZATION: Check cache first
+      final cacheKey = '$_cacheKeyAssignedSubjects${tenantId}_${teacherId}_$academicYear';
+      final cachedData = _cache.get<List<SubjectModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getAssignedSubjects',
+            category: LogCategory.storage,
+            context: {
+              'tenantId': tenantId,
+              'teacherId': teacherId,
+              'count': cachedData.length
+            });
+        return cachedData;
+      }
+
       _logger.debug('Fetching assigned subjects for teacher',
           category: LogCategory.storage,
           context: {
@@ -68,17 +89,21 @@ class SubjectDataSourceImpl implements SubjectDataSource {
           .eq('is_active', true)
           .eq('subject_catalog.is_active', true);
 
+      final subjects = _parseSubjectResponse(response);
+      // Sort by subject name since we can't order by foreign table columns in the query
+      subjects.sort((a, b) => a.name.compareTo(b.name));
+
+      // OPTIMIZATION: Cache the result
+      _cache.set(cacheKey, subjects, duration: const Duration(minutes: 10));
+
       _logger.info('Assigned subjects fetched',
           category: LogCategory.storage,
           context: {
             'tenantId': tenantId,
             'teacherId': teacherId,
-            'count': (response as List).length,
+            'count': subjects.length,
           });
 
-      final subjects = _parseSubjectResponse(response);
-      // Sort by subject name since we can't order by foreign table columns in the query
-      subjects.sort((a, b) => a.name.compareTo(b.name));
       return subjects;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch assigned subjects',
@@ -93,17 +118,32 @@ class SubjectDataSourceImpl implements SubjectDataSource {
   @override
   Future<List<SubjectCatalogModel>> getSubjectCatalog() async {
     try {
+      // OPTIMIZATION: Check cache first (catalog rarely changes)
+      final cachedData = _cache.get<List<SubjectCatalogModel>>(_cacheKeySubjectCatalog);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getSubjectCatalog',
+            category: LogCategory.storage,
+            context: {'count': cachedData.length});
+        return cachedData;
+      }
+
       _logger.debug('Fetching subject catalog', category: LogCategory.storage);
 
+      // OPTIMIZATION: Only fetch needed columns
       final response = await _supabase
           .from('subject_catalog')
-          .select()
+          .select('id,name,description,min_grade,max_grade,is_active,created_at')
           .eq('is_active', true)
           .order('name');
 
-      return (response as List)
+      final result = (response as List)
           .map((json) => SubjectCatalogModel.fromJson(json as Map<String, dynamic>))
           .toList();
+
+      // OPTIMIZATION: Cache for longer period since catalog rarely changes
+      _cache.set(_cacheKeySubjectCatalog, result, duration: const Duration(hours: 1));
+
+      return result;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch subject catalog',
           category: LogCategory.storage, error: e, stackTrace: stackTrace);
@@ -114,6 +154,16 @@ class SubjectDataSourceImpl implements SubjectDataSource {
   @override
   Future<List<SubjectModel>> getSubjects(String tenantId) async {
     try {
+      // OPTIMIZATION: Check cache first
+      final cacheKey = '$_cacheKeySubjects$tenantId';
+      final cachedData = _cache.get<List<SubjectModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getSubjects',
+            category: LogCategory.storage,
+            context: {'tenantId': tenantId, 'count': cachedData.length});
+        return cachedData;
+      }
+
       _logger.debug('Fetching subjects with catalog',
           category: LogCategory.storage, context: {'tenantId': tenantId});
 
@@ -136,11 +186,16 @@ class SubjectDataSourceImpl implements SubjectDataSource {
           .eq('is_active', true)
           .eq('subject_catalog.is_active', true);
 
+      final result = _parseSubjectResponse(response);
+
+      // OPTIMIZATION: Cache the result
+      _cache.set(cacheKey, result, duration: const Duration(minutes: 10));
+
       _logger.info('Subjects fetched with catalog data',
           category: LogCategory.storage,
-          context: {'tenantId': tenantId, 'count': (response as List).length});
+          context: {'tenantId': tenantId, 'count': result.length});
 
-      return _parseSubjectResponse(response);
+      return result;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch subjects',
           category: LogCategory.storage, error: e, stackTrace: stackTrace);

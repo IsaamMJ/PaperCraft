@@ -263,13 +263,17 @@ class ApiClient {
     String? orderBy,
     bool ascending = true,
     int? limit,
+    String? selectColumns,
   }) async {
     return await query<List<T>>(
       table: table,
       operation: 'SELECT',
       apiCall: () async {
         // Build query with proper type handling
-        var baseQuery = _supabase.from(table).select();
+        // OPTIMIZATION: Support column filtering to reduce payload
+        var baseQuery = selectColumns != null
+            ? _supabase.from(table).select(selectColumns)
+            : _supabase.from(table).select();
 
         // Apply filters first (returns PostgrestFilterBuilder)
         if (filters != null) {
@@ -380,6 +384,85 @@ class ApiClient {
             .single();
       },
       parser: (data) => fromJson(data as Map<String, dynamic>),
+      enableRetry: false, // Don't retry write operations
+    );
+  }
+
+  /// Batch insert multiple records (more efficient than individual inserts)
+  ///
+  /// Parameters:
+  /// - [table]: Table name
+  /// - [dataList]: List of records to insert
+  /// - [fromJson]: Function to parse each inserted row
+  ///
+  /// Returns: [ApiResponse<List<T>>] with all inserted records
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = await batchInsert<Paper>(
+  ///   table: 'question_papers',
+  ///   dataList: papers.map((p) => p.toJson()).toList(),
+  ///   fromJson: Paper.fromJson,
+  /// );
+  /// ```
+  Future<ApiResponse<List<T>>> batchInsert<T>({
+    required String table,
+    required List<Map<String, dynamic>> dataList,
+    required T Function(Map<String, dynamic>) fromJson,
+  }) async {
+    if (dataList.isEmpty) {
+      return ApiResponse.success(data: [], operation: 'BATCH_INSERT');
+    }
+
+    return await query<List<T>>(
+      table: table,
+      operation: 'BATCH_INSERT',
+      apiCall: () async {
+        return await _supabase
+            .from(table)
+            .insert(dataList)
+            .select();
+      },
+      parser: (data) {
+        final List<dynamic> list = data as List<dynamic>;
+        return list.map((item) => fromJson(item as Map<String, dynamic>)).toList();
+      },
+      enableRetry: false, // Don't retry write operations
+    );
+  }
+
+  /// Batch upsert multiple records (more efficient than individual upserts)
+  ///
+  /// Parameters:
+  /// - [table]: Table name
+  /// - [dataList]: List of records to insert/update
+  /// - [fromJson]: Function to parse each result
+  /// - [onConflict]: Column name for conflict resolution
+  ///
+  /// Returns: [ApiResponse<List<T>>] with all upserted records
+  Future<ApiResponse<List<T>>> batchUpsert<T>({
+    required String table,
+    required List<Map<String, dynamic>> dataList,
+    required T Function(Map<String, dynamic>) fromJson,
+    String onConflict = 'id',
+  }) async {
+    if (dataList.isEmpty) {
+      return ApiResponse.success(data: [], operation: 'BATCH_UPSERT');
+    }
+
+    return await query<List<T>>(
+      table: table,
+      operation: 'BATCH_UPSERT',
+      apiCall: () async {
+        return await _supabase
+            .from(table)
+            .upsert(dataList, onConflict: onConflict)
+            .select();
+      },
+      parser: (data) {
+        final List<dynamic> list = data as List<dynamic>;
+        return list.map((item) => fromJson(item as Map<String, dynamic>)).toList();
+      },
       enableRetry: false, // Don't retry write operations
     );
   }

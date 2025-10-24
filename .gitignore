@@ -57,3 +57,4 @@ app.*.map.json
 config/secrets.dart
 config/keys.dart
 **/secrets/
+.aider*

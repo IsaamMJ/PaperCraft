@@ -366,11 +366,15 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
                   color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '$validPairs of $_pairCount pairs completed ${validPairs < _pairCount ? '(${_pairCount - validPairs} remaining)' : '✓'}',
-                  style: TextStyle(
-                    fontSize: UIConstants.fontSizeSmall,
-                    color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
+                Expanded(
+                  child: Text(
+                    validPairs == _pairCount
+                        ? '✓ All $_pairCount pairs matched'
+                        : '$validPairs/$_pairCount pairs matched • ${_pairCount - validPairs} remaining',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeSmall,
+                      color: validPairs == _pairCount ? AppColors.success : AppColors.warning,
+                    ),
                   ),
                 ),
               ],
@@ -443,13 +447,21 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
         ),
 
         // Validation hints
-        if (!_isValid && _questionController.text.isNotEmpty) ...[
+        if (!_isValid) ...[
           SizedBox(height: UIConstants.spacing8),
-          Text(
-            'Please complete all $_pairCount matching pairs',
-            style: TextStyle(
-              color: AppColors.error,
-              fontSize: UIConstants.fontSizeSmall,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.error10,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '⚠️ Fill both columns for all $_pairCount pairs to submit',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: UIConstants.fontSizeSmall,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

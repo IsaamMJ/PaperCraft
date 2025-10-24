@@ -714,6 +714,13 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           // Parallel processing of batch
           final futures = batch.map((q) async {
             try {
+              // SKIP Match the Following & Fill in the Blanks questions - not sent to Groq
+              // These question types are too sensitive to Groq's modifications
+              if (q.type == 'match_following' || q.type == 'fill_in_blanks' || q.type == 'fill_blanks') {
+                processedQuestionsNotifier.value++;
+                return q; // Return unchanged
+              }
+
               // Polish question text
               final textResult = await GroqService.polishText(q.text);
 
@@ -722,6 +729,11 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
               if (q.type == 'multiple_choice' && q.options != null && q.options!.isNotEmpty) {
                 polishedOptions = [];
                 for (final option in q.options!) {
+                  // Skip empty options
+                  if (option.trim().isEmpty) {
+                    polishedOptions.add(option);
+                    continue;
+                  }
                   try {
                     final optionResult = await GroqService.polishText(option);
                     polishedOptions.add(optionResult.polished);

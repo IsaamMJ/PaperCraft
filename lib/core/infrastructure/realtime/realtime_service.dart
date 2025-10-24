@@ -4,12 +4,33 @@ import '../../domain/interfaces/i_logger.dart';
 
 /// Service to manage Supabase Realtime subscriptions
 /// Provides type-safe channel management and automatic cleanup
+///
+/// IMPORTANT: Always call dispose() when done to prevent memory leaks!
+/// Example in StatefulWidget:
+/// ```dart
+/// @override
+/// void dispose() {
+///   _realtimeService.dispose();
+///   super.dispose();
+/// }
+/// ```
 class RealtimeService {
   final SupabaseClient _supabase;
   final ILogger _logger;
   final Map<String, RealtimeChannel> _activeChannels = {};
+  bool _isDisposed = false;
 
   RealtimeService(this._supabase, this._logger);
+
+  /// Check if service has been disposed
+  bool get isDisposed => _isDisposed;
+
+  /// Throw if service is used after disposal
+  void _checkDisposed() {
+    if (_isDisposed) {
+      throw StateError('RealtimeService has been disposed and cannot be used');
+    }
+  }
 
   /// Subscribe to table changes with filters
   /// Returns channel ID for later unsubscription
@@ -21,12 +42,15 @@ class RealtimeService {
     void Function(Map<String, dynamic> payload)? onDelete,
     String? filter,
   }) {
+    // OPTIMIZATION: Check if service is disposed to prevent memory leaks
+    _checkDisposed();
+
     try {
-      // Remove existing channel if any
+      // Remove existing channel if any (prevent duplicate subscriptions)
       if (_activeChannels.containsKey(channelName)) {
         _logger.warning('Channel already exists, removing old one',
             category: LogCategory.system, context: {'channelName': channelName});
-        unsubscribe(channelName);
+        unsubscribeSync(channelName);
       }
 
       _logger.info('Creating realtime subscription',
@@ -58,7 +82,45 @@ class RealtimeService {
         }
       }
 
-      // Subscribe to changes
+      // OPTIMIZATION: Wrap callbacks with error handling to prevent crashes
+      // If callback throws, log error but keep subscription alive
+      void safeOnInsert(PostgresChangePayload payload) {
+        try {
+          onInsert(payload.newRecord);
+        } catch (e, stackTrace) {
+          _logger.error('Error in realtime INSERT callback',
+              category: LogCategory.system,
+              error: e,
+              stackTrace: stackTrace,
+              context: {'table': table, 'channel': channelName});
+        }
+      }
+
+      void safeOnUpdate(PostgresChangePayload payload) {
+        try {
+          onUpdate!(payload.newRecord);
+        } catch (e, stackTrace) {
+          _logger.error('Error in realtime UPDATE callback',
+              category: LogCategory.system,
+              error: e,
+              stackTrace: stackTrace,
+              context: {'table': table, 'channel': channelName});
+        }
+      }
+
+      void safeOnDelete(PostgresChangePayload payload) {
+        try {
+          onDelete!(payload.oldRecord);
+        } catch (e, stackTrace) {
+          _logger.error('Error in realtime DELETE callback',
+              category: LogCategory.system,
+              error: e,
+              stackTrace: stackTrace,
+              context: {'table': table, 'channel': channelName});
+        }
+      }
+
+      // Subscribe to changes with error-safe callbacks
       channel.onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
@@ -71,7 +133,7 @@ class RealtimeService {
                 'table': table,
                 'channel': channelName,
               });
-          onInsert(payload.newRecord);
+          safeOnInsert(payload);
         },
       );
 
@@ -88,7 +150,7 @@ class RealtimeService {
                   'table': table,
                   'channel': channelName,
                 });
-            onUpdate(payload.newRecord);
+            safeOnUpdate(payload);
           },
         );
       }
@@ -106,7 +168,7 @@ class RealtimeService {
                   'table': table,
                   'channel': channelName,
                 });
-            onDelete(payload.oldRecord);
+            safeOnDelete(payload);
           },
         );
       }
@@ -142,8 +204,35 @@ class RealtimeService {
     }
   }
 
-  /// Unsubscribe from a channel
+  /// Synchronous unsubscribe (for use during cleanup)
+  /// Should be called during initialization to avoid race conditions
+  void unsubscribeSync(String channelName) {
+    try {
+      final channel = _activeChannels[channelName];
+      if (channel != null) {
+        _logger.debug('Synchronously removing realtime channel',
+            category: LogCategory.system,
+            context: {'channelName': channelName});
+        _activeChannels.remove(channelName);
+      }
+    } catch (e, stackTrace) {
+      _logger.error('Failed to synchronously remove channel',
+          category: LogCategory.system,
+          error: e,
+          stackTrace: stackTrace,
+          context: {'channelName': channelName});
+    }
+  }
+
+  /// Unsubscribe from a channel asynchronously
   Future<void> unsubscribe(String channelName) async {
+    if (_isDisposed) {
+      _logger.warning('Attempted to unsubscribe after disposal',
+          category: LogCategory.system,
+          context: {'channelName': channelName});
+      return;
+    }
+
     try {
       final channel = _activeChannels[channelName];
       if (channel != null) {
@@ -165,6 +254,12 @@ class RealtimeService {
 
   /// Unsubscribe from all active channels
   Future<void> unsubscribeAll() async {
+    if (_isDisposed) {
+      _logger.warning('Attempted to unsubscribe all after disposal',
+          category: LogCategory.system);
+      return;
+    }
+
     _logger.info('Unsubscribing from all realtime channels',
         category: LogCategory.system,
         context: {'activeChannels': _activeChannels.length});
@@ -186,7 +281,30 @@ class RealtimeService {
   }
 
   /// Dispose and cleanup all subscriptions
+  /// IMPORTANT: Call this in StatefulWidget.dispose() to prevent memory leaks
+  /// Example:
+  /// ```dart
+  /// @override
+  /// void dispose() {
+  ///   _realtimeService.dispose();
+  ///   super.dispose();
+  /// }
+  /// ```
   Future<void> dispose() async {
+    if (_isDisposed) {
+      _logger.debug('RealtimeService already disposed',
+          category: LogCategory.system);
+      return;
+    }
+
+    _logger.info('Disposing RealtimeService',
+        category: LogCategory.system,
+        context: {'activeChannels': _activeChannels.length});
+
+    // Mark as disposed FIRST to prevent new subscriptions during cleanup
+    _isDisposed = true;
+
+    // Then cleanup all channels
     await unsubscribeAll();
   }
 }

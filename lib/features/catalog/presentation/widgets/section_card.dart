@@ -169,7 +169,7 @@ class SectionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Questions count
+                // Questions/Pairs count
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -185,7 +185,9 @@ class SectionCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '${section.questions} question${section.questions > 1 ? 's' : ''}',
+                        section.type == 'match_following'
+                            ? '${section.questions} pair${section.questions > 1 ? 's' : ''}'
+                            : '${section.questions} question${section.questions > 1 ? 's' : ''}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

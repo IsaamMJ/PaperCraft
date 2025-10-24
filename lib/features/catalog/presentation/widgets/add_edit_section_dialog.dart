@@ -228,13 +228,13 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Number of questions
+              // Number of questions/pairs
               TextFormField(
                 controller: _questionsController,
-                decoration: const InputDecoration(
-                  labelText: 'Number of Questions',
-                  hintText: 'e.g., 10',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: _selectedType == 'match_following' ? 'Number of Pairs' : 'Number of Questions',
+                  hintText: _selectedType == 'match_following' ? 'e.g., 5 pairs to match' : 'e.g., 10',
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [
@@ -242,27 +242,31 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                 ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter number of questions';
+                    return _selectedType == 'match_following'
+                        ? 'Please enter number of pairs'
+                        : 'Please enter number of questions';
                   }
                   final number = int.tryParse(value);
                   if (number == null || number <= 0) {
                     return 'Must be greater than 0';
                   }
                   if (number > 100) {
-                    return 'Too many questions (max 100)';
+                    return _selectedType == 'match_following'
+                        ? 'Too many pairs (max 100)'
+                        : 'Too many questions (max 100)';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
 
-              // Marks per question
+              // Marks per question/pair
               TextFormField(
                 controller: _marksController,
-                decoration: const InputDecoration(
-                  labelText: 'Marks per Question',
+                decoration: InputDecoration(
+                  labelText: _selectedType == 'match_following' ? 'Marks per Pair' : 'Marks per Question',
                   hintText: 'e.g., 2',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [
@@ -270,14 +274,18 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                 ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter marks per question';
+                    return _selectedType == 'match_following'
+                        ? 'Please enter marks per pair'
+                        : 'Please enter marks per question';
                   }
                   final number = int.tryParse(value);
                   if (number == null || number <= 0) {
                     return 'Must be greater than 0';
                   }
                   if (number > 100) {
-                    return 'Too many marks (max 100 per question)';
+                    return _selectedType == 'match_following'
+                        ? 'Too many marks (max 100 per pair)'
+                        : 'Too many marks (max 100 per question)';
                   }
                   return null;
                 },

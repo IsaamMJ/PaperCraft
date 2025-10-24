@@ -1,4 +1,6 @@
 // features/question_bank/presentation/bloc/question_bank_bloc.dart
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
@@ -17,6 +19,11 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
 
   static const String _channelName = 'question_bank_approved_papers';
 
+  // Debouncing for realtime updates (batch multiple updates)
+  Timer? _realtimeDebounceTimer;
+  final List<QuestionBankPaperRealtimeUpdate> _pendingRealtimeUpdates = [];
+  static const Duration _realtimeDebounceInterval = Duration(milliseconds: 500);
+
   QuestionBankBloc({
     required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
     required RealtimeService realtimeService,
@@ -34,6 +41,11 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
 
   @override
   Future<void> close() async {
+    // Cancel pending debounce timer
+    _realtimeDebounceTimer?.cancel();
+    _pendingRealtimeUpdates.clear();
+
+    // Unsubscribe from realtime
     await _realtimeService.unsubscribe(_channelName);
     return super.close();
   }
@@ -188,32 +200,63 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
     if (state is! QuestionBankLoaded) return;
 
     try {
-      final currentState = state as QuestionBankLoaded;
       final paperModel = QuestionPaperModel.fromSupabase(event.paperData);
 
       // Only process approved papers
       if (paperModel.status.value != 'approved') return;
 
-      final enrichedPaper = (await _paperDisplayService.enrichPapers([paperModel])).first;
+      // Add to pending updates
+      _pendingRealtimeUpdates.add(event);
 
-      List<QuestionPaperEntity> updatedPapers;
+      // Cancel existing timer and start new one
+      _realtimeDebounceTimer?.cancel();
+      _realtimeDebounceTimer = Timer(_realtimeDebounceInterval, () async {
+        try {
+          await _processPendingRealtimeUpdates(emit);
+        } catch (e) {
+          // Log error but don't fail
+        }
+      });
+    } catch (e) {
+      // Log error but don't fail
+    }
+  }
+
+  /// Process all pending realtime updates in batch
+  /// Batching reduces expensive grouping recomputation
+  Future<void> _processPendingRealtimeUpdates(Emitter<QuestionBankState> emit) async {
+    if (_pendingRealtimeUpdates.isEmpty || state is! QuestionBankLoaded) return;
+
+    try {
+      final currentState = state as QuestionBankLoaded;
+      var updatedPapers = List<QuestionPaperEntity>.from(currentState.papers);
       int updatedTotalItems = currentState.totalItems;
 
-      if (event.eventType == 'INSERT') {
-        updatedPapers = [enrichedPaper, ...currentState.papers];
-        updatedTotalItems += 1;
-      } else if (event.eventType == 'UPDATE') {
-        updatedPapers = currentState.papers
-            .map((p) => p.id == enrichedPaper.id ? enrichedPaper : p)
-            .toList();
-      } else if (event.eventType == 'DELETE') {
-        updatedPapers = currentState.papers.where((p) => p.id != enrichedPaper.id).toList();
-        updatedTotalItems -= 1;
-      } else {
-        return;
+      // Process all pending updates
+      for (final event in _pendingRealtimeUpdates) {
+        try {
+          // Skip enrichment for realtime updates - use basic paper data
+          // This avoids unnecessary API calls and improves performance
+          final paperModel = QuestionPaperModel.fromSupabase(event.paperData);
+
+          if (event.eventType == 'INSERT') {
+            updatedPapers = [paperModel, ...updatedPapers];
+            updatedTotalItems += 1;
+          } else if (event.eventType == 'UPDATE') {
+            updatedPapers = updatedPapers
+                .map((p) => p.id == paperModel.id ? paperModel : p)
+                .toList();
+          } else if (event.eventType == 'DELETE') {
+            updatedPapers = updatedPapers.where((p) => p.id != paperModel.id).toList();
+            updatedTotalItems -= 1;
+          }
+        } catch (e) {
+          // Skip individual update on error
+        }
       }
 
-      // Recompute all grouped data with updated papers
+      // Recompute all grouped data once for all updates (not per-update)
+      // This is the critical optimization - grouping is expensive
       final groupedData = _computeGroupedData(updatedPapers);
 
       emit(currentState.copyWith(
@@ -226,8 +269,10 @@ class QuestionBankBloc extends Bloc<QuestionBankEvent, QuestionBankState> {
         archiveGroupedByClass: groupedData['archiveByClass'],
         archiveGroupedByMonth: groupedData['archiveByMonth'],
       ));
+
+      _pendingRealtimeUpdates.clear();
     } catch (e) {
-      // Log error but don't fail - just skip this update
+      // Log error but don't fail
     }
   }
 
