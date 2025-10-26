@@ -108,10 +108,10 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           category: LogCategory.storage,
           context: {'tenantId': tenantId});
 
-      // OPTIMIZATION: Only fetch columns needed for list view, exclude heavy arrays
-      // This significantly reduces payload size (avoids fetching questions, paperSections arrays)
+      // OPTIMIZATION: Only fetch columns needed for list view
+      // Include questions for accurate question count display in home page
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
 
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
@@ -150,8 +150,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
 
       // OPTIMIZATION: Only fetch columns needed for list view
+      // Include questions for accurate question count display
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
 
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
@@ -273,7 +274,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId) async {
     try {
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
 
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
@@ -305,7 +306,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId) async {
     try {
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
 
       final response = await _apiClient.select<QuestionPaperModel>(
         table: _tableName,
@@ -348,9 +349,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
             'toDate': toDate.toIso8601String(),
           });
 
-      // Use lightweight columns for list view
+      // Use lightweight columns for list view, include questions for accurate count
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions';
 
       // Build query using Supabase client directly for date range filtering
       var queryBuilder = Supabase.instance.client
@@ -397,7 +398,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }) async {
     try {
       const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type';
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
 
       final filters = <String, dynamic>{
         'tenant_id': tenantId,

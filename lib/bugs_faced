@@ -125,13 +125,20 @@
    Feedback: ___________________________________________________________
 
 
-⚠️  4. Home page paper card showing "0 Questions"
-   Status: PARTIAL FIX
+✅ 4. Home page paper card showing "0 Questions"
+   Status: FIXED
    Issue: Paper card displays subject but "0 Questions" instead of count
-   Root Cause: questions map not populated when fetching papers from server
-   Current: Still shows 0 questions only
-   Note: Requires backend to ensure questions are loaded with papers
-   Feedback: still shows 0 questions only
+   Root Cause: Lightweight query excluded questions JSONB to reduce payload
+   Fix: Added 'questions' column to all paper list fetch queries
+   Methods Updated:
+   • getAllPapersForAdmin() - line 114
+   • getApprovedPapers() - line 155
+   • getUserSubmissions() - line 277
+   • getPapersForReview() - line 309
+   • getApprovedPapersByExamDateRange() - line 354
+   • searchPapers() - line 401
+   Location: paper_cloud_data_source.dart
+   Feedback: ___________________________________________________________
 
 
 ═══════════════════════════════════════════════════════════════════════
