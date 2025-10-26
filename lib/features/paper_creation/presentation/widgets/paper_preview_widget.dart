@@ -7,12 +7,14 @@ class PaperPreviewWidget extends StatelessWidget {
   final QuestionPaperEntity paper;
   final VoidCallback? onSubmit;
   final bool isAdmin;
+  final bool aiPolishCompleted;
 
   const PaperPreviewWidget({
     super.key,
     required this.paper,
     this.onSubmit,
     this.isAdmin = false,
+    this.aiPolishCompleted = false,
   });
 
   @override
@@ -316,7 +318,11 @@ class PaperPreviewWidget extends StatelessWidget {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: Text(isAdmin ? 'Submit Paper' : 'Save Draft'),
+                          child: Text(
+                            isAdmin
+                                ? 'Submit Paper'
+                                : (aiPolishCompleted ? 'Submit' : 'Save Draft'),
+                          ),
                         ),
                       ),
                     ],

@@ -25,6 +25,7 @@ class UserEntity {
   bool get isValid => id.isNotEmpty && email.isNotEmpty && tenantId != null;
   bool get isAdmin => role == UserRole.admin;
   bool get isTeacher => role == UserRole.teacher;
+  bool get isOfficeStaff => role == UserRole.office_staff;
   bool get isBlocked => role == UserRole.blocked;
   bool get canCreatePapers => isActive && (isAdmin || isTeacher);
   bool get canManageUsers => isActive && isAdmin;

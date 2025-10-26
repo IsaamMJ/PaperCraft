@@ -23,11 +23,13 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
   late TextEditingController _questionsController;
   late TextEditingController _marksController;
   late String _selectedType;
+  late String _lastGeneratedDefaultName; // Track if name was auto-generated
 
   final List<Map<String, dynamic>> _questionTypes = [
     {'value': 'multiple_choice', 'label': 'Multiple Choice (MCQ)', 'icon': Icons.radio_button_checked},
     {'value': 'short_answer', 'label': 'Short Answer', 'icon': Icons.short_text},
     {'value': 'fill_in_blanks', 'label': 'Fill in the Blanks', 'icon': Icons.edit_note},
+    {'value': 'missing_letters', 'label': 'Missing Letters', 'icon': Icons.abc},
     {'value': 'true_false', 'label': 'True/False', 'icon': Icons.toggle_on},
     {'value': 'match_following', 'label': 'Match the Following', 'icon': Icons.compare_arrows},
   ];
@@ -35,14 +37,57 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.section?.name ?? '');
+    _selectedType = widget.section?.type ?? 'multiple_choice';
+
+    // Initialize name with default or existing value
+    final defaultName = widget.section == null ? _getDefaultSectionName(_selectedType) : widget.section!.name;
+    _nameController = TextEditingController(text: defaultName);
+
+    // Track if this is an auto-generated default name (for adding new sections)
+    // If editing, we mark it as not auto-generated so user's custom name is preserved
+    _lastGeneratedDefaultName = widget.section == null ? defaultName : '';
+
     _questionsController = TextEditingController(
       text: widget.section?.questions.toString() ?? '',
     );
     _marksController = TextEditingController(
       text: widget.section?.marksPerQuestion.toString() ?? '',
     );
-    _selectedType = widget.section?.type ?? 'multiple_choice';
+  }
+
+  /// Get default section name based on question type
+  String _getDefaultSectionName(String type) {
+    switch (type) {
+      case 'multiple_choice':
+        return 'Choose the Correct Answer';
+      case 'short_answer':
+        return 'Answer the Following';
+      case 'fill_in_blanks':
+        return 'Fill in the Blanks';
+      case 'missing_letters':
+        return 'Missing Letters';
+      case 'true_false':
+        return 'State True or False';
+      case 'match_following':
+        return 'Match the Following';
+      default:
+        return '';
+    }
+  }
+
+  /// Update section name when type changes
+  void _onTypeChanged(String newType) {
+    setState(() {
+      _selectedType = newType;
+      // Update the name if it matches the previously generated default
+      // This allows users to change the type and get a new default name
+      // But if they've manually edited the name, it stays as-is
+      if (_nameController.text == _lastGeneratedDefaultName || _nameController.text.isEmpty) {
+        final newDefaultName = _getDefaultSectionName(newType);
+        _nameController.text = newDefaultName;
+        _lastGeneratedDefaultName = newDefaultName;
+      }
+    });
   }
 
   @override
@@ -221,9 +266,9 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                   );
                 }).toList(),
                 onChanged: (value) {
-                  setState(() {
-                    _selectedType = value!;
-                  });
+                  if (value != null) {
+                    _onTypeChanged(value);
+                  }
                 },
               ),
               const SizedBox(height: 16),

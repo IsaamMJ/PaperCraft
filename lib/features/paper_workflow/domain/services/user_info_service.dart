@@ -58,7 +58,7 @@ class UserInfoService {
             return cached.fullName;
           }
 
-          return 'User $userId'; // Fallback to user ID
+          return 'User'; // Fallback to generic User text
         },
             (user) {
           if (user != null) {
@@ -80,7 +80,7 @@ class UserInfoService {
             return fullName;
           } else {
             _logger.warning('User not found', context: {'userId': userId});
-            return 'Unknown User';
+            return 'User';
           }
         },
       );
@@ -96,7 +96,7 @@ class UserInfoService {
         return cached.fullName;
       }
 
-      return 'User $userId';
+      return 'User';
     }
   }
 

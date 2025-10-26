@@ -10,13 +10,16 @@ class AppRoutes {
   static const String settings = '/settings'; // ADD THIS
   static const String notifications = '/notifications';
 
+  // Onboarding routes
+  static const String onboarding = '/onboarding';
+  static const String teacherOnboarding = '/onboarding/teacher';
+  static const String teacherProfileSetup = '/onboarding/teacher/profile-setup';
+
   // Question paper routes
   static const String questionPaperCreate = '/papers/create';
   static const String questionPaperView = '/papers/view';
   static const String questionPaperEdit = '/papers/edit';
   static const String questionBank = '/papers/bank';
-
-  static const String onboarding = '/onboarding';
 
   // Settings sub-routes
   static const String settingsSubjects = '/settings/subjects';
@@ -28,6 +31,9 @@ class AppRoutes {
   static const String adminHome = '/admin/home';
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';
+
+  // Office staff routes
+  static const String officeStaffDashboard = '/office/dashboard';
 
   // Teacher Assignment routes
   static const String teacherAssignments = '/settings/teacher-assignments';
@@ -55,5 +61,9 @@ class RouteGuard {
 
   static bool isAdmin(String route) {
     return route.startsWith('/admin');
+  }
+
+  static bool isOfficeStaff(String route) {
+    return route.startsWith('/office');
   }
 }

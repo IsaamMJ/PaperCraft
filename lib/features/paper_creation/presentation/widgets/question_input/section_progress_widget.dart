@@ -24,7 +24,23 @@ class SectionProgressWidget extends StatelessWidget {
     final section = sections[currentSection];
     final questions = allQuestions[section.name] ?? [];
     final mandatoryCount = questions.where((q) => !q.isOptional).length;
-    final progress = (mandatoryCount / section.questions).clamp(0.0, 1.0);
+
+    // For match_following, show pairs completed instead of question count
+    String progressText;
+    double progress;
+
+    if (section.type == 'match_following') {
+      // For matching: 1 question with N pairs
+      // section.questions = number of pairs needed
+      // We have 1 question when complete
+      final pairsCompleted = mandatoryCount > 0 ? section.questions : 0;
+      progressText = '$pairsCompleted/${section.questions} pairs';
+      progress = mandatoryCount > 0 ? 1.0 : 0.0;
+    } else {
+      // For other types: show question count
+      progressText = '$mandatoryCount/${section.questions} questions';
+      progress = (mandatoryCount / section.questions).clamp(0.0, 1.0);
+    }
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -46,7 +62,7 @@ class SectionProgressWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '$mandatoryCount/${section.questions} questions',
+                progressText,
                 style: TextStyle(
                   fontSize: UIConstants.fontSizeMedium,
                   fontWeight: FontWeight.w500,
@@ -80,7 +96,12 @@ class SectionProgressWidget extends StatelessWidget {
         final section = entry.value;
         final questions = allQuestions[section.name] ?? [];
         final mandatoryCount = questions.where((q) => !q.isOptional).length;
-        final isCompleted = mandatoryCount >= section.questions;
+
+        // For matching questions: only need 1 question with N pairs
+        // For other types: need section.questions number of questions
+        final isCompleted = section.type == 'match_following'
+            ? mandatoryCount >= 1
+            : mandatoryCount >= section.questions;
         final isCurrent = index == currentSection;
 
         return Expanded(

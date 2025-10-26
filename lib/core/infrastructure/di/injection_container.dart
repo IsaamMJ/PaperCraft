@@ -39,6 +39,7 @@ import '../../../features/paper_workflow/domain/services/paper_display_service.d
 import '../../../features/paper_workflow/domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_approved_papers_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_approved_papers_paginated_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/get_approved_papers_by_exam_date_range_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_drafts_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_paper_by_id_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
@@ -90,6 +91,7 @@ import '../../../features/catalog/domain/repositories/grade_repository.dart';
 import '../../../features/assignments/data/datasources/assignment_data_source.dart';
 import '../../../features/assignments/data/repositories/assignment_repository_impl.dart';
 import '../../../features/assignments/domain/repositories/assignment_repository.dart';
+import '../../../features/assignments/domain/usecases/save_teacher_assignments_usecase.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 
 // Notification feature imports
@@ -636,6 +638,7 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => GetAllPapersForAdminUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersUseCase(repository));
     sl.registerLazySingleton(() => GetApprovedPapersPaginatedUseCase(repository));
+    sl.registerLazySingleton(() => GetApprovedPapersByExamDateRangeUseCase(repository));
 
     // PDF generation use cases
     sl.registerLazySingleton(() => DownloadPdfUseCase());
@@ -747,6 +750,7 @@ class _AssignmentModule {
 
       _setupDataSources();
       _setupRepositories();
+      _setupUseCases();
       _setupBlocs();
 
       sl<ILogger>().info(
@@ -795,6 +799,16 @@ class _AssignmentModule {
         sl<GradeDataSource>(),
         sl<SubjectDataSource>(),
         sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupUseCases() {
+    sl<ILogger>().debug('Setting up assignment use cases', category: LogCategory.system);
+
+    sl.registerLazySingleton<SaveTeacherAssignmentsUseCase>(
+          () => SaveTeacherAssignmentsUseCase(
+        sl<AssignmentRepository>(),
       ),
     );
   }

@@ -5,7 +5,9 @@ import '../widgets/school_type_selector.dart';
 import 'data_preview_screen.dart';
 
 class TenantOnboardingPage extends StatefulWidget {
-  const TenantOnboardingPage({super.key});
+  final bool isTeacherOnboarding;
+
+  const TenantOnboardingPage({super.key, this.isTeacherOnboarding = false});
 
   @override
   State<TenantOnboardingPage> createState() => _TenantOnboardingPageState();

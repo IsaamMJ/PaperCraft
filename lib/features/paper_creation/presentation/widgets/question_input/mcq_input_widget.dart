@@ -23,6 +23,7 @@ class McqInputWidget extends StatefulWidget {
 class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
   final _optionControllers = List.generate(4, (_) => TextEditingController());
+  late List<FocusNode> _focusNodes;
 
   @override
   bool get wantKeepAlive => true;
@@ -30,6 +31,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
   @override
   void initState() {
     super.initState();
+    _focusNodes = List.generate(4, (_) => FocusNode());
     // Add listeners to trigger UI updates
     _questionController.addListener(() {
       if (mounted) setState(() {});
@@ -46,6 +48,9 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
     _questionController.dispose();
     for (var controller in _optionControllers) {
       controller.dispose();
+    }
+    for (var focusNode in _focusNodes) {
+      focusNode.dispose();
     }
     super.dispose();
   }
@@ -152,6 +157,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             padding: EdgeInsets.only(bottom: widget.isMobile ? 16 : 12),
             child: TextField(
               controller: controller,
+              focusNode: _focusNodes[index],
               textCapitalization: TextCapitalization.sentences,
               textInputAction: index == _optionControllers.length - 1
                   ? TextInputAction.done
@@ -162,8 +168,8 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
                   FocusScope.of(context).unfocus();
                   if (_isValid) _addQuestion();
                 } else {
-                  // Move to next option field
-                  FocusScope.of(context).nextFocus();
+                  // Move to EXACTLY the next option field (not generic nextFocus which skips)
+                  _focusNodes[index + 1].requestFocus();
                 }
               },
               style: TextStyle(fontSize: widget.isMobile ? 16 : 14),

@@ -93,8 +93,18 @@ class QuestionPaperEntity extends Equatable {
 
     for (final section in paperSections) {
       final sectionQuestions = questions[section.name] ?? [];
-      if (sectionQuestions.length < section.questions) {
-        return false;
+
+      // Special handling for matching questions
+      // For matching: 1 question with N pairs is valid (not N separate questions)
+      if (section.type == 'match_following') {
+        if (sectionQuestions.isEmpty) {
+          return false;
+        }
+      } else {
+        // For other question types, count must match section.questions
+        if (sectionQuestions.length < section.questions) {
+          return false;
+        }
       }
     }
     return true;
@@ -128,8 +138,18 @@ class QuestionPaperEntity extends Equatable {
       final required = section.questions;
       final actual = sectionQuestions.length;
 
-      if (actual < required) {
-        errors.add('Section "${section.name}" needs $required questions, has $actual');
+      // Special handling for matching questions
+      // For matching: 1 question with N pairs is valid (not N separate questions)
+      if (section.type == 'match_following') {
+        // For matching questions, just need at least 1 question
+        if (actual < 1) {
+          errors.add('Section "${section.name}" needs at least 1 matching question');
+        }
+      } else {
+        // For other question types, count must match section.questions
+        if (actual < required) {
+          errors.add('Section "${section.name}" needs $required questions, has $actual');
+        }
       }
 
       // Validate each question in the section

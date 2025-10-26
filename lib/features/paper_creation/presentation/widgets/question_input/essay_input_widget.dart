@@ -27,6 +27,7 @@ class EssayInputWidget extends StatefulWidget {
 class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
   final _subQuestionController = TextEditingController();
+  late FocusNode _subQuestionFocusNode;
   final List<SubQuestion> _subQuestions = [];
   bool _isOptional = false;
   bool _showSubQuestions = false;
@@ -37,6 +38,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   @override
   void initState() {
     super.initState();
+    _subQuestionFocusNode = FocusNode();
     _questionController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -46,6 +48,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   void dispose() {
     _questionController.dispose();
     _subQuestionController.dispose();
+    _subQuestionFocusNode.dispose();
     super.dispose();
   }
 
@@ -279,12 +282,20 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
           // Sub-question input with Enter key navigation
           TextField(
             controller: _subQuestionController,
+            focusNode: _subQuestionFocusNode,
             textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.done,
+            textInputAction: TextInputAction.next,
+            showSoftInputOnFocus: true,
             onSubmitted: (_) {
-              // Add sub-question and stay focused for more sub-questions
+              // Add sub-question and re-open keyboard for next input
               if (_subQuestionController.text.trim().isNotEmpty) {
                 _addSubQuestion();
+                // Delay to ensure widget rebuilds before requesting focus
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) {
+                    FocusScope.of(context).requestFocus(_subQuestionFocusNode);
+                  }
+                });
               }
             },
             style: TextStyle(fontSize: widget.isMobile ? 16 : 14),

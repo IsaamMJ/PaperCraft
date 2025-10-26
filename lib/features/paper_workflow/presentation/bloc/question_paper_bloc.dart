@@ -10,6 +10,7 @@ import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../domain/usecases/get_approved_papers_usecase.dart';
 import '../../domain/usecases/get_approved_papers_paginated_usecase.dart';
+import '../../domain/usecases/get_approved_papers_by_exam_date_range_usecase.dart';
 import '../../domain/usecases/get_drafts_usecase.dart';
 import '../../domain/usecases/get_paper_by_id_usecase.dart';
 import '../../domain/usecases/get_papers_for_review_usecase.dart';
@@ -45,6 +46,19 @@ class LoadAllPapersForAdmin extends QuestionPaperEvent {
 
 class LoadApprovedPapers extends QuestionPaperEvent {
   const LoadApprovedPapers();
+}
+
+class LoadApprovedPapersByExamDateRange extends QuestionPaperEvent {
+  final DateTime fromDate;
+  final DateTime toDate;
+
+  const LoadApprovedPapersByExamDateRange({
+    required this.fromDate,
+    required this.toDate,
+  });
+
+  @override
+  List<Object> get props => [fromDate, toDate];
 }
 
 class LoadApprovedPapersPaginated extends QuestionPaperEvent {
@@ -292,6 +306,21 @@ class ApprovedPapersPaginated extends QuestionPaperState {
   }
 }
 
+class ApprovedPapersByExamDateLoaded extends QuestionPaperState {
+  final List<QuestionPaperEntity> papers;
+  final DateTime fromDate;
+  final DateTime toDate;
+
+  const ApprovedPapersByExamDateLoaded({
+    required this.papers,
+    required this.fromDate,
+    required this.toDate,
+  });
+
+  @override
+  List<Object> get props => [papers, fromDate, toDate];
+}
+
 // =============== BLOC ===============
 class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final SaveDraftUseCase _saveDraftUseCase;
@@ -307,6 +336,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final GetApprovedPapersUseCase _getApprovedPapersUseCase;
   final GetApprovedPapersPaginatedUseCase _getApprovedPapersPaginatedUseCase;
+  final GetApprovedPapersByExamDateRangeUseCase _getApprovedPapersByExamDateRangeUseCase;
 
   QuestionPaperBloc({
     required SaveDraftUseCase saveDraftUseCase,
@@ -322,6 +352,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required GetApprovedPapersUseCase getApprovedPapersUseCase,
     required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
+    required GetApprovedPapersByExamDateRangeUseCase getApprovedPapersByExamDateRangeUseCase,
   })  : _saveDraftUseCase = saveDraftUseCase,
         _submitPaperUseCase = submitPaperUseCase,
         _getDraftsUseCase = getDraftsUseCase,
@@ -335,6 +366,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _getApprovedPapersUseCase = getApprovedPapersUseCase,
         _getApprovedPapersPaginatedUseCase = getApprovedPapersPaginatedUseCase,
+        _getApprovedPapersByExamDateRangeUseCase = getApprovedPapersByExamDateRangeUseCase,
         super(QuestionPaperInitial()) {
     on<LoadDrafts>(_onLoadDrafts);
     on<LoadUserSubmissions>(_onLoadUserSubmissions);
@@ -342,6 +374,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<LoadAllPapersForAdmin>(_onLoadAllPapersForAdmin);
     on<LoadApprovedPapers>(_onLoadApprovedPapers);
     on<LoadApprovedPapersPaginated>(_onLoadApprovedPapersPaginated);
+    on<LoadApprovedPapersByExamDateRange>(_onLoadApprovedPapersByExamDateRange);
     // Exam types removed - using dynamic sections
     on<LoadPaperById>(_onLoadPaperById);
     on<SaveDraft>(_onSaveDraft);
@@ -445,6 +478,32 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         } else {
           emit(QuestionPaperLoaded(approvedPapers: enrichedPapers));
         }
+      },
+    );
+  }
+
+  Future<void> _onLoadApprovedPapersByExamDateRange(
+    LoadApprovedPapersByExamDateRange event,
+    Emitter<QuestionPaperState> emit,
+  ) async {
+    emit(const QuestionPaperLoading(message: 'Loading upcoming exams...'));
+
+    final result = await _getApprovedPapersByExamDateRangeUseCase(
+      fromDate: event.fromDate,
+      toDate: event.toDate,
+    );
+
+    await result.fold(
+      (failure) async => emit(QuestionPaperError(failure.message)),
+      (papers) async {
+        // Enrich papers with display names
+        final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(papers);
+
+        emit(ApprovedPapersByExamDateLoaded(
+          papers: enrichedPapers,
+          fromDate: event.fromDate,
+          toDate: event.toDate,
+        ));
       },
     );
   }

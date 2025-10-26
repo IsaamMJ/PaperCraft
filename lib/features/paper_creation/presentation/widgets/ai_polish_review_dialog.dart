@@ -216,32 +216,90 @@ class _AIPolishReviewDialogState extends State<AIPolishReviewDialog> {
     required int questionIndex,
   }) {
     if (!hasChanges) {
-      // No changes - show simple card
+      // No changes - show simple card with edit option
+      final isEdited = _editedQuestions.containsKey(questionKey);
+      final displayQuestion = isEdited ? _editedQuestions[questionKey]! : polished;
+
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: isEdited ? AppColors.primary05 : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(
+            color: isEdited ? AppColors.primary30 : Colors.grey.shade200,
+          ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Q$questionNumber.',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textSecondary,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Q$questionNumber.',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isEdited ? AppColors.primary : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    displayQuestion.text,
+                    style: TextStyle(
+                      color: isEdited ? AppColors.textPrimary : AppColors.textSecondary,
+                      fontWeight: isEdited ? FontWeight.w500 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                if (isEdited)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'EDITED',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                else
+                  Icon(Icons.check_circle, color: Colors.grey.shade400, size: 20),
+              ],
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                polished.text,
-                style: TextStyle(color: AppColors.textSecondary),
+            if (isEdited) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _editQuestion(questionKey, sectionName, questionIndex, displayQuestion),
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                ),
               ),
-            ),
-            Icon(Icons.check_circle, color: Colors.grey.shade400, size: 20),
+            ] else
+              SizedBox(
+                height: 32,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _editQuestion(questionKey, sectionName, questionIndex, displayQuestion),
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       );

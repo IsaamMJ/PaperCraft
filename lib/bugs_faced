@@ -1,0 +1,160 @@
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 1 - BUGS FIXED
+═══════════════════════════════════════════════════════════════════════
+
+✅ 1. Paper card shows "Created by Unknown User" in admin & question bank
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 2. Last login showing wrong data & not updating
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 3. Teacher first login - should ask for subjects & grade
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 4. Teacher assignment not showing other teachers in tenant
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 5. Missing letters not available in question type dropdown
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 2 - BUGS FIXED
+═══════════════════════════════════════════════════════════════════════
+
+⏳ 1. Question bank access before exam date (critical security issue)
+   Status: PENDING DECISION
+   Issue: All teachers see approved papers before exam date
+   Feedback: ___________________________________________________________
+
+
+✅ 2. Step 1 - Extra click for grade/subject dropdowns
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 3. Match UI counter showing 1/5 instead of 5/5
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+⏳ 4. Option to edit question pattern after mistake
+   Status: PENDING
+   Feedback: ___________________________________________________________
+
+
+✅ 5. Missing Letters - AI filling in answers
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 6. Fill in the Blanks - AI filling in answers
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 7. Paper preview - change "Save Draft" to "Submit"
+   Status: FIXED
+   Feedback: ___________________________________________________________
+
+
+✅ 8. MCQ options spelling not corrected by AI
+   Status: FIXED (with question context)
+   Feedback: ___________________________________________________________
+
+
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 3 - BUGS FIXED
+═══════════════════════════════════════════════════════════════════════
+
+✅ 1. Default section names based on question type
+   Status: FIXED
+   Names:
+   • MCQ: "Choose the Correct Answer"
+   • Short Answer: "Answer the Following"
+   • Fill in Blanks: "Fill in the Blanks"
+   • Missing Letters: "Missing Letters"
+   • True/False: "State True or False"
+   • Match Following: "Match the Following"
+   Feedback: ___________________________________________________________
+
+
+✅ 2. Navigate to home after paper submission (with UX feedback dialog)
+   Status: FIXED
+   Improvement: Added loading + success screen feedback (3 sec total)
+   - Shows "Submitting Paper..." with spinner (1.5 sec)
+   - Shows "Paper Submitted!" with checkmark (1.5 sec)
+   - Then navigates to home
+   Feedback: ___________________________________________________________
+
+
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 4 - INPUT FIELD ISSUES
+═══════════════════════════════════════════════════════════════════════
+
+✅ 1. Missing Letters - Input fields skipping on Enter
+   Status: FIXED
+   Issue: Fill field 1 → Enter → Jump to field 3 (skip field 2)
+   Fix: Changed from generic nextFocus() to explicit FocusNode management
+   Details: Now moves to EXACTLY next field using _focusNodes[index + 1].requestFocus()
+   Feedback: ___________________________________________________________
+
+
+✅ 2. Fill in the Blanks - Auto-keyboard visibility after enter
+   Status: FIXED
+   Issue: Keyboard closes after filling blank, doesn't reopen for next
+   Fix: Added FocusNode management + showSoftInputOnFocus: true
+   Details: onSubmitted now delays 100ms then re-requests focus on same field
+   Location: essay_input_widget.dart (lines 51, 285-296)
+   Feedback: ___________________________________________________________
+
+
+✅ 3. True/False - Input field skipping on Enter
+   Status: FIXED
+   Issue: Same as Missing Letters - fields being skipped
+   Fix: Applied same FocusNode solution to prevent skipping
+   Feedback: ___________________________________________________________
+
+
+⚠️  4. Home page paper card showing "0 Questions"
+   Status: PARTIAL FIX
+   Issue: Paper card displays subject but "0 Questions" instead of count
+   Root Cause: questions map not populated when fetching papers from server
+   Current: Still shows 0 questions only
+   Note: Requires backend to ensure questions are loaded with papers
+   Feedback: still shows 0 questions only
+
+
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 5 - NEW ISSUES
+═══════════════════════════════════════════════════════════════════════
+
+✅ 1. MCQ options input field - Same skipping issue on Enter
+   Status: FIXED
+   Issue: Similar to Missing Letters - MCQ option fields skip when pressing Enter
+   Fix: Applied same FocusNode solution to mcq_input_widget.dart
+   Details: Added _focusNodes list, use _focusNodes[index + 1].requestFocus()
+   Location: mcq_input_widget.dart (lines 26, 34, 52-54, 160, 172)
+   Feedback: ___________________________________________________________
+
+
+✅ 2. AI Polish preview - Add Edit button for unchanged questions
+   Status: FIXED
+   Issue: In AI polish review page, could only "Undo" corrected items
+   Fix: Added "Edit" button to unchanged questions (no changes case)
+   Details: When clicked, opens edit dialog same as changed questions
+   Features: Shows "EDITED" tag, highlights with primary color when edited
+   Location: ai_polish_review_dialog.dart (lines 218-306)
+   Feedback: ___________________________________________________________
+
+
+═══════════════════════════════════════════════════════════════════════

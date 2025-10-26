@@ -4,14 +4,17 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 
 /// Loading dialog shown during AI polishing with progress
 /// This is now a stateful widget with a ValueNotifier to avoid rebuilding the entire dialog
+/// [isPerSection] - If true, displays progress as sections instead of individual questions
 class PolishLoadingDialog extends StatefulWidget {
   final int totalQuestions;
   final ValueNotifier<int> processedQuestionsNotifier;
+  final bool isPerSection;
 
   const PolishLoadingDialog({
     super.key,
     required this.totalQuestions,
     required this.processedQuestionsNotifier,
+    this.isPerSection = false,
   });
 
   @override
@@ -88,7 +91,9 @@ class _PolishLoadingDialogState extends State<PolishLoadingDialog> {
 
               // Counter
               Text(
-                '$processedQuestions of ${widget.totalQuestions} questions',
+                widget.isPerSection
+                    ? '$processedQuestions of ${widget.totalQuestions} sections'
+                    : '$processedQuestions of ${widget.totalQuestions} questions',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -100,7 +105,9 @@ class _PolishLoadingDialogState extends State<PolishLoadingDialog> {
               // Estimated time
               if (processedQuestions < widget.totalQuestions)
                 Text(
-                  'This may take a few seconds...',
+                  widget.isPerSection
+                      ? 'Polishing section ${processedQuestions + 1} of ${widget.totalQuestions}...'
+                      : 'This may take a few seconds...',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiary,

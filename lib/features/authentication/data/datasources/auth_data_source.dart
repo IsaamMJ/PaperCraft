@@ -157,6 +157,9 @@ class AuthDataSource {
           return const Left(DeactivatedAccountFailure());
         }
 
+        // Note: last_login_at is NOT updated here to keep isFirstLogin true during onboarding
+        // It will be updated after the user completes their onboarding flow
+
         _logger.authEvent('google_signin_success', userModel.id, context: {
           'operationId': operationId,
           'fullName': userModel.fullName,
@@ -371,6 +374,24 @@ class AuthDataSource {
       } catch (localError) {
         _logger.warning('Local signout also failed', category: LogCategory.auth);
       }
+    }
+  }
+
+  Future<void> _updateLastLoginAt(String userId) async {
+    try {
+      // Store local time (not UTC) so it displays correctly in user's timezone
+      await _apiClient.update<void>(
+        table: 'profiles',
+        data: {'last_login_at': DateTime.now().toIso8601String()},
+        filters: {'id': userId},
+        fromJson: (_) => null,
+      );
+      _logger.debug('Last login updated', category: LogCategory.auth, context: {'userId': userId});
+    } catch (e) {
+      _logger.warning('Failed to update last login', category: LogCategory.auth, context: {
+        'userId': userId,
+        'error': e.toString(),
+      });
     }
   }
 }

@@ -418,6 +418,31 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   }
 
   @override
+  Future<Either<Failure, List<QuestionPaperEntity>>> getApprovedPapersByExamDateRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    try {
+      final tenantId = await _getTenantId();
+
+      if (tenantId == null) {
+        return Left(AuthFailure('User not authenticated'));
+      }
+
+      final models = await _cloudDataSource.getApprovedPapersByExamDateRange(
+        tenantId: tenantId,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+
+      return Right(models.map((m) => m.toEntity()).toList());
+    } catch (e, stackTrace) {
+      _logger.error('Failed to get approved papers by exam date range', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to get papers: ${e.toString()}'));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<QuestionPaperEntity>>> searchPapers({
     String? title,
     String? subject,

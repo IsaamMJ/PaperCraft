@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../../core/infrastructure/logging/app_logger.dart';
+import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
@@ -12,6 +14,7 @@ import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../../core/presentation/widgets/step_progress_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
+import '../../../assignments/domain/repositories/assignment_repository.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
@@ -94,10 +97,48 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     final currentUser = userStateService.currentUser;
     final isTeacher = currentUser?.role == UserRole.teacher;
 
+    // Check if teacher has assigned grades/subjects - if not, redirect to setup
+    if (isTeacher && currentUser != null) {
+      _checkTeacherSetupStatus(currentUser.id, userStateService.currentAcademicYear);
+    }
+
     context.read<GradeBloc>().add(LoadAssignedGrades(
       teacherId: isTeacher ? currentUser?.id : null,
       academicYear: userStateService.currentAcademicYear,
     ));
+  }
+
+  Future<void> _checkTeacherSetupStatus(String teacherId, String academicYear) async {
+    try {
+      final assignmentRepository = sl<AssignmentRepository>();
+
+      // Check if teacher has any assigned grades
+      final gradesResult = await assignmentRepository.getTeacherAssignedGrades(
+        teacherId,
+        academicYear,
+      );
+
+      if (gradesResult.isLeft()) {
+        // Error getting grades, continue anyway
+        return;
+      }
+
+      final grades = gradesResult.fold((_) => null, (g) => g);
+
+      if (grades == null || grades.isEmpty) {
+        // Teacher has no assigned grades - redirect to profile setup
+        if (mounted) {
+          AppLogger.info('Teacher has no assigned grades, redirecting to profile setup',
+              category: LogCategory.auth);
+          context.go(AppRoutes.teacherProfileSetup);
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('Error checking teacher setup status',
+          category: LogCategory.auth,
+          context: {'error': e.toString()});
+      // Continue anyway on error
+    }
   }
 
   void _loadSubjectsForSelectedGrade() {
@@ -610,6 +651,66 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 ),
 
               SizedBox(height: UIConstants.spacing24),
+
+              // Edit Pattern button - allows changing pattern after selection
+              if (_paperSections.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text(
+                      'Question Pattern',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () async {
+                        // Show confirmation dialog before clearing pattern
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Edit Question Pattern?'),
+                            content: const Text(
+                              'This will clear all sections in your current pattern. '
+                              'You can then rebuild the pattern from scratch or load a saved pattern.\n\n'
+                              'Are you sure you want to continue?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.warning,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Clear & Edit'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmed == true) {
+                          setState(() {
+                            _paperSections = [];
+                            _showPatternSelector = false;
+                          });
+                        }
+                      },
+                      icon: Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit Pattern'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: UIConstants.spacing12),
+              ],
 
               // Section Builder
               SectionBuilderWidget(

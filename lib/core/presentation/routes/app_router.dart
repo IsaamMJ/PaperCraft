@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
+import '../../../features/office_staff/presentation/pages/office_staff_dashboard_page.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
@@ -19,6 +20,7 @@ import '../../../features/catalog/presentation/pages/grade_management_page.dart'
 import '../../../features/catalog/presentation/pages/subject_management_page.dart';
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
+import '../../../features/onboarding/presentation/pages/teacher_profile_setup_page.dart';
 import '../../../features/paper_review/presentation/pages/paper_review_page.dart';
 import '../../../features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/notifications/presentation/bloc/notification_bloc.dart';
@@ -97,6 +99,64 @@ class AppRouter {
       return AppRoutes.home;
     }
 
+    // Handle first-time teacher login
+    if (authState is AuthAuthenticated) {
+      final isFirstLogin = authState.isFirstLogin;
+      final isTeacher = authState.user.isTeacher;
+
+      if (isFirstLogin && isTeacher &&
+          currentLocation != AppRoutes.onboarding &&
+          currentLocation != AppRoutes.teacherProfileSetup &&
+          currentLocation != AppRoutes.home) {
+
+        try {
+          final userStateService = sl<UserStateService>();
+          final currentTenant = userStateService.currentTenant;
+
+          // If tenant data is not loaded, skip redirect to allow it to load
+          if (currentTenant == null) {
+            AppLogger.debug('Tenant data not loaded yet, will check again on next navigation',
+                category: LogCategory.navigation,
+                context: {
+                  'userId': authState.user.id,
+                  'tenantId': authState.user.tenantId,
+                });
+            return null;
+          }
+
+          // Check if this is a NEW tenant (admin creating first profile)
+          // or EXISTING tenant (teacher joining)
+          final isTenantInitialized = currentTenant.isInitialized;
+
+          AppLogger.info('Tenant initialization check',
+              category: LogCategory.navigation,
+              context: {
+                'userId': authState.user.id,
+                'tenantId': authState.user.tenantId,
+                'tenantName': currentTenant.displayName,
+                'isInitialized': isTenantInitialized,
+              });
+
+          if (!isTenantInitialized) {
+            // New tenant - show full tenant setup
+            AppLogger.info('First-time teacher in NEW tenant - redirecting to tenant onboarding',
+                category: LogCategory.navigation);
+            return AppRoutes.onboarding;
+          } else {
+            // Existing tenant - show teacher profile setup (grades & subjects)
+            AppLogger.info('First-time teacher in EXISTING tenant - redirecting to profile setup',
+                category: LogCategory.navigation);
+            return AppRoutes.teacherProfileSetup;
+          }
+        } catch (e) {
+          AppLogger.warning('Error checking tenant initialization',
+              category: LogCategory.navigation,
+              context: {'error': e.toString()});
+          return null;
+        }
+      }
+    }
+
     // Handle unauthenticated user trying to access protected routes
     if (authState is! AuthAuthenticated && RouteGuard.needsAuth(currentLocation)) {
       AppLogger.warning('Redirecting unauthenticated user to login',
@@ -170,6 +230,41 @@ class AppRouter {
       }
     }
 
+    // Office staff route protection
+    if (RouteGuard.isOfficeStaff(currentLocation)) {
+      if (authState is! AuthAuthenticated) {
+        AppLogger.warning('Unauthenticated office staff access attempt',
+            category: LogCategory.navigation,
+            context: {'attemptedRoute': currentLocation});
+        return AppRoutes.login;
+      }
+
+      final authUser = authState.user;
+
+      try {
+        final userStateService = sl<UserStateService>();
+        final isOfficeStaff = authUser.role.value == 'office_staff';
+        final isAdmin = authUser.isAdmin;
+
+        // Allow office staff and admin access
+        if (!isOfficeStaff && !isAdmin) {
+          AppLogger.warning('Non-office-staff user attempted office staff access',
+              category: LogCategory.navigation,
+              context: {
+                'attemptedRoute': currentLocation,
+                'userId': authUser.id,
+                'userRole': authUser.role.value,
+              });
+          return AppRoutes.home;
+        }
+      } catch (e) {
+        AppLogger.warning('UserStateService error in office staff check',
+            category: LogCategory.navigation,
+            context: {'error': e.toString()});
+        return AppRoutes.home;
+      }
+    }
+
     return null;
   }
 
@@ -189,6 +284,7 @@ class AppRouter {
       getAllPapersForAdminUseCase: sl(),
       getApprovedPapersUseCase: sl(),
       getApprovedPapersPaginatedUseCase: sl(),
+      getApprovedPapersByExamDateRangeUseCase: sl(),
     );
   }
 
@@ -360,6 +456,20 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: AppRoutes.officeStaffDashboard,
+        builder: (context, state) {
+          AppLogger.info('Office staff accessing dashboard', category: LogCategory.navigation);
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => _createQuestionPaperBloc()),
+              BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<SubjectBloc>()),
+            ],
+            child: const OfficeStaffDashboardPage(),
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutes.assignmentMatrix,
         builder: (context, state) {
           AppLogger.info('Admin accessing assignment matrix', category: LogCategory.navigation);
@@ -406,6 +516,28 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) => const TenantOnboardingPage(),
+      ),
+
+      GoRoute(
+        path: AppRoutes.teacherOnboarding,
+        builder: (context, state) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => GradeBloc(repository: sl())),
+            BlocProvider(create: (_) => sl<SubjectBloc>()),
+          ],
+          child: const TenantOnboardingPage(isTeacherOnboarding: true),
+        ),
+      ),
+
+      GoRoute(
+        path: AppRoutes.teacherProfileSetup,
+        builder: (context, state) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => GradeBloc(repository: sl())),
+            BlocProvider(create: (_) => sl<SubjectBloc>()),
+          ],
+          child: const TeacherProfileSetupPage(),
+        ),
       ),
 
       GoRoute(

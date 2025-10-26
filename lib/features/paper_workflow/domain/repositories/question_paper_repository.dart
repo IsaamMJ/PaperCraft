@@ -27,6 +27,12 @@ abstract class QuestionPaperRepository {
     String? gradeFilter,
   });
 
+  /// Get approved papers by exam date range (for office staff dashboard)
+  Future<Either<Failure, List<QuestionPaperEntity>>> getApprovedPapersByExamDateRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+  });
+
   // =============== SUBMISSION OPERATIONS (Cloud Storage) ===============
   Future<Either<Failure, QuestionPaperEntity>> submitPaper(QuestionPaperEntity paper);
   Future<Either<Failure, List<QuestionPaperEntity>>> getUserSubmissions();

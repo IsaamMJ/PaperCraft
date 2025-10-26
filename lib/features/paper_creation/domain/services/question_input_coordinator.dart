@@ -23,6 +23,7 @@ import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../presentation/dialogs/submission_feedback_dialog.dart';
 import '../../presentation/widgets/ai_polish_review_dialog.dart';
 import '../../presentation/widgets/polish_loading_dialog.dart';
 import '../../presentation/widgets/question_input/bulk_input_widget.dart';
@@ -90,6 +91,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   final _autoSaveService = AutoSaveService();
   DateTime? _lastAutoSave;
   bool _showSaveIndicator = false;
+  bool _aiPolishCompleted = false; // Track if AI polish was completed successfully
 
   @override
   void initState() {
@@ -633,6 +635,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     // Step 3: Update questions with reviewed (and possibly reverted) changes
     setState(() {
       _allQuestions = finalQuestions;
+      _aiPolishCompleted = true; // Mark AI polish as completed
     });
 
     // Step 4: Show paper preview
@@ -668,32 +671,37 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         paper: previewPaper,
         onSubmit: _createPaper,
         isAdmin: widget.isAdmin,
+        aiPolishCompleted: _aiPolishCompleted,
       ),
     );
   }
 
-  /// Run AI polish on all questions with progress dialog
+  /// Run AI polish on all questions with progress dialog (per-section optimization)
+  /// Processes all questions in each section in a single API call for better performance
   Future<Map<String, List<Question>>?> _runAIPolish() async {
-    // Calculate total questions
-    int totalQuestions = 0;
+    // Calculate total sections with questions
+    int nonEmptySections = 0;
     for (var section in widget.paperSections) {
-      totalQuestions += (_allQuestions[section.name] ?? []).length;
+      if ((_allQuestions[section.name] ?? []).isNotEmpty) {
+        nonEmptySections++;
+      }
     }
 
-    if (totalQuestions == 0) {
+    if (nonEmptySections == 0) {
       return _allQuestions; // No questions to polish
     }
 
     // Track progress with ValueNotifier to avoid rebuilding dialog
-    final processedQuestionsNotifier = ValueNotifier<int>(0);
+    final processedSectionsNotifier = ValueNotifier<int>(0);
 
     // Show loading dialog once
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => PolishLoadingDialog(
-        totalQuestions: totalQuestions,
-        processedQuestionsNotifier: processedQuestionsNotifier,
+        totalQuestions: nonEmptySections,
+        processedQuestionsNotifier: processedSectionsNotifier,
+        isPerSection: true, // New flag to show section-based progress
       ),
     );
 
@@ -704,89 +712,34 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       for (var section in widget.paperSections) {
         final sectionName = section.name;
         final sectionQuestions = _allQuestions[sectionName] ?? [];
-        final polishedList = <Question>[];
 
-        // Process in batches of 5 for parallel processing
-        for (int i = 0; i < sectionQuestions.length; i += 5) {
-          final end = (i + 5 < sectionQuestions.length) ? i + 5 : sectionQuestions.length;
-          final batch = sectionQuestions.sublist(i, end);
-
-          // Parallel processing of batch
-          final futures = batch.map((q) async {
-            try {
-              // SKIP Match the Following & Fill in the Blanks questions - not sent to Groq
-              // These question types are too sensitive to Groq's modifications
-              if (q.type == 'match_following' || q.type == 'fill_in_blanks' || q.type == 'fill_blanks') {
-                processedQuestionsNotifier.value++;
-                return q; // Return unchanged
-              }
-
-              // Polish question text
-              final textResult = await GroqService.polishText(q.text);
-
-              // Polish MCQ options if present
-              List<String>? polishedOptions;
-              if (q.type == 'multiple_choice' && q.options != null && q.options!.isNotEmpty) {
-                polishedOptions = [];
-                for (final option in q.options!) {
-                  // Skip empty options
-                  if (option.trim().isEmpty) {
-                    polishedOptions.add(option);
-                    continue;
-                  }
-                  try {
-                    final optionResult = await GroqService.polishText(option);
-                    polishedOptions.add(optionResult.polished);
-                  } catch (e) {
-                    // If option polish fails, keep original
-                    polishedOptions.add(option);
-                  }
-                }
-              }
-
-              // Polish subquestions if present
-              List<SubQuestion>? polishedSubQuestions;
-              if (q.subQuestions.isNotEmpty) {
-                polishedSubQuestions = [];
-                for (final subQ in q.subQuestions) {
-                  try {
-                    final subQResult = await GroqService.polishText(subQ.text);
-                    polishedSubQuestions.add(SubQuestion(
-                      text: subQResult.polished,
-                    ));
-                  } catch (e) {
-                    // If subquestion polish fails, keep original
-                    polishedSubQuestions.add(subQ);
-                  }
-                }
-              }
-
-              // Update progress via ValueNotifier (no need to rebuild dialog)
-              processedQuestionsNotifier.value++;
-
-              return q.copyWith(
-                text: textResult.polished,
-                options: polishedOptions ?? q.options,
-                subQuestions: polishedSubQuestions ?? q.subQuestions,
-                originalText: textResult.original,
-                polishChanges: textResult.changesSummary,
-              );
-            } catch (e) {
-              // If polishing fails for one question, keep original
-              return q;
-            }
-          }).toList();
-
-          polishedList.addAll(await Future.wait(futures));
+        if (sectionQuestions.isEmpty) {
+          polished[sectionName] = [];
+          continue;
         }
 
-        polished[sectionName] = polishedList;
+        try {
+          // Polish section using per-section method
+          final polishedList = await _polishSectionQuestions(
+            sectionQuestions,
+            section.type,
+          );
+
+          polished[sectionName] = polishedList;
+
+          // Update progress
+          processedSectionsNotifier.value++;
+        } catch (e) {
+          // If polishing fails for this section, keep original questions
+          polished[sectionName] = sectionQuestions;
+          processedSectionsNotifier.value++;
+        }
       }
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
       }
-      processedQuestionsNotifier.dispose(); // Clean up notifier
+      processedSectionsNotifier.dispose(); // Clean up notifier
 
       return polished;
     } catch (e) {
@@ -794,9 +747,140 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         Navigator.pop(context); // Close loading dialog
         _showMessage('AI Polish failed: $e', AppColors.error);
       }
-      processedQuestionsNotifier.dispose(); // Clean up notifier
+      processedSectionsNotifier.dispose(); // Clean up notifier
       return null;
     }
+  }
+
+  /// Polish all questions in a section using per-section API optimization
+  Future<List<Question>> _polishSectionQuestions(
+    List<Question> sectionQuestions,
+    String sectionType,
+  ) async {
+    final polishedList = <Question>[];
+
+    for (final q in sectionQuestions) {
+      try {
+        // SKIP Match the Following questions - too complex for masking
+        if (q.type == 'match_following') {
+          polishedList.add(q); // Return unchanged
+          continue;
+        }
+
+        // SKIP Missing Letters questions - AI tends to fill in the blanks
+        if (q.type == 'missing_letters') {
+          polishedList.add(q); // Return unchanged
+          continue;
+        }
+
+        // SKIP Fill in the Blanks questions - AI fills in answers despite masking
+        if (q.type == 'fill_in_blanks' || q.type == 'fill_blanks') {
+          polishedList.add(q); // Return unchanged
+          continue;
+        }
+
+        // Prepare text with smart masking for misc_grammar (if needed in future)
+        String textToPolish = q.text;
+        bool hasBlanks = false;
+
+        // For misc_grammar: Replace "________" with "[BLANK]" if it has blanks
+        if (q.type == 'misc_grammar') {
+          if (q.text.contains('_')) {
+            textToPolish = q.text.replaceAll(RegExp(r'_{2,}'), '[BLANK]');
+            hasBlanks = true;
+          }
+        }
+
+        // Polish question text with masked version, passing question type for better AI context
+        final textResult = await GroqService.polishText(textToPolish, questionType: q.type);
+
+        // Restore original blanks in polished text
+        String restoredText = textResult.polished;
+        if (hasBlanks) {
+          // Restore blanks by matching [BLANK] back to original blanks
+          final originalBlanks = RegExp(r'_{2,}').allMatches(q.text).map((m) => m.group(0)!).toList();
+          int blankIndex = 0;
+          restoredText = restoredText.replaceAllMapped(
+            RegExp(r'\[BLANK\]'),
+            (match) {
+              if (blankIndex < originalBlanks.length) {
+                return originalBlanks[blankIndex++];
+              }
+              return match.group(0)!;
+            },
+          );
+        }
+
+        // Polish MCQ options if present (with question context for better accuracy)
+        List<String>? polishedOptions;
+        if (q.type == 'multiple_choice' && q.options != null && q.options!.isNotEmpty) {
+          polishedOptions = [];
+          for (final option in q.options!) {
+            // Skip empty options
+            if (option.trim().isEmpty) {
+              polishedOptions.add(option);
+              continue;
+            }
+            try {
+              // Format option with question context for Groq to understand the MCQ context
+              // This prevents meaningless rewording and keeps options in proper context
+              final contextualOption = 'Question: ${restoredText}\nOption: $option';
+              final optionResult = await GroqService.polishText(
+                contextualOption,
+                questionType: 'mcq',
+              );
+
+              // Extract only the polished option (everything after "Option: ")
+              final polishedText = optionResult.polished;
+              final optionPrefix = 'Option: ';
+              final optionStartIndex = polishedText.indexOf(optionPrefix);
+
+              if (optionStartIndex != -1) {
+                // Extract only the option part after "Option: "
+                final extractedOption = polishedText.substring(optionStartIndex + optionPrefix.length).trim();
+                polishedOptions.add(extractedOption);
+              } else {
+                // Fallback: if extraction fails, use the whole response or original
+                polishedOptions.add(polishedText.isNotEmpty ? polishedText : option);
+              }
+            } catch (e) {
+              // If option polish fails, keep original
+              polishedOptions.add(option);
+            }
+          }
+        }
+
+        // Polish subquestions if present
+        List<SubQuestion>? polishedSubQuestions;
+        if (q.subQuestions.isNotEmpty) {
+          polishedSubQuestions = [];
+          for (final subQ in q.subQuestions) {
+            try {
+              final subQResult = await GroqService.polishText(subQ.text);
+              polishedSubQuestions.add(SubQuestion(
+                text: subQResult.polished,
+              ));
+            } catch (e) {
+              // If subquestion polish fails, keep original
+              polishedSubQuestions.add(subQ);
+            }
+          }
+        }
+
+        polishedList.add(q.copyWith(
+          text: restoredText,
+          options: polishedOptions ?? q.options,
+          subQuestions: polishedSubQuestions ?? q.subQuestions,
+          originalText: textResult.original,
+          polishChanges: textResult.changesSummary,
+        ));
+      } catch (e) {
+        // If polishing fails for one question, keep original
+        polishedList.add(q);
+      }
+    }
+
+    return polishedList;
   }
 
   /// Show polish review dialog with undo options
@@ -992,7 +1076,12 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       if (widget.isAdmin) {
         context.read<QuestionPaperBloc>().add(SubmitPaper(paper));
       } else {
-        context.read<QuestionPaperBloc>().add(SaveDraft(paper));
+        // For teachers: Submit if AI polish completed, otherwise save as draft
+        if (_aiPolishCompleted) {
+          context.read<QuestionPaperBloc>().add(SubmitPaper(paper));
+        } else {
+          context.read<QuestionPaperBloc>().add(SaveDraft(paper));
+        }
       }
     } catch (e) {
       setState(() => _isProcessing = false);
@@ -1010,10 +1099,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         _saveTeacherPattern(context);
       }
 
-      if (state.actionType == 'save') {
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) context.go(AppRoutes.home);
-        });
+      // Show submission feedback dialog and navigate to home after it completes
+      if (state.actionType == 'save' || state.actionType == 'submit') {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => SubmissionFeedbackDialog(
+            onComplete: () {
+              Navigator.of(context).pop(); // Close dialog
+              if (mounted) context.go(AppRoutes.home);
+            },
+          ),
+        );
       }
     }
     if (state is QuestionPaperError) {

@@ -31,7 +31,6 @@ class UserDataSourceImpl implements UserDataSource {
         fromJson: UserModel.fromJson,
         filters: {
           'tenant_id': tenantId,
-          'is_active': true,
         },
         orderBy: 'full_name',
       );
@@ -40,7 +39,13 @@ class UserDataSourceImpl implements UserDataSource {
         throw Exception(response.message ?? 'Failed to fetch tenant users');
       }
 
-      final users = response.data?.map((model) => model.toEntity()).toList() ?? [];
+      List<UserEntity> users = response.data?.map((model) => model.toEntity()).toList() ?? [];
+
+      // Filter to only return teachers and admins (active or inactive)
+      // This ensures all teachers in the tenant are visible for assignment management
+      users = users.where((user) {
+        return user.role.value == 'teacher' || user.role.value == 'admin';
+      }).toList();
 
       _logger.info('Users fetched successfully',
           category: LogCategory.auth,

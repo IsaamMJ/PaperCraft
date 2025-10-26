@@ -29,6 +29,7 @@ class BulkInputWidget extends StatefulWidget {
 
 class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAliveClientMixin {
   late List<TextEditingController> _controllers;
+  late List<FocusNode> _focusNodes;
   bool _isOptionalAll = false;
 
   @override
@@ -38,6 +39,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   void initState() {
     super.initState();
     _controllers = List.generate(widget.questionCount, (_) => TextEditingController());
+    _focusNodes = List.generate(widget.questionCount, (_) => FocusNode());
 
     // Add listeners to trigger UI updates
     for (var controller in _controllers) {
@@ -51,6 +53,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   void dispose() {
     for (var controller in _controllers) {
       controller.dispose();
+    }
+    for (var focusNode in _focusNodes) {
+      focusNode.dispose();
     }
     super.dispose();
   }
@@ -243,6 +248,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
               margin: const EdgeInsets.only(bottom: 16),
               child: TextField(
                 controller: _controllers[index],
+                focusNode: _focusNodes[index],
                 textCapitalization: widget.questionType == 'missing_letters'
                     ? TextCapitalization.characters
                     : TextCapitalization.sentences,
@@ -255,8 +261,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                     FocusScope.of(context).unfocus();
                     if (_isValid) _addAllQuestions();
                   } else {
-                    // Move to next field
-                    FocusScope.of(context).nextFocus();
+                    // Move to EXACTLY the next field (not generic nextFocus which skips)
+                    _focusNodes[index + 1].requestFocus();
                   }
                 },
                 style: TextStyle(fontSize: widget.isMobile ? 16 : 14),

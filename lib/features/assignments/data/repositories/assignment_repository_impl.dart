@@ -105,13 +105,17 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     try {
       final tenantId = await _getTenantId();
       final userStateService = sl<UserStateService>();
+      final currentUserId = userStateService.currentUserId;
 
       if (tenantId == null) {
         return Left(AuthFailure('User not authenticated'));
       }
 
-      if (!userStateService.canManageUsers()) {
-        return Left(PermissionFailure('Admin privileges required'));
+      // Allow teachers to assign grades to themselves during onboarding
+      // Admin can assign grades to any teacher
+      final canAssign = userStateService.isAdmin || (currentUserId == teacherId);
+      if (!canAssign) {
+        return Left(PermissionFailure('You can only assign grades to yourself'));
       }
 
       await _assignmentDataSource.assignGradeToTeacher(
@@ -138,13 +142,17 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     try {
       final tenantId = await _getTenantId();
       final userStateService = sl<UserStateService>();
+      final currentUserId = userStateService.currentUserId;
 
       if (tenantId == null) {
         return Left(AuthFailure('User not authenticated'));
       }
 
-      if (!userStateService.canManageUsers()) {
-        return Left(PermissionFailure('Admin privileges required'));
+      // Allow teachers to assign subjects to themselves during onboarding
+      // Admin can assign subjects to any teacher
+      final canAssign = userStateService.isAdmin || (currentUserId == teacherId);
+      if (!canAssign) {
+        return Left(PermissionFailure('You can only assign subjects to yourself'));
       }
 
       await _assignmentDataSource.assignSubjectToTeacher(

@@ -1,6 +1,7 @@
 enum UserRole {
   admin,
   teacher,
+  office_staff,
   student,
   user,
   blocked;
@@ -11,6 +12,8 @@ enum UserRole {
         return UserRole.admin;
       case 'teacher':
         return UserRole.teacher;
+      case 'office_staff':
+        return UserRole.office_staff;
       case 'student':
         return UserRole.student;
       case 'user':
@@ -28,6 +31,8 @@ enum UserRole {
         return 'admin';
       case UserRole.teacher:
         return 'teacher';
+      case UserRole.office_staff:
+        return 'office_staff';
       case UserRole.student:
         return 'student';
       case UserRole.user:
@@ -43,6 +48,8 @@ enum UserRole {
         return 'Admin';
       case UserRole.teacher:
         return 'Teacher';
+      case UserRole.office_staff:
+        return 'Office Staff';
       case UserRole.student:
         return 'Student';
       case UserRole.user:

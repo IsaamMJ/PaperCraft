@@ -24,6 +24,11 @@ abstract class PaperCloudDataSource {
     String? subjectFilter,
     String? gradeFilter,
   });
+  Future<List<QuestionPaperModel>> getApprovedPapersByExamDateRange({
+    required String tenantId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  });
   Future<List<QuestionPaperModel>> searchPapers(
       String tenantId, {
         String? title,
@@ -321,6 +326,61 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch papers for review',
+          category: LogCategory.storage,
+          error: e,
+          stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<QuestionPaperModel>> getApprovedPapersByExamDateRange({
+    required String tenantId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    try {
+      _logger.debug('Fetching approved papers by exam date range',
+          category: LogCategory.storage,
+          context: {
+            'tenantId': tenantId,
+            'fromDate': fromDate.toIso8601String(),
+            'toDate': toDate.toIso8601String(),
+          });
+
+      // Use lightweight columns for list view
+      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
+          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date';
+
+      // Build query using Supabase client directly for date range filtering
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select(lightweightColumns)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved')
+          .gte('exam_date', fromDate.toIso8601String())
+          .lte('exam_date', toDate.toIso8601String())
+          .order('exam_date', ascending: true);
+
+      final response = await queryBuilder;
+
+      // Parse response data
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      _logger.info('Fetched approved papers by exam date range',
+          category: LogCategory.storage,
+          context: {
+            'tenantId': tenantId,
+            'fromDate': fromDate.toIso8601String(),
+            'toDate': toDate.toIso8601String(),
+            'itemCount': items.length,
+          });
+
+      return items;
+    } catch (e, stackTrace) {
+      _logger.error('Failed to fetch approved papers by exam date range',
           category: LogCategory.storage,
           error: e,
           stackTrace: stackTrace);
