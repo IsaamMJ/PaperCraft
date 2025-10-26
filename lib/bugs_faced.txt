@@ -94,7 +94,7 @@
    - Shows "Submitting Paper..." with spinner (1.5 sec)
    - Shows "Paper Submitted!" with checkmark (1.5 sec)
    - Then navigates to home
-   Feedback: ___________________________________________________________
+   Feedback: as soon as i clcik submit it must show submitting paper , right now it has 5 seconds lag it is not so smooth
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -115,7 +115,7 @@
    Fix: Added FocusNode management + showSoftInputOnFocus: true
    Details: onSubmitted now delays 100ms then re-requests focus on same field
    Location: essay_input_widget.dart (lines 51, 285-296)
-   Feedback: ___________________________________________________________
+   Feedback: Not yet fixed , if i press the addquestion button it while the keyboard is oepn it goes to the next wueestion but when i press the enter button n the keyboard it closes the keyboard the button shows a tick symbol
 
 
 ✅ 3. True/False - Input field skipping on Enter
@@ -165,3 +165,9 @@
 
 
 ═══════════════════════════════════════════════════════════════════════
+
+
+phase 6
+
+1. in mcq input ater i ente the question and click the enter button it goes to the second option skiiping the first option
+also this also does not open the keyboard for the next qurstion
