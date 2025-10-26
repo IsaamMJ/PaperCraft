@@ -285,7 +285,6 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
             focusNode: _subQuestionFocusNode,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.next,
-            showSoftInputOnFocus: true,
             onSubmitted: (_) {
               // Add sub-question and re-open keyboard for next input
               if (_subQuestionController.text.trim().isNotEmpty) {
