@@ -770,7 +770,7 @@ class SimplePdfService implements IPdfGenerationService {
             pw.Text(
               itemsText,
               style: pw.TextStyle(
-                fontSize: 9 * fontSizeMultiplier,
+                fontSize: 11 * fontSizeMultiplier,
                 fontWeight: pw.FontWeight.normal,
                 font: _regularFont,
               ),
