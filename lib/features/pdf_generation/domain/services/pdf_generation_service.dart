@@ -911,6 +911,50 @@ class SimplePdfService implements IPdfGenerationService {
     bool showCommonText = true,
     double fontSizeMultiplier = 1.0,
   }) {
+    // CHANGED: For word_forms, display question text on one line, options horizontally on next line
+    if (question.type == 'word_forms' && question.options != null && question.options!.isNotEmpty) {
+      final optionsText = question.options!.asMap().entries.map((entry) {
+        final index = entry.key;
+        final option = entry.value;
+        final optionLabel = String.fromCharCode(97 + index); // lowercase a, b, c, d, e, etc.
+        return '$optionLabel) $option';
+      }).join('  '); // Double space between options for better wrapping
+
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          // Question text on first line
+          pw.Text(
+            '$questionNumber. ${question.text}',
+            style: pw.TextStyle(
+              fontSize: 11 * fontSizeMultiplier,
+              fontWeight: pw.FontWeight.normal,
+              font: _regularFont,
+            ),
+          ),
+
+          pw.SizedBox(height: 0.5), // Small gap between question and options
+
+          // Options horizontally on second line
+          pw.Text(
+            optionsText,
+            style: pw.TextStyle(
+              fontSize: 11 * fontSizeMultiplier,
+              fontWeight: pw.FontWeight.normal,
+              font: _regularFont,
+            ),
+            maxLines: 3, // Allow wrapping across multiple lines if needed
+            textAlign: pw.TextAlign.left,
+          ),
+
+          // Sub-questions
+          if (question.subQuestions.isNotEmpty)
+            ..._buildSinglePageSubQuestions(question.subQuestions, fontSizeMultiplier),
+        ],
+      );
+    }
+
+    // DEFAULT: Column layout for all other question types
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
