@@ -9,6 +9,7 @@ import '../../../../core/infrastructure/config/app_config.dart';
 import '../../../../core/infrastructure/rate_limiter/rate_limiter.dart';
 import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 
 class DualPageData {
   final pw.Widget leftContent;
@@ -249,9 +250,12 @@ class SimplePdfService implements IPdfGenerationService {
 
         // Build section name with answer bank for fill_blanks
         String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
-        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
-          final answerBank = questions.first.options!.join(', ');
-          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        // Note: This method doesn't have access to paper.paperSections, so we only use individual options
+        if (questions.first.type == 'fill_blanks' || questions.first.type == 'fill_in_blanks') {
+          if (questions.first.options != null && questions.first.options!.isNotEmpty) {
+            final answerBank = questions.first.options!.join(', ');
+            sectionHeaderText = '$sectionHeaderText [$answerBank]';
+          }
         }
 
         widgets.add(
@@ -717,9 +721,11 @@ class SimplePdfService implements IPdfGenerationService {
         // Section header with roman numerals
         // Build section name with answer bank for fill_blanks
         String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
-        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
-          final answerBank = questions.first.options!.join(', ');
-          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        if (questions.first.type == 'fill_blanks' || questions.first.type == 'fill_in_blanks') {
+          final answerBank = _getAnswerBankForSection(sectionName, questions, paper.paperSections);
+          if (answerBank.isNotEmpty) {
+            sectionHeaderText = '$sectionHeaderText [$answerBank]';
+          }
         }
 
         widgets.add(
@@ -857,9 +863,11 @@ class SimplePdfService implements IPdfGenerationService {
         // Compact section header with roman numerals
         // Build section name with answer bank for fill_blanks
         String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
-        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
-          final answerBank = questions.first.options!.join(', ');
-          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        if (questions.first.type == 'fill_blanks' || questions.first.type == 'fill_in_blanks') {
+          final answerBank = _getAnswerBankForSection(sectionName, questions, paper.paperSections);
+          if (answerBank.isNotEmpty) {
+            sectionHeaderText = '$sectionHeaderText [$answerBank]';
+          }
         }
 
         widgets.add(
@@ -1521,6 +1529,35 @@ class SimplePdfService implements IPdfGenerationService {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  /// Get answer bank for fill_blanks sections
+  /// Supports both individual options (per question) and shared word bank modes
+  String _getAnswerBankForSection(
+    String sectionName,
+    List<Question> questions,
+    List<PaperSectionEntity> paperSections,
+  ) {
+    // Find the matching section definition
+    PaperSectionEntity? section;
+    try {
+      section = paperSections.firstWhere((s) => s.name == sectionName);
+    } catch (e) {
+      // Section not found, fall back to individual options
+      section = null;
+    }
+
+    // If using shared word bank, return shared options
+    if (section != null && section.useSharedWordBank && section.sharedWordBank.isNotEmpty) {
+      return section.sharedWordBank.join(', ');
+    }
+
+    // Otherwise, use individual question options
+    if (questions.isNotEmpty && questions.first.options != null && questions.first.options!.isNotEmpty) {
+      return questions.first.options!.join(', ');
+    }
+
+    return '';
   }
 
   /// Calculate estimated height for a question in points
