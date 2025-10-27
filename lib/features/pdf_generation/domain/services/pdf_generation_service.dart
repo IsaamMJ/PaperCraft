@@ -247,6 +247,13 @@ class SimplePdfService implements IPdfGenerationService {
         final sectionMarks = questions.fold(0.0, (sum, q) => sum + q.totalMarks);
         final questionCount = questions.length;
 
+        // Build section name with answer bank for fill_blanks
+        String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
+        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
+          final answerBank = questions.first.options!.join(', ');
+          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        }
+
         widgets.add(
           pw.Container(
             width: double.infinity,
@@ -255,7 +262,7 @@ class SimplePdfService implements IPdfGenerationService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '${_getRomanNumeral(sectionIndex)}. $sectionName',
+                  sectionHeaderText,
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -708,6 +715,13 @@ class SimplePdfService implements IPdfGenerationService {
         final questionCount = questions.length;
 
         // Section header with roman numerals
+        // Build section name with answer bank for fill_blanks
+        String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
+        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
+          final answerBank = questions.first.options!.join(', ');
+          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        }
+
         widgets.add(
           pw.Container(
             width: double.infinity,
@@ -716,7 +730,7 @@ class SimplePdfService implements IPdfGenerationService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '${_getRomanNumeral(sectionIndex)}. $sectionName',
+                  sectionHeaderText,
                   style: pw.TextStyle(
                     fontSize: UIConstants.fontSizeSmall * fontSizeMultiplier,
                     fontWeight: pw.FontWeight.bold,
@@ -841,6 +855,13 @@ class SimplePdfService implements IPdfGenerationService {
         final questionCount = questions.length;
 
         // Compact section header with roman numerals
+        // Build section name with answer bank for fill_blanks
+        String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
+        if (questions.first.type == 'fill_blanks' && questions.first.options != null && questions.first.options!.isNotEmpty) {
+          final answerBank = questions.first.options!.join(', ');
+          sectionHeaderText = '$sectionHeaderText [$answerBank]';
+        }
+
         widgets.add(
           pw.Container(
             width: double.infinity,
@@ -849,7 +870,7 @@ class SimplePdfService implements IPdfGenerationService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '${_getRomanNumeral(sectionIndex)}. $sectionName',
+                  sectionHeaderText,
                   style: pw.TextStyle(
                     fontSize: 10, // Increased from 9
                     fontWeight: pw.FontWeight.bold,
