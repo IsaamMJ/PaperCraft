@@ -244,7 +244,7 @@ class SimplePdfService implements IPdfGenerationService {
       if (questions.isEmpty) continue;
 
       try {
-        final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
+        final sectionMarks = questions.fold(0.0, (sum, q) => sum + q.totalMarks);
         final questionCount = questions.length;
 
         widgets.add(
@@ -295,6 +295,22 @@ class SimplePdfService implements IPdfGenerationService {
           );
         }
 
+        // Check if this is a fill_in_blanks section with word banks (shared mode)
+        final isFillBlanksSection = questions.isNotEmpty && questions.first.type == 'fill_in_blanks';
+        if (isFillBlanksSection) {
+          final wordBankMode = _detectFillBlanksWordBankMode(questions);
+
+          // Display shared word bank if all questions share the same word bank
+          if (wordBankMode == 'shared') {
+            final sharedWordBank = questions.first.options;
+            if (sharedWordBank != null && sharedWordBank.isNotEmpty) {
+              widgets.add(_buildWordBankDisplay(sharedWordBank));
+              widgets.add(pw.SizedBox(height: 2));
+            }
+          }
+        }
+
+        // Display all questions normally with their options
         for (int i = 0; i < questions.length; i++) {
           final question = questions[i];
           final questionNumber = i + 1;
@@ -327,6 +343,54 @@ class SimplePdfService implements IPdfGenerationService {
     }
 
     return widgets;
+  }
+
+  /// Detect the word bank mode for fill_in_blanks questions
+  /// Returns: 'none', 'individual', or 'shared'
+  /// FIXED: Always prefer 'shared' mode for fill_in_blanks to show word bank once at top
+  String _detectFillBlanksWordBankMode(List<Question> questions) {
+    // Filter only fill_in_blanks questions with word banks
+    final questionsWithBanks = questions.where((q) =>
+        q.type == 'fill_in_blanks' &&
+        q.options != null &&
+        q.options!.isNotEmpty).toList();
+
+    if (questionsWithBanks.isEmpty) {
+      return 'none'; // No word banks at all
+    }
+
+    // For fill_in_blanks, ALWAYS use shared mode to display word bank at top once
+    // Use the first question's word bank as the shared bank
+    return 'shared';
+  }
+
+  /// Build word bank display widget as comma-separated text
+  pw.Widget _buildWordBankDisplay(List<String> wordBank) {
+    if (wordBank.isEmpty) return pw.SizedBox.shrink();
+
+    // Format word bank with wrapping for space optimization
+    // Group words into lines of ~80-100 characters each
+    final wordBankText = '[${wordBank.join(', ')}]';
+
+    // Create wrapped text with better layout
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+        ),
+      ),
+      child: pw.Text(
+        wordBankText,
+        style: pw.TextStyle(
+          fontSize: 9,
+          font: _regularFont,
+          color: PdfColors.grey700,
+        ),
+        maxLines: 3, // Allow wrapping across up to 3 lines to save vertical space
+        textAlign: pw.TextAlign.left,
+      ),
+    );
   }
 
 
@@ -640,7 +704,7 @@ class SimplePdfService implements IPdfGenerationService {
 
       try {
         // Calculate section total marks
-        final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
+        final sectionMarks = questions.fold(0.0, (sum, q) => sum + q.totalMarks);
         final questionCount = questions.length;
 
         // Section header with roman numerals
@@ -750,7 +814,7 @@ class SimplePdfService implements IPdfGenerationService {
       if (questions.isEmpty) continue;
 
       try {
-        final sectionMarks = questions.fold(0, (sum, q) => sum + q.totalMarks);
+        final sectionMarks = questions.fold(0.0, (sum, q) => sum + q.totalMarks);
         final questionCount = questions.length;
 
         // Compact section header with roman numerals
@@ -884,6 +948,36 @@ class SimplePdfService implements IPdfGenerationService {
     required int questionNumber,
     bool showCommonText = true,
   }) {
+    // CHANGED: For word_forms, display question + options on single line
+    if (question.type == 'word_forms' && question.options != null && question.options!.isNotEmpty) {
+      final optionsText = question.options!.asMap().entries.map((entry) {
+        final index = entry.key;
+        final option = entry.value;
+        final optionLabel = String.fromCharCode(97 + index); // lowercase a, b, c, d
+        return '$optionLabel) $option';
+      }).join('  ');
+
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '$questionNumber. ${question.text}  $optionsText',
+            style: pw.TextStyle(
+              fontSize: 9,
+              fontWeight: pw.FontWeight.normal,
+              font: _regularFont,
+            ),
+            maxLines: 2, // Allow wrapping to 2 lines if text is very long
+            textAlign: pw.TextAlign.left,
+          ),
+          // Sub-questions
+          if (question.subQuestions.isNotEmpty)
+            ..._buildCompactSubQuestions(question.subQuestions),
+        ],
+      );
+    }
+
+    // DEFAULT: Column layout for all other question types
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -1240,12 +1334,12 @@ class SimplePdfService implements IPdfGenerationService {
       // Calculate average marks for section A
       final avgMarksA = a.value.isEmpty
           ? 0.0
-          : a.value.fold(0, (sum, q) => sum + q.totalMarks) / a.value.length;
+          : a.value.fold(0.0, (sum, q) => sum + q.totalMarks) / a.value.length;
 
       // Calculate average marks for section B
       final avgMarksB = b.value.isEmpty
           ? 0.0
-          : b.value.fold(0, (sum, q) => sum + q.totalMarks) / b.value.length;
+          : b.value.fold(0.0, (sum, q) => sum + q.totalMarks) / b.value.length;
 
       // Sort ascending (easy questions with low marks first)
       return avgMarksA.compareTo(avgMarksB);
