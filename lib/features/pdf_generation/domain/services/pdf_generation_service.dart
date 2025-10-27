@@ -948,28 +948,42 @@ class SimplePdfService implements IPdfGenerationService {
     required int questionNumber,
     bool showCommonText = true,
   }) {
-    // CHANGED: For word_forms, display question + options on single line
+    // CHANGED: For word_forms, display question text on one line, options horizontally on next line
     if (question.type == 'word_forms' && question.options != null && question.options!.isNotEmpty) {
       final optionsText = question.options!.asMap().entries.map((entry) {
         final index = entry.key;
         final option = entry.value;
-        final optionLabel = String.fromCharCode(97 + index); // lowercase a, b, c, d
+        final optionLabel = String.fromCharCode(97 + index); // lowercase a, b, c, d, e, etc.
         return '$optionLabel) $option';
-      }).join('  ');
+      }).join('   '); // Double space between options for readability
 
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
+          // Question text on first line
           pw.Text(
-            '$questionNumber. ${question.text}  $optionsText',
+            '$questionNumber. ${question.text}',
             style: pw.TextStyle(
               fontSize: 9,
               fontWeight: pw.FontWeight.normal,
               font: _regularFont,
             ),
-            maxLines: 2, // Allow wrapping to 2 lines if text is very long
+          ),
+
+          pw.SizedBox(height: 0.5), // Small gap between question and options
+
+          // Options horizontally on second line
+          pw.Text(
+            optionsText,
+            style: pw.TextStyle(
+              fontSize: 9,
+              fontWeight: pw.FontWeight.normal,
+              font: _regularFont,
+            ),
+            maxLines: 2, // Allow wrapping if options are too long
             textAlign: pw.TextAlign.left,
           ),
+
           // Sub-questions
           if (question.subQuestions.isNotEmpty)
             ..._buildCompactSubQuestions(question.subQuestions),
