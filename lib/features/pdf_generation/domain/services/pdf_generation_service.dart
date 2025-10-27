@@ -263,7 +263,7 @@ class SimplePdfService implements IPdfGenerationService {
                   ),
                 ),
                 pw.Text(
-                  '$questionCount × ${sectionMarks ~/ questionCount} = $sectionMarks marks',
+                  '$questionCount × ${(sectionMarks / questionCount).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} = ${sectionMarks.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} marks',
                   style: pw.TextStyle(
                     fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
@@ -724,8 +724,7 @@ class SimplePdfService implements IPdfGenerationService {
                   ),
                 ),
                 pw.Text(
-                  '$questionCount × ${sectionMarks ~/
-                      questionCount} = $sectionMarks marks',
+                  '$questionCount × ${(sectionMarks / questionCount).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} = ${sectionMarks.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} marks',
                   style: pw.TextStyle(
                     fontSize: 9 * fontSizeMultiplier,
                     fontWeight: pw.FontWeight.bold,
@@ -858,8 +857,7 @@ class SimplePdfService implements IPdfGenerationService {
                   ),
                 ),
                 pw.Text(
-                  '$questionCount × ${sectionMarks ~/
-                      questionCount} = $sectionMarks marks',
+                  '$questionCount × ${(sectionMarks / questionCount).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} = ${sectionMarks.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} marks',
                   style: pw.TextStyle(
                     fontSize: 8, // Increased from 7
                     fontWeight: pw.FontWeight.bold,
@@ -1057,7 +1055,7 @@ class SimplePdfService implements IPdfGenerationService {
             '$questionNumber. ${question.text}',
             style: pw.TextStyle(
               fontSize: 9,
-              fontWeight: pw.FontWeight.normal,
+              fontWeight: pw.FontWeight.bold,
               font: _regularFont,
             ),
           ),
