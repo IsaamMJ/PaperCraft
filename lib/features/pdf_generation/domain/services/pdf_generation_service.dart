@@ -758,30 +758,54 @@ class SimplePdfService implements IPdfGenerationService {
           );
         }
 
-        // Compact questions with error handling
-        for (int i = 0; i < questions.length; i++) {
-          final question = questions[i];
-          final questionNumber = i + 1;
+        // SPECIAL HANDLING FOR WORD_FORMS: Display all items horizontally in one group
+        if (questions.isNotEmpty && questions.first.type == 'word_forms') {
+          final itemsText = questions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final question = entry.value;
+            final itemLabel = String.fromCharCode(97 + index); // a, b, c, d, e, ...
+            return '$itemLabel) ${question.text}';
+          }).join('  '); // Double space between items for wrapping
 
-          try {
-            widgets.add(_buildSinglePageQuestion(
-              question: question,
-              questionNumber: questionNumber,
-              showCommonText: commonInstruction.isEmpty,
-              fontSizeMultiplier: fontSizeMultiplier,
-            ));
-
-            if (i < questions.length - 1) {
-              widgets.add(pw.SizedBox(height: 6 * spacingMultiplier)); // Increased from 1 for better question separation
-            }
-          } catch (e) {
-            // Skip malformed questions
-            widgets.add(
-              pw.Text(
-                '$questionNumber. [Question could not be displayed]',
-                style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey),
+          widgets.add(
+            pw.Text(
+              itemsText,
+              style: pw.TextStyle(
+                fontSize: 9 * fontSizeMultiplier,
+                fontWeight: pw.FontWeight.normal,
+                font: _regularFont,
               ),
-            );
+              maxLines: 3, // Allow wrapping across up to 3 lines
+              textAlign: pw.TextAlign.left,
+            ),
+          );
+        } else {
+          // NORMAL PROCESSING FOR OTHER QUESTION TYPES
+          // Compact questions with error handling
+          for (int i = 0; i < questions.length; i++) {
+            final question = questions[i];
+            final questionNumber = i + 1;
+
+            try {
+              widgets.add(_buildSinglePageQuestion(
+                question: question,
+                questionNumber: questionNumber,
+                showCommonText: commonInstruction.isEmpty,
+                fontSizeMultiplier: fontSizeMultiplier,
+              ));
+
+              if (i < questions.length - 1) {
+                widgets.add(pw.SizedBox(height: 6 * spacingMultiplier)); // Increased from 1 for better question separation
+              }
+            } catch (e) {
+              // Skip malformed questions
+              widgets.add(
+                pw.Text(
+                  '$questionNumber. [Question could not be displayed]',
+                  style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey),
+                ),
+              );
+            }
           }
         }
 
@@ -868,28 +892,52 @@ class SimplePdfService implements IPdfGenerationService {
           );
         }
 
-        for (int i = 0; i < questions.length; i++) {
-          final question = questions[i];
-          final questionNumber = i + 1;
+        // SPECIAL HANDLING FOR WORD_FORMS: Display all items horizontally in one group
+        if (questions.isNotEmpty && questions.first.type == 'word_forms') {
+          final itemsText = questions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final question = entry.value;
+            final itemLabel = String.fromCharCode(97 + index); // a, b, c, d, e, ...
+            return '$itemLabel) ${question.text}';
+          }).join('  '); // Double space between items for wrapping
 
-          try {
-            widgets.add(_buildCompactSingleQuestion(
-              question: question,
-              questionNumber: questionNumber,
-              showCommonText: commonInstruction.isEmpty,
-            ));
-
-            if (i < questions.length - 1) {
-              widgets.add(pw.SizedBox(height: 2)); // Reduced from 4
-            }
-          } catch (e) {
-            // Skip malformed questions
-            widgets.add(
-              pw.Text(
-                '$questionNumber. [Question error]',
-                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey), // Increased from 7
+          widgets.add(
+            pw.Text(
+              itemsText,
+              style: pw.TextStyle(
+                fontSize: 9,
+                fontWeight: pw.FontWeight.normal,
+                font: _regularFont,
               ),
-            );
+              maxLines: 3, // Allow wrapping across up to 3 lines
+              textAlign: pw.TextAlign.left,
+            ),
+          );
+        } else {
+          // NORMAL PROCESSING FOR OTHER QUESTION TYPES
+          for (int i = 0; i < questions.length; i++) {
+            final question = questions[i];
+            final questionNumber = i + 1;
+
+            try {
+              widgets.add(_buildCompactSingleQuestion(
+                question: question,
+                questionNumber: questionNumber,
+                showCommonText: commonInstruction.isEmpty,
+              ));
+
+              if (i < questions.length - 1) {
+                widgets.add(pw.SizedBox(height: 2)); // Reduced from 4
+              }
+            } catch (e) {
+              // Skip malformed questions
+              widgets.add(
+                pw.Text(
+                  '$questionNumber. [Question error]',
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey), // Increased from 7
+                ),
+              );
+            }
           }
         }
 
