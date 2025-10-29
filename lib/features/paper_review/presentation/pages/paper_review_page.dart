@@ -89,6 +89,12 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     );
   }
 
+  // ADDED: Handle edit request from admin
+  void _handleEdit(QuestionPaperEntity paper) {
+    // Navigate to paper edit page as admin
+    context.push(AppRoutes.questionPaperEditWithId(paper.id));
+  }
+
   Future<bool?> _showConfirmDialog({
     required String title,
     required String content,
@@ -767,6 +773,7 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         isLoading: _isLoading,
         onApprove: () => _handleApprove(paper),
         onReject: () => _handleReject(paper),
+        onEdit: () => _handleEdit(paper),  // ADDED: Edit callback
         onViewDetails: null,
       ),
     );

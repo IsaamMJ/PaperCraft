@@ -8,6 +8,7 @@ class AdminActionButtons extends StatelessWidget {
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
   final VoidCallback? onViewDetails;
+  final VoidCallback? onEdit;  // ADDED: Edit button callback
   final bool isCompact;
   final bool isLoading;
 
@@ -17,6 +18,7 @@ class AdminActionButtons extends StatelessWidget {
     this.onApprove,
     this.onReject,
     this.onViewDetails,
+    this.onEdit,  // ADDED: Edit parameter
     this.isCompact = false,
     this.isLoading = false,
   });
@@ -130,6 +132,22 @@ class AdminActionButtons extends StatelessWidget {
             ),
           ],
         ),
+        // ADDED: Edit button row for admin corrections
+        SizedBox(height: 8),
+        if (onEdit != null)
+          ElevatedButton.icon(
+            onPressed: isLoading ? null : onEdit,
+            icon: Icon(Icons.edit_outlined),
+            label: Text('Edit & Correct'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade600,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
+          ),
         SizedBox(height: 8),
         TextButton.icon(
           onPressed: onViewDetails,

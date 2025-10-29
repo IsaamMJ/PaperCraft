@@ -486,12 +486,30 @@
    Feedback: "i feel it is cluttered, i want it to be simple neat and easy to understand , it must not get cluttered also we need to efficietly handle the papers that are being displayed int hat page"
    TODO: UI/UX redesign needed
 
-⏳ 3. Admin paper corrections workflow
-   Status: PENDING
-   Issue: Admin has no option to correct errors after accepting paper
-   Question: Should edits be allowed before or after acceptance?
-   Feedback: "suppose if the admin finds an error and has to correct it , there is no option to do so , also what is the best way to handle htis case? after accepting or before accepting this edit must be done?"
-   TODO: Needs user clarification on workflow
+✅ 3. Admin paper corrections workflow - Edit before approval
+   Status: IMPLEMENTED
+   Issue: Admin has no option to correct errors during review process
+   Solution: Added "Edit & Correct" button in paper review page
+   Design Decision: Edits are allowed BEFORE approval (standard review workflow)
+   Implementation:
+   • Added onEdit callback to AdminActionButtons widget
+   • Added "Edit & Correct" button (amber/warning color) between Approve/Reject
+   • When clicked, navigates admin to paper edit page
+   • Admin can make corrections and submit updated paper
+   • Then can approve or reject the corrected version
+   Flow:
+   1. Admin reviews paper in Review page
+   2. Finds error and clicks "Edit & Correct"
+   3. Navigates to edit page (same as teacher edit)
+   4. Admin makes corrections and updates
+   5. Returns to review page with updated content
+   6. Admin approves or rejects final version
+   Locations:
+   • admin_action_buttons.dart (lines 11, 21, 135-150 - button UI)
+   • paper_review_page.dart (lines 92-96 - edit handler)
+   • paper_review_page.dart (line 776 - callback registration)
+   Why Before Approval: Standard review workflow - review first, make final decision
+   Feedback: ___________________________________________________________
 
 ⏳ 4. Exam timetable management (Optional)
    Status: NOT PLANNED
