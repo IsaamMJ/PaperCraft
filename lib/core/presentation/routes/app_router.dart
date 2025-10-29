@@ -532,131 +532,62 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   @override
   void initState() {
     super.initState();
-    _addLog('🔐 [INIT] _OAuthCallbackPage.initState() called');
     _handleOAuthCallback();
   }
 
   Future<void> _handleOAuthCallback() async {
     try {
-      _addLog('🔐 [START] _handleOAuthCallback() started');
-
-      // Get current Supabase state
+      // Simple approach: just check if we have a session and navigate
       final supabase = Supabase.instance.client;
-      final currentSession = supabase.auth.currentSession;
-      final currentUser = supabase.auth.currentUser;
 
-      _addLog('🔐 [CHECK] Initial Supabase state:');
-      _addLog('   - Has session: ${currentSession != null}');
-      _addLog('   - Session user ID: ${currentSession?.user.id}');
-      _addLog('   - Current user ID: ${currentUser?.id}');
-      _addLog('   - Current user email: ${currentUser?.email}');
+      // Wait a bit for Supabase to process the OAuth callback
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      // Wait for session with detailed logging
-      _addLog('🔐 [WAIT] Starting session wait...');
-      final session = await _waitForSessionWithRetry();
+      final session = supabase.auth.currentSession;
+      final user = session?.user;
 
-      _addLog('🔐 [RESULT] Session wait completed');
-      _addLog('   - Session: $session');
-      _addLog('   - Has user: ${session?.user != null}');
-      _addLog('   - User ID: ${session?.user?.id}');
-      _addLog('   - User email: ${session?.user?.email}');
-
-      if (session?.user == null) {
-        _addLog('❌ [ERROR] No session found - redirecting to login');
+      if (user == null) {
+        // No session, go back to login
         setState(() {
-          _statusMessage = 'No authentication session found.';
+          _statusMessage = 'Authentication failed. Please try again.';
           _isProcessing = false;
         });
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 1));
         if (mounted) {
-          _addLog('➡️ [REDIRECT] Going to login');
           context.go(AppRoutes.login);
         }
         return;
       }
 
-      final email = session!.user.email;
-      final isValidDomain = _isValidDomain(email ?? '');
+      // Check if email domain is valid
+      final email = user.email ?? '';
+      final isValidDomain = _isValidDomain(email);
 
-      _addLog('🔐 [DOMAIN] Email: $email');
-      _addLog('🔐 [DOMAIN] Is valid: $isValidDomain');
-
-      if (email != null && isValidDomain) {
-        _addLog('✅ [VALID] Domain is valid');
-        setState(() {
-          _statusMessage = 'Loading your account...';
-        });
-
-        if (mounted) {
-          _addLog('🔐 [BLOC] Getting AuthBloc...');
-          final authBloc = context.read<AuthBloc>();
-          _addLog('🔐 [BLOC] Current AuthBloc state: ${authBloc.state.runtimeType}');
-          _addLog('🔐 [BLOC] Adding AuthCheckStatus event');
-
-          authBloc.add(const AuthCheckStatus());
-
-          _addLog('✅ [BLOC] AuthCheckStatus event added');
-          _addLog('🔐 [BLOC] Waiting for state update...');
-
-          // Wait for state to become AuthAuthenticated
-          int attempts = 0;
-          const maxAttempts = 10;
-          while (attempts < maxAttempts && mounted) {
-            await Future.delayed(const Duration(milliseconds: 500));
-            _addLog('🔐 [CHECK $attempts] Current state: ${authBloc.state.runtimeType}');
-
-            if (authBloc.state is AuthAuthenticated) {
-              _addLog('✅ [SUCCESS] AuthBloc is AuthAuthenticated');
-              _addLog('   - User: ${(authBloc.state as AuthAuthenticated).user.id}');
-
-              // Navigate to home immediately
-              if (mounted) {
-                _addLog('➡️ [REDIRECT] Navigating to home');
-                context.go(AppRoutes.home);
-              }
-              return; // Exit the function
-            } else if (authBloc.state is AuthError) {
-              _addLog('❌ [ERROR] AuthBloc error: ${(authBloc.state as AuthError).message}');
-              setState(() {
-                _statusMessage = 'Authentication error. Please try again.';
-                _isProcessing = false;
-              });
-              return; // Exit the function
-            }
-
-            attempts++;
-          }
-
-          // If we reach here, state never became AuthAuthenticated
-          _addLog('⏳ [TIMEOUT] State did not change to AuthAuthenticated');
-          _addLog('Final state: ${authBloc.state.runtimeType}');
-
-          // Force navigation to home anyway since we have a valid session
-          if (mounted) {
-            _addLog('➡️ [FORCE REDIRECT] Navigating to home despite state');
-            context.go(AppRoutes.home);
-          }
-        }
-      } else {
-        _addLog('❌ [INVALID] Invalid domain: $email');
-        await Supabase.instance.client.auth.signOut();
+      if (!isValidDomain) {
+        // Invalid domain, sign out and redirect to login
+        await supabase.auth.signOut();
         setState(() {
           _statusMessage = 'Organization not authorized.';
           _isProcessing = false;
         });
-        await Future.delayed(const Duration(seconds: 3));
+        await Future.delayed(const Duration(seconds: 1));
         if (mounted) {
           context.go(AppRoutes.login);
         }
+        return;
       }
-    } catch (e, stackTrace) {
-      _addLog('❌ [EXCEPTION] $e');
-      _addLog('📍 Stack: $stackTrace');
+
+      // Valid user and domain - navigate to home
+      // The router will handle authentication redirects
+      if (mounted) {
+        context.go(AppRoutes.home);
+      }
+    } catch (e) {
       setState(() {
-        _statusMessage = 'Error: ${e.toString()}';
+        _statusMessage = 'Error during authentication. Please try again.';
         _isProcessing = false;
       });
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 1));
       if (mounted) {
         context.go(AppRoutes.login);
       }
