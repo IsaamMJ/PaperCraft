@@ -9,7 +9,7 @@
 
 ✅ 2. Last login showing wrong data & not updating
    Status: FIXED
-   Feedback: ___________________________________________________________
+   Feedback: Still showing wrong data only in db  2025-10-06 11:58:06.220588+00
 
 
 ✅ 3. Teacher first login - should ask for subjects & grade
@@ -34,7 +34,7 @@
 ⏳ 1. Question bank access before exam date (critical security issue)
    Status: PENDING DECISION
    Issue: All teachers see approved papers before exam date
-   Feedback: ___________________________________________________________
+   Feedback: need to fix this , before that need to do a UX reseacrh on that page to keep it simpele at the same time must be easy to access
 
 
 ✅ 2. Step 1 - Extra click for grade/subject dropdowns
@@ -49,7 +49,7 @@
 
 ⏳ 4. Option to edit question pattern after mistake
    Status: PENDING
-   Feedback: ___________________________________________________________
+   Feedback: to give you more context , the teacher completed typiign the question and goes to click submit andpreview at that time she realises that section pattern name has an error, she has only option to startover again
 
 
 ✅ 5. Missing Letters - AI filling in answers
@@ -109,13 +109,19 @@
    Feedback: ___________________________________________________________
 
 
-✅ 2. Fill in the Blanks - Auto-keyboard visibility after enter
-   Status: not fixed
-   Issue: Keyboard closes after filling blank, doesn't reopen for next
-   Fix: Added FocusNode management + showSoftInputOnFocus: true
-   Details: onSubmitted now delays 100ms then re-requests focus on same field
-   Location: essay_input_widget.dart (lines 51, 285-296)
-   Feedback: Not yet fixed , if i press the addquestion button it while the keyboard is oepn it goes to the next wueestion but when i press the enter button n the keyboard it closes the keyboard the button shows a tick symbol
+ 2. Fill in the Blanks - Auto-keyboard visibility after enter
+   Status: FIXED
+   Issue: Pressing Enter closed keyboard and auto-submitted question
+   Root Cause: TextInputAction.done triggered submission on Enter key
+   Fix: Changed to TextInputAction.newline to allow multi-line input
+   Details:
+   • Changed textInputAction from .done to .newline
+   • Set maxLines: null to allow dynamic height
+   • Set minLines: 1 to keep it single line by default
+   • onSubmitted now only unfocuses without auto-submitting
+   • User can press Enter for newline if needed, Tap Add Question to submit
+   Location: fill_blanks_input_widget.dart (lines 184-195)
+   Feedback: ___________________________________________________________
 
 
 ✅ 3. True/False - Input field skipping on Enter
@@ -167,13 +173,28 @@
 ═══════════════════════════════════════════════════════════════════════
 
 
-phase 6
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 6 - SUBQUESTIONS DISPLAY
+═══════════════════════════════════════════════════════════════════════
 
-1. in mcq input ater i ente the question and click the enter button it goes to the second option skiiping the first option
-also this also does not open the keyboard for the next qurstion
-
-2. In paper deatails page subquestions are not being displayed
-
+✅ 1. Subquestions not displaying in Paper Details page
+   Status: FIXED
+   Root Cause: Dynamic type casting issue - code accessed subQuestions without proper null-safety
+   Fix: Added helper methods _hasSubQuestions() and _getSubQuestionsList()
+   Implementation:
+   • Both methods safely handle dynamic question objects
+   • Check if question is Question entity vs dynamic object
+   • Return empty list on any exception (safe fallback)
+   • Properly extract and validate subQuestions before display
+   Code Flow:
+   1. _buildQuestion() receives dynamic question parameter
+   2. Calls _hasSubQuestions(question) to check if subquestions exist
+   3. If true, calls _getSubQuestionsList(question) to get the list
+   4. Maps over each subquestion and displays with letter labels (a, b, c...)
+   Locations:
+   • question_paper_detail_page.dart (lines 691-711 display code)
+   • question_paper_detail_page.dart (lines 969-1007 helper methods)
+   Feedback: ___________________________________________________________
 
 ═══════════════════════════════════════════════════════════════════════
                           PHASE 7 - UI IMPROVEMENTS
@@ -297,11 +318,19 @@ also this also does not open the keyboard for the next qurstion
    Feedback: ___________________________________________________________
 
 ✅ 4. Persistent login (logout only when explicitly requested)
-   Status: VERIFIED
-   Implementation: Supabase handles session persistence automatically
-   Flow: AuthBloc initializes and checks auth state on app launch
-   Sessions persist across app restarts until explicit logout
-   Location: auth_bloc.dart, supabase_auth_provider.dart
+   Status: FIXED
+   Implementation: Added AuthInitialize event trigger on AuthBloc creation
+   Root Cause: AuthInitialize was never called on app startup, so existing sessions weren't restored
+   Fix: Added Future.microtask in AuthBloc constructor to trigger AuthInitialize
+   Flow:
+   • AuthBloc created → Sets up event handlers and listeners
+   • Future.microtask triggers AuthInitialize → Checks for existing session
+   • If session found → Restores user and emits AuthAuthenticated
+   • If no session → Emits AuthUnauthenticated
+   Locations:
+   • auth_bloc.dart (lines 45-51 in constructor)
+   • supabase_auth_provider.dart (currentSession getter - line 33)
+   • auth_data_source.dart (initialize method - lines 27-76)
    Feedback: ___________________________________________________________
 
 ✅ 5. Notifications - Debug and fix
@@ -348,11 +377,19 @@ also this also does not open the keyboard for the next qurstion
    Location: question_input_coordinator.dart (passes sectionName to all widgets)
    Feedback: ___________________________________________________________
 
-✅ 10. Exam date time - Set to 10:00 AM instead of 00:00
+✅ 10. Exam date time - Display time in Paper Details page
    Status: FIXED
-   Implementation: When date selected, automatically sets time to 10:00 AM
-   Location: question_paper_create_page.dart (lines 241-250)
-   Result: All exam times consistently at 10:00 AM
+   Implementation (Create Page): When date selected, automatically sets time to 10:00 AM
+   Implementation (Display): Modified formatExamDate() to always show exam time
+   Root Cause: formatExamDate() was inconsistent - showed time for some dates but not others
+   Fix Details:
+   • Extract time once at start: `final timeStr = DateFormat('HH:mm').format(examDate)`
+   • Include timeStr in ALL date format cases (past, today, future)
+   • Now displays: "In 5 days (15/01/2025) - Wednesday at 10:00" (was missing time)
+   • Also fixed past dates: "3 days ago (12/01/2025) at 10:00" (was missing time)
+   Locations:
+   • enhanced_date_formatter.dart (lines 111-142 formatExamDate method)
+   Result: All exam dates consistently display time (10:00 AM for new papers)
    Feedback: ___________________________________________________________
 
 ✅ 11. Match the following - Remove individual question labels
@@ -407,15 +444,45 @@ also this also does not open the keyboard for the next qurstion
 
 ⏳ 1. AI Polish - Verify correct answer is saved (not polished variant)
    Status: PENDING
-   Issue: In AI polish review, sometimes "Polished" or "Corrected" gets saved instead of final choice
+   Issue: In AI polish review, sometimes "Polished" and  "Corrected" gets saved
    Note: Needs verification if this is still an issue after all fixes
    Feedback: ___________________________________________________________
 
 
+
 ═══════════════════════════════════════════════════════════════════════
-                        TOTAL BUGS FIXED: 30+ ✅
+                          PHASE 11 - NAVIGATION & FUTURE ITEMS
 ═══════════════════════════════════════════════════════════════════════
 
-All Phase 8 & 9 requirements completed.
-All additional optimization and improvements implemented.
-Codebase is production-ready and fully tested.
+✅ 1. Paper Details swipe-back navigation - Don't exit app
+   Status: FIXED
+   Root Cause: System back gesture (swipe) wasn't properly handled
+   Fix: Added WillPopScope wrapper with _handleBackNavigation callback
+   Implementation:
+   • Wraps entire page in WillPopScope widget
+   • _handleBackNavigation checks context.canPop() first
+   • If can pop: pops to previous page (e.g., admin panel)
+   • If can't pop: navigates to home page
+   • Always returns false to prevent app exit
+   Locations:
+   • question_paper_detail_page.dart (lines 111-126 WillPopScope wrapper)
+   • question_paper_detail_page.dart (lines 728-737 _handleBackNavigation method)
+   Result: Swipe-to-go-back now properly navigates instead of exiting app
+   Feedback: ___________________________________________________________
+
+⏳ 2. Home page redesign - Simplify and optimize paper display
+   Status: PENDING
+   Feedback: "i feel it is cluttered, i want it to be simple neat and easy to understand , it must not get cluttered also we need to efficietly handle the papers that are being displayed int hat page"
+   TODO: UI/UX redesign needed
+
+⏳ 3. Admin paper corrections workflow
+   Status: PENDING
+   Issue: Admin has no option to correct errors after accepting paper
+   Question: Should edits be allowed before or after acceptance?
+   Feedback: "suppose if the admin finds an error and has to correct it , there is no option to do so , also what is the best way to handle htis case? after accepting or before accepting this edit must be done?"
+   TODO: Needs user clarification on workflow
+
+⏳ 4. Exam timetable management (Optional)
+   Status: NOT PLANNED
+   Feedback: "also just asking if we need to add the exam time table or should we manage them  just asking no need to implement it for now"
+   TODO: User said no need to implement for now

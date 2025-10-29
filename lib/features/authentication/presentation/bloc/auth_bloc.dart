@@ -41,6 +41,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     // SECURITY FIX: Start auth state synchronization
     _startAuthStateSyncTimer();
+
+    // CRITICAL FIX: Trigger auth initialization to restore session on app startup
+    // This must happen AFTER event handlers are registered and listeners are set up
+    Future.microtask(() {
+      if (!isClosed) {
+        add(const AuthInitialize());
+      }
+    });
   }
 
   void _listenToAuthChanges() {

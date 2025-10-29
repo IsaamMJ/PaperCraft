@@ -108,15 +108,18 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: BlocConsumer<QuestionPaperBloc, QuestionPaperState>(
-        listener: _handleStateChanges,
-        builder: (context, state) => CustomScrollView(
-          slivers: [
-            _buildAppBar(state),
-            SliverToBoxAdapter(child: _buildContent(state)),
-          ],
+    return WillPopScope(
+      onWillPop: _handleBackNavigation,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: BlocConsumer<QuestionPaperBloc, QuestionPaperState>(
+          listener: _handleStateChanges,
+          builder: (context, state) => CustomScrollView(
+            slivers: [
+              _buildAppBar(state),
+              SliverToBoxAdapter(child: _buildContent(state)),
+            ],
+          ),
         ),
       ),
     );
@@ -688,9 +691,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                   ],
                 ],
                 // Display sub-questions if they exist
-                if (question.subQuestions != null && question.subQuestions!.isNotEmpty) ...[
+                if (_hasSubQuestions(question)) ...[
                   SizedBox(height: UIConstants.spacing12),
-                  ...question.subQuestions!.asMap().entries.map((subQEntry) {
+                  ..._getSubQuestionsList(question).asMap().entries.map((subQEntry) {
                     final subQLabel = String.fromCharCode(97 + (subQEntry.key as int)); // a, b, c, d...
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -720,6 +723,17 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         ],
       ),
     );
+  }
+
+  // FIXED: Handle system back button and swipe-to-go-back gestures
+  Future<bool> _handleBackNavigation() async {
+    if (context.canPop()) {
+      context.pop();
+      return false; // Don't exit the app, we handled the back navigation
+    } else {
+      context.go(AppRoutes.home);
+      return false; // Don't exit the app, we navigated to home
+    }
   }
 
   void _navigateBack() {
@@ -964,6 +978,46 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         ],
       ),
     );
+  }
+
+  // FIXED: Safe extraction of sub-questions from dynamic question object
+  bool _hasSubQuestions(dynamic question) {
+    try {
+      // Handle case where question is a Question entity
+      if (question is Question) {
+        return question.subQuestions.isNotEmpty;
+      }
+
+      // Handle case where question is a dynamic object with subQuestions property
+      final subQuestions = question.subQuestions;
+      if (subQuestions != null && subQuestions is List && subQuestions.isNotEmpty) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // FIXED: Safe extraction of sub-questions list from dynamic question object
+  List<dynamic> _getSubQuestionsList(dynamic question) {
+    try {
+      // Handle case where question is a Question entity
+      if (question is Question) {
+        return question.subQuestions;
+      }
+
+      // Handle case where question is a dynamic object
+      final subQuestions = question.subQuestions;
+      if (subQuestions is List) {
+        return subQuestions;
+      }
+
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
   void _showMessage(String message, Color color) {

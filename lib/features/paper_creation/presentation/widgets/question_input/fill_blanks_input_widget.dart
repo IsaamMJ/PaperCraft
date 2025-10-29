@@ -185,11 +185,13 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
         TextField(
           controller: _questionController,
           textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.done,
-          maxLines: 1,
+          textInputAction: TextInputAction.newline,
+          maxLines: null,
+          minLines: 1,
           onSubmitted: (_) {
+            // Don't auto-submit on Enter for fill blanks - let user continue editing
+            // Just dismiss keyboard focus, user can tap Add Question button when ready
             FocusScope.of(context).unfocus();
-            if (_isValid) _addQuestion();
           },
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(

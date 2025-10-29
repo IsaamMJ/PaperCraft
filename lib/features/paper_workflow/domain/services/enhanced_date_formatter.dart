@@ -112,30 +112,31 @@ class EnhancedDateFormatter {
     final now = DateTime.now();
     final difference = examDate.difference(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(examDate);
+    final timeStr = DateFormat('HH:mm').format(examDate); // FIXED: Always get the time
 
     if (difference.inDays > 0) {
       // Future exam
       if (difference.inDays == 1) {
-        return 'Tomorrow (${dateStr}) at ${DateFormat('HH:mm').format(examDate)}';
+        return 'Tomorrow (${dateStr}) at ${timeStr}';
       } else if (difference.inDays < 7) {
-        return 'In ${difference.inDays} days (${dateStr}) - ${DateFormat('EEEE').format(examDate)}';
+        return 'In ${difference.inDays} days (${dateStr}) - ${DateFormat('EEEE').format(examDate)} at ${timeStr}'; // FIXED: Added time
       } else if (difference.inDays < 30) {
-        return 'In ${difference.inDays} days (${dateStr})';
+        return 'In ${difference.inDays} days (${dateStr}) at ${timeStr}'; // FIXED: Added time
       } else {
-        return dateStr;
+        return '${dateStr} at ${timeStr}'; // FIXED: Added time
       }
     } else if (difference.inDays == 0) {
       // Today
-      return 'Today (${dateStr}) at ${DateFormat('HH:mm').format(examDate)}';
+      return 'Today (${dateStr}) at ${timeStr}';
     } else {
       // Past exam
       final daysPast = difference.inDays.abs();
       if (daysPast == 1) {
-        return 'Yesterday (${dateStr})';
+        return 'Yesterday (${dateStr}) at ${timeStr}'; // FIXED: Added time
       } else if (daysPast < 7) {
-        return '${daysPast} days ago (${dateStr})';
+        return '${daysPast} days ago (${dateStr}) at ${timeStr}'; // FIXED: Added time
       } else {
-        return dateStr;
+        return '${dateStr} at ${timeStr}'; // FIXED: Added time
       }
     }
   }
