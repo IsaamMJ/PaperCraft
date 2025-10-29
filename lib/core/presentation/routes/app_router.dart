@@ -540,40 +540,60 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
 
       // Check if we already have a session from the OAuth callback
       final currentSession = supabase.auth.currentSession;
-      if (currentSession?.user != null) {
-        _handleAuthenticationSuccess(currentSession!.user);
-        return;
-      }
+      final user = currentSession?.user;
 
-      // If no current session, wait for auth state change event
-      // This is the reliable way to handle OAuth callbacks
-      bool authEventReceived = false;
-
-      final subscription = supabase.auth.onAuthStateChange.listen(
-        (AuthStateChangeEvent event) {
-          if (!_authStateHandled) {
+      if (user != null) {
+        // Check email domain validity
+        final email = user.email ?? '';
+        if (_isValidDomain(email)) {
+          if (mounted && !_authStateHandled) {
             _authStateHandled = true;
-
-            if (event.session?.user != null) {
-              // User authenticated
-              _handleAuthenticationSuccess(event.session!.user);
-            } else {
-              // User not authenticated
-              _handleAuthenticationFailure('Authentication failed');
-            }
+            // Valid session and domain - navigate to home
+            context.go(AppRoutes.home);
           }
-        },
-      );
-
-      // Timeout after 10 seconds to prevent infinite waiting
-      await Future.delayed(const Duration(seconds: 10));
-      if (!_authStateHandled && mounted) {
-        _authStateHandled = true;
-        _handleAuthenticationFailure('Authentication timeout');
+          return;
+        } else {
+          // Invalid domain - sign out
+          await supabase.auth.signOut();
+          if (mounted && !_authStateHandled) {
+            _authStateHandled = true;
+            _handleAuthenticationFailure('Organization not authorized');
+          }
+          return;
+        }
       }
 
-      // Cancel subscription when done or timed out
-      await subscription.cancel();
+      // No session yet - wait for AuthBloc to process the OAuth
+      if (mounted) {
+        final authBloc = context.read<AuthBloc>();
+
+        // Poll AuthBloc state (it will be updated when Supabase processes OAuth)
+        int attempts = 0;
+        const maxAttempts = 20; // 10 seconds (500ms * 20)
+
+        while (attempts < maxAttempts && !_authStateHandled && mounted) {
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          if (authBloc.state is AuthAuthenticated) {
+            _authStateHandled = true;
+            final blocUser = (authBloc.state as AuthAuthenticated).user;
+            _handleAuthenticationSuccess(blocUser);
+            return;
+          } else if (authBloc.state is AuthError) {
+            _authStateHandled = true;
+            _handleAuthenticationFailure('Authentication failed');
+            return;
+          }
+
+          attempts++;
+        }
+
+        // Timeout - navigate to login
+        if (!_authStateHandled && mounted) {
+          _authStateHandled = true;
+          _handleAuthenticationFailure('Authentication timeout');
+        }
+      }
     } catch (e) {
       if (!_authStateHandled && mounted) {
         _authStateHandled = true;
@@ -582,9 +602,9 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
     }
   }
 
-  void _handleAuthenticationSuccess(User user) {
-    // Check if email domain is valid
-    final email = user.email ?? '';
+  void _handleAuthenticationSuccess(dynamic user) {
+    // Get email from user (works with both Supabase User and AuthBloc user)
+    final email = (user.email ?? '') as String;
     final isValidDomain = _isValidDomain(email);
 
     if (!isValidDomain) {

@@ -26,7 +26,8 @@
       "Bash(powershell -Command \"Set-Content -Path ''android/local.properties'' -Value ''flutter.disableIncremental=true'' -Encoding UTF8\")",
       "Bash(timeout 240 flutter build:*)",
       "Bash(.gradlew assembleDebug:*)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(head:*)"
     ],
     "deny": [],
     "ask": []
