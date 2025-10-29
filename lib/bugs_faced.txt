@@ -442,10 +442,21 @@
                           PHASE 10 - PENDING
 ═══════════════════════════════════════════════════════════════════════
 
-⏳ 1. AI Polish - Verify correct answer is saved (not polished variant)
-   Status: PENDING
-   Issue: In AI polish review, sometimes "Polished" and  "Corrected" gets saved
-   Note: Needs verification if this is still an issue after all fixes
+✅ 1. AI Polish - Verify correct answer is saved (not polished variant)
+   Status: VERIFIED - WORKING CORRECTLY
+   Issue: Concern that polished variants might overwrite correct answers
+   Investigation Result: Implementation is SAFE and CORRECT
+   Details:
+   • Only question.text and question.options are modified by AI polish
+   • correctAnswer field is NEVER touched or modified
+   • originalText and polishChanges are NOT persisted to database (intentional)
+   • Review dialog properly handles reverted/edited/polished states
+   • Final questions correctly assembled before saving
+   Root Cause of Previous Confusion: No issue - implementation was correct
+   Locations:
+   • question_entity.dart (lines 114-115 - fields NOT persisted)
+   • ai_polish_review_dialog.dart (lines 590-618 - proper assembly logic)
+   • question_input_coordinator.dart (lines 825-842 - proper state update)
    Feedback: ___________________________________________________________
 
 
