@@ -520,13 +520,12 @@ class _OAuthCallbackPage extends StatefulWidget {
 
 class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   bool _isProcessing = true;
-  String _statusMessage = 'Initializing OAuth callback...';
+  String _statusMessage = 'Completing sign in...';
   String _debugLog = '';
+  bool _authStateHandled = false;
 
   void _addLog(String msg) {
-    setState(() {
-      _debugLog += '$msg\n';
-    });
+    // Silently log without showing to user
   }
 
   @override
@@ -537,60 +536,86 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
 
   Future<void> _handleOAuthCallback() async {
     try {
-      // Simple approach: just check if we have a session and navigate
       final supabase = Supabase.instance.client;
 
-      // Wait a bit for Supabase to process the OAuth callback
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final session = supabase.auth.currentSession;
-      final user = session?.user;
-
-      if (user == null) {
-        // No session, go back to login
-        setState(() {
-          _statusMessage = 'Authentication failed. Please try again.';
-          _isProcessing = false;
-        });
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) {
-          context.go(AppRoutes.login);
-        }
+      // Check if we already have a session from the OAuth callback
+      final currentSession = supabase.auth.currentSession;
+      if (currentSession?.user != null) {
+        _handleAuthenticationSuccess(currentSession!.user);
         return;
       }
 
-      // Check if email domain is valid
-      final email = user.email ?? '';
-      final isValidDomain = _isValidDomain(email);
+      // If no current session, wait for auth state change event
+      // This is the reliable way to handle OAuth callbacks
+      bool authEventReceived = false;
 
-      if (!isValidDomain) {
-        // Invalid domain, sign out and redirect to login
-        await supabase.auth.signOut();
-        setState(() {
-          _statusMessage = 'Organization not authorized.';
-          _isProcessing = false;
-        });
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) {
-          context.go(AppRoutes.login);
-        }
-        return;
+      final subscription = supabase.auth.onAuthStateChange.listen(
+        (AuthStateChangeEvent event) {
+          if (!_authStateHandled) {
+            _authStateHandled = true;
+
+            if (event.session?.user != null) {
+              // User authenticated
+              _handleAuthenticationSuccess(event.session!.user);
+            } else {
+              // User not authenticated
+              _handleAuthenticationFailure('Authentication failed');
+            }
+          }
+        },
+      );
+
+      // Timeout after 10 seconds to prevent infinite waiting
+      await Future.delayed(const Duration(seconds: 10));
+      if (!_authStateHandled && mounted) {
+        _authStateHandled = true;
+        _handleAuthenticationFailure('Authentication timeout');
       }
 
-      // Valid user and domain - navigate to home
-      // The router will handle authentication redirects
-      if (mounted) {
-        context.go(AppRoutes.home);
-      }
+      // Cancel subscription when done or timed out
+      await subscription.cancel();
     } catch (e) {
+      if (!_authStateHandled && mounted) {
+        _authStateHandled = true;
+        _handleAuthenticationFailure('Error: ${e.toString()}');
+      }
+    }
+  }
+
+  void _handleAuthenticationSuccess(User user) {
+    // Check if email domain is valid
+    final email = user.email ?? '';
+    final isValidDomain = _isValidDomain(email);
+
+    if (!isValidDomain) {
+      // Invalid domain, sign out
+      Supabase.instance.client.auth.signOut().then((_) {
+        if (mounted) {
+          _handleAuthenticationFailure('Organization not authorized');
+        }
+      });
+      return;
+    }
+
+    // Valid user and domain - navigate to home
+    if (mounted) {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  void _handleAuthenticationFailure(String message) {
+    if (mounted) {
       setState(() {
-        _statusMessage = 'Error during authentication. Please try again.';
+        _statusMessage = message;
         _isProcessing = false;
       });
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        context.go(AppRoutes.login);
-      }
+
+      // Auto-redirect to login after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          context.go(AppRoutes.login);
+        }
+      });
     }
   }
 
