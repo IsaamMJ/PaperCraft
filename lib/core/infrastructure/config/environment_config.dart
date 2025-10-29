@@ -17,15 +17,15 @@ class EnvironmentConfig {
     switch (_current) {
       case Environment.dev:
         return kIsWeb
-            ? 'http://localhost:3000/auth/callback'
+            ? '$_supabaseUrl/auth/v1/callback'
             : 'com.pearl.papercraft.dev://login-callback/';
       case Environment.staging:
         return kIsWeb
-            ? 'https://staging.papercraft.app/auth/callback'
+            ? '$_supabaseUrl/auth/v1/callback'
             : 'com.pearl.papercraft.staging://login-callback/';
       case Environment.prod:
         return kIsWeb
-            ? 'https://papercraft.app/auth/callback'
+            ? '$_supabaseUrl/auth/v1/callback'
             : 'com.pearl.papercraft://login-callback/';
     }
   }

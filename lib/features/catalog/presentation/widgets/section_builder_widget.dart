@@ -50,8 +50,29 @@ class _SectionBuilderWidgetState extends State<SectionBuilderWidget> {
     );
 
     if (newSection != null) {
+      // Check for duplicate section names and auto-generate unique name if needed
+      String finalName = newSection.name;
+      final existingNames = sections.map((s) => s.name.toLowerCase()).toList();
+
+      if (existingNames.contains(finalName.toLowerCase())) {
+        // Find a unique name by appending a number
+        int counter = 2;
+        while (existingNames.contains('${newSection.name} $counter'.toLowerCase())) {
+          counter++;
+        }
+        finalName = '${newSection.name} $counter';
+      }
+
+      // Create a new section with the unique name
+      final uniqueSection = PaperSectionEntity(
+        name: finalName,
+        type: newSection.type,
+        questions: newSection.questions,
+        marksPerQuestion: newSection.marksPerQuestion,
+      );
+
       setState(() {
-        sections.add(newSection);
+        sections.add(uniqueSection);
       });
       widget.onSectionsChanged(sections);
     }
@@ -148,7 +169,7 @@ class _SectionBuilderWidgetState extends State<SectionBuilderWidget> {
   }
 
   int get totalQuestions => sections.fold(0, (sum, s) => sum + s.questions);
-  int get totalMarks => sections.fold(0, (sum, s) => sum + s.totalMarks);
+  double get totalMarks => sections.fold(0.0, (sum, s) => sum + s.totalMarks);
 
   @override
   Widget build(BuildContext context) {

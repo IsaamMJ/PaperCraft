@@ -878,13 +878,10 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
 
-      final pdfBytes = layoutType == 'single'
-          ? await pdfService.generateStudentPdf(paper: paper, schoolName: schoolName)
-          : await pdfService.generateDualLayoutPdf(
-              paper: paper,
-              schoolName: schoolName,
-              mode: dualMode == 'compressed' ? DualLayoutMode.compressed : DualLayoutMode.balanced,
-            );
+      final pdfBytes = await pdfService.generateStudentPdf(
+        paper: paper,
+        schoolName: schoolName,
+      );
 
       if (!mounted || cancelRequested) return;
 

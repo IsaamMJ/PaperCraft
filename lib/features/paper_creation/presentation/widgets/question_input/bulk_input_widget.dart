@@ -8,7 +8,7 @@ import '../../../../paper_workflow/domain/entities/question_entity.dart';
 class BulkInputWidget extends StatefulWidget {
   final String questionType;
   final int questionCount;
-  final int marksPerQuestion;
+  final double marksPerQuestion;
   final Function(List<Question>) onQuestionsAdded;
   final bool isMobile;
   final bool isAdmin;
@@ -42,10 +42,44 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
     _focusNodes = List.generate(widget.questionCount, (_) => FocusNode());
 
     // Add listeners to trigger UI updates
-    for (var controller in _controllers) {
+    for (int i = 0; i < _controllers.length; i++) {
+      final controller = _controllers[i];
       controller.addListener(() {
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {
+            // Force validation check for all controllers
+            // This ensures the button state updates correctly
+          });
+        }
       });
+    }
+  }
+
+  @override
+  void didUpdateWidget(BulkInputWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If question count changes, reinitialize controllers
+    if (oldWidget.questionCount != widget.questionCount) {
+      // Clean up old controllers
+      for (var controller in _controllers) {
+        controller.dispose();
+      }
+      for (var focusNode in _focusNodes) {
+        focusNode.dispose();
+      }
+      // Reinitialize with new count
+      _controllers = List.generate(widget.questionCount, (_) => TextEditingController());
+      _focusNodes = List.generate(widget.questionCount, (_) => FocusNode());
+
+      // Add listeners to new controllers
+      for (int i = 0; i < _controllers.length; i++) {
+        final controller = _controllers[i];
+        controller.addListener(() {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
     }
   }
 
@@ -61,16 +95,27 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   }
 
   bool get _isValid {
+    // Ensure all controllers exist and have content
+    if (_controllers.isEmpty) return false;
+
     // For missing_letters, require at least one underscore in each field
     if (widget.questionType == 'missing_letters') {
-      return _controllers.every((controller) {
+      for (var controller in _controllers) {
         final text = controller.text.trim();
-        return text.isNotEmpty && text.contains('_');
-      });
+        if (text.isEmpty || !text.contains('_')) {
+          return false;
+        }
+      }
+      return true;
     }
 
-    // For other types, just check if not empty
-    return _controllers.every((controller) => controller.text.trim().isNotEmpty);
+    // For other types, check if ALL fields are not empty
+    for (var controller in _controllers) {
+      if (controller.text.trim().isEmpty) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _clear() {
@@ -108,6 +153,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   String _formatQuestionText(String input, int questionNumber) {
     switch (widget.questionType) {
       case 'missing_letters':
+      case 'word_forms':
       // Just return the word/text as-is - the section heading is enough
         return input;
 
@@ -124,7 +170,7 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
     }
   }
 
-  int _getDefaultMarks() {
+  double _getDefaultMarks() {
     // Use the marks from exam type section instead of hardcoded values
     return widget.marksPerQuestion;
   }
@@ -133,6 +179,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
     switch (widget.questionType) {
       case 'missing_letters':
         return 'Add Missing Letters Questions';
+      case 'word_forms':
+        return 'Add Word Forms Questions';
       case 'true_false':
         return 'Add True/False Questions';
       case 'short_answers':
@@ -163,6 +211,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         return 'e.g., The sun rises in the east';
       case 'short_answers':
         return 'e.g., What is the capital of India?';
+      case 'word_forms':
+        return 'e.g., Beautiful (synonym), Hot (antonym), Running (verb form)';
       default:
         return 'Enter your question here...';
     }
@@ -177,6 +227,8 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
         return 'Each statement will be presented as True/False format automatically.';
       case 'short_answers':
         return 'Questions will be formatted properly with question marks if needed.';
+      case 'word_forms':
+        return 'Students will transform words (synonyms, antonyms, plurals, verb forms, etc.) as specified in the section description.';
       default:
         return 'Questions will be formatted appropriately for the question type.';
     }

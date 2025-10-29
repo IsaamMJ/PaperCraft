@@ -30,6 +30,14 @@ class PaperValidationService {
 
     if (paperSections.isEmpty) {
       errors.add('At least one paper section must be added');
+    } else {
+      // Check for duplicate section names
+      final sectionNames = paperSections.map((s) => s.name.toLowerCase()).toList();
+      final uniqueNames = sectionNames.toSet();
+
+      if (sectionNames.length != uniqueNames.length) {
+        errors.add('Duplicate section names are not allowed. Each section must have a unique name.');
+      }
     }
 
     // Note: selectedSections can be empty if there are no sections for the grade

@@ -56,7 +56,7 @@ class TestDataFactory {
           name: 'Section A',
           type: 'multiple_choice',
           questions: totalQuestions,
-          marksPerQuestion: (totalMarks / totalQuestions).round(),
+          marksPerQuestion: (totalMarks / totalQuestions).toDouble(),
         ),
       ],
       questions: {
@@ -65,7 +65,7 @@ class TestDataFactory {
               (i) => Question(
             text: 'Question ${i + 1}',
             type: 'multiple_choice',
-            marks: (totalMarks / totalQuestions).round(),
+            marks: (totalMarks / totalQuestions).toDouble(),
             options: ['A', 'B', 'C', 'D'],
             correctAnswer: 'A',
           ),

@@ -266,6 +266,11 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   isMobile: isMobile,
                 ),
                 SizedBox(height: isMobile ? 20 : 16),
+                // Word bank mode indicator for fill_in_blanks sections
+                if (_currentSection.type == 'fill_in_blanks')
+                  _buildWordBankModeIndicator(isMobile),
+                if (_currentSection.type == 'fill_in_blanks')
+                  SizedBox(height: UIConstants.spacing16),
                 _buildQuestionInput(isMobile),
                 SizedBox(height: isMobile ? 32 : 20),
                 _buildActions(isMobile),
@@ -286,7 +291,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   Widget _buildHeader(bool isMobile) {
     final currentMarks = _getCurrentMarks();
-    final totalMarks = widget.paperSections.fold(0, (sum, section) => sum + section.totalMarks);
+    final totalMarks = widget.paperSections.fold(0.0, (sum, section) => sum + section.totalMarks);
     final optionalMarks = _getOptionalMarks();
 
     return Column(
@@ -483,8 +488,164 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     );
   }
 
-  int _getOptionalMarks() {
-    int total = 0;
+  Widget _buildWordBankModeIndicator(bool isMobile) {
+    final sectionName = _currentSection.name;
+    final sectionType = _currentSection.type;
+    final questions = _currentSectionQuestions;
+
+    // Determine mode
+    String modeText;
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    IconData icon;
+    Widget? wordBankPreview;
+
+    if (questions.isEmpty || !_hasAnyWordBank(sectionName)) {
+      // No questions yet OR questions exist but no word banks (normal fill-in-blanks)
+      modeText = 'Word Bank Mode: None';
+      bgColor = Colors.grey.shade50;
+      borderColor = Colors.grey.shade300;
+      textColor = AppColors.textSecondary;
+      icon = Icons.info_outline;
+    } else if (_isSharedWordBankMode(sectionName, sectionType)) {
+      // Shared mode
+      modeText = 'Word Bank Mode: Shared';
+      bgColor = AppColors.primary10;
+      borderColor = AppColors.primary;
+      textColor = AppColors.primary;
+      icon = Icons.workspaces_rounded;
+
+      // Build word bank preview
+      final sharedWords = _getSharedWordBank(sectionName);
+      if (sharedWords.isNotEmpty) {
+        wordBankPreview = Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'SHARED WORD BANK',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: sharedWords.map((word) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    ),
+                    child: Text(
+                      word,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      // Individual mode (some questions have 2+ words or no words)
+      modeText = 'Word Bank Mode: Individual';
+      bgColor = AppColors.success10;
+      borderColor = AppColors.success;
+      textColor = AppColors.success;
+      icon = Icons.list_alt_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: textColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  modeText,
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 13,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Show explanation based on mode
+          if (questions.isEmpty || !_hasAnyWordBank(sectionName)) ...[
+            const SizedBox(height: 6),
+            Text(
+              questions.isEmpty
+                  ? 'Add questions with or without a word bank'
+                  : 'Normal fill in the blanks - no word bank used',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ] else if (_isSharedWordBankMode(sectionName, sectionType)) ...[
+            const SizedBox(height: 6),
+            Text(
+              'All questions have 1 word each. The word bank will appear at the top of this section.',
+              style: TextStyle(
+                fontSize: 11,
+                color: textColor.withOpacity(0.8),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 6),
+            Text(
+              'Questions have different word counts. Each question will display its own word bank.',
+              style: TextStyle(
+                fontSize: 11,
+                color: textColor.withOpacity(0.8),
+              ),
+            ),
+          ],
+          // Show word bank preview for shared mode
+          if (wordBankPreview != null) wordBankPreview,
+        ],
+      ),
+    );
+  }
+
+  double _getOptionalMarks() {
+    double total = 0.0;
     for (var section in widget.paperSections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
@@ -496,8 +657,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     return total;
   }
 
-  int _getCurrentMarks() {
-    int total = 0;
+  double _getCurrentMarks() {
+    double total = 0.0;
     for (var section in widget.paperSections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
@@ -539,12 +700,14 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           requiredPairs: _currentSection.questions, // Number of pairs = questions in section
+          marksPerQuestion: _currentSection.marksPerQuestion,
           isAdmin: widget.isAdmin,
         );
 
       case 'missing_letters':
       case 'true_false':
       case 'short_answers':
+      case 'word_forms':
         return BulkInputWidget(
           questionType: _currentSection.type,
           questionCount: _currentSection.questions,
@@ -554,8 +717,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           isAdmin: widget.isAdmin,
         );
 
-      case 'meanings':
-      case 'opposites':
       case 'frame_sentences':
       case 'long_answers':
       default:
@@ -779,6 +940,12 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           continue;
         }
 
+        // SKIP Word Forms questions - single-word transformation questions
+        if (q.type == 'word_forms') {
+          polishedList.add(q); // Return unchanged
+          continue;
+        }
+
         // Prepare text with smart masking for misc_grammar (if needed in future)
         String textToPolish = q.text;
         bool hasBlanks = false;
@@ -971,6 +1138,51 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     UiHelpers.showSuccessMessage(context, 'Question order updated');
   }
 
+  /// Check if any question in section has a word bank
+  bool _hasAnyWordBank(String sectionName) {
+    final questions = _allQuestions[sectionName] ?? [];
+    return questions.any((q) => q.options != null && q.options!.isNotEmpty);
+  }
+
+  /// Auto-detect word bank mode for fill_in_blanks sections
+  /// Returns true if shared mode (all questions have exactly 1 word)
+  /// Returns false if individual mode (some questions have 2+ words)
+  bool _isSharedWordBankMode(String sectionName, String sectionType) {
+    // Only applies to fill_in_blanks type
+    if (sectionType != 'fill_in_blanks') return false;
+
+    final questions = _allQuestions[sectionName] ?? [];
+    if (questions.isEmpty) return false;
+
+    // Check if ANY question has a word bank
+    if (!_hasAnyWordBank(sectionName)) {
+      return false; // No word bank at all (normal fill-in-blanks)
+    }
+
+    // If some questions have words, check if ALL have exactly 1 word
+    for (final q in questions) {
+      if (q.options == null || q.options!.length != 1) {
+        return false; // Individual mode if any question has 0 or 2+ words
+      }
+    }
+
+    return true; // Shared mode: all questions have exactly 1 word
+  }
+
+  /// Get combined word bank for shared mode
+  List<String> _getSharedWordBank(String sectionName) {
+    final questions = _allQuestions[sectionName] ?? [];
+    final words = <String>[];
+
+    for (final q in questions) {
+      if (q.options != null && q.options!.isNotEmpty) {
+        words.addAll(q.options!);
+      }
+    }
+
+    return words;
+  }
+
   void _checkSectionCompletion() {
     final section = _currentSection;
     final questions = _allQuestions[section.name]!;
@@ -985,6 +1197,21 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     } else {
       // For other types: count must match section.questions
       sectionComplete = mandatoryQuestions.length >= section.questions;
+    }
+
+    // Additional validation for fill_in_blanks with shared word bank
+    if (sectionComplete && section.type == 'fill_in_blanks') {
+      // If it's detected as shared word bank mode, ensure at least one word exists
+      if (_isSharedWordBankMode(section.name, section.type)) {
+        final sharedWords = _getSharedWordBank(section.name);
+        if (sharedWords.isEmpty) {
+          // Don't auto-advance if shared mode but no words yet
+          sectionComplete = false;
+          if (mounted) {
+            _showMessage('Shared word bank detected - please add at least one word', AppColors.warning);
+          }
+        }
+      }
     }
 
     if (sectionComplete && _currentSectionIndex < widget.paperSections.length - 1) {
@@ -1073,6 +1300,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         tenantId: widget.isEditing ? (widget.existingTenantId ?? tenantId) : tenantId,
       );
 
+      // Show submission feedback dialog IMMEDIATELY before sending to BLoC
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => SubmissionFeedbackDialog(
+          onComplete: () {
+            Navigator.of(context).pop(); // Close dialog
+            if (mounted) context.go(AppRoutes.home);
+          },
+        ),
+      );
+
       if (widget.isAdmin) {
         context.read<QuestionPaperBloc>().add(SubmitPaper(paper));
       } else {
@@ -1099,19 +1338,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         _saveTeacherPattern(context);
       }
 
-      // Show submission feedback dialog and navigate to home after it completes
-      if (state.actionType == 'save' || state.actionType == 'submit') {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => SubmissionFeedbackDialog(
-            onComplete: () {
-              Navigator.of(context).pop(); // Close dialog
-              if (mounted) context.go(AppRoutes.home);
-            },
-          ),
-        );
-      }
+      // Dialog is now shown immediately in _createPaper() method,
+      // not here, to avoid the 5 second lag before showing "Submitting Paper..."
     }
     if (state is QuestionPaperError) {
       setState(() => _isProcessing = false);
@@ -1144,7 +1372,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         name: patternName,
         sections: widget.paperSections,
         totalQuestions: widget.paperSections.fold(0, (sum, s) => sum + s.questions),
-        totalMarks: widget.paperSections.fold(0, (sum, s) => sum + s.totalMarks),
+        totalMarks: widget.paperSections.fold(0.0, (sum, s) => sum + s.totalMarks).toInt(),
         useCount: 1,
         lastUsedAt: DateTime.now(),
         createdAt: DateTime.now(),

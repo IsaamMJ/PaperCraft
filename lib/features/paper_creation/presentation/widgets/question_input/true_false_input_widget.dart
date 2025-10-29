@@ -55,7 +55,7 @@ class _TrueFalseInputWidgetState extends State<TrueFalseInputWidget> with Automa
       text: _questionController.text.trim(),
       type: 'true_false',
       options: ['True', 'False'], // Fixed options
-      marks: 1,
+      marks: 1.0,
       isOptional: _isOptional,
     );
 

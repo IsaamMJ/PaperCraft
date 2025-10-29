@@ -77,6 +77,7 @@ dependencies:
   saf: ^1.0.4
   timeago: ^3.7.0
   mockito: ^5.5.0
+  pdfx: ^2.9.2
 dev_dependencies:
   json_serializable: ^6.11.0
   flutter_test:

@@ -166,6 +166,19 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     return month >= 6 ? '$year-${year + 1}' : '${year - 1}-$year';
   }
 
+  /// Calculate total marks required from all paper sections
+  num _getTotalMarks() {
+    return _paperSections.fold(0.0, (sum, section) => sum + section.totalMarks);
+  }
+
+  /// Format marks to show decimals properly (0.5 instead of 0)
+  String _formatMarks(num marks) {
+    if (marks == marks.toInt()) {
+      return marks.toInt().toString();
+    }
+    return marks.toString();
+  }
+
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
@@ -396,32 +409,43 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                   );
                 }
 
-                return DropdownButtonFormField<GradeEntity>(
-                  value: _selectedGrade,
-                  hint: const Text('Select Grade Level'),
-                  decoration: InputDecoration(
-                    labelText: 'Grade Level',
-                    filled: true,
-                    fillColor: AppColors.backgroundSecondary,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                      borderSide: BorderSide.none,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Grade Level',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                      borderSide: BorderSide(color: AppColors.primary, width: 2),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableGrades.map((grade) {
+                        final isSelected = _selectedGrade?.id == grade.id;
+                        return FilterChip(
+                          label: Text('Grade ${grade.gradeNumber}'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              _onGradeSelected(grade);
+                            } else {
+                              setState(() => _selectedGrade = null);
+                            }
+                          },
+                          backgroundColor: Colors.transparent,
+                          selectedColor: AppColors.primary.withOpacity(0.2),
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    prefixIcon: Icon(Icons.school_rounded, color: AppColors.textSecondary),
-                  ),
-                  items: _availableGrades.map((grade) {
-                    return DropdownMenuItem(
-                      value: grade,
-                      child: Text('Grade ${grade.gradeNumber}'),
-                    );
-                  }).toList(),
-                  onChanged: (grade) {
-                    if (grade != null) _onGradeSelected(grade);
-                  },
+                  ],
                 );
               },
             ),
@@ -443,35 +467,47 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                     return const InfoBox(message: 'No subjects available for this grade');
                   }
 
-                  return DropdownButtonFormField<SubjectEntity>(
-                    value: _selectedSubject,
-                    hint: const Text('Select Subject'),
-                    decoration: InputDecoration(
-                      labelText: 'Subject',
-                      filled: true,
-                      fillColor: AppColors.backgroundSecondary,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                        borderSide: BorderSide.none,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Subject',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                        borderSide: BorderSide(color: AppColors.primary, width: 2),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _availableSubjects.map((subject) {
+                          final isSelected = _selectedSubject?.id == subject.id;
+                          return FilterChip(
+                            label: Text(subject.name),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedSubject = subject;
+                                  _showPatternSelector = false; // Reset pattern selector when subject changes
+                                } else {
+                                  _selectedSubject = null;
+                                  _showPatternSelector = false;
+                                }
+                              });
+                            },
+                            backgroundColor: Colors.transparent,
+                            selectedColor: AppColors.primary.withOpacity(0.2),
+                            side: BorderSide(
+                              color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          );
+                        }).toList(),
                       ),
-                      prefixIcon: Icon(Icons.subject_rounded, color: AppColors.textSecondary),
-                    ),
-                    items: _availableSubjects.map((subject) {
-                      return DropdownMenuItem(
-                        value: subject,
-                        child: Text(subject.name),
-                      );
-                    }).toList(),
-                    onChanged: (subject) {
-                      setState(() {
-                        _selectedSubject = subject;
-                        _showPatternSelector = false; // Reset pattern selector when subject changes
-                      });
-                    },
+                    ],
                   );
                 },
               ),
@@ -480,34 +516,41 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             // Exam Type Selection (only show if subject selected)
             if (_selectedSubject != null) ...[
               SizedBox(height: UIConstants.spacing24),
-              DropdownButtonFormField<ExamType>(
-                value: _selectedExamType,
-                hint: const Text('Select Exam Type'),
-                decoration: InputDecoration(
-                  labelText: 'Exam Type',
-                  filled: true,
-                  fillColor: AppColors.backgroundSecondary,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    borderSide: BorderSide.none,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Exam Type',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ExamType.allTypes.map((examType) {
+                      final isSelected = _selectedExamType == examType;
+                      return FilterChip(
+                        label: Text(examType.displayName),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedExamType = selected ? examType : null;
+                          });
+                        },
+                        backgroundColor: Colors.transparent,
+                        selectedColor: AppColors.primary.withOpacity(0.2),
+                        side: BorderSide(
+                          color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      );
+                    }).toList(),
                   ),
-                  prefixIcon: Icon(Icons.assignment_outlined, color: AppColors.textSecondary),
-                ),
-                items: ExamType.allTypes.map((examType) {
-                  return DropdownMenuItem(
-                    value: examType,
-                    child: Text(examType.displayName),
-                  );
-                }).toList(),
-                onChanged: (examType) {
-                  setState(() {
-                    _selectedExamType = examType;
-                  });
-                },
+                ],
               ),
             ],
 
@@ -716,6 +759,22 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               SectionBuilderWidget(
                 initialSections: _paperSections,
                 onSectionsChanged: (sections) {
+                  // Validate for duplicate section names
+                  final sectionNames = sections.map((s) => s.name.toLowerCase()).toList();
+                  final uniqueNames = sectionNames.toSet();
+
+                  if (sectionNames.length != uniqueNames.length) {
+                    // Show error for duplicate names
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Duplicate section names are not allowed. Each section must have a unique name.'),
+                        backgroundColor: AppColors.error,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                    return; // Don't update sections if there are duplicates
+                  }
+
                   setState(() => _paperSections = sections);
                 },
               ),
@@ -788,79 +847,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   Widget _buildValidationSummary() {
-    final List<String> errors = [];
-
-    if (_selectedGradeLevel == null) {
-      errors.add('Grade level is required');
-    }
-    if (_selectedSubject == null) {
-      errors.add('Subject is required');
-    }
-    if (_selectedExamType == null) {
-      errors.add('Exam type is required');
-    }
-    if (_paperSections.isEmpty) {
-      errors.add('At least one paper section is required');
-    }
-    if (_selectedExamDate == null) {
-      errors.add('Exam date is required');
-    }
-    if (_availableSections.isNotEmpty && _selectedSections.isEmpty) {
-      errors.add('At least one class section must be selected');
-    }
-    if (_isSectionsLoading) {
-      errors.add('Please wait while sections are loading');
-    }
-
-    if (errors.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: UIConstants.spacing24),
-      padding: const EdgeInsets.all(UIConstants.paddingMedium),
-      decoration: BoxDecoration(
-        color: AppColors.error10,
-        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        border: Border.all(color: AppColors.error, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Please complete the following:',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeMedium,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.error,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...errors.map((error) => Padding(
-            padding: const EdgeInsets.only(left: 28, top: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('• ', style: TextStyle(color: AppColors.error, fontSize: 16)),
-                Expanded(
-                  child: Text(
-                    error,
-                    style: TextStyle(
-                      fontSize: UIConstants.fontSizeMedium,
-                      color: AppColors.error,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
+    // REMOVED: Validation warning dialog has been completely removed as per user request
+    // Previously showed: "Please complete the following: Grade level is required, Subject is required, etc."
+    return const SizedBox.shrink();
   }
 
   Widget _buildSectionSelector() {
@@ -1001,7 +990,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     child: ElevatedButton.icon(
     onPressed: _isStepValid(_currentStep) ? _nextStep : null,
     icon: const Icon(Icons.arrow_forward_rounded),
-      label: Text(_currentStep == 1 ? 'Add Questions' : 'Next'),
+      label: Text(_currentStep == 1
+          ? 'Add Questions (${_formatMarks(_getTotalMarks())} marks)'
+          : 'Next'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,

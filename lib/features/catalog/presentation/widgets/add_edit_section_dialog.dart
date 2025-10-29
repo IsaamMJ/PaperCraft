@@ -22,6 +22,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
   late TextEditingController _nameController;
   late TextEditingController _questionsController;
   late TextEditingController _marksController;
+  late FocusNode _nameFocusNode;
   late String _selectedType;
   late String _lastGeneratedDefaultName; // Track if name was auto-generated
 
@@ -32,12 +33,14 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
     {'value': 'missing_letters', 'label': 'Missing Letters', 'icon': Icons.abc},
     {'value': 'true_false', 'label': 'True/False', 'icon': Icons.toggle_on},
     {'value': 'match_following', 'label': 'Match the Following', 'icon': Icons.compare_arrows},
+    {'value': 'word_forms', 'label': 'Word Forms', 'icon': Icons.transform},
   ];
 
   @override
   void initState() {
     super.initState();
     _selectedType = widget.section?.type ?? 'multiple_choice';
+    _nameFocusNode = FocusNode();
 
     // Initialize name with default or existing value
     final defaultName = widget.section == null ? _getDefaultSectionName(_selectedType) : widget.section!.name;
@@ -59,17 +62,19 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
   String _getDefaultSectionName(String type) {
     switch (type) {
       case 'multiple_choice':
-        return 'Choose the Correct Answer';
+        return 'Choose the correct answer';
       case 'short_answer':
-        return 'Answer the Following';
+        return 'Answer the following';
       case 'fill_in_blanks':
-        return 'Fill in the Blanks';
+        return 'Fill in the blanks';
       case 'missing_letters':
-        return 'Missing Letters';
+        return 'Fill in the missing letters';
       case 'true_false':
-        return 'State True or False';
+        return 'State true or false';
       case 'match_following':
-        return 'Match the Following';
+        return 'Match the following';
+      case 'word_forms':
+        return 'Write Word Forms';
       default:
         return '';
     }
@@ -88,6 +93,11 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
         _lastGeneratedDefaultName = newDefaultName;
       }
     });
+
+    // Auto-focus on name field after type selection
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nameFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -95,13 +105,14 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
     _nameController.dispose();
     _questionsController.dispose();
     _marksController.dispose();
+    _nameFocusNode.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final questions = int.parse(_questionsController.text);
-      final marksPerQuestion = int.parse(_marksController.text);
+      final marksPerQuestion = double.parse(_marksController.text);
       final totalMarks = questions * marksPerQuestion;
 
       // Warn if section marks are very high
@@ -115,6 +126,8 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
               type: _selectedType,
               questions: questions,
               marksPerQuestion: marksPerQuestion,
+              useSharedWordBank: false,
+              sharedWordBank: [],
             );
             Navigator.of(context).pop(section);
           },
@@ -127,6 +140,8 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
         type: _selectedType,
         questions: questions,
         marksPerQuestion: marksPerQuestion,
+        useSharedWordBank: false,
+        sharedWordBank: [],
       );
       Navigator.of(context).pop(section);
     }
@@ -161,7 +176,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
 
   Widget _buildTotalMarksPreview() {
     final questions = int.tryParse(_questionsController.text) ?? 0;
-    final marksPerQuestion = int.tryParse(_marksController.text) ?? 0;
+    final marksPerQuestion = double.tryParse(_marksController.text) ?? 0.0;
     final totalMarks = questions * marksPerQuestion;
     final isHighMarks = totalMarks > 200;
 
@@ -228,25 +243,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section name
-              TextFormField(
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Section Name',
-                  hintText: 'e.g., Part A, Section 1',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter section name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Question type dropdown
+              // Question type dropdown (moved first)
               DropdownButtonFormField<String>(
                 value: _selectedType,
                 decoration: const InputDecoration(
@@ -269,6 +266,36 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                   if (value != null) {
                     _onTypeChanged(value);
                   }
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Section name (moved second) - with clear button
+              TextFormField(
+                focusNode: _nameFocusNode,
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Section Name',
+                  hintText: 'e.g., Part A, Section 1',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: _nameController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _nameController.clear();
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (_) {
+                  setState(() {}); // Rebuild to show/hide clear button
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter section name';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: 16),
@@ -310,12 +337,12 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                 controller: _marksController,
                 decoration: InputDecoration(
                   labelText: _selectedType == 'match_following' ? 'Marks per Pair' : 'Marks per Question',
-                  hintText: 'e.g., 2',
+                  hintText: 'e.g., 2 or 0.5',
                   border: const OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -323,7 +350,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
                         ? 'Please enter marks per pair'
                         : 'Please enter marks per question';
                   }
-                  final number = int.tryParse(value);
+                  final number = double.tryParse(value);
                   if (number == null || number <= 0) {
                     return 'Must be greater than 0';
                   }
@@ -340,7 +367,10 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
               // Preview
               if (_questionsController.text.isNotEmpty &&
                   _marksController.text.isNotEmpty)
-                _buildTotalMarksPreview(),
+                ...[
+                  const SizedBox(height: 16),
+                  _buildTotalMarksPreview(),
+                ],
             ],
           ),
         ),

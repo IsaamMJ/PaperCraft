@@ -175,7 +175,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
                 ),
                 const SizedBox(height: UIConstants.spacing24),
 
-                // Grades Section
+                // Grades Section - FilterChips
                 Text(
                   'Select Grades',
                   style: TextStyle(
@@ -185,10 +185,10 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildGradesList(),
+                _buildGradesFilterChips(),
                 const SizedBox(height: UIConstants.spacing24),
 
-                // Subjects Section
+                // Subjects Section - FilterChips
                 Text(
                   'Select Subjects',
                   style: TextStyle(
@@ -198,7 +198,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildSubjectsList(),
+                _buildSubjectsFilterChips(),
                 const SizedBox(height: UIConstants.spacing32),
 
                 // Submit Button
@@ -241,7 +241,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
     );
   }
 
-  Widget _buildGradesList() {
+  Widget _buildGradesFilterChips() {
     return BlocBuilder<GradeBloc, GradeState>(
       builder: (context, state) {
         if (state is GradeLoading) {
@@ -281,14 +281,11 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
                     }
                   });
                 },
-                backgroundColor: AppColors.surface,
-                selectedColor: AppColors.primary20,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
+                backgroundColor: Colors.transparent,
+                selectedColor: AppColors.primary.withOpacity(0.2),
                 side: BorderSide(
-                  color: isSelected ? AppColors.primary : AppColors.border,
+                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                  width: isSelected ? 2 : 1,
                 ),
               );
             }).toList(),
@@ -300,7 +297,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
     );
   }
 
-  Widget _buildSubjectsList() {
+  Widget _buildSubjectsFilterChips() {
     return BlocBuilder<SubjectBloc, SubjectState>(
       builder: (context, state) {
         if (state is SubjectLoading) {
@@ -340,14 +337,11 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
                     }
                   });
                 },
-                backgroundColor: AppColors.surface,
-                selectedColor: AppColors.success10,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.success : AppColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
+                backgroundColor: Colors.transparent,
+                selectedColor: AppColors.success.withOpacity(0.2),
                 side: BorderSide(
-                  color: isSelected ? AppColors.success : AppColors.border,
+                  color: isSelected ? AppColors.success : Colors.grey.shade300,
+                  width: isSelected ? 2 : 1,
                 ),
               );
             }).toList(),

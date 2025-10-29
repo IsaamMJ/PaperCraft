@@ -7,17 +7,21 @@ class PaperSectionEntity extends Equatable {
   final String name;
   final String type; // multiple_choice, short_answer, fill_blanks, true_false, match_following
   final int questions;
-  final int marksPerQuestion;
+  final double marksPerQuestion;
+  final bool useSharedWordBank; // For fill_blanks: true = shared, false = individual per question
+  final List<String> sharedWordBank; // Shared word bank (only used if useSharedWordBank is true)
 
   const PaperSectionEntity({
     required this.name,
     required this.type,
     required this.questions,
     required this.marksPerQuestion,
+    this.useSharedWordBank = false,
+    this.sharedWordBank = const [],
   });
 
   /// Total marks for this section
-  int get totalMarks => questions * marksPerQuestion;
+  double get totalMarks => questions * marksPerQuestion;
 
   /// Human-readable type name
   String get typeDisplayName {
@@ -28,7 +32,7 @@ class PaperSectionEntity extends Equatable {
         return 'Short Answer';
       case 'fill_in_blanks':
       case 'fill_blanks': // Support legacy type
-        return 'Fill in the Blanks';
+        return 'Fill in the blanks';
       case 'true_false':
         return 'True/False';
       case 'match_following':
@@ -50,7 +54,11 @@ class PaperSectionEntity extends Equatable {
       name: json['name'] as String,
       type: json['type'] as String,
       questions: json['questions'] as int,
-      marksPerQuestion: json['marks_per_question'] as int,
+      marksPerQuestion: (json['marks_per_question'] as num).toDouble(),
+      useSharedWordBank: json['use_shared_word_bank'] as bool? ?? false,
+      sharedWordBank: json['shared_word_bank'] != null
+          ? List<String>.from(json['shared_word_bank'] as List)
+          : const [],
     );
   }
 
@@ -61,6 +69,8 @@ class PaperSectionEntity extends Equatable {
       'type': type,
       'questions': questions,
       'marks_per_question': marksPerQuestion,
+      'use_shared_word_bank': useSharedWordBank,
+      'shared_word_bank': sharedWordBank,
     };
   }
 
@@ -69,18 +79,22 @@ class PaperSectionEntity extends Equatable {
     String? name,
     String? type,
     int? questions,
-    int? marksPerQuestion,
+    double? marksPerQuestion,
+    bool? useSharedWordBank,
+    List<String>? sharedWordBank,
   }) {
     return PaperSectionEntity(
       name: name ?? this.name,
       type: type ?? this.type,
       questions: questions ?? this.questions,
       marksPerQuestion: marksPerQuestion ?? this.marksPerQuestion,
+      useSharedWordBank: useSharedWordBank ?? this.useSharedWordBank,
+      sharedWordBank: sharedWordBank ?? this.sharedWordBank,
     );
   }
 
   @override
-  List<Object?> get props => [name, type, questions, marksPerQuestion];
+  List<Object?> get props => [name, type, questions, marksPerQuestion, useSharedWordBank, sharedWordBank];
 
   @override
   String toString() => '$name: $fullSummary ($typeDisplayName)';

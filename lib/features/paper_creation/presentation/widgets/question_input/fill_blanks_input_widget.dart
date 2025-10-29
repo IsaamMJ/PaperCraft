@@ -9,14 +9,14 @@ class FillBlanksInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
   final bool isAdmin;
-  final String? title; // Add this
+  final String? title;
 
   const FillBlanksInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isAdmin,
     required this.isMobile,
-    this.title, // Add this
+    this.title,
   });
 
   @override
@@ -25,8 +25,12 @@ class FillBlanksInputWidget extends StatefulWidget {
 
 class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
+  final _wordBankController = TextEditingController();
+  late FocusNode _wordBankFocusNode;
   bool _isOptional = false;
+  bool _showWordBank = false;
   List<String> _extractedBlanks = [];
+  List<String> _wordBank = [];
 
   @override
   bool get wantKeepAlive => true;
@@ -34,6 +38,8 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
   @override
   void initState() {
     super.initState();
+    _wordBankFocusNode = FocusNode();
+
     _questionController.addListener(() {
       _extractBlanks();
       setState(() {});
@@ -43,6 +49,8 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
   @override
   void dispose() {
     _questionController.dispose();
+    _wordBankController.dispose();
+    _wordBankFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,6 +61,49 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
     _extractedBlanks = matches.map((m) => 'Blank ${matches.toList().indexOf(m) + 1}').toList();
   }
 
+  void _addWordBankWord() {
+    final text = _wordBankController.text.trim();
+    if (text.isEmpty) return;
+
+    // Prevent too many words in word bank (max 26)
+    if (_wordBank.length >= 26) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Maximum 26 words allowed in word bank'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Check for duplicates
+    if (_wordBank.any((w) => w.toLowerCase() == text.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('This word already exists in word bank'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _wordBank.add(text);
+      _wordBankController.clear();
+    });
+
+    // Re-request focus to continue adding words
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_wordBankFocusNode);
+      }
+    });
+  }
+
+  void _removeWordBankWord(int index) {
+    setState(() => _wordBank.removeAt(index));
+  }
+
   bool get _isValid {
     if (_questionController.text.trim().isEmpty) return false;
     return _extractedBlanks.isNotEmpty; // Just need blanks, no answers required
@@ -60,9 +111,12 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
 
   void _clear() {
     _questionController.clear();
+    _wordBankController.clear();
     setState(() {
       _isOptional = false;
       _extractedBlanks.clear();
+      _wordBank.clear();
+      _showWordBank = false;
     });
   }
 
@@ -72,8 +126,9 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
     final question = Question(
       text: _questionController.text.trim(),
       type: 'fill_in_blanks',
-      marks: _extractedBlanks.length, // 1 mark per blank
+      marks: _extractedBlanks.length.toDouble(), // 1 mark per blank
       isOptional: _isOptional,
+      options: _wordBank.isNotEmpty ? List.from(_wordBank) : null,
     );
 
     widget.onQuestionAdded(question);
@@ -185,6 +240,151 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
               ],
             ),
           ),
+        ],
+
+        SizedBox(height: UIConstants.spacing16),
+
+        // Word bank section (optional)
+        InkWell(
+          onTap: () => setState(() => _showWordBank = !_showWordBank),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          child: Container(
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _showWordBank ? Icons.expand_less : Icons.expand_more,
+                  color: AppColors.textSecondary,
+                  size: widget.isMobile ? 28 : 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Word Bank (optional)',
+                  style: TextStyle(
+                    fontSize: widget.isMobile ? 16 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (_wordBank.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary10,
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    ),
+                    child: Text(
+                      '${_wordBank.length}',
+                      style: TextStyle(
+                        fontSize: widget.isMobile ? 14 : 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        if (_showWordBank) ...[
+          SizedBox(height: UIConstants.spacing16),
+
+          // Word bank input
+          TextField(
+            controller: _wordBankController,
+            focusNode: _wordBankFocusNode,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => _addWordBankWord(),
+            style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
+            decoration: InputDecoration(
+              hintText: 'Enter word for word bank (e.g., "Apple", "Orange")',
+              hintStyle: TextStyle(fontSize: widget.isMobile ? 14 : 12),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                borderSide: BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
+              suffixIcon: IconButton(
+                onPressed: _addWordBankWord,
+                icon: const Icon(Icons.add),
+                iconSize: widget.isMobile ? 28 : 24,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(widget.isMobile ? 44 : 40, widget.isMobile ? 44 : 40),
+                ),
+              ),
+            ),
+          ),
+
+          // Display word bank words
+          if (_wordBank.isNotEmpty) ...[
+            SizedBox(height: UIConstants.spacing12),
+            Text(
+              'Words:',
+              style: TextStyle(
+                fontSize: widget.isMobile ? 14 : 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _wordBank.asMap().entries.map((e) {
+                final index = e.key;
+                final word = e.value;
+
+                return Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.isMobile ? 12 : 10,
+                    vertical: widget.isMobile ? 8 : 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary10,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                    border: Border.all(color: AppColors.primary, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        word,
+                        style: TextStyle(
+                          fontSize: widget.isMobile ? 14 : 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _removeWordBankWord(index),
+                        child: Icon(
+                          Icons.close,
+                          color: AppColors.error,
+                          size: widget.isMobile ? 18 : 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
 
         SizedBox(height: UIConstants.spacing16),

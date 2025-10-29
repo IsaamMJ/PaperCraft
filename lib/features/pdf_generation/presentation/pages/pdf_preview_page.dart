@@ -3,15 +3,15 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
-/// PDF layout density options for question papers
-/// Based on typography standards and teacher feedback
 enum PdfLayoutDensity {
-  compact,      // Maximum questions per page (formerly "normal")
-  standard,     // Balanced spacing - recommended (formerly "spacious")
-  spacious,     // Extra breathing room (formerly "extraSpacious")
+  compact,
+  standard,
+  spacious,
 }
 
 class PdfPreviewPage extends StatefulWidget {
@@ -34,15 +34,14 @@ class PdfPreviewPage extends StatefulWidget {
 
 class _PdfPreviewPageState extends State<PdfPreviewPage> {
   late Uint8List _currentPdfBytes;
-  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.standard; // Default to Standard (recommended)
+  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.standard;
   bool _isRegenerating = false;
   bool _showAdvancedSettings = false;
+  bool _isPrinting = false;
 
-  // Custom slider values (initialized to Standard preset values)
   double _customFontMultiplier = 1.0;
   double _customSpacingMultiplier = 1.5;
 
-  // Debounce timer for slider changes
   Timer? _debounceTimer;
 
   @override
@@ -57,24 +56,14 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     super.dispose();
   }
 
-  /// Get font and spacing multipliers based on layout density
-  /// Returns (fontMultiplier, spacingMultiplier)
-  ///
-  /// These multipliers are applied on top of PdfLayoutConfig base values
-  /// to create the three density presets teachers can choose from
   (double, double) _getMultipliersForDensity(PdfLayoutDensity density) {
     switch (density) {
       case PdfLayoutDensity.compact:
-        // Compact: Minimal spacing, max questions per page
-        return (1.0, 1.0);  // Base config values as-is
-
+        return (1.0, 1.0);
       case PdfLayoutDensity.standard:
-        // Standard (Recommended): Balanced professional appearance
-        return (1.0, 1.5);  // 50% more spacing than compact
-
+        return (1.0, 1.5);
       case PdfLayoutDensity.spacious:
-        // Spacious: Extra breathing room for short exams
-        return (1.1, 2.0);  // 110% font, double spacing
+        return (1.1, 2.0);
     }
   }
 
@@ -86,7 +75,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     setState(() {
       _isRegenerating = true;
       _selectedDensity = density;
-      // Sync slider values with preset
       _customFontMultiplier = fontMultiplier;
       _customSpacingMultiplier = spacingMultiplier;
     });
@@ -113,7 +101,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     }
   }
 
-  /// Handle custom slider changes with debouncing (500ms delay)
   void _handleCustomSliderChange(double fontMultiplier, double spacingMultiplier) {
     if (_isRegenerating || widget.onRegeneratePdf == null) return;
 
@@ -122,10 +109,8 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
       _customSpacingMultiplier = spacingMultiplier;
     });
 
-    // Cancel previous timer
     _debounceTimer?.cancel();
 
-    // Start new timer for regeneration (500ms delay)
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (!mounted || _isRegenerating) return;
 
@@ -155,18 +140,66 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   }
 
   Future<void> _handlePrint(BuildContext context) async {
+    if (_isPrinting) return;
+
+    setState(() => _isPrinting = true);
+
     try {
       await Printing.layoutPdf(
         onLayout: (format) async => _currentPdfBytes,
         name: widget.paperTitle,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to print. Please check if a printer is available.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to print. Please check if a printer is available.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
+  }
+
+  /// Get the number of pages in a PDF using regex parsing
+  /// Returns map with: {success: bool, pageCount: int, error: String}
+  Future<Map<String, dynamic>> _getPdfPageCount(Uint8List pdfBytes) async {
+    try {
+      final pdfString = String.fromCharCodes(pdfBytes);
+
+      // Look for /Type /Pages with /Count
+      final countPattern = RegExp(r'/Type\s*/Pages[^>]*?/Count\s*(\d+)');
+      final match = countPattern.firstMatch(pdfString);
+
+      if (match != null && match.group(1) != null) {
+        final pageCount = int.tryParse(match.group(1)!) ?? 1;
+        return {
+          'success': true,
+          'pageCount': pageCount,
+          'error': null,
+        };
+      }
+
+      // Fallback: count /Page objects
+      final pagePattern = RegExp(r'/Type\s*/Page(?:/');
+      final pageMatches = pagePattern.allMatches(pdfString);
+      final pageCount = pageMatches.length > 0 ? pageMatches.length : 1;
+
+      return {
+        'success': true,
+        'pageCount': pageCount,
+        'error': null,
+      };
+    } catch (parseError) {
+      return {
+        'success': false,
+        'pageCount': 1,
+        'error': 'Failed to parse PDF structure',
+      };
     }
   }
 
@@ -181,8 +214,17 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         elevation: 0,
         actions: [
           IconButton(
-            onPressed: () => _handlePrint(context),
-            icon: const Icon(Icons.print_rounded),
+            onPressed: _isPrinting ? null : () => _handlePrint(context),
+            icon: _isPrinting
+                ? SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(AppColors.textPrimary),
+              ),
+            )
+                : Icon(Icons.print_rounded),
             tooltip: 'Print PDF',
           ),
         ],
@@ -327,11 +369,11 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   }
 
   Widget _buildDensityOption(
-    PdfLayoutDensity density,
-    String label,
-    String description,
-    IconData icon,
-  ) {
+      PdfLayoutDensity density,
+      String label,
+      String description,
+      IconData icon,
+      ) {
     final isSelected = _selectedDensity == density;
     final isDisabled = _isRegenerating;
 
@@ -341,14 +383,10 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         child: Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.primary10
-                : AppColors.background,
+            color: isSelected ? AppColors.primary10 : AppColors.background,
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             border: Border.all(
-              color: isSelected
-                  ? AppColors.primary
-                  : AppColors.border,
+              color: isSelected ? AppColors.primary : AppColors.border,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -356,9 +394,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             children: [
               Icon(
                 icon,
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.textSecondary,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
                 size: 20,
               ),
               SizedBox(height: 4),
@@ -367,9 +403,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textPrimary,
+                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
                 ),
               ),
               SizedBox(height: 2),
@@ -426,7 +460,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             ),
           ),
           children: [
-            // Font Size Slider
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -468,8 +501,8 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                   onChanged: _isRegenerating
                       ? null
                       : (value) {
-                          _handleCustomSliderChange(value, _customSpacingMultiplier);
-                        },
+                    _handleCustomSliderChange(value, _customSpacingMultiplier);
+                  },
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -481,7 +514,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               ],
             ),
             SizedBox(height: 16),
-            // Spacing Slider
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -523,8 +555,8 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                   onChanged: _isRegenerating
                       ? null
                       : (value) {
-                          _handleCustomSliderChange(_customFontMultiplier, value);
-                        },
+                    _handleCustomSliderChange(_customFontMultiplier, value);
+                  },
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -536,14 +568,12 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               ],
             ),
             SizedBox(height: 12),
-            // Reset button
             TextButton.icon(
               onPressed: _isRegenerating
                   ? null
                   : () {
-                      // Reset to Standard preset
-                      _handleCustomSliderChange(1.0, 1.5);
-                    },
+                _handleCustomSliderChange(1.0, 1.5);
+              },
               icon: Icon(Icons.restart_alt_rounded, size: 16),
               label: Text('Reset to Standard'),
               style: TextButton.styleFrom(
@@ -575,7 +605,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
           child: SfPdfViewer.memory(
             _currentPdfBytes,
-            key: ValueKey(_currentPdfBytes.hashCode),
+            key: ValueKey(_currentPdfBytes.lengthInBytes), // Use byte length instead of hashCode
             enableDoubleTapZooming: true,
             enableTextSelection: false,
             canShowScrollHead: true,
@@ -609,9 +639,18 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _handlePrint(context),
-                icon: Icon(Icons.print_rounded),
-                label: Text('Print PDF'),
+                onPressed: _isPrinting ? null : () => _handlePrint(context),
+                icon: _isPrinting
+                    ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
+                    : Icon(Icons.print_rounded),
+                label: Text(_isPrinting ? 'Processing...' : 'Print PDF'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -626,7 +665,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             ),
             SizedBox(height: UIConstants.spacing8),
             OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context),
+              onPressed: _isPrinting ? null : () => Navigator.pop(context),
               icon: Icon(Icons.arrow_back, color: AppColors.textSecondary, size: 18),
               label: Text(
                 'Back to Paper Details',
@@ -648,4 +687,3 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     );
   }
 }
-

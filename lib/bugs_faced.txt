@@ -89,7 +89,7 @@
 
 
 ✅ 2. Navigate to home after paper submission (with UX feedback dialog)
-   Status: FIXED
+   Status: not smooth
    Improvement: Added loading + success screen feedback (3 sec total)
    - Shows "Submitting Paper..." with spinner (1.5 sec)
    - Shows "Paper Submitted!" with checkmark (1.5 sec)
@@ -110,7 +110,7 @@
 
 
 ✅ 2. Fill in the Blanks - Auto-keyboard visibility after enter
-   Status: FIXED
+   Status: not fixed
    Issue: Keyboard closes after filling blank, doesn't reopen for next
    Fix: Added FocusNode management + showSoftInputOnFocus: true
    Details: onSubmitted now delays 100ms then re-requests focus on same field
@@ -171,3 +171,77 @@ phase 6
 
 1. in mcq input ater i ente the question and click the enter button it goes to the second option skiiping the first option
 also this also does not open the keyboard for the next qurstion
+
+2. In paper deatails page subquestions are not being displayed
+
+
+═══════════════════════════════════════════════════════════════════════
+                          PHASE 7 - UI IMPROVEMENTS
+═══════════════════════════════════════════════════════════════════════
+
+✅ 1. Swap question type and section name in add section dialog
+   Status: FIXED
+   Change: Question type dropdown now appears FIRST, section name field appears SECOND
+   Location: add_edit_section_dialog.dart (lines 267-321)
+   Benefit: More intuitive flow - users select question type before naming the section
+   Feedback: ___________________________________________________________
+
+
+✅ 2. Add clear (X) button to section name field
+   Status: FIXED
+   Change: Clear button appears when text is entered, allows quick field reset
+   Implementation: IconButton with Icons.clear in suffixIcon, visible only when text.isNotEmpty
+   Location: add_edit_section_dialog.dart (lines 302-309)
+   Benefit: Users don't need to hold backspace - one tap clears the field
+   Feedback: ___________________________________________________________
+
+
+✅ 3. Grade levels & subjects - Changed from FilterChips to Checkboxes
+   Status: FIXED
+   Old: FilterChips required individual clicks for each item
+   New: Checkboxes with "Select All" and "Clear" buttons
+   Location: teacher_profile_setup_page.dart (lines 244-427)
+   Benefit: One-click "Select All" instead of clicking each item individually
+   Features:
+   • "Select All" button - selects all grades/subjects with one click
+   • "Clear" button - deselects all with one click
+   • Individual checkboxes for granular control
+   • Compact dense layout (no extra spacing)
+   Feedback: ___________________________________________________________
+
+
+✅ 4. Remove validation warning dialog in quick setup (Step 1)
+   Status: FIXED
+   Change: Removed the "Please complete the following:" warning dialog
+   Previously showed: Grade level is required, Subject is required, Exam type is required, etc.
+   Location: question_paper_create_page.dart (lines 806-810)
+   Method: _buildValidationSummary() now returns empty widget
+   Important: Validation LOGIC still works (prevents submission if incomplete)
+             Only the UI warning dialog was removed
+   Benefit: Cleaner UI - no annoying red warning boxes
+   Feedback: ___________________________________________________________
+
+
+
+Phase 8
+1. Add focus option to the add section model inputs
+2. after completeing step 1 in the add questions button if it shows total marks it woul dbe good i feel
+3. when the app has identified it as a shared word bank it must not navigate to the next question without having atleast one word bank option, suppose if the teacher forgets to add the word it woul dbecome a problem
+4. in question create page ui many places doesnt not support double values for marks so it shows 0.5 as 0 .
+5 for word forms input type i want to enter all the questions in that section in a single go just like true or false
+6. we need an option two edit the section names after setting them , coz ain the final step i realize i made a spelling mistake and i am not able to correct it and have to start over again
+
+
+phase 9
+1. we need to maintaitn the same orfer in which the teacher created the question pattern , no need to reorganize it using marks
+2.during submission if it fails due to any reason it must get saved as a draft
+3. In add section in paper pattern only the first letter in the sentance must be capitalized, currently all the first letter of every word is being capitalized
+4. Every time i open the app it asks for login , if i login once only after i log out it must log out until then it must be logged in only
+5. Naotificaiton is not working need to debug that
+6. Remove all the debug commands in the app
+7. In word forms inputs remove the fist letter being capitalized coz they are nouns so they must not be captialized
+8. In mcq options also remove the first letter being capitalized automatically
+9. In question paper create above the input fields of all type of input it says add essay/short answer question or that particular input type instead of that i want that particular section name given to be displayed that would be more better
+10. In paper details page exam date is set to 00:00 of date its not professional make hte time to be 10:00 AM
+11. for match the following only main heading stating Match the following is enough no need individual question
+12. In paper pattern i give for mcq question marks per question as 0.5 but when i enter all the questions and go to submit it the marks per mcq question changes to 1 . why is that ?similalry for fill in the blanks with shared question bankk also

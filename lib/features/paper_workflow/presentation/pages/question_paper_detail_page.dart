@@ -486,6 +486,34 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     // Use the new section ordering helper
     final orderedSections = SectionOrderingHelper.getOrderedSections(paper.paperSections, paper.questions);
 
+    // DEBUG: Log marks breakdown
+    double totalSectionMarks = 0;
+    print('=== MARKS DEBUG ===');
+    print('Total Sections: ${orderedSections.length}');
+    print('Paper Questions Map Keys: ${paper.questions.keys.toList()}');
+    for (int i = 0; i < orderedSections.length; i++) {
+      final section = orderedSections[i];
+      print('Section ${section.sectionNumber} (${section.section.name}):');
+      print('  - Type: ${section.section.type}');
+      print('  - MarksPerQuestion: ${section.section.marksPerQuestion}');
+      print('  - Questions count in section def: ${section.section.questions}');
+      print('  - Actual questions count: ${section.questionCount}');
+      print('  - Total marks: ${section.totalMarks}');
+      totalSectionMarks += section.totalMarks;
+    }
+    print('Sum of all section marks: $totalSectionMarks');
+    print('Paper.totalMarks: ${paper.totalMarks}');
+    print('Paper.totalQuestions: ${paper.totalQuestions}');
+    print('Questions in each section:');
+    paper.questions.forEach((sectionName, questions) {
+      double sectionTotal = 0;
+      for (var q in questions) {
+        sectionTotal += q.marks;
+      }
+      print('  $sectionName: ${questions.length} questions, marks sum: $sectionTotal');
+    });
+    print('=====================');
+
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
@@ -529,7 +557,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                       ],
                     ),
                   ),
-                  Text('${orderedSection.totalMarks} marks',
+                  Text('${orderedSection.totalMarks % 1 == 0 ? orderedSection.totalMarks.toInt() : orderedSection.totalMarks} marks',
                       style: TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600, color: AppColors.primary)),
                 ],
               ),
@@ -620,7 +648,37 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
-                if (question.options != null && question.options!.isNotEmpty) ...[
+                // Word Bank for Fill in the Blanks
+                if (question.type == 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
+                  SizedBox(height: UIConstants.spacing12),
+                  Text(
+                    'Word Bank:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                  ),
+                  SizedBox(height: UIConstants.spacing8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: question.options!.map((word) {
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary10,
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          border: Border.all(color: AppColors.primary, width: 1),
+                        ),
+                        child: Text(
+                          word,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primary),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: UIConstants.spacing12),
+                ],
+
+                // Options for MCQ and other types
+                if (question.type != 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
                   SizedBox(height: UIConstants.spacing12),
                   if (question.type == 'match_following' && question.options!.contains('---SEPARATOR---')) ...[
                     _buildMatchingPairsForDetail(question.options!),
@@ -643,6 +701,28 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                       );
                     }),
                   ],
+                ],
+                // Display sub-questions if they exist
+                if (question.subQuestions != null && question.subQuestions!.isNotEmpty) ...[
+                  SizedBox(height: UIConstants.spacing12),
+                  ...question.subQuestions!.asMap().entries.map((subQEntry) {
+                    final subQLabel = String.fromCharCode(97 + (subQEntry.key as int)); // a, b, c, d...
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 20, height: 20,
+                            decoration: BoxDecoration(color: AppColors.primary10, borderRadius: BorderRadius.circular(UIConstants.radiusSmall)),
+                            child: Center(child: Text(subQLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary))),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(subQEntry.value.text, style: TextStyle(fontSize: UIConstants.fontSizeSmall, color: AppColors.textPrimary, height: 1.3))),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ],
             ),

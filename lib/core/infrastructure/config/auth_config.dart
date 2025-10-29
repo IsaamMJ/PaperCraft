@@ -34,25 +34,25 @@ class AuthConfig {
   static LaunchMode get authLaunchMode => LaunchMode.externalApplication;
 
   static String get redirectUrl {
+    final url = kIsWeb
+        ? '${EnvironmentConfig.supabaseUrl}/auth/v1/callback'
+        : _getNativeRedirectUrl();
+
+    if (kDebugMode) {
+      debugPrint('🔍 DEBUG: redirectUrl = $url, kIsWeb = $kIsWeb');
+    }
+    return url;
+  }
+
+  /// Get platform-specific redirect URL for native platforms
+  static String _getNativeRedirectUrl() {
     switch (EnvironmentConfig.current) {
       case Environment.dev:
-        final url = kIsWeb
-            ? 'http://localhost:3000/auth/callback'
-            : 'com.pearl.papercraft.dev://login-callback/';
-        print('🔍 DEBUG: redirectUrl = $url, kIsWeb = $kIsWeb');
-        return url;
+        return 'com.pearl.papercraft.dev://login-callback/';
       case Environment.staging:
-        final url = kIsWeb
-            ? 'https://staging.papercraft.app/auth/callback'
-            : 'com.pearl.papercraft.staging://login-callback/';
-        print('🔍 DEBUG: redirectUrl = $url, kIsWeb = $kIsWeb');
-        return url;
+        return 'com.pearl.papercraft.staging://login-callback/';
       case Environment.prod:
-        final url = kIsWeb
-            ? 'https://papercraft.app/auth/callback'
-            : 'com.pearl.papercraft://login-callback/';
-        print('🔍 DEBUG: redirectUrl = $url, kIsWeb = $kIsWeb');
-        return url;
+        return 'com.pearl.papercraft://login-callback/';
     }
   }
 

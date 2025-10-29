@@ -34,6 +34,10 @@ class SectionCard extends StatelessWidget {
         return Icons.toggle_on;
       case 'match_following':
         return Icons.compare_arrows;
+      case 'word_forms':
+        return Icons.transform;
+      case 'missing_letters':
+        return Icons.abc;
       default:
         return Icons.question_answer;
     }
@@ -52,6 +56,10 @@ class SectionCard extends StatelessWidget {
         return 'True/False';
       case 'match_following':
         return 'Match Following';
+      case 'word_forms':
+        return 'Word Forms';
+      case 'missing_letters':
+        return 'Missing Letters';
       default:
         return type;
     }

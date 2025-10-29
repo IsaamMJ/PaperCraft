@@ -8,6 +8,7 @@ class MatchingInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
   final int requiredPairs; // This is the number of pairs needed for this matching question
+  final double marksPerQuestion; // Marks per pair
   final bool isAdmin;
 
   const MatchingInputWidget({
@@ -15,6 +16,7 @@ class MatchingInputWidget extends StatefulWidget {
     required this.onQuestionAdded,
     required this.isMobile,
     required this.requiredPairs,
+    required this.marksPerQuestion,
     required this.isAdmin,
   });
 
@@ -104,7 +106,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
       text: 'Match the following',
       type: 'match_following',
       options: [...leftItems, '---SEPARATOR---', ...rightItems], // Store both columns
-      marks: _pairCount, // Total marks = number of pairs
+      marks: widget.marksPerQuestion * _pairCount, // Total marks = marks per pair × number of pairs
       subQuestions: [], // Keep empty for matching questions
       isOptional: _isOptional,
     );

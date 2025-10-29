@@ -168,8 +168,51 @@ class PaperPreviewWidget extends StatelessWidget {
                                     ],
                                   ),
 
+                                  // Word Bank for Fill in the Blanks
+                                  if (q.value.type == 'fill_blanks' && q.value.options != null && q.value.options!.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Word Bank:',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 40),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: q.value.options!.map((word) {
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary10,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: AppColors.primary, width: 1),
+                                            ),
+                                            child: Text(
+                                              word,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+
                                   // Options for MCQ
-                                  if (q.value.options != null && q.value.options!.isNotEmpty) ...[
+                                  if (q.value.type != 'fill_blanks' && q.value.options != null && q.value.options!.isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     ...q.value.options!.asMap().entries.map((opt) {
                                       return Padding(

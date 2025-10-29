@@ -72,30 +72,45 @@ class AppRouter {
   }
 
   /// Handle authentication and authorization redirects
+  // In your _handleRedirection method, replace the OAuth callback detection section:
+
+  // REPLACE the entire _handleRedirection method in app_router.dart:
+
   static String? _handleRedirection(BuildContext context, GoRouterState state, AuthBloc authBloc) {
     final authState = authBloc.state;
     final currentLocation = state.matchedLocation;
+    final uri = state.uri;
 
-    AppLogger.info('Router redirect check', category: LogCategory.navigation, context: {
-      'currentLocation': currentLocation,
-      'authState': authState.runtimeType.toString(),
-    });
+    print('🔐 [ROUTER] === REDIRECT CHECK ===');
+    print('🔐 [ROUTER] Matched location: $currentLocation');
+    print('🔐 [ROUTER] Full path: ${uri.path}');
+    print('🔐 [ROUTER] Full query: ${uri.query}');
+    print('🔐 [ROUTER] Full fragment: ${uri.fragment}');
+    print('🔐 [ROUTER] Auth state: ${authState.runtimeType}');
 
-    // Skip redirection during authentication loading
-    if (authState is AuthLoading) {
-      AppLogger.info('Skipping redirect - auth loading', category: LogCategory.navigation);
+    // ✅ FIRST: Check if we're ALREADY on the auth callback page
+    if (currentLocation == AppRoutes.authCallback) {
+      print('✅ [ROUTER] Already on /auth/callback - allowing');
       return null;
     }
 
-    // Allow auth callback always
-    if (currentLocation == AppRoutes.authCallback) {
-      AppLogger.info('Allowing auth callback', category: LogCategory.navigation);
+    // ✅ SECOND: Check for OAuth code in query params (BEFORE any other checks)
+    if (uri.queryParameters.containsKey('code')) {
+      print('🔍 [ROUTER] OAUTH CODE DETECTED in query params!');
+      print('🔍 [ROUTER] Code: ${uri.queryParameters['code']}');
+      print('➡️ [ROUTER] Redirecting to /auth/callback');
+      return AppRoutes.authCallback;
+    }
+
+    // ⏳ Skip redirection during authentication loading
+    if (authState is AuthLoading) {
+      print('⏳ [ROUTER] Auth loading - skipping redirect');
       return null;
     }
 
     // Handle authenticated user trying to access login
     if (authState is AuthAuthenticated && currentLocation == AppRoutes.login) {
-      AppLogger.info('Redirecting authenticated user to home', category: LogCategory.navigation);
+      print('✅ [ROUTER] Authenticated user on login - redirecting to home');
       return AppRoutes.home;
     }
 
@@ -113,45 +128,18 @@ class AppRouter {
           final userStateService = sl<UserStateService>();
           final currentTenant = userStateService.currentTenant;
 
-          // If tenant data is not loaded, skip redirect to allow it to load
           if (currentTenant == null) {
-            AppLogger.debug('Tenant data not loaded yet, will check again on next navigation',
-                category: LogCategory.navigation,
-                context: {
-                  'userId': authState.user.id,
-                  'tenantId': authState.user.tenantId,
-                });
             return null;
           }
 
-          // Check if this is a NEW tenant (admin creating first profile)
-          // or EXISTING tenant (teacher joining)
           final isTenantInitialized = currentTenant.isInitialized;
 
-          AppLogger.info('Tenant initialization check',
-              category: LogCategory.navigation,
-              context: {
-                'userId': authState.user.id,
-                'tenantId': authState.user.tenantId,
-                'tenantName': currentTenant.displayName,
-                'isInitialized': isTenantInitialized,
-              });
-
           if (!isTenantInitialized) {
-            // New tenant - show full tenant setup
-            AppLogger.info('First-time teacher in NEW tenant - redirecting to tenant onboarding',
-                category: LogCategory.navigation);
             return AppRoutes.onboarding;
           } else {
-            // Existing tenant - show teacher profile setup (grades & subjects)
-            AppLogger.info('First-time teacher in EXISTING tenant - redirecting to profile setup',
-                category: LogCategory.navigation);
             return AppRoutes.teacherProfileSetup;
           }
         } catch (e) {
-          AppLogger.warning('Error checking tenant initialization',
-              category: LogCategory.navigation,
-              context: {'error': e.toString()});
           return null;
         }
       }
@@ -159,18 +147,13 @@ class AppRouter {
 
     // Handle unauthenticated user trying to access protected routes
     if (authState is! AuthAuthenticated && RouteGuard.needsAuth(currentLocation)) {
-      AppLogger.warning('Redirecting unauthenticated user to login',
-          category: LogCategory.navigation,
-          context: {'attemptedRoute': currentLocation});
+      print('⚠️ [ROUTER] Unauthenticated user on protected route - redirecting to login');
       return AppRoutes.login;
     }
 
-    // SECURITY FIX: Safe admin route protection for Pearl Matric School
+    // SECURITY FIX: Safe admin route protection
     if (RouteGuard.isAdmin(currentLocation)) {
       if (authState is! AuthAuthenticated) {
-        AppLogger.warning('Unauthenticated admin access attempt',
-            category: LogCategory.navigation,
-            context: {'attemptedRoute': currentLocation});
         return AppRoutes.login;
       }
 
@@ -180,50 +163,19 @@ class AppRouter {
         final userStateService = sl<UserStateService>();
         final stateUser = userStateService.currentUser;
 
-        // SECURITY FIX: Use AuthBloc as primary source of truth
         bool isAdminByAuth = authUser.isAdmin;
         bool isAdminByState = userStateService.isAdmin;
 
-        // Check for consistency
         if (stateUser?.id == authUser.id) {
-          // States are consistent, check admin status
           if (!isAdminByAuth || !isAdminByState) {
-            AppLogger.warning('Non-admin user attempted admin access',
-                category: LogCategory.navigation,
-                context: {
-                  'attemptedRoute': currentLocation,
-                  'userId': authUser.id,
-                  'userRole': authUser.role.value,
-                  'authAdmin': isAdminByAuth,
-                  'stateAdmin': isAdminByState,
-                });
             return AppRoutes.home;
           }
         } else {
-          // State inconsistency detected
-          AppLogger.warning('Auth state inconsistency in admin check',
-              category: LogCategory.navigation,
-              context: {
-                'authUserId': authUser.id,
-                'stateUserId': stateUser?.id,
-                'securityIssue': 'admin_check_inconsistency',
-              });
-
-          // Use AuthBloc state as source of truth for security
           if (!authUser.isAdmin) {
             return AppRoutes.home;
           }
-
-          // Allow access but log the inconsistency
-          AppLogger.info('Allowing admin access based on AuthBloc state',
-              category: LogCategory.navigation);
         }
       } catch (e) {
-        // If UserStateService is not available, fall back to AuthBloc
-        AppLogger.warning('UserStateService error in admin check, using AuthBloc fallback',
-            category: LogCategory.navigation,
-            context: {'error': e.toString()});
-
         if (!authUser.isAdmin) {
           return AppRoutes.home;
         }
@@ -233,9 +185,6 @@ class AppRouter {
     // Office staff route protection
     if (RouteGuard.isOfficeStaff(currentLocation)) {
       if (authState is! AuthAuthenticated) {
-        AppLogger.warning('Unauthenticated office staff access attempt',
-            category: LogCategory.navigation,
-            context: {'attemptedRoute': currentLocation});
         return AppRoutes.login;
       }
 
@@ -246,21 +195,10 @@ class AppRouter {
         final isOfficeStaff = authUser.role.value == 'office_staff';
         final isAdmin = authUser.isAdmin;
 
-        // Allow office staff and admin access
         if (!isOfficeStaff && !isAdmin) {
-          AppLogger.warning('Non-office-staff user attempted office staff access',
-              category: LogCategory.navigation,
-              context: {
-                'attemptedRoute': currentLocation,
-                'userId': authUser.id,
-                'userRole': authUser.role.value,
-              });
           return AppRoutes.home;
         }
       } catch (e) {
-        AppLogger.warning('UserStateService error in office staff check',
-            category: LogCategory.navigation,
-            context: {'error': e.toString()});
         return AppRoutes.home;
       }
     }
@@ -584,6 +522,8 @@ class _AuthenticatedBuilder extends StatelessWidget {
 }
 
 /// OAuth callback page with proper state handling
+/// OAuth callback page with proper state handling and ENHANCED DEBUGGING
+/// OAuth callback page with AGGRESSIVE DEBUGGING
 class _OAuthCallbackPage extends StatefulWidget {
   const _OAuthCallbackPage();
 
@@ -593,83 +533,119 @@ class _OAuthCallbackPage extends StatefulWidget {
 
 class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   bool _isProcessing = true;
-  String _statusMessage = AppMessages.processingAuth;
+  String _statusMessage = 'Initializing OAuth callback...';
+  String _debugLog = '';
+
+  void _addLog(String msg) {
+    print(msg);
+    setState(() {
+      _debugLog += '$msg\n';
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _addLog('🔐 [INIT] _OAuthCallbackPage.initState() called');
     _handleOAuthCallback();
   }
 
   Future<void> _handleOAuthCallback() async {
     try {
-      AppLogger.info('OAuth callback initiated', category: LogCategory.auth);
+      _addLog('🔐 [START] _handleOAuthCallback() started');
 
-      setState(() {
-        _statusMessage = 'Verifying authentication...';
-      });
+      // Get current Supabase state
+      final supabase = Supabase.instance.client;
+      final currentSession = supabase.auth.currentSession;
+      final currentUser = supabase.auth.currentUser;
 
-      // SECURITY FIX: Robust session waiting
+      _addLog('🔐 [CHECK] Initial Supabase state:');
+      _addLog('   - Has session: ${currentSession != null}');
+      _addLog('   - Session user ID: ${currentSession?.user.id}');
+      _addLog('   - Current user ID: ${currentUser?.id}');
+      _addLog('   - Current user email: ${currentUser?.email}');
+
+      // Wait for session with detailed logging
+      _addLog('🔐 [WAIT] Starting session wait...');
       final session = await _waitForSessionWithRetry();
 
+      _addLog('🔐 [RESULT] Session wait completed');
+      _addLog('   - Session: $session');
+      _addLog('   - Has user: ${session?.user != null}');
+      _addLog('   - User ID: ${session?.user?.id}');
+      _addLog('   - User email: ${session?.user?.email}');
+
       if (session?.user == null) {
-        AppLogger.warning('OAuth callback - no session found', category: LogCategory.auth);
+        _addLog('❌ [ERROR] No session found - redirecting to login');
         setState(() {
-          _statusMessage = 'Authentication was not completed.';
+          _statusMessage = 'No authentication session found.';
           _isProcessing = false;
         });
-
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
+          _addLog('➡️ [REDIRECT] Going to login');
           context.go(AppRoutes.login);
         }
         return;
       }
 
-      // SECURITY FIX: Validate domain before proceeding
       final email = session!.user.email;
-      if (email != null && _isValidDomain(email)) {
+      final isValidDomain = _isValidDomain(email ?? '');
+
+      _addLog('🔐 [DOMAIN] Email: $email');
+      _addLog('🔐 [DOMAIN] Is valid: $isValidDomain');
+
+      if (email != null && isValidDomain) {
+        _addLog('✅ [VALID] Domain is valid');
         setState(() {
-          _statusMessage = 'Authentication successful! Loading your account...';
+          _statusMessage = 'Loading your account...';
         });
 
         if (mounted) {
-          context.read<AuthBloc>().add(const AuthCheckStatus());
+          _addLog('🔐 [BLOC] Getting AuthBloc...');
+          final authBloc = context.read<AuthBloc>();
+          _addLog('🔐 [BLOC] Current AuthBloc state: ${authBloc.state.runtimeType}');
+          _addLog('🔐 [BLOC] Adding AuthCheckStatus event');
+
+          authBloc.add(const AuthCheckStatus());
+
+          _addLog('✅ [BLOC] AuthCheckStatus event added');
+          _addLog('🔐 [BLOC] Waiting 1 second for state update...');
+
+          await Future.delayed(const Duration(seconds: 1));
+
+          _addLog('🔐 [BLOC] Current AuthBloc state now: ${authBloc.state.runtimeType}');
+
+          if (authBloc.state is AuthAuthenticated) {
+            _addLog('✅ [SUCCESS] AuthBloc is now AuthAuthenticated');
+            _addLog('   - User: ${(authBloc.state as AuthAuthenticated).user.id}');
+          } else if (authBloc.state is AuthLoading) {
+            _addLog('⏳ [WAITING] AuthBloc still loading...');
+          } else if (authBloc.state is AuthError) {
+            _addLog('❌ [ERROR] AuthBloc has error: ${(authBloc.state as AuthError).message}');
+          } else {
+            _addLog('ⓘ [OTHER] AuthBloc state: ${authBloc.state.runtimeType}');
+          }
         }
       } else {
-        AppLogger.warning('Unauthorized domain in OAuth callback',
-            category: LogCategory.auth,
-            context: {
-              'email': email,
-              'securityViolation': true,
-            });
-
+        _addLog('❌ [INVALID] Invalid domain: $email');
+        await Supabase.instance.client.auth.signOut();
         setState(() {
-          _statusMessage = AppMessages.organizationNotAuthorized;
+          _statusMessage = 'Organization not authorized.';
           _isProcessing = false;
         });
-
-        // Sign out unauthorized user
-        await Supabase.instance.client.auth.signOut();
-
         await Future.delayed(const Duration(seconds: 3));
         if (mounted) {
           context.go(AppRoutes.login);
         }
       }
-
     } catch (e, stackTrace) {
-      AppLogger.error('OAuth callback error',
-          error: e,
-          stackTrace: stackTrace,
-          category: LogCategory.auth
-      );
-
+      _addLog('❌ [EXCEPTION] $e');
+      _addLog('📍 Stack: $stackTrace');
       setState(() {
-        _statusMessage = AppMessages.authFailedGeneric;
+        _statusMessage = 'Error: ${e.toString()}';
         _isProcessing = false;
       });
-
       await Future.delayed(const Duration(seconds: 3));
       if (mounted) {
         context.go(AppRoutes.login);
@@ -678,27 +654,37 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   }
 
   Future<Session?> _waitForSessionWithRetry() async {
-    const maxAttempts = 8;
+    const maxAttempts = 10;
     const baseDelay = Duration(milliseconds: 500);
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session?.user != null) {
+      final user = session?.user;
+
+      _addLog('🔐 [ATTEMPT ${attempt + 1}/$maxAttempts]');
+      _addLog('   - Has session: ${session != null}');
+      _addLog('   - Has user: ${user != null}');
+      _addLog('   - User ID: ${user?.id}');
+
+      if (user != null) {
+        _addLog('✅ [FOUND] Session found at attempt ${attempt + 1}');
         return session;
       }
 
-      // Exponential backoff with max delay
-      final delayMs = (baseDelay.inMilliseconds * (1 << attempt)).clamp(500, 3000);
+      final delayMs = (baseDelay.inMilliseconds * (1 << attempt)).clamp(500, 5000);
+      _addLog('⏳ [DELAY] Waiting ${delayMs}ms...');
       await Future.delayed(Duration(milliseconds: delayMs));
     }
 
+    _addLog('❌ [TIMEOUT] No session after $maxAttempts attempts');
     return null;
   }
 
   bool _isValidDomain(String email) {
     final domain = email.split('@').last.toLowerCase();
-    // Pearl Matric School domains
-    return domain == 'pearlmatricschool.com' || domain == 'gmail.com';
+    final isValid = domain == 'pearlmatricschool.com' || domain == 'gmail.com';
+    _addLog('   - Domain: $domain = $isValid');
+    return isValid;
   }
 
   @override
@@ -713,7 +699,7 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (_isProcessing) ...[
+                if (_isProcessing)
                   SizedBox(
                     width: UIConstants.iconXLarge,
                     height: UIConstants.iconXLarge,
@@ -721,9 +707,10 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
                       strokeWidth: 3,
                       valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
-                  ),
-                  SizedBox(height: UIConstants.spacing24),
-                ],
+                  )
+                else
+                  Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: UIConstants.spacing24),
                 Text(
                   _statusMessage,
                   textAlign: TextAlign.center,
@@ -732,27 +719,35 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                if (!_isProcessing) ...[
-                  SizedBox(height: UIConstants.spacing24),
-                  ElevatedButton(
-                    onPressed: () => context.go(AppRoutes.login),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: UIConstants.spacing24,
-                        vertical: UIConstants.spacing12,
+                SizedBox(height: UIConstants.spacing24),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Container(
+                      padding: EdgeInsets.all(UIConstants.paddingMedium),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                      child: Text(
+                        _debugLog,
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'Return to Login',
-                      style: TextStyle(fontSize: UIConstants.fontSizeMedium),
                     ),
                   ),
-                ],
+                ),
+                if (!_isProcessing)
+                  Padding(
+                    padding: EdgeInsets.only(top: UIConstants.spacing24),
+                    child: ElevatedButton(
+                      onPressed: () => context.go(AppRoutes.login),
+                      child: const Text('Return to Login'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -762,39 +757,26 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   }
 
   void _handleAuthState(BuildContext context, AuthState state) {
-    switch (state) {
-      case AuthAuthenticated():
-        AppLogger.info('OAuth callback successful - user authenticated',
-            category: LogCategory.auth,
-            context: {
-              'userId': state.user.id,
-              'userEmail': state.user.email,
-            }
-        );
-        context.go(AppRoutes.home);
+    _addLog('🔐 [STATE CHANGE] ${state.runtimeType}');
 
-      case AuthError():
-        AppLogger.error('OAuth callback authentication error',
-            category: LogCategory.auth,
-            context: {'error': state.message}
-        );
-        setState(() {
-          _statusMessage = '${AppMessages.authFailedGeneric} ${state.message}';
-          _isProcessing = false;
-        });
-
-      case AuthUnauthenticated():
-        AppLogger.info('OAuth callback - user not authenticated',
-            category: LogCategory.auth
-        );
-        setState(() {
-          _statusMessage = 'Authentication was not completed.';
-          _isProcessing = false;
-        });
-
-      default:
-      // Continue processing for AuthLoading or other states
-        break;
+    if (state is AuthAuthenticated) {
+      _addLog('✅ [SUCCESS] User authenticated: ${state.user.id}');
+      _addLog('➡️ [NAVIGATE] Going to home');
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          context.go(AppRoutes.home);
+        }
+      });
+    } else if (state is AuthError) {
+      _addLog('❌ [ERROR STATE] ${state.message}');
+      setState(() {
+        _statusMessage = 'Error: ${state.message}';
+        _isProcessing = false;
+      });
+    } else if (state is AuthLoading) {
+      _addLog('⏳ [LOADING] Auth is loading...');
+    } else {
+      _addLog('ⓘ [OTHER] State: ${state.runtimeType}');
     }
   }
 }

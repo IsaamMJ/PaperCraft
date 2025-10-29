@@ -8,16 +8,25 @@ class SectionOrderingHelper {
       ) {
     final orderedSections = <OrderedSection>[];
 
+    print('=== getOrderedSections DEBUG ===');
     for (int i = 0; i < paperSections.length; i++) {
       final section = paperSections[i];
       final questions = questionsMap[section.name] ?? [];
+      final marks = _calculateSectionMarks(section, questions);
+
+      print('Processing Section: ${section.name}');
+      print('  - Type: ${section.type}');
+      print('  - MarksPerQuestion: ${section.marksPerQuestion}');
+      print('  - Expected questions: ${section.questions}');
+      print('  - Actual questions list length: ${questions.length}');
+      print('  - Calculated marks: $marks');
 
       orderedSections.add(OrderedSection(
         sectionNumber: i + 1,
         section: section,
         questions: questions,
         questionCount: questions.length,
-        totalMarks: _calculateSectionMarks(section, questions),
+        totalMarks: marks,
       ));
     }
 
@@ -41,7 +50,7 @@ class SectionOrderingHelper {
         section: syntheticSection,
         questions: questions,
         questionCount: questions.length,
-        totalMarks: questions.length,
+        totalMarks: questions.length.toDouble(),
         isExtra: true,
       ));
     }
@@ -49,25 +58,77 @@ class SectionOrderingHelper {
     return orderedSections;
   }
 
-  static int _calculateSectionMarks(PaperSectionEntity section, List<dynamic> questions) {
+  static double _calculateSectionMarks(PaperSectionEntity section, List<dynamic> questions) {
     if (questions.isEmpty) return 0;
 
-    int totalMarks = 0;
-    for (final question in questions) {
-      if (question is Map && question.containsKey('marks')) {
-        totalMarks += (question['marks'] as int? ?? section.marksPerQuestion);
-      } else {
-        try {
-          final marks = (question as dynamic).marks as int?;
-          totalMarks += marks ?? section.marksPerQuestion;
-        } catch (e) {
-          totalMarks += section.marksPerQuestion;
+    // For match_following sections, calculate marks as: marksPerQuestion × numberOfPairs
+    // This is because there's only 1 question object but it represents multiple pairs
+    if (section.type == 'match_following') {
+      // For match_following: use section.questions (number of pairs) not questions.length
+      // Count only non-optional questions for match_following
+      final nonOptionalCount = questions.where((q) {
+        if (q is Map) {
+          return !(q['is_optional'] ?? false);
+        } else {
+          try {
+            return !((q as dynamic).isOptional ?? false);
+          } catch (e) {
+            return true;
+          }
         }
+      }).length;
+
+      // If there are non-optional questions, use section.questions (pairs count) for calculation
+      if (nonOptionalCount > 0) {
+        final result = section.marksPerQuestion * section.questions;
+        print('  [_calculateSectionMarks] match_following: ${section.marksPerQuestion} × ${section.questions} (pairs) = $result');
+        return result;
       }
+      return 0;
     }
 
+    double totalMarks = 0;
+    for (int idx = 0; idx < questions.length; idx++) {
+      final question = questions[idx];
+
+      // Check if question is optional - skip if it is
+      bool isOptional = false;
+      if (question is Map) {
+        isOptional = question['is_optional'] ?? false;
+      } else {
+        try {
+          isOptional = (question as dynamic).isOptional ?? false;
+        } catch (e) {
+          isOptional = false;
+        }
+      }
+
+      // Skip optional questions
+      if (isOptional) {
+        print('  [_calculateSectionMarks] Question ${idx + 1}: SKIPPED (optional)');
+        continue;
+      }
+
+      double questionMarks = 0;
+      if (question is Map && question.containsKey('marks')) {
+        final marks = question['marks'];
+        questionMarks = (marks is int ? marks.toDouble() : marks as double? ?? section.marksPerQuestion);
+      } else {
+        try {
+          final marks = (question as dynamic).marks as num?;
+          questionMarks = marks?.toDouble() ?? section.marksPerQuestion;
+        } catch (e) {
+          questionMarks = section.marksPerQuestion;
+        }
+      }
+      totalMarks += questionMarks;
+      print('  [_calculateSectionMarks] Question ${idx + 1}: $questionMarks (type: ${question is Map ? 'Map' : 'Object'})');
+    }
+
+    print('  [_calculateSectionMarks] Total for non-optional questions: $totalMarks');
     return totalMarks;
   }
+
 
   static String getSectionDisplayName(OrderedSection orderedSection) {
     return 'Section ${orderedSection.sectionNumber}: ${orderedSection.section.name}';
@@ -83,9 +144,14 @@ class SectionOrderingHelper {
     final expectedQuestions = section.questions;
     final marks = orderedSection.totalMarks;
 
-    String summary = '$actualQuestions questions • $marks marks';
+    // Format marks to show whole numbers without decimal point
+    final marksDisplay = marks % 1 == 0 ? marks.toInt() : marks;
 
-    if (actualQuestions != expectedQuestions) {
+    String summary = '$actualQuestions questions • $marksDisplay marks';
+
+    // Don't show "Expected" for matching questions since they have 1 question with multiple pairs
+    // For matching: actualQuestions=1, expectedQuestions=pairs, so the comparison is misleading
+    if (actualQuestions != expectedQuestions && section.type != 'match_following') {
       summary += ' (Expected: $expectedQuestions)';
     }
 
@@ -142,7 +208,7 @@ class SectionOrderingHelper {
     for (final orderedSection in orderedSections) {
       final validation = validateSection(orderedSection);
       totalQuestions += orderedSection.questionCount;
-      totalMarks += orderedSection.totalMarks;
+      totalMarks += orderedSection.totalMarks.toInt();
 
       switch (validation.status) {
         case SectionStatus.complete:
@@ -208,7 +274,7 @@ class OrderedSection {
   final PaperSectionEntity section;
   final List<dynamic> questions;
   final int questionCount;
-  final int totalMarks;
+  final double totalMarks;
   final bool isExtra;
 
   const OrderedSection({
@@ -225,7 +291,7 @@ class OrderedSection {
     PaperSectionEntity? section,
     List<dynamic>? questions,
     int? questionCount,
-    int? totalMarks,
+    double? totalMarks,
     bool? isExtra,
   }) {
     return OrderedSection(

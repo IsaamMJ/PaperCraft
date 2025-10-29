@@ -9,7 +9,7 @@ class EssayInputWidget extends StatefulWidget {
   final bool isMobile;
   final bool isAdmin;
   final String? questionType;
-  final int? marksPerQuestion;
+  final double? marksPerQuestion;
 
   const EssayInputWidget({
     super.key,
@@ -27,10 +27,14 @@ class EssayInputWidget extends StatefulWidget {
 class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepAliveClientMixin {
   final _questionController = TextEditingController();
   final _subQuestionController = TextEditingController();
+  final _wordBankController = TextEditingController();
   late FocusNode _subQuestionFocusNode;
+  late FocusNode _wordBankFocusNode;
   final List<SubQuestion> _subQuestions = [];
+  final List<String> _wordBank = [];
   bool _isOptional = false;
   bool _showSubQuestions = false;
+  bool _showWordBank = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -39,6 +43,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   void initState() {
     super.initState();
     _subQuestionFocusNode = FocusNode();
+    _wordBankFocusNode = FocusNode();
     _questionController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -48,7 +53,9 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   void dispose() {
     _questionController.dispose();
     _subQuestionController.dispose();
+    _wordBankController.dispose();
     _subQuestionFocusNode.dispose();
+    _wordBankFocusNode.dispose();
     super.dispose();
   }
 
@@ -57,10 +64,13 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   void _clear() {
     _questionController.clear();
     _subQuestionController.clear();
+    _wordBankController.clear();
     _subQuestions.clear();
+    _wordBank.clear();
     setState(() {
       _isOptional = false;
       _showSubQuestions = false;
+      _showWordBank = false;
     });
   }
 
@@ -104,12 +114,56 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
     setState(() => _subQuestions.removeAt(index));
   }
 
+  void _addWordBankWord() {
+    final text = _wordBankController.text.trim();
+
+    // Validation
+    if (text.isEmpty) return;
+
+    // Prevent too many words in word bank (max 26)
+    if (_wordBank.length >= 26) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Maximum 26 words allowed in word bank'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Check for duplicates
+    if (_wordBank.any((w) => w.toLowerCase() == text.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('This word already exists in word bank'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _wordBank.add(text);
+      _wordBankController.clear();
+    });
+
+    // Re-request focus to continue adding words
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_wordBankFocusNode);
+      }
+    });
+  }
+
+  void _removeWordBankWord(int index) {
+    setState(() => _wordBank.removeAt(index));
+  }
+
 
   String _getTitle() {
     switch (widget.questionType) {
       case 'missing_letters': return 'Add Missing Letters Question';
-      case 'meanings': return 'Add Word Meanings Question';
-      case 'opposites': return 'Add Opposites Question';
+      case 'word_forms': return 'Add Word Forms Question';
       case 'frame_sentences': return 'Add Frame Sentences Question';
       case 'misc_grammar': return 'Add Grammar Question';
       case 'true_false': return 'Add True/False Question';
@@ -122,8 +176,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   String _getHint() {
     switch (widget.questionType) {
       case 'missing_letters': return 'Enter word (e.g., "CAT", "DOG", "BIRD")';
-      case 'meanings': return 'Enter single word (e.g., "Beautiful")';
-      case 'opposites': return 'Enter single word (e.g., "Hot")';
+      case 'word_forms': return 'Enter word to transform (e.g., "Beautiful", "Hot", "Run")';
       case 'frame_sentences': return 'Enter word (e.g., "Beautiful")';
       case 'misc_grammar': return 'Enter word (e.g., "Child")';
       case 'true_false': return 'Enter statement (e.g., "The sun rises in the east")';
@@ -133,8 +186,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
 
   bool _isSingleLineType() {
     return widget.questionType == 'missing_letters' ||
-           widget.questionType == 'meanings' ||
-           widget.questionType == 'opposites' ||
+           widget.questionType == 'word_forms' ||
            widget.questionType == 'frame_sentences' ||
            widget.questionType == 'misc_grammar' ||
            widget.questionType == 'short_answers' ||
@@ -145,11 +197,24 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
   void _addQuestion() {
     if (!_isValid) return;
 
+    // For fill_blanks questions, validate that subquestions are present
+    final questionType = widget.questionType ?? 'short_answer';
+    if (questionType == 'fill_blanks' && _subQuestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please add at least one sub-question (blank)'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final question = Question(
       text: _questionController.text.trim(),
-      type: widget.questionType ?? 'short_answer', // Use the actual type
+      type: questionType,
       marks: _getDefaultMarks(), // Different marks for different types
       subQuestions: List.from(_subQuestions),
+      options: _wordBank.isNotEmpty ? List.from(_wordBank) : null,
       isOptional: _isOptional,
     );
 
@@ -157,7 +222,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
     _clear();
   }
 
-  int _getDefaultMarks() {
+  double _getDefaultMarks() {
     // If marksPerQuestion is provided from section, use it
     if (widget.marksPerQuestion != null) {
       return widget.marksPerQuestion!;
@@ -166,18 +231,17 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
     // Fallback to type-based defaults
     switch (widget.questionType) {
       case 'missing_letters':
-      case 'meanings':
-      case 'opposites':
+      case 'word_forms':
       case 'frame_sentences':
       case 'misc_grammar':
       case 'true_false':
-        return 1; // 1 mark each
+        return 1.0; // 1 mark each
       case 'short_answers':
-        return 2; // 2 marks
+        return 2.0; // 2 marks
       case 'long_answers':
-        return 5; // 5 marks
+        return 5.0; // 5 marks
       default:
-        return 2;
+        return 2.0;
     }
   }
 
@@ -227,6 +291,153 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
         ),
 
         SizedBox(height: UIConstants.spacing16),
+
+        // Word bank section (optional, for fill_blanks type)
+        if (widget.questionType == 'fill_blanks') ...[
+          InkWell(
+            onTap: () => setState(() => _showWordBank = !_showWordBank),
+            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+            child: Container(
+              padding: const EdgeInsets.all(UIConstants.paddingMedium),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _showWordBank ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textSecondary,
+                    size: widget.isMobile ? 28 : 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Word Bank (optional)',
+                    style: TextStyle(
+                      fontSize: widget.isMobile ? 16 : 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (_wordBank.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary10,
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      ),
+                      child: Text(
+                        '${_wordBank.length}',
+                        style: TextStyle(
+                          fontSize: widget.isMobile ? 14 : 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          if (_showWordBank) ...[
+            SizedBox(height: UIConstants.spacing16),
+
+            // Word bank input
+            TextField(
+              controller: _wordBankController,
+              focusNode: _wordBankFocusNode,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _addWordBankWord(),
+              style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
+              decoration: InputDecoration(
+                hintText: 'Enter word for word bank (e.g., "Apple", "Orange")',
+                hintStyle: TextStyle(fontSize: widget.isMobile ? 14 : 12),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: EdgeInsets.all(widget.isMobile ? 16 : 12),
+                suffixIcon: IconButton(
+                  onPressed: _addWordBankWord,
+                  icon: const Icon(Icons.add),
+                  iconSize: widget.isMobile ? 28 : 24,
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: Size(widget.isMobile ? 44 : 40, widget.isMobile ? 44 : 40),
+                  ),
+                ),
+              ),
+            ),
+
+            // Display word bank words
+            if (_wordBank.isNotEmpty) ...[
+              SizedBox(height: UIConstants.spacing12),
+              Text(
+                'Words:',
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 14 : 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _wordBank.asMap().entries.map((e) {
+                  final index = e.key;
+                  final word = e.value;
+
+                  return Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: widget.isMobile ? 12 : 10,
+                      vertical: widget.isMobile ? 8 : 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary10,
+                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      border: Border.all(color: AppColors.primary, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          word,
+                          style: TextStyle(
+                            fontSize: widget.isMobile ? 14 : 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _removeWordBankWord(index),
+                          child: Icon(
+                            Icons.close,
+                            color: AppColors.error,
+                            size: widget.isMobile ? 18 : 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+
+          SizedBox(height: UIConstants.spacing16),
+        ],
 
         // Sub-questions section
         InkWell(
@@ -289,7 +500,7 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
               // Add sub-question and re-open keyboard for next input
               if (_subQuestionController.text.trim().isNotEmpty) {
                 _addSubQuestion();
-                // Delay to ensure widget rebuilds before requesting focus
+                // Re-request focus to show keyboard (widget rebuild will clear the field)
                 Future.delayed(const Duration(milliseconds: 100), () {
                   if (mounted) {
                     FocusScope.of(context).requestFocus(_subQuestionFocusNode);

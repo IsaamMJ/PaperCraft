@@ -46,6 +46,12 @@ class ApiClient {
 
   ApiClient(this._supabase, this._networkService, this._logger, this._featureFlags);
 
+  /// Check if user is authenticated
+  bool _isAuthenticated() {
+    final user = _supabase.auth.currentUser;
+    return user != null;
+  }
+
   /// Generic database query with built-in error handling, retries, and logging
   Future<ApiResponse<T>> query<T>({
     required String table,
@@ -72,22 +78,28 @@ class ApiClient {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         // Check network connectivity first
-        if (!await _networkService.isConnected()) {
-          _logger.warning('API Request [$id]: No network connection',
-              category: LogCategory.network,
-              context: {
-                'operation': operation,
-                'table': table,
-                'attempt': attempt,
-                'platform': PlatformUtils.platformName,
-              });
+        // ✅ SKIP network check if user is authenticated
+        // If they have a session, they have internet
+        if (!_isAuthenticated()) {
+          if (!await _networkService.isConnected()) {
+            _logger.warning('API Request [$id]: No network connection',
+                category: LogCategory.network,
+                context: {
+                  'operation': operation,
+                  'table': table,
+                  'attempt': attempt,
+                  'platform': PlatformUtils.platformName,
+                });
 
-          // Don't retry if no network
-          return ApiResponse.error(
-            message: 'No internet connection',
-            type: ApiErrorType.network,
-            operation: operation,
-          );
+            // Don't retry if no network
+            return ApiResponse.error(
+              message: 'No internet connection',
+              type: ApiErrorType.network,
+              operation: operation,
+            );
+          }
+        } else {
+          print('✅ [API CLIENT] User authenticated - skipping network check');
         }
 
         // Execute API call with timeout from config
@@ -643,7 +655,7 @@ class ApiClient {
       case PostgresErrorCodes.noRowsReturned:
         return PostgresErrorMessages.noRowsReturned;
       default:
-        // Include original message for debugging
+      // Include original message for debugging
         return 'Database error: ${e.message}';
     }
   }

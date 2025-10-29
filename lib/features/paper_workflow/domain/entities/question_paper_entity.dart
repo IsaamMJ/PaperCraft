@@ -77,13 +77,34 @@ class QuestionPaperEntity extends Equatable {
     return questions.values.fold(0, (sum, list) => sum + list.length);
   }
 
-  int get totalMarks {
-    int total = 0;
-    for (final sectionQuestions in questions.values) {
-      for (final question in sectionQuestions) {
-        total += question.totalMarks;
+  double get totalMarks {
+    double total = 0.0;
+
+    final sectionDefMap = {for (var section in paperSections) section.name: section};
+
+    for (final sectionName in questions.keys) {
+      final sectionQuestions = questions[sectionName]!;
+      final sectionDef = sectionDefMap[sectionName];
+
+      if (sectionDef != null && sectionDef.type == 'match_following') {
+        // For match_following: use section.questions (number of pairs) not question count
+        final nonOptionalCount = sectionQuestions
+            .where((q) => !(q.isOptional ?? false))
+            .length;
+
+        // If there are non-optional questions, calculate based on pairs count
+        if (nonOptionalCount > 0) {
+          total += sectionDef.marksPerQuestion * sectionDef.questions;
+        }
+      } else {
+        for (final question in sectionQuestions) {
+          if (!(question.isOptional ?? false)) {
+            total += question.marks;
+          }
+        }
       }
     }
+
     return total;
   }
 

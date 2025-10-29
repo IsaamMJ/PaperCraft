@@ -116,7 +116,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
           maxLines: 1,
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          onSubmitted: (_) => _focusNodes[0].requestFocus(),  // Focus on first option (A)
           style: TextStyle(fontSize: widget.isMobile ? 16 : 14),
           decoration: InputDecoration(
             hintText: 'Enter your multiple choice question here...',

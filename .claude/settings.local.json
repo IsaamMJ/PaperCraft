@@ -14,7 +14,19 @@
       "Bash(timeout 60 flutter analyze:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(flutter build:*)",
+      "Bash(timeout 120 flutter analyze:*)",
+      "Bash(timeout 150 flutter analyze:*)",
+      "Bash(timeout 60 bash:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(timeout 120 flutter run:*)",
+      "Bash(timeout 180 flutter build:*)",
+      "Bash(powershell -Command \"Set-Content -Path ''android/local.properties'' -Value ''flutter.disableIncremental=true'' -Encoding UTF8\")",
+      "Bash(timeout 240 flutter build:*)",
+      "Bash(.gradlew assembleDebug:*)",
+      "Bash(dart analyze:*)"
     ],
     "deny": [],
     "ask": []

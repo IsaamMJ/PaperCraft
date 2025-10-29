@@ -523,7 +523,7 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
         final question = Question(
           text: questionData['question_text'] as String,
           type: questionData['question_type'] as String,
-          marks: questionData['marks'] as int,
+          marks: (questionData['marks'] as num).toDouble(),
           isOptional: questionData['is_optional'] as bool,
           correctAnswer: questionData['correct_answer'] as String?,
           options: questionData['options'] != null

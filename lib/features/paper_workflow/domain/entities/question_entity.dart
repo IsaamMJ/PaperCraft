@@ -7,7 +7,7 @@ class Question extends Equatable {
   final String type;
   final List<String>? options; // For MCQ only
   final String? correctAnswer;
-  final int marks;
+  final double marks;
   final List<SubQuestion> subQuestions; // For essay/complex questions only
   final bool isOptional;
 
@@ -37,8 +37,13 @@ class Question extends Equatable {
       return hasOptions && !hasSubQuestions && options!.length >= 2;
     }
 
+    // Fill in the blanks can have optional word bank (options) at the top
+    if (type == 'fill_blanks') {
+      return true; // Can have options (word bank) and/or subQuestions
+    }
+
     // Essay/complex questions can have subQuestions, but not options
-    if (type == 'short_answer' || type == 'essay' || type == 'fill_blanks') {
+    if (type == 'short_answer' || type == 'essay') {
       return !hasOptions; // subQuestions are optional for these types
     }
 
@@ -46,7 +51,7 @@ class Question extends Equatable {
   }
 
   // Total marks is just the main question marks (subquestions don't have separate marks)
-  int get totalMarks => marks;
+  double get totalMarks => marks;
 
   String get validationError {
     // Validate question text length
@@ -83,8 +88,9 @@ class Question extends Equatable {
         }
       }
 
-      if (type != 'multiple_choice' && options != null && options!.isNotEmpty) {
-        return 'Non-multiple choice questions cannot have options';
+      // Only MCQ and fill_blanks (with word bank) can have options
+      if (type != 'multiple_choice' && type != 'fill_blanks' && options != null && options!.isNotEmpty) {
+        return 'Only multiple choice and fill in the blanks questions can have options';
       }
     }
 
@@ -118,7 +124,7 @@ class Question extends Equatable {
           ? List<String>.from(json['options'])
           : null,
       correctAnswer: json['correct_answer'],
-      marks: json['marks'] ?? 1,
+      marks: (json['marks'] as num?)?.toDouble() ?? 1.0,
       subQuestions: json['sub_questions'] != null
           ? (json['sub_questions'] as List)
           .map((sq) => SubQuestion.fromJson(sq))
@@ -133,7 +139,7 @@ class Question extends Equatable {
     String? type,
     List<String>? options,
     String? correctAnswer,
-    int? marks,
+    double? marks,
     List<SubQuestion>? subQuestions,
     bool? isOptional,
     String? originalText,

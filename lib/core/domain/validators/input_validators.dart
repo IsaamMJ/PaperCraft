@@ -83,8 +83,8 @@ class InputValidators {
     return null;
   }
 
-  // Marks Validation
-  static String? validateMarks(int? value) {
+  // Marks Validation (supports both int and double)
+  static String? validateMarks(num? value) {
     if (value == null || value < MIN_MARKS) {
       return 'Marks must be at least $MIN_MARKS';
     }
