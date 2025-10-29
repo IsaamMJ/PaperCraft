@@ -488,31 +488,16 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
     // DEBUG: Log marks breakdown
     double totalSectionMarks = 0;
-    print('=== MARKS DEBUG ===');
-    print('Total Sections: ${orderedSections.length}');
-    print('Paper Questions Map Keys: ${paper.questions.keys.toList()}');
     for (int i = 0; i < orderedSections.length; i++) {
       final section = orderedSections[i];
-      print('Section ${section.sectionNumber} (${section.section.name}):');
-      print('  - Type: ${section.section.type}');
-      print('  - MarksPerQuestion: ${section.section.marksPerQuestion}');
-      print('  - Questions count in section def: ${section.section.questions}');
-      print('  - Actual questions count: ${section.questionCount}');
-      print('  - Total marks: ${section.totalMarks}');
       totalSectionMarks += section.totalMarks;
     }
-    print('Sum of all section marks: $totalSectionMarks');
-    print('Paper.totalMarks: ${paper.totalMarks}');
-    print('Paper.totalQuestions: ${paper.totalQuestions}');
-    print('Questions in each section:');
     paper.questions.forEach((sectionName, questions) {
       double sectionTotal = 0;
       for (var q in questions) {
         sectionTotal += q.marks;
       }
-      print('  $sectionName: ${questions.length} questions, marks sum: $sectionTotal');
     });
-    print('=====================');
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingMedium),

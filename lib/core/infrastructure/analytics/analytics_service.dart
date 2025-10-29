@@ -24,9 +24,7 @@ class AnalyticsService implements IAnalyticsService {
   @override
   void logEvent(String name, {Map<String, dynamic>? parameters}) {
     if (kDebugMode) {
-      debugPrint('📊 Analytics Event: $name');
       if (parameters != null) {
-        debugPrint('   Parameters: $parameters');
       }
     }
 
@@ -37,12 +35,9 @@ class AnalyticsService implements IAnalyticsService {
   @override
   void logError(dynamic error, StackTrace? stackTrace, {String? reason}) {
     if (kDebugMode) {
-      debugPrint('❌ Analytics Error: $error');
       if (reason != null) {
-        debugPrint('   Reason: $reason');
       }
       if (stackTrace != null) {
-        debugPrint('   Stack: $stackTrace');
       }
     }
 
@@ -53,7 +48,6 @@ class AnalyticsService implements IAnalyticsService {
   @override
   void setUserId(String userId) {
     if (kDebugMode) {
-      debugPrint('👤 Analytics User ID: $userId');
     }
 
     // TODO: Implement actual user tracking
@@ -63,7 +57,6 @@ class AnalyticsService implements IAnalyticsService {
   @override
   void setUserProperty(String name, String value) {
     if (kDebugMode) {
-      debugPrint('🏷️  Analytics Property: $name = $value');
     }
 
     // TODO: Implement actual user properties
@@ -73,7 +66,6 @@ class AnalyticsService implements IAnalyticsService {
   @override
   void logScreenView(String screenName) {
     if (kDebugMode) {
-      debugPrint('📱 Screen View: $screenName');
     }
 
     // TODO: Implement actual screen tracking

@@ -200,16 +200,13 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
 
       result.fold(
         (failure) {
-          print('[GradeBloc] Load grades failed: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (grades) {
-          print('[GradeBloc] Loaded ${grades.length} grades');
           emit(GradesLoaded(grades));
         },
       );
     } catch (e) {
-      print('[GradeBloc] Exception loading grades: $e');
       emit(GradeError('Failed to load grades: ${e.toString()}'));
     }
   }
@@ -274,16 +271,13 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
 
       result.fold(
         (failure) {
-          print('[GradeBloc] Create grade failed: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (grade) {
-          print('[GradeBloc] Grade created: ${grade.displayName}');
           emit(GradeCreated(grade));
         },
       );
     } catch (e) {
-      print('[GradeBloc] Exception creating grade: $e');
       emit(GradeError('Failed to create grade: ${e.toString()}'));
     }
   }

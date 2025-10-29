@@ -217,7 +217,6 @@ class QuestionListWidget extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () {
-                  debugPrint('✏️ Edit button clicked for question ${index + 1}');
                   _showEditDialog(context, question, index);
                 },
                 icon: const Icon(Icons.edit, size: 16),
@@ -230,7 +229,6 @@ class QuestionListWidget extends StatelessWidget {
               SizedBox(height: UIConstants.spacing4),
               IconButton(
                 onPressed: () {
-                  debugPrint('🗑️ Delete button clicked for question ${index + 1}');
                   _showDeleteConfirmation(context, index);
                 },
                 icon: const Icon(Icons.delete_outline, size: 16),
@@ -248,11 +246,9 @@ class QuestionListWidget extends StatelessWidget {
   }
 
   Widget _buildMatchingPairs(List<String> options) {
-    debugPrint('🔗 Building matching pairs - Total options: ${options.length}');
 
     final separatorIndex = options.indexOf('---SEPARATOR---');
     if (separatorIndex == -1) {
-      debugPrint('⚠️ No separator found in matching question options');
       return const SizedBox.shrink();
     }
 
@@ -262,7 +258,6 @@ class QuestionListWidget extends StatelessWidget {
         ? leftColumn.length
         : rightColumn.length;
 
-    debugPrint('📊 Matching pairs - Left: ${leftColumn.length}, Right: ${rightColumn.length}, Pairs: $pairCount');
 
     return Container(
       padding: const EdgeInsets.all(UIConstants.paddingSmall),
@@ -341,10 +336,6 @@ class QuestionListWidget extends StatelessWidget {
   }
 
   void _showEditDialog(BuildContext context, Question question, int index) {
-    debugPrint('💬 Opening edit dialog for question ${index + 1}');
-    debugPrint('   Question type: ${question.type}');
-    debugPrint('   Has options: ${question.options != null}');
-    debugPrint('   Options count: ${question.options?.length ?? 0}');
 
     final textController = TextEditingController(text: question.text);
     bool isOptional = question.isOptional;
@@ -356,7 +347,6 @@ class QuestionListWidget extends StatelessWidget {
           TextEditingController(
               text: i < question.options!.length ? question.options![i] : ''
           ));
-      debugPrint('📝 Created ${optionControllers.length} option controllers');
     }
 
     showDialog(
@@ -380,7 +370,6 @@ class QuestionListWidget extends StatelessWidget {
                     if (optionControllers != null) {
                       FocusScope.of(context).nextFocus();
                     } else {
-                      debugPrint('✅ Saving question without options via Enter key');
                       final updatedQuestion = question.copyWith(
                         text: textController.text.trim(),
                         isOptional: isOptional,
@@ -441,7 +430,6 @@ class QuestionListWidget extends StatelessWidget {
                             : TextInputAction.next,
                         onSubmitted: (_) {
                           if (optionIndex == optionControllers!.length - 1) {
-                            debugPrint('✅ Saving question with options via Enter key');
                             final updatedQuestion = question.copyWith(
                               text: textController.text.trim(),
                               isOptional: isOptional,
@@ -469,7 +457,6 @@ class QuestionListWidget extends StatelessWidget {
                 CheckboxListTile(
                   value: isOptional,
                   onChanged: (value) {
-                    debugPrint('☑️ Optional checkbox toggled: $value');
                     setState(() => isOptional = value ?? false);
                   },
                   title: const Text('Optional question'),
@@ -482,16 +469,12 @@ class QuestionListWidget extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
-                debugPrint('❌ Edit dialog cancelled');
                 Navigator.pop(context);
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
-                debugPrint('✅ Updating question ${index + 1}');
-                debugPrint('   New text: ${textController.text.trim()}');
-                debugPrint('   Optional: $isOptional');
 
                 final updatedQuestion = question.copyWith(
                   text: textController.text.trim(),
@@ -500,7 +483,6 @@ class QuestionListWidget extends StatelessWidget {
                       .where((t) => t.isNotEmpty).toList(),
                 );
 
-                debugPrint('   Updated options: ${updatedQuestion.options?.length ?? 0}');
                 onEditQuestion(index, updatedQuestion);
                 Navigator.pop(context);
               },
@@ -513,7 +495,6 @@ class QuestionListWidget extends StatelessWidget {
   }
 
   void _showDeleteConfirmation(BuildContext context, int index) {
-    debugPrint('🗑️ Opening delete confirmation for question ${index + 1}');
 
     final question = questions[index];
     final questionPreview = question.text.length > 100
@@ -595,14 +576,12 @@ class QuestionListWidget extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
-              debugPrint('❌ Delete cancelled');
               Navigator.pop(context);
             },
             child: const Text('Cancel'),
           ),
           ElevatedButton.icon(
             onPressed: () {
-              debugPrint('✅ Deleting question ${index + 1}');
               onRemoveQuestion(index);
               Navigator.pop(context);
 

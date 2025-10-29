@@ -79,8 +79,6 @@ class AuthDataSource {
     final operationId = _clock.now().millisecondsSinceEpoch.toString();
 
 
-    print('🔍 ACTUAL REDIRECT URL: ${AuthConfig.redirectUrl}');
-    print('🔍 Platform: ${PlatformUtils.platformName}, kIsWeb: $kIsWeb');
 
     _logger.authEvent('google_signin_started', 'pending', context: {
       'redirectTo': AuthConfig.redirectUrl,

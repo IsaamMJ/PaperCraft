@@ -81,36 +81,24 @@ class AppRouter {
     final currentLocation = state.matchedLocation;
     final uri = state.uri;
 
-    print('🔐 [ROUTER] === REDIRECT CHECK ===');
-    print('🔐 [ROUTER] Matched location: $currentLocation');
-    print('🔐 [ROUTER] Full path: ${uri.path}');
-    print('🔐 [ROUTER] Full query: ${uri.query}');
-    print('🔐 [ROUTER] Full fragment: ${uri.fragment}');
-    print('🔐 [ROUTER] Auth state: ${authState.runtimeType}');
 
     // ✅ FIRST: Check if we're ALREADY on the auth callback page
     if (currentLocation == AppRoutes.authCallback) {
-      print('✅ [ROUTER] Already on /auth/callback - allowing');
       return null;
     }
 
     // ✅ SECOND: Check for OAuth code in query params (BEFORE any other checks)
     if (uri.queryParameters.containsKey('code')) {
-      print('🔍 [ROUTER] OAUTH CODE DETECTED in query params!');
-      print('🔍 [ROUTER] Code: ${uri.queryParameters['code']}');
-      print('➡️ [ROUTER] Redirecting to /auth/callback');
       return AppRoutes.authCallback;
     }
 
     // ⏳ Skip redirection during authentication loading
     if (authState is AuthLoading) {
-      print('⏳ [ROUTER] Auth loading - skipping redirect');
       return null;
     }
 
     // Handle authenticated user trying to access login
     if (authState is AuthAuthenticated && currentLocation == AppRoutes.login) {
-      print('✅ [ROUTER] Authenticated user on login - redirecting to home');
       return AppRoutes.home;
     }
 
@@ -147,7 +135,6 @@ class AppRouter {
 
     // Handle unauthenticated user trying to access protected routes
     if (authState is! AuthAuthenticated && RouteGuard.needsAuth(currentLocation)) {
-      print('⚠️ [ROUTER] Unauthenticated user on protected route - redirecting to login');
       return AppRoutes.login;
     }
 
@@ -537,7 +524,6 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
   String _debugLog = '';
 
   void _addLog(String msg) {
-    print(msg);
     setState(() {
       _debugLog += '$msg\n';
     });

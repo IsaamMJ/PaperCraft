@@ -8,18 +8,11 @@ class SectionOrderingHelper {
       ) {
     final orderedSections = <OrderedSection>[];
 
-    print('=== getOrderedSections DEBUG ===');
     for (int i = 0; i < paperSections.length; i++) {
       final section = paperSections[i];
       final questions = questionsMap[section.name] ?? [];
       final marks = _calculateSectionMarks(section, questions);
 
-      print('Processing Section: ${section.name}');
-      print('  - Type: ${section.type}');
-      print('  - MarksPerQuestion: ${section.marksPerQuestion}');
-      print('  - Expected questions: ${section.questions}');
-      print('  - Actual questions list length: ${questions.length}');
-      print('  - Calculated marks: $marks');
 
       orderedSections.add(OrderedSection(
         sectionNumber: i + 1,
@@ -81,7 +74,6 @@ class SectionOrderingHelper {
       // If there are non-optional questions, use section.questions (pairs count) for calculation
       if (nonOptionalCount > 0) {
         final result = section.marksPerQuestion * section.questions;
-        print('  [_calculateSectionMarks] match_following: ${section.marksPerQuestion} × ${section.questions} (pairs) = $result');
         return result;
       }
       return 0;
@@ -105,7 +97,6 @@ class SectionOrderingHelper {
 
       // Skip optional questions
       if (isOptional) {
-        print('  [_calculateSectionMarks] Question ${idx + 1}: SKIPPED (optional)');
         continue;
       }
 
@@ -122,10 +113,8 @@ class SectionOrderingHelper {
         }
       }
       totalMarks += questionMarks;
-      print('  [_calculateSectionMarks] Question ${idx + 1}: $questionMarks (type: ${question is Map ? 'Map' : 'Object'})');
     }
 
-    print('  [_calculateSectionMarks] Total for non-optional questions: $totalMarks');
     return totalMarks;
   }
 

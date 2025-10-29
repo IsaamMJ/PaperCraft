@@ -188,10 +188,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         BlocListener<TeacherPatternBloc, TeacherPatternState>(
           listener: (context, state) {
             if (state is TeacherPatternSaved) {
-              debugPrint('✅ Pattern saved successfully: ${state.pattern.name}');
-              debugPrint('   Pattern ID: ${state.pattern.id}');
-              debugPrint('   Was incremented: ${state.wasIncremented}');
-              debugPrint('   Use count: ${state.pattern.useCount}');
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -215,7 +211,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 );
               }
             } else if (state is TeacherPatternError) {
-              debugPrint('❌ Pattern save error: ${state.message}');
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -746,6 +741,10 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   Widget _buildActions(bool isMobile) {
+    final currentMarks = _getCurrentMarks();
+    final totalMarks = widget.paperSections.fold(0.0, (sum, section) => sum + section.totalMarks);
+    final optionalMarks = _getOptionalMarks();
+
     return Column(
       children: [
         if (_allComplete())
@@ -777,6 +776,42 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         else
           const InfoBox(
             message: 'Complete all sections to submit the paper',
+          ),
+        // Show marks summary when all sections are complete
+        if (_allComplete())
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.success10,
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                border: Border.all(color: AppColors.success, width: 1.5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total Marks:',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeMedium,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    currentMarks == totalMarks
+                        ? '$currentMarks marks${optionalMarks > 0 ? ' + $optionalMarks optional' : ''}'
+                        : '$currentMarks/$totalMarks marks',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeMedium,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.success,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
       ],
     );
@@ -1351,6 +1386,42 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     if (state is QuestionPaperError) {
       setState(() => _isProcessing = false);
       UiHelpers.showErrorMessage(context, state.message);
+
+      // Auto-save as draft when submission fails
+      final userStateService = sl<UserStateService>();
+      final userId = userStateService.currentUserId;
+      final tenantId = userStateService.currentTenantId;
+
+      if (userId != null && tenantId != null) {
+        final now = DateTime.now();
+        final draftPaper = QuestionPaperEntity(
+          id: widget.isEditing && widget.existingPaperId != null
+              ? widget.existingPaperId!
+              : const Uuid().v4(),
+          title: widget.paperTitle,
+          subjectId: widget.selectedSubjects.first.id,
+          gradeId: widget.gradeId,
+          academicYear: widget.academicYear,
+          createdBy: widget.isEditing ? (widget.existingUserId ?? userId) : userId,
+          createdAt: widget.isEditing ? now.subtract(const Duration(hours: 1)) : now,
+          modifiedAt: now,
+          status: PaperStatus.draft,
+          paperSections: widget.paperSections,
+          questions: _allQuestions,
+          examType: widget.examType,
+          examDate: widget.examDate,
+          examNumber: widget.examNumber,
+          subject: widget.selectedSubjects.map((s) => s.name).join(', '),
+          grade: 'Grade ${widget.gradeLevel}',
+          gradeLevel: widget.gradeLevel,
+          selectedSections: widget.selectedSections,
+          tenantId: widget.isEditing ? (widget.existingTenantId ?? tenantId) : tenantId,
+        );
+
+        // Save as draft silently (show success message)
+        context.read<QuestionPaperBloc>().add(SaveDraft(draftPaper));
+        UiHelpers.showSuccessMessage(context, 'Paper saved as draft due to submission error');
+      }
     }
   }
 
@@ -1364,7 +1435,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
       // Safety check: Ensure subjects list is not empty
       if (widget.selectedSubjects.isEmpty) {
-        debugPrint('Cannot save pattern: No subjects selected');
         return;
       }
 
@@ -1401,10 +1471,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       });
 
       // Show success message (for debugging - can be removed later)
-      debugPrint('✅ Pattern save initiated: $patternName');
     } catch (e) {
       // Show error for debugging
-      debugPrint('❌ Failed to save pattern: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -129,7 +129,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           try {
             _handleAuthState(context, state);
           } catch (e) {
-            debugPrint('Error handling auth state: $e');
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(

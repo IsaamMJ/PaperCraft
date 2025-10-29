@@ -32,28 +32,37 @@ class UiHelpers {
       Color color,
       IconData icon,
       ) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: UIConstants.iconMedium),
-            SizedBox(width: UIConstants.spacing12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
+    try {
+      // Clear any previously shown SnackBars to avoid stacking
+      ScaffoldMessenger.of(context).clearSnackBars();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: UIConstants.iconMedium),
+              SizedBox(width: UIConstants.spacing12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          ),
+          margin: EdgeInsets.all(UIConstants.paddingMedium),
+          duration: const Duration(seconds: 3),
         ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-        ),
-        margin: EdgeInsets.all(UIConstants.paddingMedium),
-      ),
-    );
+      );
+    } catch (e) {
+      // If ScaffoldMessenger fails, fail silently
+      // This can happen if the context doesn't have a Scaffold ancestor
+    }
   }
 
   /// Check if device is mobile

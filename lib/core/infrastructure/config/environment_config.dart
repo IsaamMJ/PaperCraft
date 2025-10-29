@@ -76,16 +76,13 @@ class EnvironmentConfig {
         await dotenv.load(fileName: ".env");
         envLoaded = true;
         if (kDebugMode) {
-          debugPrint("✅ .env file loaded for development");
         }
       } catch (_) {
         if (kDebugMode) {
-          debugPrint("⚠️ No .env file found - using dart-define values");
         }
       }
     } else {
       if (kDebugMode) {
-        debugPrint("ℹ️ Web platform: Skipping .env file, using dart-define values");
       }
     }
 
@@ -136,7 +133,6 @@ class EnvironmentConfig {
     // If neither are provided
     if (!hasUrl && !hasKey) {
       if (_current == Environment.dev) {
-        debugPrint('⚠️ WARNING: Supabase config missing in dev mode. App will run in offline mode.');
         return; // Allow offline development
       } else {
         errors.add('Supabase configuration is required for ${_current.name} environment');
@@ -178,13 +174,6 @@ class EnvironmentConfig {
   /// Log configuration in debug mode
   static void _logConfig() {
     if (kDebugMode) {
-      debugPrint('=== Environment Configuration ===');
-      debugPrint('Environment: ${_current.name}');
-      debugPrint('Config Source: ${_getConfigSource()}');
-      debugPrint('Supabase URL: ${_maskUrl(_supabaseUrl)}');
-      debugPrint('Supabase Key: ${_maskKey(_supabaseAnonKey)}');
-      debugPrint('Auth Redirect: $authRedirectUrl');
-      debugPrint('==================================');
     }
   }
 

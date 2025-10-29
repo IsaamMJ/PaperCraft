@@ -939,9 +939,7 @@ Future<void> cleanupDependencies() async {
       }
     } catch (e) {
       // Logger might already be disposed, use stderr
-      print('Errors during cleanup (logger unavailable):');
       for (final error in errors) {
-        print('  - $error');
       }
     }
   }

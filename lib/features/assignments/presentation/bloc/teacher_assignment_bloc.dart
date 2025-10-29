@@ -286,16 +286,13 @@ class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignme
 
       result.fold(
         (failure) {
-          print('[TeacherAssignmentBloc] Assign subject failed: ${failure.message}');
           emit(TeacherAssignmentError(failure.message));
         },
         (_) {
-          print('[TeacherAssignmentBloc] Subject assigned successfully');
           emit(const AssignmentSuccess('Subject assigned successfully'));
         },
       );
     } catch (e) {
-      print('[TeacherAssignmentBloc] Exception assigning subject: $e');
       emit(TeacherAssignmentError('Failed to assign subject: ${e.toString()}'));
     }
   }

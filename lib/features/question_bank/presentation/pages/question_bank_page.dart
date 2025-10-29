@@ -135,9 +135,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     _currentPage = 1;
 
     if (kDebugMode) {
-      print('🔵 [QuestionBankPage] _loadInitialData called');
-      print('   Current BLoC state: ${context.read<QuestionBankBloc>().state.runtimeType}');
-      print('   Filters: grade=$_selectedGradeLevel, subject=$_selectedSubjectId, search=$_searchQuery');
     }
 
     // Dispatch BLoC event immediately (BLoC handles teacher assignment logic)
@@ -154,7 +151,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
     context.read<QuestionBankBloc>().add(const EnableQuestionBankRealtime());
 
     if (kDebugMode) {
-      print('🔵 [QuestionBankPage] Event dispatched to QuestionBankBloc');
     }
 
     context.read<GradeBloc>().add(const LoadGradeLevels());
@@ -382,7 +378,6 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
       },
       builder: (context, state) {
         if (kDebugMode) {
-          print('🟢 [QuestionBankPage] Builder called with state: ${state.runtimeType}');
         }
 
         // Initial state - show loading

@@ -28,8 +28,6 @@ class GlobalErrorHandler {
         );
       } catch (e) {
         // If logger fails, at least print to console
-        debugPrint('Flutter Error: ${details.exception}');
-        debugPrint('Stack trace: ${details.stack}');
       }
     };
 
@@ -44,8 +42,6 @@ class GlobalErrorHandler {
           stackTrace: stack,
         );
       } catch (e) {
-        debugPrint('Async Error: $error');
-        debugPrint('Stack trace: $stack');
       }
 
       return true; // Handled

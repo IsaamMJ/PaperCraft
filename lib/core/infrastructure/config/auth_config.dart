@@ -39,7 +39,6 @@ class AuthConfig {
         : _getNativeRedirectUrl();
 
     if (kDebugMode) {
-      debugPrint('🔍 DEBUG: redirectUrl = $url, kIsWeb = $kIsWeb');
     }
     return url;
   }

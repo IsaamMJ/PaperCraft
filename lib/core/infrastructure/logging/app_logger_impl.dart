@@ -294,7 +294,6 @@ class AppLoggerImpl implements ILogger {
       }
 
       if (_featureFlags.enableDebugLogging) {
-        print('Cleared ${keysToRemove.length} old custom keys from Crashlytics');
       }
     } catch (e) {
       if (_featureFlags.enableDebugLogging) print('Failed to clear old custom keys: $e');

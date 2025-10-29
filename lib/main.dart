@@ -53,15 +53,12 @@ Future<void> _initializeServices() async {
   for (final service in services) {
     try {
       if (kDebugMode) {
-        debugPrint('Initializing ${service.name}...');
       }
       await service.initialize();
       if (kDebugMode) {
-        debugPrint('${service.name} initialized successfully');
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        debugPrint('Failed to initialize ${service.name}: $e');
       }
       rethrow;
     }
@@ -76,12 +73,9 @@ Future<void> _initializeFirebase() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     if (kDebugMode) {
-      debugPrint('Firebase initialized successfully');
     }
   } catch (e, stackTrace) {
     if (kDebugMode) {
-      debugPrint('Firebase initialization failed: $e');
-      debugPrint('Continuing without Firebase services');
     }
     // Continue without Firebase - app can still work without Crashlytics
   }
@@ -138,7 +132,6 @@ Future<void> _performDebugTasks() async {
     sl<UserStateService>().debugUserInfo();
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('Failed to debug user info: $e');
     }
   }
 }
@@ -209,7 +202,6 @@ void _handleZoneError(Object error, StackTrace stackTrace) {
     );
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('Failed to log zone error: $e');
     }
   }
 }
@@ -230,7 +222,6 @@ void _logFlutterError(FlutterErrorDetails details) {
     );
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('Failed to log Flutter error: $e');
     }
   }
 }
@@ -242,7 +233,6 @@ void _sendToCrashlytics(VoidCallback crashlyticsAction) {
     crashlyticsAction();
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('Failed to send to Crashlytics: $e');
     }
     // Don't rethrow - continue normal operation
   }
@@ -260,8 +250,6 @@ void _logAppStart() {
 /// Log critical error with console output
 void _logCriticalError(Object error, StackTrace stackTrace) {
   if (kDebugMode) {
-    debugPrint('💥 CRITICAL ERROR in main(): $error');
-    debugPrint('Stack trace: $stackTrace');
   }
 }
 
@@ -289,7 +277,6 @@ class PaperCraftApp extends StatelessWidget {
       final teacherPrefsBloc = sl<TeacherPreferencesBloc>();
 
       if (kDebugMode) {
-        debugPrint('AuthBloc state is ${authBloc.state}');
       }
 
       // FIXED: Don't double-initialize - AuthBloc constructor already handles this

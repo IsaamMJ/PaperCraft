@@ -371,7 +371,7 @@ class SimplePdfService implements IPdfGenerationService {
             if (paper.examDate != null)
               pw.Text('Date: ${_formatExamDate(paper.examDate!)}',
                   style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
-            pw.Text('Total Marks: ${paper.totalMarks.toInt()}',
+            pw.Text('Total Marks: ${paper.totalMarks % 1 == 0 ? paper.totalMarks.toInt() : paper.totalMarks}',
                 style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
           ],
         ),

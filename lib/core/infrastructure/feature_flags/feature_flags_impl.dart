@@ -37,12 +37,8 @@ class FeatureFlagsImpl implements IFeatureFlags {
   @override
   void logFlags() {
     if (kDebugMode) {
-      debugPrint('=== Feature Flags ===');
       allFlags.forEach((key, value) {
-        debugPrint('$key: $value');
       });
-      debugPrint('Platform: $_platformName');
-      debugPrint('====================');
     }
   }
 }

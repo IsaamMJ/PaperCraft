@@ -133,7 +133,6 @@ class CacheService {
     }
 
     if (kDebugMode && expiredKeys.isNotEmpty) {
-      debugPrint('[CacheService] Removed ${expiredKeys.length} expired entries');
     }
   }
 

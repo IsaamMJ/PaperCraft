@@ -99,7 +99,6 @@ class ApiClient {
             );
           }
         } else {
-          print('✅ [API CLIENT] User authenticated - skipping network check');
         }
 
         // Execute API call with timeout from config

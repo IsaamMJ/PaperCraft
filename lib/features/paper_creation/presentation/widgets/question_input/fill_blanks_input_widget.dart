@@ -125,6 +125,18 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
   void _addQuestion() {
     if (!_isValid) return;
 
+    // If there's exactly 1 blank (shared word bank mode), require at least one word in the word bank
+    if (_extractedBlanks.length == 1 && _wordBank.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Since this question has 1 blank, you must add at least one word to the word bank for shared word bank mode'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final question = Question(
       text: _questionController.text.trim(),
       type: 'fill_in_blanks',

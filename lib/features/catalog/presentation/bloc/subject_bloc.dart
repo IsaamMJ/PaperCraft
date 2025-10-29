@@ -192,16 +192,13 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
       final result = await _getSubjectsUseCase();
       result.fold(
         (failure) {
-          print('[SubjectBloc] Load subjects failed: ${failure.message}');
           emit(SubjectError(failure.message));
         },
         (subjects) {
-          print('[SubjectBloc] Loaded ${subjects.length} subjects');
           emit(SubjectsLoaded(subjects));
         },
       );
     } catch (e) {
-      print('[SubjectBloc] Exception loading subjects: $e');
       emit(SubjectError('Failed to load subjects: ${e.toString()}'));
     }
   }
@@ -249,16 +246,13 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
       final result = await _subjectRepository.createSubject(event.subject);
       result.fold(
         (failure) {
-          print('[SubjectBloc] Create subject failed: ${failure.message}');
           emit(SubjectError(failure.message));
         },
         (subject) {
-          print('[SubjectBloc] Subject created: ${subject.name}');
           emit(SubjectCreated(subject));
         },
       );
     } catch (e) {
-      print('[SubjectBloc] Exception creating subject: $e');
       emit(SubjectError('Failed to create subject: ${e.toString()}'));
     }
   }
