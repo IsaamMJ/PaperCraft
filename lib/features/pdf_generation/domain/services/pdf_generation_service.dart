@@ -557,14 +557,14 @@ class SimplePdfService implements IPdfGenerationService {
                 children: [
                   pw.Expanded(
                     child: pw.Text(
-                      i < leftColumn.length ? '${i + 1}. ${leftColumn[i]}' : '',
+                      i < leftColumn.length ? leftColumn[i] : '',
                       style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
                     ),
                   ),
                   pw.SizedBox(width: 20),
                   pw.Expanded(
                     child: pw.Text(
-                      i < rightColumn.length ? '${String.fromCharCode(65 + i)}. ${rightColumn[i]}' : '',
+                      i < rightColumn.length ? rightColumn[i] : '',
                       style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
                     ),
                   ),
@@ -622,14 +622,14 @@ class SimplePdfService implements IPdfGenerationService {
                 children: [
                   pw.Expanded(
                     child: pw.Text(
-                      i < leftColumn.length ? '${i + 1}. ${leftColumn[i]}' : '',
+                      i < leftColumn.length ? leftColumn[i] : '',
                       style: pw.TextStyle(fontSize: 9, font: _regularFont),
                     ),
                   ),
                   pw.SizedBox(width: 10),
                   pw.Expanded(
                     child: pw.Text(
-                      i < rightColumn.length ? '${String.fromCharCode(65 + i)}. ${rightColumn[i]}' : '',
+                      i < rightColumn.length ? rightColumn[i] : '',
                       style: pw.TextStyle(fontSize: 9, font: _regularFont),
                     ),
                   ),
