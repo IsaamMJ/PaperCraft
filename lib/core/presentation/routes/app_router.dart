@@ -596,21 +596,45 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
           authBloc.add(const AuthCheckStatus());
 
           _addLog('✅ [BLOC] AuthCheckStatus event added');
-          _addLog('🔐 [BLOC] Waiting 1 second for state update...');
+          _addLog('🔐 [BLOC] Waiting for state update...');
 
-          await Future.delayed(const Duration(seconds: 1));
+          // Wait for state to become AuthAuthenticated
+          int attempts = 0;
+          const maxAttempts = 10;
+          while (attempts < maxAttempts && mounted) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            _addLog('🔐 [CHECK $attempts] Current state: ${authBloc.state.runtimeType}');
 
-          _addLog('🔐 [BLOC] Current AuthBloc state now: ${authBloc.state.runtimeType}');
+            if (authBloc.state is AuthAuthenticated) {
+              _addLog('✅ [SUCCESS] AuthBloc is AuthAuthenticated');
+              _addLog('   - User: ${(authBloc.state as AuthAuthenticated).user.id}');
 
-          if (authBloc.state is AuthAuthenticated) {
-            _addLog('✅ [SUCCESS] AuthBloc is now AuthAuthenticated');
-            _addLog('   - User: ${(authBloc.state as AuthAuthenticated).user.id}');
-          } else if (authBloc.state is AuthLoading) {
-            _addLog('⏳ [WAITING] AuthBloc still loading...');
-          } else if (authBloc.state is AuthError) {
-            _addLog('❌ [ERROR] AuthBloc has error: ${(authBloc.state as AuthError).message}');
-          } else {
-            _addLog('ⓘ [OTHER] AuthBloc state: ${authBloc.state.runtimeType}');
+              // Navigate to home immediately
+              if (mounted) {
+                _addLog('➡️ [REDIRECT] Navigating to home');
+                context.go(AppRoutes.home);
+              }
+              return; // Exit the function
+            } else if (authBloc.state is AuthError) {
+              _addLog('❌ [ERROR] AuthBloc error: ${(authBloc.state as AuthError).message}');
+              setState(() {
+                _statusMessage = 'Authentication error. Please try again.';
+                _isProcessing = false;
+              });
+              return; // Exit the function
+            }
+
+            attempts++;
+          }
+
+          // If we reach here, state never became AuthAuthenticated
+          _addLog('⏳ [TIMEOUT] State did not change to AuthAuthenticated');
+          _addLog('Final state: ${authBloc.state.runtimeType}');
+
+          // Force navigation to home anyway since we have a valid session
+          if (mounted) {
+            _addLog('➡️ [FORCE REDIRECT] Navigating to home despite state');
+            context.go(AppRoutes.home);
           }
         }
       } else {
