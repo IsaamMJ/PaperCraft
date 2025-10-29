@@ -706,26 +706,6 @@ class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
                   ),
                 ),
                 SizedBox(height: UIConstants.spacing24),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: EdgeInsets.all(UIConstants.paddingMedium),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey),
-                      ),
-                      child: Text(
-                        _debugLog,
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
                 if (!_isProcessing)
                   Padding(
                     padding: EdgeInsets.only(top: UIConstants.spacing24),
