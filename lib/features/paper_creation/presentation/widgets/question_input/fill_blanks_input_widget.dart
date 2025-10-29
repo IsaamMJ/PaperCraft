@@ -10,6 +10,7 @@ class FillBlanksInputWidget extends StatefulWidget {
   final bool isMobile;
   final bool isAdmin;
   final String? title;
+  final double marksPerQuestion;
 
   const FillBlanksInputWidget({
     super.key,
@@ -17,6 +18,7 @@ class FillBlanksInputWidget extends StatefulWidget {
     required this.isAdmin,
     required this.isMobile,
     this.title,
+    this.marksPerQuestion = 1.0,
   });
 
   @override
@@ -126,7 +128,7 @@ class _FillBlanksInputWidgetState extends State<FillBlanksInputWidget> with Auto
     final question = Question(
       text: _questionController.text.trim(),
       type: 'fill_in_blanks',
-      marks: _extractedBlanks.length.toDouble(), // 1 mark per blank
+      marks: widget.marksPerQuestion,
       isOptional: _isOptional,
       options: _wordBank.isNotEmpty ? List.from(_wordBank) : null,
     );

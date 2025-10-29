@@ -10,6 +10,7 @@ class EssayInputWidget extends StatefulWidget {
   final bool isAdmin;
   final String? questionType;
   final double? marksPerQuestion;
+  final String? sectionName;
 
   const EssayInputWidget({
     super.key,
@@ -18,6 +19,7 @@ class EssayInputWidget extends StatefulWidget {
     this.questionType,
     required this.isAdmin,
     this.marksPerQuestion,
+    this.sectionName,
   });
 
   @override
@@ -161,6 +163,11 @@ class _EssayInputWidgetState extends State<EssayInputWidget> with AutomaticKeepA
 
 
   String _getTitle() {
+    // Use section name if available, otherwise use default based on question type
+    if (widget.sectionName != null && widget.sectionName!.isNotEmpty) {
+      return widget.sectionName!;
+    }
+
     switch (widget.questionType) {
       case 'missing_letters': return 'Add Missing Letters Question';
       case 'word_forms': return 'Add Word Forms Question';

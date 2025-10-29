@@ -677,6 +677,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
+          sectionName: _currentSection.name,
+          marksPerQuestion: _currentSection.marksPerQuestion,
         );
 
       case 'fill_in_blanks':
@@ -684,7 +686,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
-          title: 'Add Fill in the Blanks Question',
+          title: _currentSection.name,
+          marksPerQuestion: _currentSection.marksPerQuestion,
         );
 
       case 'misc_grammar':
@@ -692,7 +695,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionAdded: _addQuestion,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
-          title: 'Add Grammar Question',
+          title: _currentSection.name,
+          marksPerQuestion: _currentSection.marksPerQuestion,
         );
 
       case 'match_following':
@@ -702,6 +706,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           requiredPairs: _currentSection.questions, // Number of pairs = questions in section
           marksPerQuestion: _currentSection.marksPerQuestion,
           isAdmin: widget.isAdmin,
+          sectionName: _currentSection.name,
         );
 
       case 'missing_letters':
@@ -715,6 +720,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           onQuestionsAdded: _addMultipleQuestions,
           isMobile: isMobile,
           isAdmin: widget.isAdmin,
+          sectionName: _currentSection.name,
         );
 
       case 'frame_sentences':
@@ -726,6 +732,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           questionType: _currentSection.type,
           isAdmin: widget.isAdmin,
           marksPerQuestion: _currentSection.marksPerQuestion,
+          sectionName: _currentSection.name,
         );
     }
   }

@@ -274,7 +274,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
               TextFormField(
                 focusNode: _nameFocusNode,
                 controller: _nameController,
-                textCapitalization: TextCapitalization.words,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
                   labelText: 'Section Name',
                   hintText: 'e.g., Part A, Section 1',

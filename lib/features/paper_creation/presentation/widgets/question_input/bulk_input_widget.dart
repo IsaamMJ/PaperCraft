@@ -12,6 +12,7 @@ class BulkInputWidget extends StatefulWidget {
   final Function(List<Question>) onQuestionsAdded;
   final bool isMobile;
   final bool isAdmin;
+  final String? sectionName;
 
   const BulkInputWidget({
     super.key,
@@ -21,6 +22,7 @@ class BulkInputWidget extends StatefulWidget {
     required this.onQuestionsAdded,
     required this.isMobile,
     required this.isAdmin,
+    this.sectionName,
   });
 
   @override
@@ -176,6 +178,11 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
   }
 
   String _getTitle() {
+    // Use section name if available, otherwise use default based on question type
+    if (widget.sectionName != null && widget.sectionName!.isNotEmpty) {
+      return widget.sectionName!;
+    }
+
     switch (widget.questionType) {
       case 'missing_letters':
         return 'Add Missing Letters Questions';
@@ -303,7 +310,9 @@ class _BulkInputWidgetState extends State<BulkInputWidget> with AutomaticKeepAli
                 focusNode: _focusNodes[index],
                 textCapitalization: widget.questionType == 'missing_letters'
                     ? TextCapitalization.characters
-                    : TextCapitalization.sentences,
+                    : widget.questionType == 'word_forms'
+                        ? TextCapitalization.none
+                        : TextCapitalization.sentences,
                 textInputAction: index == widget.questionCount - 1
                     ? TextInputAction.done
                     : TextInputAction.next,

@@ -10,6 +10,7 @@ class MatchingInputWidget extends StatefulWidget {
   final int requiredPairs; // This is the number of pairs needed for this matching question
   final double marksPerQuestion; // Marks per pair
   final bool isAdmin;
+  final String? sectionName;
 
   const MatchingInputWidget({
     super.key,
@@ -18,6 +19,7 @@ class MatchingInputWidget extends StatefulWidget {
     required this.requiredPairs,
     required this.marksPerQuestion,
     required this.isAdmin,
+    this.sectionName,
   });
 
   @override
@@ -123,7 +125,7 @@ class MatchingInputWidgetState extends State<MatchingInputWidget> with Automatic
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Add Matching Question',
+          widget.sectionName ?? 'Add Matching Question',
           style: TextStyle(
             fontSize: widget.isMobile ? 18 : 16,
             fontWeight: FontWeight.w600,

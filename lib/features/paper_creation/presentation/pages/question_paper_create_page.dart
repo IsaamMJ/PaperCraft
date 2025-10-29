@@ -257,7 +257,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
 
     if (selectedDate != null && mounted) {
-      setState(() => _selectedExamDate = selectedDate);
+      // Set time to 10:00 AM for the selected date
+      final examDateWith10AM = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        10, // 10 AM
+        0,
+        0,
+      );
+      setState(() => _selectedExamDate = examDateWith10AM);
     }
   }
 

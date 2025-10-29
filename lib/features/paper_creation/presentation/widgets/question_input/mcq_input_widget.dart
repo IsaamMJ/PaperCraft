@@ -8,12 +8,16 @@ class McqInputWidget extends StatefulWidget {
   final Function(Question) onQuestionAdded;
   final bool isMobile;
   final bool isAdmin;
+  final String? sectionName;
+  final double marksPerQuestion;
 
   const McqInputWidget({
     super.key,
     required this.onQuestionAdded,
     required this.isMobile,
     required this.isAdmin,
+    this.sectionName,
+    this.marksPerQuestion = 1.0,
   });
 
   @override
@@ -85,7 +89,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
       type: 'multiple_choice',
       options: options,
       correctAnswer: null,
-      marks: 1, // Default marks for MCQ
+      marks: widget.marksPerQuestion,
       isOptional: false, // MCQ questions are always mandatory
     );
 
@@ -101,7 +105,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Add Multiple Choice Question',
+          widget.sectionName ?? 'Add Multiple Choice Question',
           style: TextStyle(
             fontSize: widget.isMobile ? 18 : 16,
             fontWeight: FontWeight.w600,
@@ -158,7 +162,7 @@ class _McqInputWidgetState extends State<McqInputWidget> with AutomaticKeepAlive
             child: TextField(
               controller: controller,
               focusNode: _focusNodes[index],
-              textCapitalization: TextCapitalization.sentences,
+              textCapitalization: TextCapitalization.none,
               textInputAction: index == _optionControllers.length - 1
                   ? TextInputAction.done
                   : TextInputAction.next,
