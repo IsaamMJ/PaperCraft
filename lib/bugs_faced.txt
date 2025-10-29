@@ -245,3 +245,7 @@ phase 9
 10. In paper details page exam date is set to 00:00 of date its not professional make hte time to be 10:00 AM
 11. for match the following only main heading stating Match the following is enough no need individual question
 12. In paper pattern i give for mcq question marks per question as 0.5 but when i enter all the questions and go to submit it the marks per mcq question changes to 1 . why is that ?similalry for fill in the blanks with shared question bankk also
+
+PHASE 10
+
+1. after ai polish for some questions it has Original Polished COrrected in this part check if the correct one is getting saved often polished and correct get saved as the question .

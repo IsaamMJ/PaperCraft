@@ -74,7 +74,7 @@ class _AddEditSectionDialogState extends State<AddEditSectionDialog> {
       case 'match_following':
         return 'Match the following';
       case 'word_forms':
-        return 'Write Word Forms';
+        return 'Write word forms';
       default:
         return '';
     }
