@@ -13,6 +13,7 @@ import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
+import '../../domain/entities/question_entity.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';

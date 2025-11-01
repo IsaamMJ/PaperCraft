@@ -515,3 +515,9 @@
    Status: NOT PLANNED
    Feedback: "also just asking if we need to add the exam time table or should we manage them  just asking no need to implement it for now"
    TODO: User said no need to implement for now
+
+
+Phase 12:
+1. from create page when i swipe back it exists the app instead of going to the hoewm page
+
+

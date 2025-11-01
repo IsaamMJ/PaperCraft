@@ -1,0 +1,80 @@
+═══════════════════════════════════════════════════════════════
+FINAL EXAM TIMETABLE IMPLEMENTATION PLAN
+═══════════════════════════════════════════════════════════════
+
+GOAL:
+Admin creates timetable → Auto-assigns teachers → Teachers create only their papers
+
+═══════════════════════════════════════════════════════════════
+CURRENT PROBLEMS
+═══════════════════════════════════════════════════════════════
+1. No timetable creation feature
+2. Teacher assignments are unclear (selecting grade + subject together)
+3. Can't accurately map which teacher teaches which (grade, subject) combo
+
+═══════════════════════════════════════════════════════════════
+SOLUTION ARCHITECTURE
+═══════════════════════════════════════════════════════════════
+
+DATA MODEL:
+- teacher_subjects table: teacher_id → [(subject_id, grade_id)]
+  Example: Teacher A = {(Grade 1, Maths), (Grade 2, English)}
+
+- Timetable table: exam details → [{grade, subject, date, time}]
+
+FLOW:
+1. Admin creates timetable with subject-grade pairs
+2. System auto-finds teachers assigned to that (grade, subject)
+3. Creates paper_tasks for each teacher
+4. Teacher sees only their papers, clicks → creates
+
+═══════════════════════════════════════════════════════════════
+EDGE CASES & SOLUTIONS
+═══════════════════════════════════════════════════════════════
+
+1. Teacher teaches same subject in multiple grades
+   → Show each as separate paper task
+
+2. No teacher assigned to subject-grade combo
+   → Flag in admin dashboard (red warning)
+
+3. Teacher deleted mid-exam
+   → Orphaned papers - need reassignment flow
+
+4. Teacher edits their subjects after timetable created
+   → Freeze timetable once published (no auto-changes)
+
+5. Multiple exams, same subject
+   → Teachers see all papers in dashboard
+
+6. Teacher doesn't create paper before exam date
+   → Admin notification system needed
+
+═══════════════════════════════════════════════════════════════
+KEY DESIGN DECISIONS
+═══════════════════════════════════════════════════════════════
+
+✓ Separate "teacher assignment" from "timetable creation"
+✓ One timetable entry = One paper task per assigned teacher
+✓ Lock timetable once published (immutable subjects)
+✓ Teacher dashboard = only their papers (clean, simple)
+
+═══════════════════════════════════════════════════════════════
+IMPLEMENTATION PRIORITY (TOMORROW)
+═══════════════════════════════════════════════════════════════
+
+1. Create teacher_subjects migration + CRUD
+2. Build Admin Timetable creation UI
+3. Auto-generate paper tasks from timetable
+4. Update teacher dashboard (filtered by their assignments)
+5. Add validation & error handling
+
+═══════════════════════════════════════════════════════════════
+OPEN QUESTIONS
+═══════════════════════════════════════════════════════════════
+
+- Allow editing timetable AFTER teachers start creating papers?
+- Paper approval workflow before exam date?
+- Sick teacher reassignment process?
+
+═══════════════════════════════════════════════════════════════
