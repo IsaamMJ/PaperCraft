@@ -123,14 +123,18 @@ class AppRouter {
       final isAdmin = authState.user.isAdmin;
       final isTeacher = authState.user.isTeacher;
 
-      // Redirect on first login if tenant not initialized
-      if (isFirstLogin &&
-          currentLocation != AppRoutes.adminSetupWizard &&
-          currentLocation != AppRoutes.teacherOnboarding &&
-          currentLocation != AppRoutes.soloTeacherOnboarding &&
-          currentLocation != AppRoutes.teacherProfileSetup &&
-          currentLocation != AppRoutes.home) {
+      // If user is on any onboarding or profile setup route, don't redirect them away
+      // Let the page logic handle navigation based on tenant initialization state
+      if (currentLocation == AppRoutes.adminSetupWizard ||
+          currentLocation == AppRoutes.teacherOnboarding ||
+          currentLocation == AppRoutes.soloTeacherOnboarding ||
+          currentLocation == AppRoutes.teacherProfileSetup ||
+          currentLocation == AppRoutes.home) {
+        return null;
+      }
 
+      // Redirect on first login if tenant not initialized
+      if (isFirstLogin) {
         try {
           final userStateService = sl<UserStateService>();
           final currentTenant = userStateService.currentTenant;
