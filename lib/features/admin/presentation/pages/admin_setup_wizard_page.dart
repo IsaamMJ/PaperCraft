@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/admin_setup_state.dart' as domain;
 import '../bloc/admin_setup_bloc.dart';
 import '../bloc/admin_setup_event.dart';
