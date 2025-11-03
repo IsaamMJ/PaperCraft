@@ -16,8 +16,8 @@ CREATE POLICY grade_sections_tenant_isolation ON public.grade_sections
 
 **Problems with this policy:**
 1. Uses `FOR ALL` with only `USING` clause - doesn't properly handle INSERT operations
-2. Checks JWT claims that might not be properly set in your auth token
-3. Doesn't use the `user_roles` table verification that we established in other migrations
+2. Doesn't have separate policies for INSERT/UPDATE/DELETE with proper `WITH CHECK` clauses
+3. Relies on JWT claims that need specific handling for write operations
 
 ### Solution
 
@@ -29,7 +29,7 @@ Two new migration files have been created to fix this:
 These migrations:
 - Drop the restrictive `FOR ALL` policy
 - Create separate policies for SELECT, INSERT, UPDATE, DELETE operations
-- Use the `user_roles` table to verify admin role (reliable method)
+- Check JWT `role` claim from `auth.jwt()` (set in auth.users.raw_app_meta_data)
 - Allow admins to perform all operations (INSERT, UPDATE, DELETE)
 - Allow regular users to only SELECT data for their tenant
 
