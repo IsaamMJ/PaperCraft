@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../domain/entities/exam_timetable_entry.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
 import '../../domain/services/timetable_validation_service.dart';
 import '../../domain/usecases/load_exam_timetables_usecase.dart';
@@ -151,7 +152,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     final entries = entriesResult.fold(
       (failure) {
         emit(TimetableValidationFailed([failure.message]));
-        return <dynamic>[];
+        return <ExamTimetableEntry>[];
       },
       (entries) => entries,
     );

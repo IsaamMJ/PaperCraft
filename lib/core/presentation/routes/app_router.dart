@@ -31,6 +31,16 @@ import '../../../features/paper_workflow/presentation/pages/question_paper_detai
 import '../../../features/question_bank/presentation/pages/question_bank_page.dart';
 import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
 import '../../../features/shared/presentation/main_scaffold_wrapper.dart';
+
+// Exam Timetable Management
+import '../../../features/catalog/presentation/pages/manage_grade_sections_page.dart';
+import '../../../features/catalog/presentation/bloc/grade_section_bloc.dart';
+import '../../../features/exams/presentation/pages/exam_calendar_list_page.dart';
+import '../../../features/exams/presentation/bloc/exam_calendar_bloc.dart';
+import '../../../features/exams/presentation/pages/exam_timetable_list_page.dart';
+import '../../../features/exams/presentation/pages/exam_timetable_edit_page.dart';
+import '../../../features/exams/presentation/bloc/exam_timetable_bloc.dart';
+
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
 import '../../infrastructure/logging/app_logger.dart';
@@ -488,6 +498,113 @@ class AppRouter {
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: PaperReviewPage(paperId: id),
+          );
+        },
+      ),
+
+      // ========== EXAM TIMETABLE MANAGEMENT ROUTES ==========
+
+      // Grade Sections Management
+      GoRoute(
+        path: AppRoutes.gradeSectionsList,
+        builder: (context, state) {
+          AppLogger.info('Admin managing grade sections',
+              category: LogCategory.navigation);
+
+          // Get tenant ID from user state
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+
+          return BlocProvider(
+            create: (_) => sl<GradeSectionBloc>(),
+            child: ManageGradeSectionsPage(tenantId: tenantId),
+          );
+        },
+      ),
+
+      // Exam Calendar Management
+      GoRoute(
+        path: AppRoutes.examCalendarList,
+        builder: (context, state) {
+          AppLogger.info('Admin managing exam calendar',
+              category: LogCategory.navigation);
+
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+          final academicYear = state.uri.queryParameters['academicYear'] ?? '2024-2025';
+
+          return BlocProvider(
+            create: (_) => sl<ExamCalendarBloc>(),
+            child: ExamCalendarListPage(
+              tenantId: tenantId,
+              academicYear: academicYear,
+            ),
+          );
+        },
+      ),
+
+      // Exam Timetable List
+      GoRoute(
+        path: AppRoutes.examTimetableList,
+        builder: (context, state) {
+          AppLogger.info('Admin viewing exam timetables',
+              category: LogCategory.navigation);
+
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+          final academicYear = state.uri.queryParameters['academicYear'] ?? '2024-2025';
+
+          return BlocProvider(
+            create: (_) => sl<ExamTimetableBloc>(),
+            child: ExamTimetableListPage(
+              tenantId: tenantId,
+              academicYear: academicYear,
+            ),
+          );
+        },
+      ),
+
+      // Exam Timetable Create/Edit
+      GoRoute(
+        path: AppRoutes.examTimetableCreate,
+        builder: (context, state) {
+          AppLogger.info('Admin creating exam timetable',
+              category: LogCategory.navigation);
+
+          final userStateService = sl<UserStateService>();
+          final currentUser = userStateService.currentUser;
+          final tenantId = userStateService.currentTenant?.id ?? '';
+
+          return BlocProvider(
+            create: (_) => sl<ExamTimetableBloc>(),
+            child: ExamTimetableEditPage(
+              tenantId: tenantId,
+              createdBy: currentUser?.id ?? '',
+              examCalendarId: state.uri.queryParameters['calendarId'],
+            ),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '${AppRoutes.examTimetableEdit}/:${RouteParams.id}',
+        builder: (context, state) {
+          final timetableId = state.pathParameters[RouteParams.id]!;
+          AppLogger.info('Admin editing exam timetable',
+              category: LogCategory.navigation,
+              context: {'timetableId': timetableId});
+
+          final userStateService = sl<UserStateService>();
+          final currentUser = userStateService.currentUser;
+          final tenantId = userStateService.currentTenant?.id ?? '';
+
+          return BlocProvider(
+            create: (_) => sl<ExamTimetableBloc>(),
+            child: ExamTimetableEditPage(
+              tenantId: tenantId,
+              createdBy: currentUser?.id ?? '',
+              timetableId: timetableId,
+            ),
           );
         },
       ),

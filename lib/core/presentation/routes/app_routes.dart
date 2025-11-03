@@ -39,6 +39,14 @@ class AppRoutes {
   static const String teacherAssignments = '/settings/teacher-assignments';
   static const String assignmentMatrix = '/admin/assignment-matrix';
 
+  // Exam Timetable Management routes
+  static const String examsHome = '/admin/exams';
+  static const String examCalendarList = '/admin/exams/calendar';
+  static const String gradeSectionsList = '/admin/exams/sections';
+  static const String examTimetableList = '/admin/exams/timetables';
+  static const String examTimetableCreate = '/admin/exams/timetables/create';
+  static const String examTimetableEdit = '/admin/exams/timetables/edit';
+
   // Helper methods for parameterized routes
   static String questionPaperViewWithId(String id) => '$questionPaperView/$id';
   static String questionPaperEditWithId(String id) => '$questionPaperEdit/$id';
@@ -65,5 +73,9 @@ class RouteGuard {
 
   static bool isOfficeStaff(String route) {
     return route.startsWith('/office');
+  }
+
+  static bool isExamAdmin(String route) {
+    return route.startsWith('/admin/exams');
   }
 }

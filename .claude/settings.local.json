@@ -27,7 +27,10 @@
       "Bash(timeout 240 flutter build:*)",
       "Bash(.gradlew assembleDebug:*)",
       "Bash(dart analyze:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(flutter test:*)",
+      "Bash(timeout 180 flutter test:*)",
+      "Bash(dart run build_runner:*)"
     ],
     "deny": [],
     "ask": []
