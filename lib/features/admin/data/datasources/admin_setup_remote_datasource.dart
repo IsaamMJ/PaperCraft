@@ -253,10 +253,20 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
   @override
   Future<void> markTenantInitialized(String tenantId) async {
     try {
+      // Mark tenant as initialized
       await supabaseClient
           .from('tenants')
           .update({'is_initialized': true})
           .eq('id', tenantId);
+
+      // Update current user's last_login_at to indicate they're no longer a first-time user
+      final currentUser = supabaseClient.auth.currentUser;
+      if (currentUser != null) {
+        await supabaseClient
+            .from('profiles')
+            .update({'last_login_at': DateTime.now().toIso8601String()})
+            .eq('id', currentUser.id);
+      }
     } catch (e) {
       throw ServerFailure('Failed to mark tenant as initialized: ${e.toString()}');
     }

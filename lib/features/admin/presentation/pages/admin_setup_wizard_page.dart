@@ -31,7 +31,35 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
   void initState() {
     super.initState();
     _bloc = context.read<AdminSetupBloc>();
+
+    // Check if tenant is already initialized
+    // This prevents users from being stuck on this page after setup completes
+    _checkTenantAndNavigate();
+
     _bloc.add(InitializeAdminSetupEvent(tenantId: widget.tenantId));
+  }
+
+  /// Check if tenant is already initialized and navigate away if so
+  Future<void> _checkTenantAndNavigate() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final tenantData = await supabase
+          .from('tenants')
+          .select('is_initialized')
+          .eq('id', widget.tenantId)
+          .single();
+
+      if (tenantData['is_initialized'] == true && mounted) {
+        // Tenant is already initialized, navigate to home
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            context.go(AppRoutes.home);
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore errors, just continue with the setup
+    }
   }
 
   @override
@@ -50,7 +78,8 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
               const SnackBar(content: Text('Setup completed successfully!')),
             );
             // Navigate to home using GoRouter (replaces current route)
-            Future.delayed(const Duration(milliseconds: 500), () {
+            // Use a delay to allow the database update to complete and propagate
+            Future.delayed(const Duration(seconds: 1), () {
               if (context.mounted) {
                 context.go(AppRoutes.home);
               }
