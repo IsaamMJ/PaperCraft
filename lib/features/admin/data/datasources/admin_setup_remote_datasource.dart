@@ -190,24 +190,39 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
     required List<String> subjectNames,
   }) async {
     try {
-      // Delete existing subjects for this grade in the tenant
+      // Delete existing subjects for this tenant
+      // Note: subjects table doesn't have grade_number, it only stores tenant-subject links
       await supabaseClient
           .from('subjects')
           .delete()
-          .eq('tenant_id', tenantId)
-          .eq('grade_number', gradeNumber);
+          .eq('tenant_id', tenantId);
 
-      // Insert fresh subjects for this grade
-      final subjectsToInsert = subjectNames.map((subjectName) => {
-        'tenant_id': tenantId,
-        'subject_name': subjectName,
-        'grade_number': gradeNumber,
-        'is_active': true,
-      }).toList();
+      // For each subject name, find the catalog_subject_id and insert
+      final subjectsToInsert = <Map<String, dynamic>>[];
 
-      await supabaseClient
-          .from('subjects')
-          .insert(subjectsToInsert, defaultToNull: false);
+      for (final subjectName in subjectNames) {
+        // Find the catalog_subject_id for this subject name
+        final catalogResponse = await supabaseClient
+            .from('subject_catalog')
+            .select('id')
+            .eq('subject_name', subjectName)
+            .eq('is_active', true)
+            .single();
+
+        final catalogSubjectId = catalogResponse['id'] as String;
+
+        subjectsToInsert.add({
+          'tenant_id': tenantId,
+          'catalog_subject_id': catalogSubjectId,
+          'is_active': true,
+        });
+      }
+
+      if (subjectsToInsert.isNotEmpty) {
+        await supabaseClient
+            .from('subjects')
+            .insert(subjectsToInsert, defaultToNull: false);
+      }
     } catch (e) {
       throw ServerFailure('Failed to create subjects: ${e.toString()}');
     }

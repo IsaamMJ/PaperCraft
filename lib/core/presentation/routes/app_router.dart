@@ -20,7 +20,6 @@ import '../../../features/catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../features/catalog/presentation/pages/grade_management_page.dart';
 import '../../../features/catalog/presentation/pages/subject_management_page.dart';
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
-import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
 import '../../../features/onboarding/presentation/pages/teacher_profile_setup_page.dart';
 import '../../../features/onboarding/presentation/pages/teacher_onboarding_page.dart';
 import '../../../features/onboarding/presentation/pages/solo_teacher_onboarding_page.dart';
@@ -127,7 +126,6 @@ class AppRouter {
       // Redirect on first login if tenant not initialized
       if (isFirstLogin &&
           currentLocation != AppRoutes.adminSetupWizard &&
-          currentLocation != AppRoutes.onboarding &&
           currentLocation != AppRoutes.teacherOnboarding &&
           currentLocation != AppRoutes.soloTeacherOnboarding &&
           currentLocation != AppRoutes.teacherProfileSetup &&
@@ -552,11 +550,6 @@ class AppRouter {
           create: (_) => UserManagementBloc(),
           child: const UserManagementPage(),
         ),
-      ),
-
-      GoRoute(
-        path: AppRoutes.onboarding,
-        builder: (context, state) => const TenantOnboardingPage(),
       ),
 
       GoRoute(
