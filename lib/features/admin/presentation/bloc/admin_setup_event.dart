@@ -1,0 +1,172 @@
+import 'package:equatable/equatable.dart';
+
+/// Base event for AdminSetupBloc
+abstract class AdminSetupEvent extends Equatable {
+  const AdminSetupEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Initialize admin setup wizard with tenant info
+class InitializeAdminSetupEvent extends AdminSetupEvent {
+  final String tenantId;
+
+  const InitializeAdminSetupEvent({required this.tenantId});
+
+  @override
+  List<Object?> get props => [tenantId];
+}
+
+/// Load available grades for the tenant
+class LoadAvailableGradesEvent extends AdminSetupEvent {
+  final String tenantId;
+
+  const LoadAvailableGradesEvent({required this.tenantId});
+
+  @override
+  List<Object?> get props => [tenantId];
+}
+
+/// Add a grade to the setup
+class AddGradeEvent extends AdminSetupEvent {
+  final int gradeNumber;
+
+  const AddGradeEvent({required this.gradeNumber});
+
+  @override
+  List<Object?> get props => [gradeNumber];
+}
+
+/// Remove a grade from the setup
+class RemoveGradeEvent extends AdminSetupEvent {
+  final int gradeNumber;
+
+  const RemoveGradeEvent({required this.gradeNumber});
+
+  @override
+  List<Object?> get props => [gradeNumber];
+}
+
+/// Update sections for a grade
+class UpdateSectionsEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final List<String> sections;
+
+  const UpdateSectionsEvent({
+    required this.gradeNumber,
+    required this.sections,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, sections];
+}
+
+/// Add a section to a grade
+class AddSectionEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String sectionName;
+
+  const AddSectionEvent({
+    required this.gradeNumber,
+    required this.sectionName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, sectionName];
+}
+
+/// Remove a section from a grade
+class RemoveSectionEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String sectionName;
+
+  const RemoveSectionEvent({
+    required this.gradeNumber,
+    required this.sectionName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, sectionName];
+}
+
+/// Load subject suggestions for a grade
+class LoadSubjectSuggestionsEvent extends AdminSetupEvent {
+  final int gradeNumber;
+
+  const LoadSubjectSuggestionsEvent({required this.gradeNumber});
+
+  @override
+  List<Object?> get props => [gradeNumber];
+}
+
+/// Update subjects for a grade
+class UpdateSubjectsEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final List<String> subjects;
+
+  const UpdateSubjectsEvent({
+    required this.gradeNumber,
+    required this.subjects,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, subjects];
+}
+
+/// Add a subject to a grade
+class AddSubjectEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String subjectName;
+
+  const AddSubjectEvent({
+    required this.gradeNumber,
+    required this.subjectName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, subjectName];
+}
+
+/// Remove a subject from a grade
+class RemoveSubjectEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String subjectName;
+
+  const RemoveSubjectEvent({
+    required this.gradeNumber,
+    required this.subjectName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, subjectName];
+}
+
+/// Move to next step in the wizard
+class NextStepEvent extends AdminSetupEvent {
+  const NextStepEvent();
+}
+
+/// Move to previous step in the wizard
+class PreviousStepEvent extends AdminSetupEvent {
+  const PreviousStepEvent();
+}
+
+/// Validate current step and show errors if any
+class ValidateStepEvent extends AdminSetupEvent {
+  const ValidateStepEvent();
+}
+
+/// Save the complete admin setup with tenant details
+class SaveAdminSetupEvent extends AdminSetupEvent {
+  final String? tenantName;
+  final String? tenantAddress;
+
+  const SaveAdminSetupEvent({
+    this.tenantName,
+    this.tenantAddress,
+  });
+
+  @override
+  List<Object?> get props => [tenantName, tenantAddress];
+}

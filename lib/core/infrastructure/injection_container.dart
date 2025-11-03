@@ -43,6 +43,15 @@ import '../../features/exams/presentation/bloc/exam_timetable_bloc.dart';
 import '../../features/exams/domain/services/timetable_validation_service.dart';
 import '../../features/exams/data/services/timetable_validation_service_impl.dart';
 
+// Admin Setup Dependencies
+import '../../features/admin/domain/repositories/admin_setup_repository.dart';
+import '../../features/admin/data/repositories/admin_setup_repository_impl.dart';
+import '../../features/admin/data/datasources/admin_setup_remote_datasource.dart';
+import '../../features/admin/domain/usecases/get_available_grades_usecase.dart';
+import '../../features/admin/domain/usecases/get_subject_suggestions_usecase.dart';
+import '../../features/admin/domain/usecases/save_admin_setup_usecase.dart';
+import '../../features/admin/presentation/bloc/admin_setup_bloc.dart';
+
 final getIt = GetIt.instance;
 
 /// Setup dependency injection container
@@ -236,6 +245,41 @@ Future<void> setupInjectionContainer() async {
       deleteTimetableUseCase: getIt<DeleteExamTimetableUseCase>(),
       validationService: getIt<TimetableValidationService>(),
       repository: getIt<ExamTimetableRepository>(),
+    ),
+  );
+
+  // ==================== Admin Setup ====================
+  // Data Sources
+  getIt.registerSingleton<AdminSetupRemoteDataSource>(
+    AdminSetupRemoteDataSourceImpl(supabaseClient: supabase),
+  );
+
+  // Repository
+  getIt.registerSingleton<AdminSetupRepository>(
+    AdminSetupRepositoryImpl(
+      remoteDataSource: getIt<AdminSetupRemoteDataSource>(),
+    ),
+  );
+
+  // Use Cases
+  getIt.registerSingleton<GetAvailableGradesUseCase>(
+    GetAvailableGradesUseCase(repository: getIt<AdminSetupRepository>()),
+  );
+
+  getIt.registerSingleton<GetSubjectSuggestionsUseCase>(
+    GetSubjectSuggestionsUseCase(repository: getIt<AdminSetupRepository>()),
+  );
+
+  getIt.registerSingleton<SaveAdminSetupUseCase>(
+    SaveAdminSetupUseCase(repository: getIt<AdminSetupRepository>()),
+  );
+
+  // BLoC
+  getIt.registerSingleton<AdminSetupBloc>(
+    AdminSetupBloc(
+      getAvailableGradesUseCase: getIt<GetAvailableGradesUseCase>(),
+      getSubjectSuggestionsUseCase: getIt<GetSubjectSuggestionsUseCase>(),
+      saveAdminSetupUseCase: getIt<SaveAdminSetupUseCase>(),
     ),
   );
 }

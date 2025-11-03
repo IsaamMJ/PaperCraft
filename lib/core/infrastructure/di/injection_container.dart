@@ -106,6 +106,15 @@ import '../../../features/notifications/domain/usecases/get_unread_count_usecase
 // PDF generation feature
 import '../../../features/pdf_generation/domain/usecases/download_pdf_usecase.dart';
 
+// Admin setup feature
+import '../../../features/admin/data/datasources/admin_setup_remote_datasource.dart';
+import '../../../features/admin/data/repositories/admin_setup_repository_impl.dart';
+import '../../../features/admin/domain/repositories/admin_setup_repository.dart';
+import '../../../features/admin/domain/usecases/get_available_grades_usecase.dart';
+import '../../../features/admin/domain/usecases/get_subject_suggestions_usecase.dart';
+import '../../../features/admin/domain/usecases/save_admin_setup_usecase.dart';
+import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
+
 /// Global service locator instance
 final sl = GetIt.instance;
 
@@ -156,6 +165,7 @@ Future<void> setupDependencies() async {
     await _GradeModule.setup();
     await _AssignmentModule.setup();
     await _NotificationModule.setup();
+    await _AdminModule.setup();
 
     final setupDuration = DateTime.now().difference(setupStartTime);
     sl<ILogger>().info(
@@ -163,7 +173,7 @@ Future<void> setupDependencies() async {
       category: LogCategory.system,
       context: {
         'duration': '${setupDuration.inMilliseconds}ms',
-        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service', 'paper_display_service', 'assignments', 'notifications'],
+        'components': ['database', 'network', 'auth', 'question_papers', 'grades', 'exam_types', 'user_info_service', 'paper_display_service', 'assignments', 'notifications', 'admin_setup'],
         'environment': EnvironmentConfig.current.name,
         'platform': PlatformUtils.platformName,
       },
@@ -896,6 +906,93 @@ class _NotificationModule {
     sl.registerLazySingleton(() => GetUnreadCountUseCase(sl<INotificationRepository>()));
 
     sl<ILogger>().debug('Notification use cases registered successfully', category: LogCategory.system);
+  }
+}
+
+/// Admin setup feature dependencies
+class _AdminModule {
+  static Future<void> setup() async {
+    try {
+      sl<ILogger>().debug('Initializing admin setup module', category: LogCategory.system);
+
+      _setupDataSources();
+      _setupRepositories();
+      _setupUseCases();
+      _setupBlocs();
+
+      sl<ILogger>().info(
+        'Admin setup module initialized successfully',
+        category: LogCategory.system,
+        context: {
+          'features': ['admin_onboarding_wizard', 'grades_setup', 'sections_setup', 'subjects_setup'],
+          'useCasesRegistered': 3,
+          'repositoriesRegistered': 1,
+          'dataSourcesRegistered': 1,
+          'blocsRegistered': 1,
+          'platform': PlatformUtils.platformName,
+        },
+      );
+    } catch (e, stackTrace) {
+      sl<ILogger>().error(
+        'Admin setup module initialization failed',
+        error: e,
+        stackTrace: stackTrace,
+        category: LogCategory.system,
+        context: {
+          'step': 'admin_setup',
+          'platform': PlatformUtils.platformName,
+        },
+      );
+      rethrow;
+    }
+  }
+
+  static void _setupDataSources() {
+    sl<ILogger>().debug('Setting up admin setup data sources', category: LogCategory.system);
+
+    sl.registerLazySingleton<AdminSetupRemoteDataSource>(
+      () => AdminSetupRemoteDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
+      ),
+    );
+  }
+
+  static void _setupRepositories() {
+    sl<ILogger>().debug('Setting up admin setup repositories', category: LogCategory.system);
+
+    sl.registerLazySingleton<AdminSetupRepository>(
+      () => AdminSetupRepositoryImpl(
+        remoteDataSource: sl<AdminSetupRemoteDataSource>(),
+      ),
+    );
+  }
+
+  static void _setupUseCases() {
+    sl<ILogger>().debug('Setting up admin setup use cases', category: LogCategory.system);
+
+    sl.registerLazySingleton(() => GetAvailableGradesUseCase(
+      repository: sl<AdminSetupRepository>(),
+    ));
+    sl.registerLazySingleton(() => GetSubjectSuggestionsUseCase(
+      repository: sl<AdminSetupRepository>(),
+    ));
+    sl.registerLazySingleton(() => SaveAdminSetupUseCase(
+      repository: sl<AdminSetupRepository>(),
+    ));
+
+    sl<ILogger>().debug('Admin setup use cases registered successfully', category: LogCategory.system);
+  }
+
+  static void _setupBlocs() {
+    sl<ILogger>().debug('Setting up admin setup BLoCs', category: LogCategory.system);
+
+    sl.registerFactory(() => AdminSetupBloc(
+      getAvailableGradesUseCase: sl<GetAvailableGradesUseCase>(),
+      getSubjectSuggestionsUseCase: sl<GetSubjectSuggestionsUseCase>(),
+      saveAdminSetupUseCase: sl<SaveAdminSetupUseCase>(),
+    ));
+
+    sl<ILogger>().debug('AdminSetupBloc registered successfully', category: LogCategory.system);
   }
 }
 

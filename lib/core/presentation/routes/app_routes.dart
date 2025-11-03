@@ -13,6 +13,7 @@ class AppRoutes {
   // Onboarding routes
   static const String onboarding = '/onboarding';
   static const String teacherOnboarding = '/onboarding/teacher';
+  static const String soloTeacherOnboarding = '/onboarding/solo-teacher';
   static const String teacherProfileSetup = '/onboarding/teacher/profile-setup';
 
   // Question paper routes
@@ -31,6 +32,7 @@ class AppRoutes {
   static const String adminHome = '/admin/home';
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';
+  static const String adminSetupWizard = '/admin/setup';
 
   // Office staff routes
   static const String officeStaffDashboard = '/office/dashboard';

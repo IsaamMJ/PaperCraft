@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 // Core dependencies
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
+import '../../../features/admin/presentation/pages/admin_setup_wizard_page.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/office_staff/presentation/pages/office_staff_dashboard_page.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
@@ -21,6 +22,8 @@ import '../../../features/catalog/presentation/pages/subject_management_page.dar
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/tenant_onboarding_page.dart';
 import '../../../features/onboarding/presentation/pages/teacher_profile_setup_page.dart';
+import '../../../features/onboarding/presentation/pages/teacher_onboarding_page.dart';
+import '../../../features/onboarding/presentation/pages/solo_teacher_onboarding_page.dart';
 import '../../../features/paper_review/presentation/pages/paper_review_page.dart';
 import '../../../features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/notifications/presentation/bloc/notification_bloc.dart';
@@ -40,6 +43,9 @@ import '../../../features/exams/presentation/bloc/exam_calendar_bloc.dart';
 import '../../../features/exams/presentation/pages/exam_timetable_list_page.dart';
 import '../../../features/exams/presentation/pages/exam_timetable_edit_page.dart';
 import '../../../features/exams/presentation/bloc/exam_timetable_bloc.dart';
+
+// Admin Setup
+import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
 
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
@@ -112,13 +118,18 @@ class AppRouter {
       return AppRoutes.home;
     }
 
-    // Handle first-time teacher login
+    // Handle first-time user login with onboarding
     if (authState is AuthAuthenticated) {
       final isFirstLogin = authState.isFirstLogin;
+      final isAdmin = authState.user.isAdmin;
       final isTeacher = authState.user.isTeacher;
 
-      if (isFirstLogin && isTeacher &&
+      // Redirect on first login if tenant not initialized
+      if (isFirstLogin &&
+          currentLocation != AppRoutes.adminSetupWizard &&
           currentLocation != AppRoutes.onboarding &&
+          currentLocation != AppRoutes.teacherOnboarding &&
+          currentLocation != AppRoutes.soloTeacherOnboarding &&
           currentLocation != AppRoutes.teacherProfileSetup &&
           currentLocation != AppRoutes.home) {
 
@@ -126,18 +137,89 @@ class AppRouter {
           final userStateService = sl<UserStateService>();
           final currentTenant = userStateService.currentTenant;
 
+          AppLogger.info('First-time user redirect check',
+            category: LogCategory.auth,
+            context: {
+              'hasTenant': currentTenant != null,
+              'tenantId': currentTenant?.id,
+              'tenantDomain': currentTenant?.domain,
+              'currentLocation': currentLocation,
+            }
+          );
+
           if (currentTenant == null) {
+            AppLogger.warning('Tenant is NULL, cannot redirect',
+              category: LogCategory.auth);
             return null;
           }
 
           final isTenantInitialized = currentTenant.isInitialized;
 
+          AppLogger.info('Tenant found for first-time user',
+            category: LogCategory.auth,
+            context: {
+              'tenantId': currentTenant.id,
+              'tenantDomain': currentTenant.domain,
+              'isTenantInitialized': isTenantInitialized,
+            }
+          );
+
+          // ✅ If tenant not initialized, route to appropriate onboarding
           if (!isTenantInitialized) {
-            return AppRoutes.onboarding;
+            // Check if this is a solo tenant (personal email with no domain)
+            final isSoloTenant = currentTenant.domain == null || currentTenant.domain!.isEmpty;
+
+            AppLogger.info('Routing first-time user to onboarding',
+              category: LogCategory.auth,
+              context: {
+                'userRole': authState.user.role.value,
+                'isSoloTenant': isSoloTenant,
+                'tenantDomain': currentTenant.domain,
+                'isFirstLogin': isFirstLogin,
+              }
+            );
+
+            if (isSoloTenant && isAdmin) {
+              // Solo teacher (Gmail user) → 2-step onboarding (grades + subjects only)
+              AppLogger.debug('Redirecting solo teacher to setup wizard',
+                category: LogCategory.auth);
+              return AppRoutes.soloTeacherOnboarding;
+            } else if (!isSoloTenant && isAdmin) {
+              // School admin (first user from domain) → 4-step setup wizard
+              AppLogger.debug('Redirecting school admin to setup wizard',
+                category: LogCategory.auth);
+              return AppRoutes.adminSetupWizard;
+            } else if (!isSoloTenant && isTeacher) {
+              // School teacher (subsequent user from domain) → 3-step onboarding
+              AppLogger.debug('Redirecting school teacher to onboarding',
+                category: LogCategory.auth);
+              return AppRoutes.teacherOnboarding;
+            } else {
+              AppLogger.warning('Unknown onboarding scenario',
+                category: LogCategory.auth,
+                context: {
+                  'userRole': authState.user.role.value,
+                  'isSoloTenant': isSoloTenant,
+                }
+              );
+            }
           } else {
-            return AppRoutes.teacherProfileSetup;
+            // ✅ Tenant initialized, go to profile setup or home
+            if (isTeacher) {
+              return AppRoutes.teacherProfileSetup;
+            }
+            // Admins go to dashboard after initialization
           }
-        } catch (e) {
+        } catch (e, stackTrace) {
+          AppLogger.error('Exception in first-time user redirect',
+            error: e,
+            stackTrace: stackTrace,
+            category: LogCategory.auth,
+            context: {
+              'operation': 'first_time_user_redirect',
+              'errorType': e.runtimeType.toString(),
+            }
+          );
           return null;
         }
       }
@@ -400,6 +482,21 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: AppRoutes.adminSetupWizard,
+        builder: (context, state) {
+          AppLogger.info('Admin accessing setup wizard', category: LogCategory.navigation);
+
+          // Get tenant ID from user state
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+
+          return BlocProvider(
+            create: (_) => sl<AdminSetupBloc>(),
+            child: AdminSetupWizardPage(tenantId: tenantId),
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutes.officeStaffDashboard,
         builder: (context, state) {
           AppLogger.info('Office staff accessing dashboard', category: LogCategory.navigation);
@@ -464,13 +561,22 @@ class AppRouter {
 
       GoRoute(
         path: AppRoutes.teacherOnboarding,
-        builder: (context, state) => MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (_) => GradeBloc(repository: sl())),
-            BlocProvider(create: (_) => sl<SubjectBloc>()),
-          ],
-          child: const TenantOnboardingPage(isTeacherOnboarding: true),
-        ),
+        builder: (context, state) {
+          AppLogger.info('Teacher accessing onboarding wizard', category: LogCategory.navigation);
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+          return TeacherOnboardingPage(tenantId: tenantId);
+        },
+      ),
+
+      GoRoute(
+        path: AppRoutes.soloTeacherOnboarding,
+        builder: (context, state) {
+          AppLogger.info('Solo teacher accessing onboarding wizard', category: LogCategory.navigation);
+          final userStateService = sl<UserStateService>();
+          final tenantId = userStateService.currentTenant?.id ?? '';
+          return SoloTeacherOnboardingPage(tenantId: tenantId);
+        },
       ),
 
       GoRoute(
