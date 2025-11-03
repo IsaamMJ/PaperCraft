@@ -157,16 +157,24 @@ class ValidateStepEvent extends AdminSetupEvent {
   const ValidateStepEvent();
 }
 
-/// Save the complete admin setup with tenant details
-class SaveAdminSetupEvent extends AdminSetupEvent {
-  final String? tenantName;
-  final String? tenantAddress;
+/// Update school name and address
+class UpdateSchoolDetailsEvent extends AdminSetupEvent {
+  final String schoolName;
+  final String schoolAddress;
 
-  const SaveAdminSetupEvent({
-    this.tenantName,
-    this.tenantAddress,
+  const UpdateSchoolDetailsEvent({
+    required this.schoolName,
+    required this.schoolAddress,
   });
 
   @override
-  List<Object?> get props => [tenantName, tenantAddress];
+  List<Object?> get props => [schoolName, schoolAddress];
+}
+
+/// Save the complete admin setup with tenant details
+class SaveAdminSetupEvent extends AdminSetupEvent {
+  const SaveAdminSetupEvent();
+
+  @override
+  List<Object?> get props => [];
 }

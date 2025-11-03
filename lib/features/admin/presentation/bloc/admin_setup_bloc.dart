@@ -34,6 +34,7 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     on<AddSubjectEvent>(_onAddSubject);
     on<RemoveSubjectEvent>(_onRemoveSubject);
     on<UpdateSubjectsEvent>(_onUpdateSubjects);
+    on<UpdateSchoolDetailsEvent>(_onUpdateSchoolDetails);
     on<NextStepEvent>(_onNextStep);
     on<PreviousStepEvent>(_onPreviousStep);
     on<ValidateStepEvent>(_onValidateStep);
@@ -216,6 +217,18 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     emit(AdminSetupUpdated(setupState: _setupState));
   }
 
+  /// Update school name and address
+  Future<void> _onUpdateSchoolDetails(
+    UpdateSchoolDetailsEvent event,
+    Emitter<AdminSetupUIState> emit,
+  ) async {
+    _setupState = _setupState.copyWith(
+      schoolName: event.schoolName,
+      schoolAddress: event.schoolAddress,
+    );
+    emit(AdminSetupUpdated(setupState: _setupState));
+  }
+
   /// Move to next step
   Future<void> _onNextStep(
     NextStepEvent event,
@@ -267,8 +280,8 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
 
     final result = await saveAdminSetupUseCase(
       setupState: _setupState,
-      tenantName: event.tenantName,
-      tenantAddress: event.tenantAddress,
+      tenantName: _setupState.schoolName.isNotEmpty ? _setupState.schoolName : null,
+      tenantAddress: _setupState.schoolAddress.isNotEmpty ? _setupState.schoolAddress : null,
     );
 
     result.fold(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../domain/entities/admin_setup_state.dart' as domain;
 import '../bloc/admin_setup_bloc.dart';
 import '../bloc/admin_setup_event.dart';
@@ -8,6 +9,7 @@ import '../widgets/admin_setup_step1_grades.dart';
 import '../widgets/admin_setup_step2_sections.dart';
 import '../widgets/admin_setup_step3_subjects.dart';
 import '../widgets/admin_setup_step4_review.dart';
+import '../../../../core/presentation/routes/app_routes.dart';
 
 /// Main page for admin setup wizard
 class AdminSetupWizardPage extends StatefulWidget {
@@ -47,8 +49,12 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Setup completed successfully!')),
             );
-            // Navigate to admin dashboard
-            Navigator.of(context).pushReplacementNamed('/admin/dashboard');
+            // Navigate to home using GoRouter (replaces current route)
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (context.mounted) {
+                context.go(AppRoutes.home);
+              }
+            });
           } else if (state is AdminSetupError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.errorMessage)),
@@ -62,6 +68,26 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
         builder: (context, state) {
           if (state is AdminSetupInitial || state is LoadingGrades) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          // Show loading spinner while saving
+          if (state is SavingAdminSetup) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Completing setup...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
 
           // Get current setup state from BLoC

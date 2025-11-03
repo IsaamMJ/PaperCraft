@@ -27,13 +27,29 @@ class _AdminSetupStep1GradesState extends State<AdminSetupStep1Grades> {
     super.initState();
     _tenantNameController = TextEditingController();
     _addressController = TextEditingController();
+
+    // Emit UpdateSchoolDetailsEvent whenever school details change
+    _tenantNameController.addListener(_onSchoolDetailsChanged);
+    _addressController.addListener(_onSchoolDetailsChanged);
   }
 
   @override
   void dispose() {
+    _tenantNameController.removeListener(_onSchoolDetailsChanged);
+    _addressController.removeListener(_onSchoolDetailsChanged);
     _tenantNameController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  /// Emit event to update school details in BLoC state
+  void _onSchoolDetailsChanged() {
+    context.read<AdminSetupBloc>().add(
+      UpdateSchoolDetailsEvent(
+        schoolName: _tenantNameController.text,
+        schoolAddress: _addressController.text,
+      ),
+    );
   }
 
   @override

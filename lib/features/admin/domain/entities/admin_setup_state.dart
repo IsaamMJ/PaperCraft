@@ -4,6 +4,8 @@ import 'admin_setup_grade.dart';
 /// Represents the complete admin setup state during the onboarding wizard
 class AdminSetupState extends Equatable {
   final String tenantId;
+  final String schoolName; // School name from step 1
+  final String schoolAddress; // School address from step 1
   final List<AdminSetupGrade> selectedGrades; // Grades selected in step 1
   final Map<int, List<String>> sectionsPerGrade; // Grade number → sections
   final Map<int, List<String>> subjectsPerGrade; // Grade number → subjects
@@ -12,6 +14,8 @@ class AdminSetupState extends Equatable {
 
   const AdminSetupState({
     required this.tenantId,
+    this.schoolName = '',
+    this.schoolAddress = '',
     this.selectedGrades = const [],
     this.sectionsPerGrade = const {},
     this.subjectsPerGrade = const {},
@@ -104,6 +108,8 @@ class AdminSetupState extends Equatable {
   /// Copy with modified fields
   AdminSetupState copyWith({
     String? tenantId,
+    String? schoolName,
+    String? schoolAddress,
     List<AdminSetupGrade>? selectedGrades,
     Map<int, List<String>>? sectionsPerGrade,
     Map<int, List<String>>? subjectsPerGrade,
@@ -112,6 +118,8 @@ class AdminSetupState extends Equatable {
   }) {
     return AdminSetupState(
       tenantId: tenantId ?? this.tenantId,
+      schoolName: schoolName ?? this.schoolName,
+      schoolAddress: schoolAddress ?? this.schoolAddress,
       selectedGrades: selectedGrades ?? this.selectedGrades,
       sectionsPerGrade: sectionsPerGrade ?? this.sectionsPerGrade,
       subjectsPerGrade: subjectsPerGrade ?? this.subjectsPerGrade,
@@ -123,6 +131,8 @@ class AdminSetupState extends Equatable {
   @override
   List<Object?> get props => [
     tenantId,
+    schoolName,
+    schoolAddress,
     selectedGrades,
     sectionsPerGrade,
     subjectsPerGrade,
