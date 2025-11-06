@@ -120,7 +120,7 @@ flutter_native_splash:
 flutter:
   assets:
     - assets/images/roundedlogo.png
-    - .env
+
 
 
 
