@@ -43,6 +43,22 @@ class AuthConfig {
     return url;
   }
 
+  static String get googleOAuthRedirectUrl {
+    if (kIsWeb) {
+      // For web, use production URL when deployed
+      switch (EnvironmentConfig.current) {
+        case Environment.dev:
+          return 'http://localhost:3000/';
+        case Environment.staging:
+          return 'https://staging-papercraftweb.netlify.app/'; // adjust if you have staging
+        case Environment.prod:
+          return 'https://papercraftweb.netlify.app/';
+      }
+    } else {
+      return _getNativeRedirectUrl();
+    }
+  }
+
   /// Get platform-specific redirect URL for native platforms
   static String _getNativeRedirectUrl() {
     switch (EnvironmentConfig.current) {

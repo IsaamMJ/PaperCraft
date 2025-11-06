@@ -422,7 +422,7 @@ class _AuthModule {
         category: LogCategory.system,
         context: {
           'authProvider': 'supabase_google_oauth',
-          'redirectUrl': AuthConfig.redirectUrl,
+          'redirectUrl': AuthConfig.googleOAuthRedirectUrl,
           'tenantSupport': true,
           'onboardingSupport': true,
           'environment': EnvironmentConfig.current.name,

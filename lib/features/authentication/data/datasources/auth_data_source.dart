@@ -84,7 +84,7 @@ class AuthDataSource {
 
 
     _logger.authEvent('google_signin_started', 'pending', context: {
-      'redirectTo': AuthConfig.redirectUrl,
+      'redirectTo': AuthConfig.googleOAuthRedirectUrl,
       'operationId': operationId,
       'platform': PlatformUtils.platformName,
       'isWeb': kIsWeb,
@@ -93,7 +93,7 @@ class AuthDataSource {
     try {
       final bool launched = await _authProvider.signInWithOAuth(
         provider: OAuthProvider.google,
-        redirectUrl: AuthConfig.redirectUrl,
+        redirectUrl: AuthConfig.googleOAuthRedirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
         queryParams: {
           'prompt': 'select_account',
