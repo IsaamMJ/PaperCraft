@@ -12,6 +12,10 @@ import '../../../paper_workflow/domain/usecases/get_drafts_usecase.dart';
 import '../../../paper_workflow/domain/usecases/get_user_submissions_usecase.dart';
 import '../../../paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
 import '../../../paper_workflow/domain/usecases/get_all_papers_for_admin_usecase.dart';
+import '../../../catalog/domain/repositories/grade_repository.dart';
+import '../../../assignments/domain/repositories/teacher_subject_repository.dart';
+import '../../../catalog/domain/entities/teacher_class.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 
@@ -29,6 +33,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetAllPapersForAdminUseCase _getAllPapersForAdminUseCase;
   final RealtimeService _realtimeService;
   final PaperDisplayService _paperDisplayService;
+  final GradeRepository _gradeRepository;
+  final TeacherSubjectRepository _teacherSubjectRepository;
 
   // Realtime channel names
   static const String _adminChannelName = 'home_admin_papers';
@@ -46,18 +52,23 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required GetAllPapersForAdminUseCase getAllPapersForAdminUseCase,
     required RealtimeService realtimeService,
     required PaperDisplayService paperDisplayService,
+    required GradeRepository gradeRepository,
+    required TeacherSubjectRepository teacherSubjectRepository,
   })  : _getDraftsUseCase = getDraftsUseCase,
         _getSubmissionsUseCase = getSubmissionsUseCase,
         _getPapersForReviewUseCase = getPapersForReviewUseCase,
         _getAllPapersForAdminUseCase = getAllPapersForAdminUseCase,
         _realtimeService = realtimeService,
         _paperDisplayService = paperDisplayService,
+        _gradeRepository = gradeRepository,
+        _teacherSubjectRepository = teacherSubjectRepository,
         super(const HomeLoading(message: 'Initializing...')) {
     on<LoadHomePapers>(_onLoadHomePapers);
     on<RefreshHomePapers>(_onRefreshHomePapers);
     on<EnableRealtimeUpdates>(_onEnableRealtimeUpdates);
     on<DisableRealtimeUpdates>(_onDisableRealtimeUpdates);
     on<PaperRealtimeUpdate>(_onPaperRealtimeUpdate);
+    on<LoadTeacherClasses>(_onLoadTeacherClasses);
   }
 
   @override
@@ -163,6 +174,170 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         // Log error but don't fail
       }
     });
+  }
+
+  Future<void> _onLoadTeacherClasses(
+      LoadTeacherClasses event,
+      Emitter<HomeState> emit,
+      ) async {
+    try {
+      print('[HomeBloc] 🚀 START: Loading teacher classes for userId: ${event.userId}');
+
+      final supabase = Supabase.instance.client;
+
+      // Query teacher_subjects directly (WITHOUT academicYear filter)
+      // Fetches: grade_id, section, subject_id for this teacher
+      print('[HomeBloc] 📋 Step 1: Querying teacher_subjects table');
+      final teacherSubjectsData = await supabase
+          .from('teacher_subjects')
+          .select('grade_id, section, subject_id')
+          .eq('teacher_id', event.userId)
+          .eq('is_active', true);
+
+      print('[HomeBloc] ✅ Step 1 Complete: Found ${(teacherSubjectsData as List).length} records');
+      print('[HomeBloc] Data: $teacherSubjectsData');
+
+      final teacherClasses = <TeacherClass>[];
+
+      if (teacherSubjectsData.isEmpty) {
+        print('[HomeBloc] ⚠️ No teacher_subjects found, emitting empty classes');
+        // No classes assigned
+        if (state is HomeLoaded) {
+          final currentState = state as HomeLoaded;
+          emit(currentState.copyWith(teacherClasses: []));
+        }
+        return;
+      }
+
+      // Collect all unique subject IDs to fetch their names
+      print('[HomeBloc] 📋 Step 2: Extracting unique subject IDs');
+      final subjectIds = <String>{};
+      for (final record in teacherSubjectsData as List) {
+        final subjectId = record['subject_id'] as String;
+        subjectIds.add(subjectId);
+      }
+      print('[HomeBloc] ✅ Found ${subjectIds.length} unique subjects: $subjectIds');
+
+      // Fetch subject names from subjects table (with join to subject_catalog)
+      print('[HomeBloc] 📋 Step 3: Fetching subject names from subjects table');
+      final subjectNamesMap = <String, String>{}; // subjectId -> subjectName
+      if (subjectIds.isNotEmpty) {
+        try {
+          // Query subjects with join to subject_catalog to get subject_name
+          final subjectsData = await supabase
+              .from('subjects')
+              .select('id, subject_catalog(subject_name)')
+              .inFilter('id', subjectIds.toList());
+
+          print('[HomeBloc] ✅ Subjects query returned: ${(subjectsData as List).length} records');
+          print('[HomeBloc] Subject data: $subjectsData');
+
+          for (final record in subjectsData as List) {
+            final id = record['id'] as String;
+            final catalogData = record['subject_catalog'] as Map<String, dynamic>?;
+            final name = catalogData?['subject_name'] as String? ?? 'Unknown Subject';
+            subjectNamesMap[id] = name;
+            print('[HomeBloc]   - $id -> $name');
+          }
+          print('[HomeBloc] ✅ Subject names map: $subjectNamesMap');
+        } catch (e) {
+          print('[HomeBloc] ❌ Error fetching subjects: $e');
+          rethrow;
+        }
+      }
+
+      // Group by grade+section to get unique classes
+      print('[HomeBloc] 📋 Step 4: Grouping by grade+section');
+      final classMap = <String, Set<String>>{}; // "gradeId#section" -> {subject_names}
+      final gradeNumbers = <String, int>{}; // gradeId -> gradeNumber
+
+      for (final record in teacherSubjectsData as List) {
+        final gradeId = record['grade_id'] as String;
+        final section = record['section'] as String;
+        final subjectId = record['subject_id'] as String;
+
+        final classKey = '$gradeId#$section';
+        classMap.putIfAbsent(classKey, () => {});
+
+        // Use subject name if available, otherwise use ID as fallback
+        final subjectName = subjectNamesMap[subjectId] ?? subjectId;
+        print('[HomeBloc]   Adding subject "$subjectName" to class "$classKey"');
+        classMap[classKey]!.add(subjectName);
+      }
+      print('[HomeBloc] ✅ Class map: $classMap');
+
+      // Fetch grade information to get grade numbers
+      print('[HomeBloc] 📋 Step 5: Fetching grade information');
+      final gradesResult = await _gradeRepository.getGrades();
+      await gradesResult.fold(
+        (failure) async {
+          print('[HomeBloc] ⚠️ Failed to fetch grades: $failure');
+          // Use fallback: just use gradeId as number
+        },
+        (grades) async {
+          print('[HomeBloc] ✅ Fetched ${grades.length} grades');
+          for (final grade in grades) {
+            gradeNumbers[grade.id] = grade.gradeNumber;
+            print('[HomeBloc]   - ${grade.id} -> Grade ${grade.gradeNumber}');
+          }
+        },
+      );
+
+      // Build TeacherClass objects
+      print('[HomeBloc] 📋 Step 6: Building TeacherClass objects');
+      for (final entry in classMap.entries) {
+        final parts = entry.key.split('#');
+        final gradeId = parts[0];
+        final section = parts[1];
+        final subjectNames = entry.value.toList();
+        final gradeNumber = gradeNumbers[gradeId] ?? 0;
+
+        print('[HomeBloc]   Building class: grade=$gradeId (gradeNumber=$gradeNumber), section=$section');
+        print('[HomeBloc]   Subjects: $subjectNames');
+
+        if (gradeNumber > 0) {
+          teacherClasses.add(
+            TeacherClass(
+              gradeId: gradeId,
+              gradeNumber: gradeNumber,
+              sectionName: section,
+              subjectNames: subjectNames,
+            ),
+          );
+          print('[HomeBloc]   ✅ Added to teacherClasses');
+        } else {
+          print('[HomeBloc]   ❌ Skipped (gradeNumber is 0)');
+        }
+      }
+
+      // Sort by grade number, then by section name
+      print('[HomeBloc] 📋 Step 7: Sorting ${teacherClasses.length} classes');
+      teacherClasses.sort((a, b) {
+        final gradeCompare = a.gradeNumber.compareTo(b.gradeNumber);
+        if (gradeCompare != 0) return gradeCompare;
+        return a.sectionName.compareTo(b.sectionName);
+      });
+
+      print('[HomeBloc] ✅ Final classes:');
+      for (final cls in teacherClasses) {
+        print('[HomeBloc]   - ${cls.displayName}: ${cls.subjectNames}');
+      }
+
+      // Update current state with classes
+      print('[HomeBloc] 📋 Step 8: Emitting state');
+      if (state is HomeLoaded) {
+        final currentState = state as HomeLoaded;
+        print('[HomeBloc] ✅ State is HomeLoaded, emitting ${teacherClasses.length} classes');
+        emit(currentState.copyWith(teacherClasses: teacherClasses));
+        print('[HomeBloc] 🎉 COMPLETE: Classes emitted successfully');
+      } else {
+        print('[HomeBloc] ❌ State is not HomeLoaded, cannot emit (current state: ${state.runtimeType})');
+      }
+    } catch (e, stackTrace) {
+      print('[HomeBloc] ❌ EXCEPTION: $e');
+      print('[HomeBloc] StackTrace: $stackTrace');
+      // Silently fail - classes are optional enhancement
+    }
   }
 
   /// Process all pending realtime updates in batch

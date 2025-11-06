@@ -9,6 +9,7 @@ class UserEntity {
   final bool isActive;
   final DateTime? lastLoginAt;
   final DateTime createdAt;
+  final bool hasCompletedOnboarding;
 
   const UserEntity({
     required this.id,
@@ -19,6 +20,7 @@ class UserEntity {
     required this.isActive,
     this.lastLoginAt,
     required this.createdAt,
+    this.hasCompletedOnboarding = false,
   });
 
   // Business logic

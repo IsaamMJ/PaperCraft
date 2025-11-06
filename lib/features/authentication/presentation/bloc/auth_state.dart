@@ -18,11 +18,18 @@ class AuthLoading extends AuthState {
 class AuthAuthenticated extends AuthState {
   final UserEntity user;
   final bool isFirstLogin;
+  final bool tenantInitialized; // Tenant has completed admin setup
+  final bool userOnboarded; // User has completed their personal onboarding
 
-  const AuthAuthenticated(this.user, {this.isFirstLogin = false});
+  const AuthAuthenticated(
+    this.user, {
+    this.isFirstLogin = false,
+    this.tenantInitialized = false,
+    this.userOnboarded = false,
+  });
 
   @override
-  List<Object> get props => [user, isFirstLogin];
+  List<Object> get props => [user, isFirstLogin, tenantInitialized, userOnboarded];
 }
 
 class AuthUnauthenticated extends AuthState {

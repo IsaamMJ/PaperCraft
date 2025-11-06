@@ -7,6 +7,7 @@ abstract class AuthRepository {
   Future<Either<AuthFailure, UserEntity?>> initialize();
   Future<Either<AuthFailure, AuthResultEntity>> signInWithGoogle();
   Future<Either<AuthFailure, UserEntity?>> getCurrentUser();
+  Future<Either<AuthFailure, Map<String, dynamic>>> getCurrentUserWithInitStatus();
   Future<Either<AuthFailure, void>> signOut();
 
   Future<Either<AuthFailure, UserEntity?>> getUserById(String userId);

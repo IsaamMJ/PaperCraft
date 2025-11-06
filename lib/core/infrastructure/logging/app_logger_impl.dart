@@ -42,10 +42,8 @@ class AppLoggerImpl implements ILogger {
       FirebaseCrashlytics.instance.setCustomKey('app_version', LoggingConfig.appVersion);
       FirebaseCrashlytics.instance.setCustomKey('platform', PlatformUtils.platformName);
       _crashlyticsAvailable = true;
-      if (kDebugMode) print('✅ Crashlytics initialized successfully');
     } catch (e) {
       _crashlyticsAvailable = false;
-      if (kDebugMode) print('⚠️ Crashlytics not available: $e');
     }
   }
 
@@ -160,7 +158,7 @@ class AppLoggerImpl implements ILogger {
         FirebaseCrashlytics.instance.setUserIdentifier(userId);
         info('User ID set for crash reporting', category: LogCategory.auth, context: {'userId': userId});
       } catch (e) {
-        if (_featureFlags.enableDebugLogging) print('Failed to set user ID: $e');
+        // Silently fail
       }
     }
   }
@@ -171,7 +169,6 @@ class AppLoggerImpl implements ILogger {
       try {
         FirebaseCrashlytics.instance.log('${category.prefix}: $message');
       } catch (e) {
-        if (_featureFlags.enableDebugLogging) print('Failed to add breadcrumb: $e');
       }
     }
     debug('Breadcrumb: $message', category: category);
@@ -258,7 +255,6 @@ class AppLoggerImpl implements ILogger {
       // Clear context keys after recording to prevent accumulation
       _clearContextKeys();
     } catch (e) {
-      if (_featureFlags.enableDebugLogging) print('Failed to send to Crashlytics: $e');
     }
   }
 
@@ -277,7 +273,6 @@ class AppLoggerImpl implements ILogger {
         _activeCustomKeys.remove(key);
       }
     } catch (e) {
-      if (_featureFlags.enableDebugLogging) print('Failed to clear context keys: $e');
     }
   }
 
@@ -296,7 +291,6 @@ class AppLoggerImpl implements ILogger {
       if (_featureFlags.enableDebugLogging) {
       }
     } catch (e) {
-      if (_featureFlags.enableDebugLogging) print('Failed to clear old custom keys: $e');
     }
   }
 }

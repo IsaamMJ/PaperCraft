@@ -31,11 +31,15 @@ class LoadAvailableGradesEvent extends AdminSetupEvent {
 /// Add a grade to the setup
 class AddGradeEvent extends AdminSetupEvent {
   final int gradeNumber;
+  final String gradeId; // Database ID of the grade (optional, for teacher onboarding)
 
-  const AddGradeEvent({required this.gradeNumber});
+  const AddGradeEvent({
+    required this.gradeNumber,
+    this.gradeId = '', // Default empty for admin setup (grades don't exist yet)
+  });
 
   @override
-  List<Object?> get props => [gradeNumber];
+  List<Object?> get props => [gradeNumber, gradeId];
 }
 
 /// Remove a grade from the setup
@@ -140,6 +144,38 @@ class RemoveSubjectEvent extends AdminSetupEvent {
 
   @override
   List<Object?> get props => [gradeNumber, subjectName];
+}
+
+/// Add a subject to a specific grade+section (per-section subject selection)
+class AddSubjectToGradeSectionEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String section;
+  final String subjectName;
+
+  const AddSubjectToGradeSectionEvent({
+    required this.gradeNumber,
+    required this.section,
+    required this.subjectName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, section, subjectName];
+}
+
+/// Remove a subject from a specific grade+section (per-section subject selection)
+class RemoveSubjectFromGradeSectionEvent extends AdminSetupEvent {
+  final int gradeNumber;
+  final String section;
+  final String subjectName;
+
+  const RemoveSubjectFromGradeSectionEvent({
+    required this.gradeNumber,
+    required this.section,
+    required this.subjectName,
+  });
+
+  @override
+  List<Object?> get props => [gradeNumber, section, subjectName];
 }
 
 /// Move to next step in the wizard

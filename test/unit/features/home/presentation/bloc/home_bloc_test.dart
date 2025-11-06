@@ -8,6 +8,7 @@ import 'package:papercraft/core/domain/errors/failures.dart';
 import 'package:papercraft/core/infrastructure/realtime/realtime_service.dart';
 import 'package:papercraft/features/catalog/domain/entities/exam_type.dart';
 import 'package:papercraft/features/catalog/domain/entities/paper_section_entity.dart';
+import 'package:papercraft/features/catalog/domain/repositories/grade_repository.dart';
 import 'package:papercraft/features/home/presentation/bloc/home_bloc.dart';
 import 'package:papercraft/features/home/presentation/bloc/home_event.dart';
 import 'package:papercraft/features/home/presentation/bloc/home_state.dart';
@@ -18,6 +19,7 @@ import 'package:papercraft/features/paper_workflow/domain/usecases/get_all_paper
 import 'package:papercraft/features/paper_workflow/domain/usecases/get_drafts_usecase.dart';
 import 'package:papercraft/features/paper_workflow/domain/usecases/get_papers_for_review_usecase.dart';
 import 'package:papercraft/features/paper_workflow/domain/usecases/get_user_submissions_usecase.dart';
+import 'package:papercraft/features/assignments/domain/repositories/teacher_subject_repository.dart';
 
 // Mock classes
 class MockGetDraftsUseCase extends Mock implements GetDraftsUseCase {}
@@ -26,6 +28,8 @@ class MockGetPapersForReviewUseCase extends Mock implements GetPapersForReviewUs
 class MockGetAllPapersForAdminUseCase extends Mock implements GetAllPapersForAdminUseCase {}
 class MockRealtimeService extends Mock implements RealtimeService {}
 class MockPaperDisplayService extends Mock implements PaperDisplayService {}
+class MockGradeRepository extends Mock implements GradeRepository {}
+class MockTeacherSubjectRepository extends Mock implements TeacherSubjectRepository {}
 
 void main() {
   late HomeBloc homeBloc;
@@ -35,6 +39,8 @@ void main() {
   late MockGetAllPapersForAdminUseCase mockGetAllPapersForAdminUseCase;
   late MockRealtimeService mockRealtimeService;
   late MockPaperDisplayService mockPaperDisplayService;
+  late MockGradeRepository mockGradeRepository;
+  late MockTeacherSubjectRepository mockTeacherSubjectRepository;
 
   // Test data
   late QuestionPaperEntity testDraftPaper;
@@ -52,6 +58,8 @@ void main() {
     mockGetAllPapersForAdminUseCase = MockGetAllPapersForAdminUseCase();
     mockRealtimeService = MockRealtimeService();
     mockPaperDisplayService = MockPaperDisplayService();
+    mockGradeRepository = MockGradeRepository();
+    mockTeacherSubjectRepository = MockTeacherSubjectRepository();
 
     // Setup default stub for unsubscribe to prevent null return errors
     when(() => mockRealtimeService.unsubscribe(any()))
@@ -134,6 +142,8 @@ void main() {
       getAllPapersForAdminUseCase: mockGetAllPapersForAdminUseCase,
       realtimeService: mockRealtimeService,
       paperDisplayService: mockPaperDisplayService,
+      gradeRepository: mockGradeRepository,
+      teacherSubjectRepository: mockTeacherSubjectRepository,
     );
   });
 
@@ -559,6 +569,8 @@ void main() {
           getAllPapersForAdminUseCase: mockGetAllPapersForAdminUseCase,
           realtimeService: mockRealtimeService,
           paperDisplayService: mockPaperDisplayService,
+          gradeRepository: mockGradeRepository,
+          teacherSubjectRepository: mockTeacherSubjectRepository,
         );
 
         await testBloc.close();

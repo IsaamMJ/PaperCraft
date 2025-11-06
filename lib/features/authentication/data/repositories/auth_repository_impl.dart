@@ -5,6 +5,7 @@ import '../../domain/entities/auth_result_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/failures/auth_failures.dart';
 import '../datasources/auth_data_source.dart';
+import '../models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthDataSource _dataSource;
@@ -133,6 +134,26 @@ class AuthRepositoryImpl implements AuthRepository {
     return result.fold(
           (failure) => Left(failure),
           (userModel) => Right(userModel?.toEntity()),
+    );
+  }
+
+  @override
+  Future<Either<AuthFailure, Map<String, dynamic>>> getCurrentUserWithInitStatus() async {
+    final result = await _dataSource.getCurrentUserWithInitStatus();
+
+    return result.fold(
+          (failure) => Left(failure),
+          (data) {
+            if (data.isEmpty) {
+              return const Right({});
+            }
+            // Convert UserModel to UserEntity
+            final userModel = data['user'] as UserModel?;
+            return Right({
+              'user': userModel?.toEntity(),
+              'tenantInitialized': data['tenantInitialized'] as bool? ?? true,
+            });
+          },
     );
   }
 

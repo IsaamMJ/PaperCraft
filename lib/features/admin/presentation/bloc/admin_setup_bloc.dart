@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/admin_setup_grade.dart';
 import '../../domain/entities/admin_setup_state.dart' as domain;
@@ -34,6 +35,8 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     on<AddSubjectEvent>(_onAddSubject);
     on<RemoveSubjectEvent>(_onRemoveSubject);
     on<UpdateSubjectsEvent>(_onUpdateSubjects);
+    on<AddSubjectToGradeSectionEvent>(_onAddSubjectToGradeSection);
+    on<RemoveSubjectFromGradeSectionEvent>(_onRemoveSubjectFromGradeSection);
     on<UpdateSchoolDetailsEvent>(_onUpdateSchoolDetails);
     on<NextStepEvent>(_onNextStep);
     on<PreviousStepEvent>(_onPreviousStep);
@@ -48,8 +51,6 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
   ) async {
     _setupState = domain.AdminSetupState(tenantId: event.tenantId);
     emit(AdminSetupUpdated(setupState: _setupState));
-
-    // Load available grades
     add(LoadAvailableGradesEvent(tenantId: event.tenantId));
   }
 
@@ -66,12 +67,12 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
       (failure) => emit(AdminSetupError(errorMessage: failure.message)),
       (grades) {
         // Create AdminSetupGrade entities for each grade
-        final setupGrades = grades.map((gradeNum) {
+        // Note: setupGrades is built but not used - sections are added later in Step 2
+        grades.map((gradeNum) {
           return AdminSetupGrade(
             gradeId: '', // Will be assigned by DB
             gradeNumber: gradeNum,
             sections: [],
-            subjects: [],
           );
         }).toList();
 
@@ -86,10 +87,9 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     Emitter<AdminSetupUIState> emit,
   ) async {
     final newGrade = AdminSetupGrade(
-      gradeId: '', // Will be assigned by DB
+      gradeId: event.gradeId, // Use the DB ID passed from the event
       gradeNumber: event.gradeNumber,
       sections: [],
-      subjects: [],
     );
 
     _setupState = _setupState.addGrade(newGrade);
@@ -177,14 +177,31 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     AddSubjectEvent event,
     Emitter<AdminSetupUIState> emit,
   ) async {
+    if (kDebugMode) {
+    }
+
     final currentSubjects = _setupState.getSubjectsForGrade(event.gradeNumber);
+    if (kDebugMode) {
+    }
+
     if (!currentSubjects.contains(event.subjectName)) {
       final newSubjects = [...currentSubjects, event.subjectName];
+      if (kDebugMode) {
+      }
+
       _setupState = _setupState.updateSubjectsForGrade(
         event.gradeNumber,
         newSubjects,
       );
+
+      // DEBUG: Show updated state
+      if (kDebugMode) {
+      }
+
       emit(AdminSetupUpdated(setupState: _setupState));
+    } else {
+      if (kDebugMode) {
+      }
     }
   }
 
@@ -217,6 +234,47 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     emit(AdminSetupUpdated(setupState: _setupState));
   }
 
+  /// Add a subject to a specific grade+section (per-section selection)
+  Future<void> _onAddSubjectToGradeSection(
+    AddSubjectToGradeSectionEvent event,
+    Emitter<AdminSetupUIState> emit,
+  ) async {
+    final currentSubjects = _setupState.getSubjectsForGradeSection(
+      event.gradeNumber,
+      event.section,
+    );
+    if (!currentSubjects.contains(event.subjectName)) {
+      final newSubjects = [...currentSubjects, event.subjectName];
+      _setupState = _setupState.updateSubjectsForGradeSection(
+        event.gradeNumber,
+        event.section,
+        newSubjects,
+      );
+      emit(AdminSetupUpdated(setupState: _setupState));
+    }
+  }
+
+  /// Remove a subject from a specific grade+section (per-section selection)
+  Future<void> _onRemoveSubjectFromGradeSection(
+    RemoveSubjectFromGradeSectionEvent event,
+    Emitter<AdminSetupUIState> emit,
+  ) async {
+    final currentSubjects = _setupState.getSubjectsForGradeSection(
+      event.gradeNumber,
+      event.section,
+    );
+    final newSubjects = currentSubjects
+        .where((s) => s != event.subjectName)
+        .toList();
+
+    _setupState = _setupState.updateSubjectsForGradeSection(
+      event.gradeNumber,
+      event.section,
+      newSubjects,
+    );
+    emit(AdminSetupUpdated(setupState: _setupState));
+  }
+
   /// Update school name and address
   Future<void> _onUpdateSchoolDetails(
     UpdateSchoolDetailsEvent event,
@@ -238,8 +296,9 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
       _setupState = _setupState.nextStep();
       emit(AdminSetupUpdated(setupState: _setupState));
     } else {
-      emit(const StepValidationFailed(
-        errorMessage: 'Please complete all required fields',
+      final error = _getValidationError();
+      emit(StepValidationFailed(
+        errorMessage: error,
       ));
     }
   }
@@ -269,6 +328,13 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     SaveAdminSetupEvent event,
     Emitter<AdminSetupUIState> emit,
   ) async {
+    if (_setupState.tenantId.isEmpty) {
+      emit(const AdminSetupError(
+        errorMessage: 'Error: Tenant ID is missing. Please try logging in again.',
+      ));
+      return;
+    }
+
     if (!_setupState.validateCurrentStep()) {
       emit(const StepValidationFailed(
         errorMessage: 'Please complete all required fields',
@@ -301,7 +367,18 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
       case 2:
         return 'Please add sections for all selected grades';
       case 3:
-        return 'Please select subjects for all grades';
+        // Check which grades are missing subjects
+        final gradesMissingSubjects = <int>[];
+        for (final grade in _setupState.selectedGrades) {
+          final subjects = _setupState.subjectsPerGrade[grade.gradeNumber] ?? [];
+          if (subjects.isEmpty) {
+            gradesMissingSubjects.add(grade.gradeNumber);
+          }
+        }
+        if (gradesMissingSubjects.isEmpty) {
+          return 'Please select subjects for all grades';
+        }
+        return 'Please select subjects for: Grade ${gradesMissingSubjects.join(', Grade ')}';
       default:
         return 'Invalid step';
     }

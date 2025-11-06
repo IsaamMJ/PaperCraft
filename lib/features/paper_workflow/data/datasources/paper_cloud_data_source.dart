@@ -108,25 +108,25 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           category: LogCategory.storage,
           context: {'tenantId': tenantId});
 
-      // OPTIMIZATION: Only fetch columns needed for list view
-      // Include questions for accurate question count display in home page
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
+      // Use direct Supabase query to include subject name joins
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .eq('tenant_id', tenantId)
+          .order('submitted_at', ascending: false);
 
-      final response = await _apiClient.select<QuestionPaperModel>(
-        table: _tableName,
-        fromJson: QuestionPaperModel.fromSupabase,
-        filters: {'tenant_id': tenantId},
-        orderBy: 'submitted_at',
-        ascending: false,
-        selectColumns: lightweightColumns,
-      );
+      final response = await queryBuilder;
 
-      if (response.isSuccess) {
-        return response.data!;
-      } else {
-        throw Exception(response.message ?? 'Failed to get papers');
-      }
+      // Parse response data
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      _logger.debug('Fetched all papers for admin',
+          category: LogCategory.storage,
+          context: {'tenantId': tenantId, 'itemCount': items.length});
+
+      return items;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch all papers',
           category: LogCategory.storage,
@@ -149,33 +149,27 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         return cachedData;
       }
 
-      // OPTIMIZATION: Only fetch columns needed for list view
-      // Include questions for accurate question count display
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
+      // Use direct Supabase query to include subject name joins
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved')
+          .order('reviewed_at', ascending: false);
 
-      final response = await _apiClient.select<QuestionPaperModel>(
-        table: _tableName,
-        fromJson: QuestionPaperModel.fromSupabase,
-        filters: {
-          'tenant_id': tenantId,
-          'status': 'approved',
-        },
-        orderBy: 'reviewed_at',
-        ascending: false,
-        selectColumns: lightweightColumns,
-      );
+      final response = await queryBuilder;
 
-      if (response.isSuccess) {
-        // OPTIMIZATION: Cache the result for 5 minutes
-        _cache.set(cacheKey, response.data!, duration: const Duration(minutes: 5));
-        _logger.debug('Cached: getApprovedPapers',
-            category: LogCategory.storage,
-            context: {'tenantId': tenantId, 'itemCount': response.data!.length});
-        return response.data!;
-      } else {
-        throw Exception(response.message ?? 'Failed to get approved papers');
-      }
+      // Parse response data
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      // OPTIMIZATION: Cache the result for 5 minutes
+      _cache.set(cacheKey, items, duration: const Duration(minutes: 5));
+      _logger.debug('Cached: getApprovedPapers',
+          category: LogCategory.storage,
+          context: {'tenantId': tenantId, 'itemCount': items.length});
+      return items;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch approved papers',
           category: LogCategory.storage,
@@ -199,8 +193,9 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       final from = (page - 1) * pageSize;
       final to = from + pageSize - 1;
 
-      // Build query builder with all filters
-      var queryBuilder = Supabase.instance.client.from(_tableName).select();
+      // Build query builder with all filters and subject joins
+      var queryBuilder = Supabase.instance.client.from(_tableName).select(
+          'id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)');
 
       queryBuilder = queryBuilder
           .eq('tenant_id', tenantId)
@@ -273,26 +268,22 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId) async {
     try {
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
+      // Use direct Supabase query to include subject name joins
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .eq('tenant_id', tenantId)
+          .eq('user_id', userId)
+          .order('submitted_at', ascending: false);
 
-      final response = await _apiClient.select<QuestionPaperModel>(
-        table: _tableName,
-        fromJson: QuestionPaperModel.fromSupabase,
-        filters: {
-          'tenant_id': tenantId,
-          'user_id': userId,
-        },
-        orderBy: 'submitted_at',
-        ascending: false,
-        selectColumns: lightweightColumns,
-      );
+      final response = await queryBuilder;
 
-      if (response.isSuccess) {
-        return response.data!;
-      } else {
-        throw Exception(response.message ?? 'Failed to get user submissions');
-      }
+      // Parse response data
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      return items;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch user submissions',
           category: LogCategory.storage,
@@ -305,26 +296,22 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId) async {
     try {
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
+      // Use direct Supabase query to include subject name joins
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'submitted')
+          .order('submitted_at', ascending: false);
 
-      final response = await _apiClient.select<QuestionPaperModel>(
-        table: _tableName,
-        fromJson: QuestionPaperModel.fromSupabase,
-        filters: {
-          'tenant_id': tenantId,
-          'status': 'submitted',
-        },
-        orderBy: 'submitted_at',
-        ascending: false,
-        selectColumns: lightweightColumns,
-      );
+      final response = await queryBuilder;
 
-      if (response.isSuccess) {
-        return response.data!;
-      } else {
-        throw Exception(response.message ?? 'Failed to get papers for review');
-      }
+      // Parse response data
+      final items = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      return items;
     } catch (e, stackTrace) {
       _logger.error('Failed to fetch papers for review',
           category: LogCategory.storage,
@@ -349,14 +336,10 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
             'toDate': toDate.toIso8601String(),
           });
 
-      // Use lightweight columns for list view, include questions for accurate count
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions';
-
-      // Build query using Supabase client directly for date range filtering
+      // Build query using Supabase client directly with subject joins
       var queryBuilder = Supabase.instance.client
           .from(_tableName)
-          .select(lightweightColumns)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
           .eq('tenant_id', tenantId)
           .eq('status', 'approved')
           .gte('exam_date', fromDate.toIso8601String())
@@ -397,36 +380,29 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
         String? userId,
       }) async {
     try {
-      const lightweightColumns = 'id,title,subject_id,grade_id,academic_year,created_at,updated_at,'
-          'status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions';
-
-      final filters = <String, dynamic>{
-        'tenant_id': tenantId,
-      };
+      // Build query with subject joins
+      var queryBuilder = Supabase.instance.client
+          .from(_tableName)
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .eq('tenant_id', tenantId);
 
       if (status != null && status.isNotEmpty) {
-        filters['status'] = status;
+        queryBuilder = queryBuilder.eq('status', status);
       }
 
       if (userId != null && userId.isNotEmpty) {
-        filters['user_id'] = userId;
+        queryBuilder = queryBuilder.eq('user_id', userId);
       }
 
-      final response = await _apiClient.select<QuestionPaperModel>(
-        table: _tableName,
-        fromJson: QuestionPaperModel.fromSupabase,
-        filters: filters,
-        orderBy: 'created_at',
-        ascending: false,
-        selectColumns: lightweightColumns,
-      );
+      // Execute query with order (don't reassign queryBuilder after order())
+      final response = await queryBuilder.order('created_at', ascending: false);
 
-      if (!response.isSuccess) {
-        throw Exception(response.message ?? 'Failed to search papers');
-      }
+      // Parse response data
+      var results = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
 
-      var results = response.data!;
-
+      // Filter by title if provided (client-side filtering after database query)
       if (title != null && title.isNotEmpty) {
         final titleLower = title.toLowerCase();
         results = results.where((paper) =>

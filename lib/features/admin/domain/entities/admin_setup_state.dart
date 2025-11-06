@@ -8,7 +8,9 @@ class AdminSetupState extends Equatable {
   final String schoolAddress; // School address from step 1
   final List<AdminSetupGrade> selectedGrades; // Grades selected in step 1
   final Map<int, List<String>> sectionsPerGrade; // Grade number → sections
-  final Map<int, List<String>> subjectsPerGrade; // Grade number → subjects
+  final Map<int, List<String>> subjectsPerGrade; // Grade number → subjects (kept for compatibility)
+  // NEW: Subjects selected per grade+section. Key format: "gradeNumber:sectionName" (e.g., "10:A")
+  final Map<String, List<String>> subjectsPerGradeSection;
   final int currentStep; // 1, 2, 3, 4
   final bool isInitialized; // Whether setup is complete
 
@@ -19,6 +21,7 @@ class AdminSetupState extends Equatable {
     this.selectedGrades = const [],
     this.sectionsPerGrade = const {},
     this.subjectsPerGrade = const {},
+    this.subjectsPerGradeSection = const {},
     this.currentStep = 1,
     this.isInitialized = false,
   });
@@ -63,6 +66,25 @@ class AdminSetupState extends Equatable {
     return copyWith(subjectsPerGrade: newSubjects);
   }
 
+  /// Update subjects for a specific grade+section (per-section subject selection)
+  /// Key format: "gradeNumber:sectionName" (e.g., "10:A")
+  AdminSetupState updateSubjectsForGradeSection(
+    int gradeNumber,
+    String section,
+    List<String> subjects,
+  ) {
+    final key = '$gradeNumber:$section';
+    final newSubjectsPerSection = Map<String, List<String>>.from(subjectsPerGradeSection);
+    newSubjectsPerSection[key] = subjects;
+    return copyWith(subjectsPerGradeSection: newSubjectsPerSection);
+  }
+
+  /// Get subjects for a specific grade+section
+  List<String> getSubjectsForGradeSection(int gradeNumber, String section) {
+    final key = '$gradeNumber:$section';
+    return subjectsPerGradeSection[key] ?? [];
+  }
+
   /// Move to next step
   AdminSetupState nextStep() {
     return copyWith(currentStep: (currentStep + 1).clamp(1, 4));
@@ -94,7 +116,8 @@ class AdminSetupState extends Equatable {
         return selectedGrades.every((grade) =>
             (sectionsPerGrade[grade.gradeNumber]?.isNotEmpty ?? false));
       case 3:
-        // All selected grades must have at least 1 subject
+        // ADMIN SETUP: All selected grades must have at least 1 subject (global per-grade)
+        // NOTE: Teachers will later assign subjects per-section, but admin defines available subjects per grade
         return selectedGrades.every((grade) =>
             (subjectsPerGrade[grade.gradeNumber]?.isNotEmpty ?? false));
       case 4:
@@ -113,6 +136,7 @@ class AdminSetupState extends Equatable {
     List<AdminSetupGrade>? selectedGrades,
     Map<int, List<String>>? sectionsPerGrade,
     Map<int, List<String>>? subjectsPerGrade,
+    Map<String, List<String>>? subjectsPerGradeSection,
     int? currentStep,
     bool? isInitialized,
   }) {
@@ -123,6 +147,7 @@ class AdminSetupState extends Equatable {
       selectedGrades: selectedGrades ?? this.selectedGrades,
       sectionsPerGrade: sectionsPerGrade ?? this.sectionsPerGrade,
       subjectsPerGrade: subjectsPerGrade ?? this.subjectsPerGrade,
+      subjectsPerGradeSection: subjectsPerGradeSection ?? this.subjectsPerGradeSection,
       currentStep: currentStep ?? this.currentStep,
       isInitialized: isInitialized ?? this.isInitialized,
     );
@@ -136,6 +161,7 @@ class AdminSetupState extends Equatable {
     selectedGrades,
     sectionsPerGrade,
     subjectsPerGrade,
+    subjectsPerGradeSection,
     currentStep,
     isInitialized,
   ];

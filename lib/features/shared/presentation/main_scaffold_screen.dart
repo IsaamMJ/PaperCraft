@@ -64,38 +64,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _checkOnboardingStatus();
-  }
-
-  Future<void> _checkOnboardingStatus() async {
-    if (!mounted) return;
-
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) return;
-
-    if (!widget.userStateService.isAdmin) return;
-
-    final tenant = widget.userStateService.currentTenant;
-
-    if (tenant == null && widget.userStateService.isTenantLoading) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        _checkOnboardingStatus();
-      }
-      return;
-    }
-
-    if (tenant != null && !tenant.isInitialized) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.go(AppRoutes.onboarding);
-        }
-      });
-    }
-  }
 
 
   void _initializeAnimations() {

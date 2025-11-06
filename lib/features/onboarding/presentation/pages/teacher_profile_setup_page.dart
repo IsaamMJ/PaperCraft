@@ -11,7 +11,6 @@ import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
-import '../../../assignments/domain/usecases/save_teacher_assignments_usecase.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
 
@@ -39,70 +38,32 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
   }
 
   Future<void> _submitAssignments() async {
-    if (_selectedGradeIds.isEmpty || _selectedSubjectIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one grade and one subject'),
-          backgroundColor: Color(0xFFFF3B30),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     try {
       final userStateService = sl<UserStateService>();
       final userId = userStateService.currentUserId;
-      final academicYear = userStateService.currentAcademicYear;
 
-      if (userId == null || academicYear == null) {
+      if (userId == null) {
         throw Exception('User information not available');
       }
 
-      // Save teacher assignments
-      final useCase = sl<SaveTeacherAssignmentsUseCase>();
-      final result = await useCase(
-        teacherId: userId,
-        academicYear: academicYear,
-        gradeIds: _selectedGradeIds.toList(),
-        subjectIds: _selectedSubjectIds.toList(),
-      );
+      // Update last login timestamp to mark onboarding as complete
+      await _updateLastLoginAt(userId);
 
-      result.fold(
-        (failure) {
-          AppLogger.warning('Failed to save assignments: ${failure.message}',
-              category: LogCategory.auth,
-              context: {'error': failure.message});
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: ${failure.message}'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-        },
-        (_) async {
-          AppLogger.info('Teacher assignments saved successfully',
-              category: LogCategory.auth,
-              context: {'status': 'success'});
+      if (mounted) {
+        AppLogger.info('Teacher onboarding completed',
+            category: LogCategory.auth,
+            context: {'userId': userId});
 
-          // Update last login timestamp to mark onboarding as complete
-          await _updateLastLoginAt(userId);
+        // Refresh auth state to update isFirstLogin flag
+        context.read<AuthBloc>().add(AuthCheckStatus());
 
-          if (mounted) {
-            // Refresh auth state to update isFirstLogin flag
-            context.read<AuthBloc>().add(AuthCheckStatus());
-
-            // Navigate to home
-            context.go(AppRoutes.home);
-          }
-        },
-      );
+        // Navigate to home
+        context.go(AppRoutes.home);
+      }
     } catch (e) {
-      AppLogger.error('Exception saving assignments',
-          error: e,
+      AppLogger.warning('Error during teacher onboarding: ${e.toString()}',
           category: LogCategory.auth,
           context: {'error': e.toString()});
       if (mounted) {

@@ -114,6 +114,10 @@ void main() {
     when(() => mockUserStateService.clearUser()).thenReturn(null);
     when(() => mockClock.now()).thenReturn(DateTime(2024, 1, 1, 12, 0, 0));
     when(() => mockClock.periodic(any(), any())).thenReturn(Timer(Duration.zero, () {}));
+
+    // Default mock for initialize - prevents unwanted state changes from constructor's microtask
+    when(() => mockAuthUseCase.initialize())
+        .thenAnswer((_) async => const Right(null));
   });
 
   tearDown(() {
@@ -250,8 +254,15 @@ void main() {
       'emits [AuthLoading, AuthAuthenticated] when sign-in succeeds',
       build: () {
         final mockAuthResult = createMockAuthResult(isFirstLogin: false);
+        final mockUser = createMockUser();
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': mockUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
@@ -259,7 +270,7 @@ void main() {
         final mockUser = createMockUser();
         return [
           const AuthLoading(),
-          AuthAuthenticated(mockUser, isFirstLogin: false),
+          AuthAuthenticated(mockUser, isFirstLogin: false, tenantInitialized: false),
         ];
       },
       verify: (_) {
@@ -272,8 +283,15 @@ void main() {
       'emits [AuthLoading, AuthAuthenticated] with isFirstLogin=true for new user',
       build: () {
         final mockAuthResult = createMockAuthResult(isFirstLogin: true);
+        final mockUser = createMockUser();
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': mockUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
@@ -281,7 +299,7 @@ void main() {
         final mockUser = createMockUser();
         return [
           const AuthLoading(),
-          AuthAuthenticated(mockUser, isFirstLogin: true),
+          AuthAuthenticated(mockUser, isFirstLogin: true, tenantInitialized: false),
         ];
       },
       verify: (_) {
@@ -298,6 +316,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -319,6 +338,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -339,6 +359,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -357,6 +378,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -371,8 +393,15 @@ void main() {
       'should prevent multiple OAuth attempts',
       build: () {
         final mockAuthResult = createMockAuthResult();
+        final mockUser = createMockUser();
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': mockUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
       act: (bloc) async {
@@ -385,9 +414,9 @@ void main() {
         final mockUser = createMockUser();
         return [
           const AuthLoading(),
-          AuthAuthenticated(mockUser, isFirstLogin: false),
+          AuthAuthenticated(mockUser, isFirstLogin: false, tenantInitialized: false),
           const AuthLoading(),
-          AuthAuthenticated(mockUser, isFirstLogin: false),
+          AuthAuthenticated(mockUser, isFirstLogin: false, tenantInitialized: false),
         ];
       },
       verify: (_) {
@@ -406,10 +435,11 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
-        // Should not emit error for OAuth redirect
+        // Should not emit error for OAuth redirect - stays in loading
       ],
     );
 
@@ -423,6 +453,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -437,6 +468,7 @@ void main() {
             .thenThrow(Exception('Unexpected error'));
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -610,15 +642,22 @@ void main() {
       'transitions from AuthInitial to AuthAuthenticated on successful login',
       build: () {
         final mockAuthResult = createMockAuthResult();
+        final mockUser = createMockUser();
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': mockUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
       seed: () => const AuthInitial(),
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
-        AuthAuthenticated(createMockUser(), isFirstLogin: false),
+        AuthAuthenticated(createMockUser(), isFirstLogin: false, tenantInitialized: false),
       ],
     );
 
@@ -641,15 +680,22 @@ void main() {
       'can transition from error state to authenticated on retry',
       build: () {
         final mockAuthResult = createMockAuthResult();
+        final mockUser = createMockUser();
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': mockUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
       seed: () => const AuthError('Previous error'),
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
-        AuthAuthenticated(createMockUser(), isFirstLogin: false),
+        AuthAuthenticated(createMockUser(), isFirstLogin: false, tenantInitialized: false),
       ],
     );
 
@@ -718,6 +764,7 @@ void main() {
         );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
@@ -735,12 +782,19 @@ void main() {
         );
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': inactiveUser,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
-        AuthAuthenticated(createMockUser(isActive: false), isFirstLogin: false),
+        AuthAuthenticated(createMockUser(isActive: false), isFirstLogin: false, tenantInitialized: false),
       ],
     );
 
@@ -754,14 +808,22 @@ void main() {
         );
         when(() => mockAuthUseCase.signInWithGoogle())
             .thenAnswer((_) async => Right(mockAuthResult));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
+              (_) async => Right({
+                'user': userWithoutTenant,
+                'tenantInitialized': false,
+              }),
+        );
         return createBloc();
       },
+      seed: () => const AuthUnauthenticated(), // Skip initialization
       act: (bloc) => bloc.add(const AuthSignInGoogle()),
       expect: () => [
         const AuthLoading(),
         AuthAuthenticated(
           createMockUser(tenantId: null),
           isFirstLogin: false,
+          tenantInitialized: false,
         ),
       ],
     );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/admin_setup_state.dart' as domain;
 import '../bloc/admin_setup_bloc.dart';
 import '../bloc/admin_setup_event.dart';
@@ -10,16 +9,21 @@ import '../widgets/admin_setup_step1_grades.dart';
 import '../widgets/admin_setup_step2_sections.dart';
 import '../widgets/admin_setup_step3_subjects.dart';
 import '../widgets/admin_setup_step4_review.dart';
+import '../widgets/admin_setup_loading_modal.dart';
+import '../widgets/admin_setup_success_modal.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_event.dart';
+import '../../../authentication/presentation/bloc/auth_state.dart';
 
 /// Main page for admin setup wizard
 class AdminSetupWizardPage extends StatefulWidget {
   final String tenantId;
 
   const AdminSetupWizardPage({
-    Key? key,
+    super.key,
     required this.tenantId,
-  }) : super(key: key);
+  });
 
   @override
   State<AdminSetupWizardPage> createState() => _AdminSetupWizardPageState();
@@ -27,40 +31,14 @@ class AdminSetupWizardPage extends StatefulWidget {
 
 class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
   late AdminSetupBloc _bloc;
+  late String _tenantId;
 
   @override
   void initState() {
     super.initState();
+    _tenantId = widget.tenantId;
     _bloc = context.read<AdminSetupBloc>();
-
-    // Check if tenant is already initialized
-    // This prevents users from being stuck on this page after setup completes
-    _checkTenantAndNavigate();
-
-    _bloc.add(InitializeAdminSetupEvent(tenantId: widget.tenantId));
-  }
-
-  /// Check if tenant is already initialized and navigate away if so
-  Future<void> _checkTenantAndNavigate() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final tenantData = await supabase
-          .from('tenants')
-          .select('is_initialized')
-          .eq('id', widget.tenantId)
-          .single();
-
-      if (tenantData['is_initialized'] == true && mounted) {
-        // Tenant is already initialized, navigate to home
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            context.go(AppRoutes.home);
-          }
-        });
-      }
-    } catch (e) {
-      // Ignore errors, just continue with the setup
-    }
+    _bloc.add(InitializeAdminSetupEvent(tenantId: _tenantId));
   }
 
   @override
@@ -75,16 +53,29 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
       body: BlocConsumer<AdminSetupBloc, AdminSetupUIState>(
         listener: (context, state) {
           if (state is AdminSetupSaved) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Setup completed successfully!')),
-            );
-            // Navigate to home using GoRouter (replaces current route)
-            // Use a delay to allow the database update to complete and propagate
-            Future.delayed(const Duration(seconds: 1), () {
-              if (context.mounted) {
-                context.go(AppRoutes.home);
-              }
-            });
+            // Update auth state to mark tenant as initialized
+            final authBloc = context.read<AuthBloc>();
+            final currentAuthState = authBloc.state;
+
+            if (currentAuthState is AuthAuthenticated) {
+              // Emit auth state with tenantInitialized=true
+              authBloc.emit(AuthAuthenticated(
+                currentAuthState.user,
+                tenantInitialized: true,
+                userOnboarded: currentAuthState.userOnboarded,
+              ));
+
+              // Trigger another check to refresh auth state from database
+              // This ensures on next login, the fresh value is fetched
+              authBloc.add(const AuthCheckStatus());
+
+              // Show success modal and navigate after delay
+              Future.delayed(const Duration(milliseconds: 1200), () {
+                if (context.mounted) {
+                  context.go(AppRoutes.home);
+                }
+              });
+            }
           } else if (state is AdminSetupError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.errorMessage)),
@@ -100,24 +91,16 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Show loading spinner while saving
+          // Show attractive loading modal while saving
           if (state is SavingAdminSetup) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Completing setup...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+            return const AdminSetupLoadingModal(
+              message: 'Completing setup...',
             );
+          }
+
+          // Show success modal after setup is saved
+          if (state is AdminSetupSaved) {
+            return const AdminSetupSuccessModal();
           }
 
           // Get current setup state from BLoC
@@ -245,7 +228,7 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
       case 3:
         return AdminSetupStep3Subjects(
           selectedGrades: setupState.selectedGrades,
-          subjectsPerGrade: setupState.subjectsPerGrade,
+          subjectsPerGradeSection: setupState.subjectsPerGradeSection,
         );
       case 4:
         return AdminSetupStep4Review(
@@ -295,4 +278,5 @@ class _AdminSetupWizardPageState extends State<AdminSetupWizardPage> {
       ],
     );
   }
+
 }

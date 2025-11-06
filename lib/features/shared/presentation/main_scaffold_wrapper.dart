@@ -6,10 +6,23 @@ import '../../authentication/domain/services/user_state_service.dart';
 import '../../home/presentation/pages/home_page.dart';
 import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_bank/presentation/pages/question_bank_page.dart';
+import '../../../core/presentation/routes/app_routes.dart';
 import 'main_scaffold_screen.dart';
 
-class MainScaffoldWrapper extends StatelessWidget {
+class MainScaffoldWrapper extends StatefulWidget {
   const MainScaffoldWrapper({super.key});
+
+  @override
+  State<MainScaffoldWrapper> createState() => _MainScaffoldWrapperState();
+}
+
+class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialization check moved to AppRouter.redirect() for clean architecture
+    // No widget-level redirect logic needed anymore
+  }
 
   @override
   Widget build(BuildContext context) {

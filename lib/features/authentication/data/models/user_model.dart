@@ -10,6 +10,7 @@ class UserModel {
   final bool isActive;
   final DateTime? lastLoginAt;
   final DateTime createdAt;
+  final bool hasCompletedOnboarding;
 
   const UserModel({
     required this.id,
@@ -20,6 +21,7 @@ class UserModel {
     required this.isActive,
     this.lastLoginAt,
     required this.createdAt,
+    this.hasCompletedOnboarding = false,
   });
 
   UserEntity toEntity() => UserEntity(
@@ -31,6 +33,7 @@ class UserModel {
     isActive: isActive,
     lastLoginAt: lastLoginAt,
     createdAt: createdAt,
+    hasCompletedOnboarding: hasCompletedOnboarding,
   );
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -45,6 +48,10 @@ class UserModel {
           ? DateTime.parse(json['last_login_at'] as String)
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
+      // Check is_onboarded (preferred) or fallback to has_completed_onboarding for backward compatibility
+      hasCompletedOnboarding: json['is_onboarded'] as bool? ??
+                              json['has_completed_onboarding'] as bool? ??
+                              false,
     );
   }
 
@@ -57,5 +64,6 @@ class UserModel {
     'is_active': isActive,
     'last_login_at': lastLoginAt?.toIso8601String(),
     'created_at': createdAt.toIso8601String(),
+    'has_completed_onboarding': hasCompletedOnboarding,
   };
 }

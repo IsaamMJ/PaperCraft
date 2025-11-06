@@ -5,6 +5,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/domain/interfaces/i_auth_provider.dart';
 import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/domain/services/tenant_initialization_service.dart';
 import '../../../../core/infrastructure/config/auth_config.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../../../core/infrastructure/utils/platform_utils.dart';
@@ -16,12 +17,14 @@ class AuthDataSource {
   final ILogger _logger;
   final IAuthProvider _authProvider;
   final IClock _clock;
+  final TenantInitializationService _tenantInitializationService;
 
   AuthDataSource(
     this._apiClient,
     this._logger,
     this._authProvider,
     this._clock,
+    this._tenantInitializationService,
   );
 
   Future<Either<AuthFailure, UserModel?>> initialize() async {
@@ -259,6 +262,49 @@ class AuthDataSource {
     }
   }
 
+  /// Get current user with initialization status
+  /// This is used by AuthBloc to determine which screen to show
+  Future<Either<AuthFailure, Map<String, dynamic>>> getCurrentUserWithInitStatus() async {
+    try {
+      final user = _authProvider.currentUser;
+      if (user == null) {
+        return const Right({});
+      }
+
+      final userResult = await _getUserProfile(user.id);
+
+      if (userResult.isLeft()) {
+        return userResult.fold(
+          (failure) => Left(failure),
+          (_) => const Right({}),
+        );
+      }
+
+      final userModel = userResult.getOrElse(() => null);
+      if (userModel == null) {
+        return const Right({});
+      }
+
+      // Query tenant initialization status using the service
+      bool tenantInitialized = false;
+      if (userModel.tenantId != null) {
+        tenantInitialized = await _tenantInitializationService.isTenantInitialized(
+          userModel.tenantId!,
+        );
+      }
+
+      return Right({
+        'user': userModel,
+        'tenantInitialized': tenantInitialized,
+      });
+    } catch (e) {
+      _logger.authError('Error getting current user with init status', e, context: {
+        'errorType': e.runtimeType.toString(),
+      });
+      return Left(AuthFailure('Failed to get current user: ${e.toString()}'));
+    }
+  }
+
   Future<Either<AuthFailure, UserModel?>> getUserProfileById(String userId) async {
     try {
       _logger.debug('Fetching user profile by ID', category: LogCategory.auth, context: {
@@ -288,6 +334,9 @@ class AuthDataSource {
     try {
       await _signOut();
 
+      // Clear tenant initialization cache on logout
+      _tenantInitializationService.clearCache();
+
       _logger.authEvent('signout_success', currentUserId, context: {
         'completedAt': _clock.now().toIso8601String(),
       });
@@ -297,6 +346,10 @@ class AuthDataSource {
       _logger.authError('Sign out error', e, context: {
         'userId': currentUserId,
       });
+
+      // Still clear cache even if signout had an error
+      _tenantInitializationService.clearCache();
+
       return const Right(null);
     }
   }
@@ -307,17 +360,23 @@ class AuthDataSource {
 
   Future<Either<AuthFailure, UserModel?>> _getUserProfile(String userId) async {
     try {
+      // Get user profile
       final response = await _apiClient.selectSingle<UserModel>(
         table: 'profiles',
         fromJson: UserModel.fromJson,
         filters: {'id': userId},
       );
 
-      if (response.isSuccess) {
-        return Right(response.data);
-      } else {
+      if (!response.isSuccess) {
         return Left(AuthFailure(response.message ?? 'Failed to fetch user profile'));
       }
+
+      final userModel = response.data;
+      if (userModel == null) {
+        return const Right(null);
+      }
+
+      return Right(userModel);
     } catch (e) {
       _logger.authError('Exception fetching user profile', e, context: {
         'userId': userId,

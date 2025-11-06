@@ -1,6 +1,7 @@
 // features/home/presentation/bloc/home_state.dart
 import 'package:equatable/equatable.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../catalog/domain/entities/teacher_class.dart';
 
 abstract class HomeState extends Equatable {
   const HomeState();
@@ -31,6 +32,7 @@ class HomeLoaded extends HomeState {
   final List<QuestionPaperEntity> papersForReview;
   final List<QuestionPaperEntity> allPapersForAdmin;
   final List<QuestionPaperEntity> approvedPapers;
+  final List<TeacherClass> teacherClasses;
 
   const HomeLoaded({
     this.drafts = const [],
@@ -38,6 +40,7 @@ class HomeLoaded extends HomeState {
     this.papersForReview = const [],
     this.allPapersForAdmin = const [],
     this.approvedPapers = const [],
+    this.teacherClasses = const [],
   });
 
   HomeLoaded copyWith({
@@ -46,6 +49,7 @@ class HomeLoaded extends HomeState {
     List<QuestionPaperEntity>? papersForReview,
     List<QuestionPaperEntity>? allPapersForAdmin,
     List<QuestionPaperEntity>? approvedPapers,
+    List<TeacherClass>? teacherClasses,
   }) {
     return HomeLoaded(
       drafts: drafts ?? this.drafts,
@@ -53,6 +57,7 @@ class HomeLoaded extends HomeState {
       papersForReview: papersForReview ?? this.papersForReview,
       allPapersForAdmin: allPapersForAdmin ?? this.allPapersForAdmin,
       approvedPapers: approvedPapers ?? this.approvedPapers,
+      teacherClasses: teacherClasses ?? this.teacherClasses,
     );
   }
 
@@ -63,6 +68,7 @@ class HomeLoaded extends HomeState {
     papersForReview,
     allPapersForAdmin,
     approvedPapers,
+    teacherClasses,
   ];
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/infrastructure/logging/app_logger.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
@@ -14,7 +15,6 @@ import '../../../../core/presentation/widgets/info_box.dart';
 import '../../../../core/presentation/widgets/step_progress_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../assignments/domain/repositories/assignment_repository.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
@@ -52,8 +52,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   List<PaperSectionEntity> _paperSections = [];
   DateTime? _selectedExamDate;
 
-  List<SubjectEntity> _availableSubjects = [];
-  SubjectEntity? _selectedSubject;
+  // Subject management - teacher's assigned subjects for selected grade
+  List<String> _availableSubjects = []; // List of subject names
+  Map<String, String> _subjectNameToIdMap = {}; // Subject name -> Subject ID (UUID)
+  String? _selectedSubject;
+  String? _selectedSubjectId; // Actual UUID
+  bool _isSubjectsLoading = false;
 
   // Exam type fields
   ExamType? _selectedExamType;
@@ -97,65 +101,76 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     final currentUser = userStateService.currentUser;
     final isTeacher = currentUser?.role == UserRole.teacher;
 
-    // Check if teacher has assigned grades/subjects - if not, redirect to setup
-    if (isTeacher && currentUser != null) {
-      _checkTeacherSetupStatus(currentUser.id, userStateService.currentAcademicYear);
+    if (isTeacher) {
+      _loadTeacherAssignedGrades(currentUser!.id);
+    } else {
+      // Admins can see all grades
+      context.read<GradeBloc>().add(const LoadGrades());
     }
-
-    context.read<GradeBloc>().add(LoadAssignedGrades(
-      teacherId: isTeacher ? currentUser?.id : null,
-      academicYear: userStateService.currentAcademicYear,
-    ));
   }
 
-  Future<void> _checkTeacherSetupStatus(String teacherId, String academicYear) async {
+  Future<void> _loadTeacherAssignedGrades(String teacherId) async {
+
     try {
-      final assignmentRepository = sl<AssignmentRepository>();
+      final supabase = Supabase.instance.client;
 
-      // Check if teacher has any assigned grades
-      final gradesResult = await assignmentRepository.getTeacherAssignedGrades(
-        teacherId,
-        academicYear,
-      );
+      // Get unique grades where teacher has assignments
+      final teacherAssignments = await supabase
+          .from('teacher_subjects')
+          .select('grade_id')
+          .eq('teacher_id', teacherId)
+          .select();
 
-      if (gradesResult.isLeft()) {
-        // Error getting grades, continue anyway
+      final gradeIds = <String>{};
+      for (var assignment in teacherAssignments as List) {
+        final gradeId = assignment['grade_id'] as String?;
+        if (gradeId != null) {
+          gradeIds.add(gradeId);
+        }
+      }
+
+
+      if (gradeIds.isEmpty) {
+        setState(() => _availableGrades = []);
         return;
       }
 
-      final grades = gradesResult.fold((_) => null, (g) => g);
+      // Fetch grade details
+      final gradesData = await supabase
+          .from('grades')
+          .select()
+          .inFilter('id', gradeIds.toList());
 
-      if (grades == null || grades.isEmpty) {
-        // Teacher has no assigned grades - redirect to profile setup
-        if (mounted) {
-          AppLogger.info('Teacher has no assigned grades, redirecting to profile setup',
-              category: LogCategory.auth);
-          context.go(AppRoutes.teacherProfileSetup);
+
+      // Convert to GradeEntity objects
+      final grades = <GradeEntity>[];
+      for (var gradeData in gradesData as List) {
+        try {
+          final data = gradeData as Map<String, dynamic>;
+          final grade = GradeEntity(
+            id: data['id'] as String,
+            gradeNumber: data['grade_number'] as int,
+            tenantId: data['tenant_id'] as String,
+            isActive: data['is_active'] as bool? ?? true,
+            createdAt: DateTime.parse(data['created_at'] as String),
+          );
+          grades.add(grade);
+        } catch (e) {
         }
       }
-    } catch (e) {
-      AppLogger.warning('Error checking teacher setup status',
-          category: LogCategory.auth,
-          context: {'error': e.toString()});
-      // Continue anyway on error
+
+
+      setState(() => _availableGrades = grades);
+    } catch (e, stackTrace) {
+      setState(() => _availableGrades = []);
     }
   }
 
-  void _loadSubjectsForSelectedGrade() {
-    final userStateService = sl<UserStateService>();
-    final currentUser = userStateService.currentUser;
-    final isTeacher = currentUser?.role == UserRole.teacher;
-
-    context.read<SubjectBloc>().add(LoadAssignedSubjects(
-      teacherId: isTeacher ? currentUser?.id : null,
-      academicYear: userStateService.currentAcademicYear,
-    ));
-  }
 
   String _generateAutoTitle() {
     if (_selectedSubject != null && _selectedExamDate != null && _selectedGradeLevel != null) {
       final dateStr = DateFormat('dd MMM yyyy').format(_selectedExamDate!);
-      return 'Grade $_selectedGradeLevel ${_selectedSubject!.name} - $dateStr';
+      return 'Grade $_selectedGradeLevel $_selectedSubject - $dateStr';
     }
     return 'Untitled Paper';
   }
@@ -185,10 +200,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         // All metadata must be filled: Grade, Subject, Exam Type, Paper Sections, Date, Class Sections
         return _selectedGradeLevel != null &&
             _selectedSubject != null &&
+            _selectedSubjectId != null &&
             _selectedExamType != null &&
             _paperSections.isNotEmpty &&
             _selectedExamDate != null &&
             !_isSectionsLoading &&
+            !_isSubjectsLoading &&
             (_availableSections.isEmpty || _selectedSections.isNotEmpty);
       default:
         return true;
@@ -217,18 +234,299 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       _selectedGradeLevel = grade.gradeNumber;
       _selectedSections.clear();
       _selectedSubject = null;
+      _selectedSubjectId = null;
       _availableSections.clear();
+      _availableSubjects.clear();
+      _subjectNameToIdMap.clear();
       _isSectionsLoading = true;
+      _isSubjectsLoading = false; // Don't load subjects yet
     });
 
-    context.read<GradeBloc>().add(LoadSectionsByGrade(grade.gradeNumber));
-    _loadSubjectsForSelectedGrade();
+    // Load sections first - subjects will be loaded after sections are selected
+    _loadSectionsForGrade(grade.id);
+  }
+
+  Future<void> _loadSectionsForGrade(String gradeId) async {
+    try {
+      final userStateService = sl<UserStateService>();
+      final currentUser = userStateService.currentUser;
+
+      print('🔍 [CreatePage] _loadSectionsForGrade called');
+      print('   gradeId: $gradeId');
+      print('   currentUser: ${currentUser?.id}');
+
+      if (currentUser == null) {
+        print('❌ [CreatePage] currentUser is null');
+        setState(() {
+          _availableSections = [];
+          _isSectionsLoading = false;
+        });
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+
+      // Load ONLY sections that this teacher is assigned to teach in this grade
+      // Query teacher_subjects table and get unique section names for this grade
+      print('📋 [CreatePage] Querying teacher_subjects table for unique sections');
+      print('   teacher_id: ${currentUser.id}');
+      print('   grade_id: $gradeId');
+
+      final sectionsData = await supabase
+          .from('teacher_subjects')
+          .select('section')
+          .eq('teacher_id', currentUser.id)
+          .eq('grade_id', gradeId)
+          .eq('is_active', true);
+
+      print('✅ [CreatePage] Query result: ${(sectionsData as List).length} records found');
+      print('   Raw data: $sectionsData');
+
+      // Extract unique section names (since there can be multiple subjects per section)
+      final sections = <String>{};
+      for (var record in sectionsData as List) {
+        final section = record['section'] as String?;
+        print('   Processing record: $record -> section: $section');
+        if (section != null) {
+          sections.add(section);
+        }
+      }
+
+      final sectionsList = sections.toList()..sort();
+      print('📊 [CreatePage] Final sections list (unique): $sectionsList');
+
+      setState(() {
+        _availableSections = sectionsList;
+        _isSectionsLoading = false;
+      });
+    } catch (e, stackTrace) {
+      print('❌ [CreatePage] Exception loading sections: $e');
+      print('   StackTrace: $stackTrace');
+      setState(() {
+        _availableSections = [];
+        _isSectionsLoading = false;
+      });
+    }
   }
 
   void _onSectionToggled(String section, bool selected) {
+    print('🎯 [CreatePage] _onSectionToggled called');
+    print('   section: $section, selected: $selected');
+
     setState(() {
       selected ? _selectedSections.add(section) : _selectedSections.remove(section);
+      print('   Updated _selectedSections: $_selectedSections');
     });
+
+    // Load subjects for selected sections
+    if (_selectedSections.isNotEmpty) {
+      print('📚 [CreatePage] Loading subjects for selected sections');
+      _loadSubjectsForSelectedSections();
+    } else {
+      // Clear subjects if no sections selected
+      print('❌ [CreatePage] No sections selected, clearing subjects');
+      setState(() {
+        _availableSubjects.clear();
+        _subjectNameToIdMap.clear();
+        _selectedSubject = null;
+        _selectedSubjectId = null;
+      });
+    }
+  }
+
+  /// Load subjects only for the selected sections (not all sections in grade)
+  Future<void> _loadSubjectsForSelectedSections() async {
+    print('📖 [CreatePage] _loadSubjectsForSelectedSections called');
+    print('   _selectedGradeLevel: $_selectedGradeLevel');
+    print('   _selectedSections: $_selectedSections');
+
+    if (_selectedGradeLevel == null || _selectedSections.isEmpty) {
+      print('❌ [CreatePage] Missing gradeLevel or sections, returning');
+      return;
+    }
+
+    final userStateService = sl<UserStateService>();
+    final currentUser = userStateService.currentUser;
+    final tenantId = currentUser?.tenantId;
+
+    print('   tenantId: $tenantId');
+    print('   _selectedGrade: ${_selectedGrade?.id}');
+
+    if (tenantId == null || _selectedGrade == null) {
+      print('❌ [CreatePage] Missing tenantId or grade, returning');
+      return;
+    }
+
+    setState(() => _isSubjectsLoading = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Step 1: Get teacher's assigned subjects for this grade
+      print('📋 [CreatePage] Step 1: Fetching teacher assignments from teacher_subjects table');
+      print('   teacher_id: ${currentUser!.id}');
+      print('   grade_id: ${_selectedGrade!.id}');
+
+      final teacherAssignments = await supabase
+          .from('teacher_subjects')
+          .select('subject_id')
+          .eq('teacher_id', currentUser!.id)
+          .eq('grade_id', _selectedGrade!.id);
+
+      print('✅ [CreatePage] Teacher assignments fetched: ${(teacherAssignments as List).length} subjects');
+      print('   Raw data: $teacherAssignments');
+
+      final assignedSubjectIds = <String>{};
+      for (var assignment in teacherAssignments as List) {
+        final subjectId = assignment['subject_id'] as String?;
+        print('   Processing assignment: $assignment -> subjectId: $subjectId');
+        if (subjectId != null) {
+          assignedSubjectIds.add(subjectId);
+        }
+      }
+
+      print('📊 [CreatePage] Assigned subject IDs: $assignedSubjectIds');
+
+      if (assignedSubjectIds.isEmpty) {
+        print('⚠️ [CreatePage] No subjects assigned to teacher for this grade');
+        setState(() {
+          _availableSubjects = [];
+          _subjectNameToIdMap = {};
+          _isSubjectsLoading = false;
+        });
+        return;
+      }
+
+      // Step 2: Get subjects offered in the SELECTED sections only
+      // Build a filter for each selected section
+      print('📋 [CreatePage] Step 2: Fetching subjects from grade_section_subject for selected sections');
+      print('   Selected sections: $_selectedSections');
+
+      final selectedSubjectIds = <String>{};
+
+      for (var sectionName in _selectedSections) {
+        print('   Querying section: $sectionName');
+        final gradeSubjectsData = await supabase
+            .from('grade_section_subject')
+            .select('subjects(id, catalog_subject_id)')
+            .eq('tenant_id', tenantId)
+            .eq('grade_id', _selectedGrade!.id)
+            .eq('section', sectionName)
+            .eq('is_offered', true);
+
+        print('   📊 Found ${(gradeSubjectsData as List).length} subjects in section $sectionName');
+
+        for (var record in gradeSubjectsData as List) {
+          final subjectData = record['subjects'] as Map<String, dynamic>?;
+          final subjectId = subjectData?['id'] as String?;
+          print('      Record: $record -> subjectId: $subjectId');
+
+          // Only include subjects that the teacher is assigned to
+          if (subjectId != null && assignedSubjectIds.contains(subjectId)) {
+            print('      ✅ Subject $subjectId is assigned to teacher, adding');
+            selectedSubjectIds.add(subjectId);
+          } else {
+            print('      ❌ Subject $subjectId is NOT assigned to teacher, skipping');
+          }
+        }
+      }
+
+      print('✅ [CreatePage] Selected subject IDs: $selectedSubjectIds');
+
+      if (selectedSubjectIds.isEmpty) {
+        print('⚠️ [CreatePage] No subjects found in selected sections for this teacher');
+        setState(() {
+          _availableSubjects = [];
+          _subjectNameToIdMap = {};
+          _isSubjectsLoading = false;
+        });
+        return;
+      }
+
+      // Step 3: Get catalog IDs for subjects in selected sections
+      print('📋 [CreatePage] Step 3: Fetching catalog IDs from subjects table');
+      print('   Subject IDs: $selectedSubjectIds');
+
+      final subjectData = await supabase
+          .from('subjects')
+          .select('id, catalog_subject_id')
+          .inFilter('id', selectedSubjectIds.toList());
+
+      print('✅ [CreatePage] Subject data fetched: ${(subjectData as List).length} records');
+      print('   Raw data: $subjectData');
+
+      final catalogSubjectIds = <String>{};
+      final subjectIdToCatalogId = <String, String>{};
+
+      for (var record in subjectData as List) {
+        final id = record['id'] as String;
+        final catalogId = record['catalog_subject_id'] as String?;
+        print('   Processing: $record -> catalogId: $catalogId');
+        if (catalogId != null) {
+          catalogSubjectIds.add(catalogId);
+          subjectIdToCatalogId[catalogId] = id;
+        }
+      }
+
+      print('📊 [CreatePage] Catalog subject IDs: $catalogSubjectIds');
+
+      // Step 4: Fetch subject names from catalog
+      print('📋 [CreatePage] Step 4: Fetching subject names from catalog');
+      final catalogSubjectMap = <String, String>{};
+      if (catalogSubjectIds.isNotEmpty) {
+        final catalogData = await supabase
+            .from('subject_catalog')
+            .select('id, subject_name')
+            .inFilter('id', catalogSubjectIds.toList());
+
+        print('✅ [CreatePage] Catalog data fetched: ${(catalogData as List).length} names');
+        print('   Raw data: $catalogData');
+
+        for (var catalog in catalogData as List) {
+          final id = catalog['id'] as String;
+          final name = catalog['subject_name'] as String;
+          print('   Mapping: $id -> $name');
+          catalogSubjectMap[id] = name;
+        }
+      }
+
+      print('📊 [CreatePage] Catalog subject map: $catalogSubjectMap');
+
+      // Step 5: Build display list with name-to-ID mapping
+      print('📋 [CreatePage] Step 5: Building final subject list');
+      final subjectNames = <String>[];
+      final nameToIdMap = <String, String>{};
+
+      for (var catalogId in catalogSubjectIds) {
+        final subjectName = catalogSubjectMap[catalogId];
+        final subjectId = subjectIdToCatalogId[catalogId];
+        print('   Building: catalogId=$catalogId, name=$subjectName, subjectId=$subjectId');
+
+        if (subjectName != null && subjectId != null) {
+          subjectNames.add(subjectName);
+          nameToIdMap[subjectName] = subjectId;
+        }
+      }
+
+      print('✅ [CreatePage] Final subject names: $subjectNames');
+      print('   Final name->ID map: $nameToIdMap');
+
+      setState(() {
+        _availableSubjects = subjectNames;
+        _subjectNameToIdMap = nameToIdMap;
+        _selectedSubject = null;
+        _selectedSubjectId = null;
+        _isSubjectsLoading = false;
+      });
+    } catch (e, stackTrace) {
+      print('❌ [CreatePage] Exception loading subjects: $e');
+      print('   StackTrace: $stackTrace');
+      setState(() {
+        _availableSubjects = [];
+        _subjectNameToIdMap = {};
+        _isSubjectsLoading = false;
+      });
+    }
   }
 
   Future<void> _selectExamDate() async {
@@ -277,63 +575,58 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<GradeBloc, GradeState>(
-          listener: (context, state) {
-            if (state is GradesLoaded) {
-              if (!mounted) return;
-              setState(() => _availableGrades = state.grades);
-            }
-            if (state is SectionsLoaded) {
-              if (!mounted) return;
-              setState(() {
-                _availableSections = state.sections;
-                _isSectionsLoading = false;
-              });
-            }
-            // Handle error state for sections loading
-            if (state is GradeError) {
-              if (!mounted) return;
-              setState(() {
-                _isSectionsLoading = false;
-                _availableSections = [];
-              });
-            }
-          },
-        ),
-        BlocListener<SubjectBloc, SubjectState>(
-          listener: (context, state) {
-            if (state is SubjectsLoaded) {
-              if (!mounted) return;
-              setState(() => _availableSubjects = state.subjects);
-            }
-          },
-        ),
-      ],
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: FadeTransition(
-          opacity: _fadeAnim,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: CustomScrollView(
-              slivers: [
-                _buildAppBar(),
-                SliverPadding(
-                  padding: const EdgeInsets.all(UIConstants.paddingMedium),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _buildProgressIndicator(),
-                      SizedBox(height: UIConstants.spacing24),
-                      _buildCurrentStep(),
-                      SizedBox(height: UIConstants.spacing32),
-                      _buildNavigationButtons(),
-                      const SizedBox(height: 100),
-                    ]),
+    return WillPopScope(
+      onWillPop: _handleBackNavigation,
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<GradeBloc, GradeState>(
+            listener: (context, state) {
+              if (state is GradesLoaded) {
+                if (!mounted) return;
+                setState(() => _availableGrades = state.grades);
+              }
+              if (state is SectionsLoaded) {
+                if (!mounted) return;
+                setState(() {
+                  _availableSections = state.sections;
+                  _isSectionsLoading = false;
+                });
+              }
+              // Handle error state for sections loading
+              if (state is GradeError) {
+                if (!mounted) return;
+                setState(() {
+                  _isSectionsLoading = false;
+                  _availableSections = [];
+                });
+              }
+            },
+          ),
+        ],
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: FadeTransition(
+            opacity: _fadeAnim,
+            child: SlideTransition(
+              position: _slideAnim,
+              child: CustomScrollView(
+                slivers: [
+                  _buildAppBar(),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(UIConstants.paddingMedium),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildProgressIndicator(),
+                        SizedBox(height: UIConstants.spacing24),
+                        _buildCurrentStep(),
+                        SizedBox(height: UIConstants.spacing32),
+                        _buildNavigationButtons(),
+                        const SizedBox(height: 100),
+                      ]),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -459,67 +752,98 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               },
             ),
 
+            // Sections (only show if grade selected)
+            if (_selectedGradeLevel != null) ...[
+              SizedBox(height: UIConstants.spacing24),
+              if (_isSectionsLoading)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary05,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                    border: Border.all(color: AppColors.primary20),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Loading class sections...',
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeMedium,
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_availableSections.isEmpty)
+                const InfoBox(message: 'This paper will apply to all sections')
+              else
+                _buildSectionSelector(),
+            ],
+
             // Subject Selection (only show if grade selected)
             if (_selectedGradeLevel != null) ...[
               SizedBox(height: UIConstants.spacing24),
-              BlocBuilder<SubjectBloc, SubjectState>(
-                builder: (context, state) {
-                  if (state is SubjectLoading) {
-                    return const InfoBox(message: 'Loading subjects...');
-                  }
-
-                  if (state is SubjectError) {
-                    return Text('Error: ${state.message}', style: TextStyle(color: AppColors.error));
-                  }
-
-                  if (_availableSubjects.isEmpty) {
-                    return const InfoBox(message: 'No subjects available for this grade');
-                  }
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Subject',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+              if (_isSubjectsLoading)
+                const InfoBox(message: 'Loading assigned subjects...')
+              else if (_availableSubjects.isEmpty)
+                const InfoBox(message: 'No subjects assigned for this grade')
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Subject',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _availableSubjects.map((subject) {
-                          final isSelected = _selectedSubject?.id == subject.id;
-                          return FilterChip(
-                            label: Text(subject.name),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedSubject = subject;
-                                  _showPatternSelector = false; // Reset pattern selector when subject changes
-                                } else {
-                                  _selectedSubject = null;
-                                  _showPatternSelector = false;
-                                }
-                              });
-                            },
-                            backgroundColor: Colors.transparent,
-                            selectedColor: AppColors.primary.withOpacity(0.2),
-                            side: BorderSide(
-                              color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableSubjects.map((subjectName) {
+                        final isSelected = _selectedSubject == subjectName;
+                        return FilterChip(
+                          label: Text(subjectName),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            final subjectId = _subjectNameToIdMap[subjectName];
+                            setState(() {
+                              if (selected) {
+                                _selectedSubject = subjectName;
+                                _selectedSubjectId = subjectId;
+                                _showPatternSelector = false; // Reset pattern selector when subject changes
+                              } else {
+                                _selectedSubject = null;
+                                _selectedSubjectId = null;
+                                _showPatternSelector = false;
+                              }
+                            });
+                          },
+                          backgroundColor: Colors.transparent,
+                          selectedColor: AppColors.primary.withOpacity(0.2),
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
             ],
 
             // Exam Type Selection (only show if subject selected)
@@ -591,45 +915,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               ),
             ],
 
-            // Sections (only show if grade selected)
-            if (_selectedGradeLevel != null) ...[
-              SizedBox(height: UIConstants.spacing24),
-              if (_isSectionsLoading)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary05,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                    border: Border.all(color: AppColors.primary20),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Loading class sections...',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeMedium,
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (_availableSections.isEmpty)
-                const InfoBox(message: 'This paper will apply to all sections')
-              else
-                _buildSectionSelector(),
-            ],
-
             // Pattern Selector and Section Builder (only show if grade and subject selected)
             if (_selectedGradeLevel != null && _selectedSubject != null) ...[
               SizedBox(height: UIConstants.spacing24),
@@ -691,9 +976,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                         );
                       }
                       return PatternSelectorWidget(
-                        key: ValueKey(_selectedSubject!.id),
+                        key: ValueKey(_selectedSubjectId),
                         teacherId: currentUser.id,
-                        subjectId: _selectedSubject!.id,
+                        subjectId: _selectedSubjectId!,
                         onPatternSelected: (sections) {
                           setState(() => _paperSections = sections);
                         },
@@ -915,11 +1200,28 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     final userStateService = sl<UserStateService>();
     final academicYear = _getAcademicYear(_selectedExamDate!);
 
+    // Create SubjectEntity from selected subject name and ID
+    final tenantId = userStateService.currentUser?.tenantId;
+    if (tenantId == null) {
+      return Container(); // Safety check
+    }
+
+    final selectedSubjectEntity = SubjectEntity(
+      id: _selectedSubjectId!,
+      name: _selectedSubject!,
+      tenantId: tenantId,
+      catalogSubjectId: _selectedSubjectId!,
+      isActive: true,
+      minGrade: _selectedGradeLevel,
+      maxGrade: _selectedGradeLevel,
+      createdAt: DateTime.now(),
+    );
+
     return BlocProvider(
       create: (context) => sl<TeacherPatternBloc>(),
       child: QuestionInputCoordinator(
         paperSections: _paperSections,
-        selectedSubjects: [_selectedSubject!],
+        selectedSubjects: [selectedSubjectEntity],
         paperTitle: autoTitle,
         gradeLevel: _selectedGradeLevel!,
         gradeId: _selectedGrade!.id,
@@ -1072,6 +1374,17 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         ),
       ),
     );
+  }
+
+  /// Handle system back gesture (swipe back)
+  /// Ensures we don't exit the app, but navigate properly instead
+  Future<bool> _handleBackNavigation() async {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+    return false; // Return false to prevent default behavior
   }
 
   void _navigateBack() {

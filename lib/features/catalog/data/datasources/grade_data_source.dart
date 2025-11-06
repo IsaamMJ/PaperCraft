@@ -180,6 +180,7 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<GradeModel> createGrade(GradeModel grade) async {
     try {
+      print('💾 [DS] createGrade: Grade Number=${grade.gradeNumber}, Tenant=${grade.tenantId}');
       _logger.info('Creating grade',
           category: LogCategory.storage,
           context: {
@@ -193,12 +194,14 @@ class GradeDataSourceImpl implements GradeDataSource {
         'is_active': true,
       };
 
+      print('   Sending to Supabase: $data');
       final response = await _supabase
           .from('grades')
           .insert(data)
           .select()
           .single();
 
+      print('✅ [DS] Supabase Response: ${response['id']}');
       _logger.info('Grade created successfully',
           category: LogCategory.storage,
           context: {
@@ -208,6 +211,8 @@ class GradeDataSourceImpl implements GradeDataSource {
 
       return GradeModel.fromJson(response);
     } catch (e, stackTrace) {
+      print('❌ [DS] Supabase Error in createGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to create grade',
           category: LogCategory.storage,
           error: e,
@@ -219,6 +224,7 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<GradeModel> updateGrade(GradeModel grade) async {
     try {
+      print('💾 [DS] updateGrade: ID=${grade.id}, Grade Number=${grade.gradeNumber}');
       _logger.info('Updating grade',
           category: LogCategory.storage,
           context: {
@@ -231,6 +237,7 @@ class GradeDataSourceImpl implements GradeDataSource {
         'is_active': grade.isActive,
       };
 
+      print('   Sending to Supabase: $data');
       final response = await _supabase
           .from('grades')
           .update(data)
@@ -238,6 +245,7 @@ class GradeDataSourceImpl implements GradeDataSource {
           .select()
           .single();
 
+      print('✅ [DS] Supabase Response: ${response['id']}');
       _logger.info('Grade updated successfully',
           category: LogCategory.storage,
           context: {
@@ -247,6 +255,8 @@ class GradeDataSourceImpl implements GradeDataSource {
 
       return GradeModel.fromJson(response);
     } catch (e, stackTrace) {
+      print('❌ [DS] Supabase Error in updateGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to update grade',
           category: LogCategory.storage,
           error: e,
@@ -258,19 +268,24 @@ class GradeDataSourceImpl implements GradeDataSource {
   @override
   Future<void> deleteGrade(String id) async {
     try {
+      print('💾 [DS] deleteGrade: ID=$id');
       _logger.info('Deleting grade',
           category: LogCategory.storage,
           context: {'id': id});
 
+      print('   Sending delete request to Supabase (setting is_active=false)');
       await _supabase
           .from('grades')
           .update({'is_active': false})
           .eq('id', id);
 
+      print('✅ [DS] Supabase Delete Successful for ID=$id');
       _logger.info('Grade deleted successfully',
           category: LogCategory.storage,
           context: {'id': id});
     } catch (e, stackTrace) {
+      print('❌ [DS] Supabase Error in deleteGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to delete grade',
           category: LogCategory.storage,
           error: e,

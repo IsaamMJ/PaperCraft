@@ -157,18 +157,25 @@ class GradeRepositoryImpl implements GradeRepository {
   @override
   Future<Either<Failure, GradeEntity>> createGrade(GradeEntity grade) async {
     try {
+      print('📦 [REPO] createGrade called with: $grade');
       final tenantId = await _getTenantId();
       final userStateService = sl<UserStateService>();
 
+      print('   Tenant ID: $tenantId');
+      print('   Can manage users: ${userStateService.canManageUsers()}');
+
       if (tenantId == null) {
+        print('❌ [REPO] User not authenticated');
         return Left(AuthFailure('User not authenticated'));
       }
 
       if (!userStateService.canManageUsers()) {
+        print('❌ [REPO] User does not have admin privileges');
         return Left(PermissionFailure('Admin privileges required'));
       }
 
       if (grade.gradeNumber < 1 || grade.gradeNumber > 12) {
+        print('❌ [REPO] Invalid grade number: ${grade.gradeNumber}');
         return Left(ValidationFailure('Grade number must be between 1 and 12'));
       }
 
@@ -180,11 +187,15 @@ class GradeRepositoryImpl implements GradeRepository {
         createdAt: DateTime.now(),
       );
 
+      print('   Sending to datasource...');
       final model = GradeModel.fromEntity(gradeWithTenant);
       final createdModel = await _dataSource.createGrade(model);
 
+      print('✅ [REPO] Grade created successfully: ${createdModel.displayName}');
       return Right(createdModel.toEntity());
     } catch (e, stackTrace) {
+      print('❌ [REPO] Exception in createGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to create grade', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to create grade: ${e.toString()}'));
     }
@@ -193,17 +204,25 @@ class GradeRepositoryImpl implements GradeRepository {
   @override
   Future<Either<Failure, GradeEntity>> updateGrade(GradeEntity grade) async {
     try {
+      print('📝 [REPO] updateGrade called with: ${grade.displayName} (ID: ${grade.id})');
       final userStateService = sl<UserStateService>();
 
+      print('   Can manage users: ${userStateService.canManageUsers()}');
+
       if (!userStateService.canManageUsers()) {
+        print('❌ [REPO] User does not have admin privileges');
         return Left(PermissionFailure('Admin privileges required'));
       }
 
+      print('   Sending to datasource...');
       final model = GradeModel.fromEntity(grade);
       final updatedModel = await _dataSource.updateGrade(model);
 
+      print('✅ [REPO] Grade updated successfully: ${updatedModel.displayName}');
       return Right(updatedModel.toEntity());
     } catch (e, stackTrace) {
+      print('❌ [REPO] Exception in updateGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to update grade', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to update grade: ${e.toString()}'));
     }
@@ -212,15 +231,23 @@ class GradeRepositoryImpl implements GradeRepository {
   @override
   Future<Either<Failure, void>> deleteGrade(String id) async {
     try {
+      print('🗑️ [REPO] deleteGrade called with ID: $id');
       final userStateService = sl<UserStateService>();
 
+      print('   Can manage users: ${userStateService.canManageUsers()}');
+
       if (!userStateService.canManageUsers()) {
+        print('❌ [REPO] User does not have admin privileges');
         return Left(PermissionFailure('Admin privileges required'));
       }
 
+      print('   Sending deletion request to datasource...');
       await _dataSource.deleteGrade(id);
+      print('✅ [REPO] Grade deleted successfully (ID: $id)');
       return const Right(null);
     } catch (e, stackTrace) {
+      print('❌ [REPO] Exception in deleteGrade: $e');
+      print('   StackTrace: $stackTrace');
       _logger.error('Failed to delete grade', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to delete grade: ${e.toString()}'));
     }

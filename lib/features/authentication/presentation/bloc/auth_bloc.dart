@@ -5,6 +5,7 @@ import '../../../../core/domain/interfaces/i_auth_provider.dart';
 import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/logging/app_logger.dart';
+import '../../domain/entities/user_entity.dart';
 import '../../domain/services/user_state_service.dart';
 import '../../domain/failures/auth_failures.dart';
 import '../../domain/usecases/auth_usecase.dart';
@@ -175,7 +176,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
-
     AppLogger.blocEvent('AuthBloc', 'initialize_started', context: {
       'previousState': state.runtimeType.toString(),
     });
@@ -183,7 +183,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     try {
-      final result = await _authUseCase.initialize();
+      // Use the same method as _onCheckStatus to get user WITH initialization status
+      // This ensures cold app starts query the database for tenant initialization
+      final result = await _authUseCase.getCurrentUserWithInitStatus();
 
       result.fold(
             (failure) {
@@ -194,20 +196,39 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           });
           emit(const AuthUnauthenticated());
         },
-            (user) {
+            (data) {
+          if (data.isEmpty) {
+            _userStateService.clearUser();
+            AppLogger.authEvent('initialize_success', 'none', context: {
+              'hasUser': false,
+              'reason': 'no_session',
+            });
+            emit(const AuthUnauthenticated());
+            return;
+          }
+
+          final user = data['user'] as UserEntity?;
+          final tenantInitialized = data['tenantInitialized'] as bool? ?? true;
+
           if (user != null) {
             _userStateService.updateUser(user);
             AppLogger.authEvent('initialize_success', user.id, context: {
               'hasUser': true,
               'userName': user.fullName,
               'userEmail': user.email,
+              'tenantInitialized': tenantInitialized,
+              'userOnboarded': user.hasCompletedOnboarding,
             });
-            emit(AuthAuthenticated(user));
+            emit(AuthAuthenticated(
+              user,
+              tenantInitialized: tenantInitialized, // FIXED: Query from database
+              userOnboarded: user.hasCompletedOnboarding,
+            ));
           } else {
             _userStateService.clearUser();
             AppLogger.authEvent('initialize_success', 'none', context: {
               'hasUser': false,
-              'reason': 'no_session',
+              'reason': 'user_null',
             });
             emit(const AuthUnauthenticated());
           }
@@ -300,7 +321,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'completedAt': DateTime.now().toIso8601String(),
           });
 
-          emit(AuthAuthenticated(authResult.user, isFirstLogin: authResult.isFirstLogin));
+          // For now, assume tenant is initialized on login (will be checked by router)
+          // and user may or may not have completed onboarding
+          emit(AuthAuthenticated(
+            authResult.user,
+            isFirstLogin: authResult.isFirstLogin,
+            tenantInitialized: false, // Will be refreshed by AuthCheckStatus below
+            userOnboarded: authResult.user.hasCompletedOnboarding,
+          ));
+
+          // CRITICAL FIX: Immediately refresh auth state to get correct tenant initialization status
+          // Don't rely on the async listener - trigger it explicitly here
+          // This ensures the router evaluates the CORRECT status, not the hardcoded false
+          Future.microtask(() {
+            if (!isClosed) {
+              add(const AuthCheckStatus());
+            }
+          });
         },
       );
     } catch (e) {
@@ -375,8 +412,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     });
 
     try {
-      final result = await _authUseCase.getCurrentUser();
-
+      // Use the new method to get user WITH initialization status
+      final result = await _authUseCase.getCurrentUserWithInitStatus();
 
       result.fold(
             (failure) {
@@ -390,7 +427,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
           emit(const AuthUnauthenticated());
         },
-            (user) {
+            (data) {
+
+          if (data.isEmpty) {
+            _userStateService.clearUser();
+
+            AppLogger.authEvent('status_check_success', 'none', context: {
+              'hasUser': false,
+              'sessionValid': false,
+              'reason': 'no_current_session',
+            });
+
+            emit(const AuthUnauthenticated());
+            return;
+          }
+
+          final user = data['user'] as UserEntity?;
+          final tenantInitialized = data['tenantInitialized'] as bool? ?? true;
 
           if (user != null) {
 
@@ -400,16 +453,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               'hasUser': true,
               'userName': user.fullName,
               'sessionValid': true,
+              'tenantInitialized': tenantInitialized,
+              'userOnboarded': user.hasCompletedOnboarding,
             });
 
-            emit(AuthAuthenticated(user));
+            emit(AuthAuthenticated(
+              user,
+              tenantInitialized: tenantInitialized,
+              userOnboarded: user.hasCompletedOnboarding,
+            ));
           } else {
             _userStateService.clearUser();
 
             AppLogger.authEvent('status_check_success', 'none', context: {
               'hasUser': false,
               'sessionValid': false,
-              'reason': 'no_current_session',
+              'reason': 'user_null',
             });
 
             emit(const AuthUnauthenticated());

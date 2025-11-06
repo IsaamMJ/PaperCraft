@@ -388,6 +388,14 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
           color: AppColors.secondary,
           onTap: () => context.push(AppRoutes.assignmentMatrix),
         ),
+        SizedBox(height: UIConstants.spacing12),
+        _buildActionCard(
+          title: 'Assignments Dashboard',
+          subtitle: 'View grade-section-subject assignments',
+          icon: Icons.assessment,
+          color: Colors.deepPurple,
+          onTap: () => context.push(AppRoutes.adminAssignmentsDashboard),
+        ),
       ],
     );
   }

@@ -41,3 +41,7 @@ class NetworkFailure extends Failure {
 class FileOperationFailure extends Failure {
   const FileOperationFailure(String message, {String? code}) : super(message, code: code);
 }
+
+class StorageFailure extends Failure {
+  const StorageFailure({required String message, String? code}) : super(message, code: code);
+}

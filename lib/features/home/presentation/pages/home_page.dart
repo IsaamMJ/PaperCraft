@@ -22,6 +22,8 @@ import '../../../notifications/presentation/bloc/notification_bloc.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
+import '../widgets/classes_card_section.dart';
+import '../../../catalog/domain/entities/teacher_class.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -114,9 +116,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       userId: isAdmin ? null : authState.user.id,
     ));
 
-    // Load notifications for teachers
+    // Load notifications and classes for teachers
     if (!isAdmin) {
       context.read<NotificationBloc>().add(LoadUnreadCount(authState.user.id));
+      // Load teacher's assigned classes for the classes card section
+      if (authState.user.tenantId != null) {
+        context.read<HomeBloc>().add(
+          LoadTeacherClasses(
+            userId: authState.user.id,
+            tenantId: authState.user.tenantId!,
+          ),
+        );
+      }
     }
   }
 
@@ -377,36 +388,90 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildPapersList(List<QuestionPaperEntity> papers, bool isAdmin) {
-    if (papers.isEmpty) {
-      return _buildEmpty(isAdmin);
-    }
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        final teacherClasses = (state is HomeLoaded) ? state.teacherClasses : <TeacherClass>[];
+        final shouldShowClasses = !isAdmin && teacherClasses.isNotEmpty;
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
+        // If no papers, show classes (if any) and empty state
+        if (papers.isEmpty) {
+          return SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                if (index == 0) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Show classes section for teachers
+                      if (shouldShowClasses) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: ClassesCardSection(
+                            classes: teacherClasses,
+                          ),
+                        ),
+                      ],
+                      // Empty state
+                      SizedBox(
+                        height: 250,
+                        child: EmptyMessageWidget(
+                          icon: Icons.description_outlined,
+                          title: isAdmin ? 'No papers to review' : 'No papers yet',
+                          message: isAdmin
+                              ? 'Papers submitted by teachers will appear here'
+                              : 'Create your first question paper to get started',
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              childCount: 1,
+            ),
+          );
+        }
+
+        // If there are papers, show classes (if any) + papers list
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
             (context, index) {
-          if (index == 0) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    isAdmin ? 'Papers for Review' : 'Your Question Papers',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+              // First item: Classes section (if applicable) or papers heading
+              if (index == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Show classes section for teachers
+                    if (shouldShowClasses) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ClassesCardSection(
+                          classes: teacherClasses,
+                        ),
+                      ),
+                    ],
+                    // Papers section heading
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        isAdmin ? 'Papers for Review' : 'Your Question Papers',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                _buildPaperCard(papers[index]),
-              ],
-            );
-          }
-          return _buildPaperCard(papers[index]);
-        },
-        childCount: papers.length,
-      ),
+                    _buildPaperCard(papers[index]),
+                  ],
+                );
+              }
+              return _buildPaperCard(papers[index]);
+            },
+            childCount: papers.length,
+          ),
+        );
+      },
     );
   }
 

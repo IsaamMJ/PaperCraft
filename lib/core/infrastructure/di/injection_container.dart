@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Core domain interfaces
 import '../../domain/interfaces/i_auth_provider.dart';
 import '../../domain/interfaces/i_clock.dart';
+import '../../domain/services/tenant_initialization_service.dart';
 import '../auth/supabase_auth_provider.dart';
 import '../../../features/authentication/data/datasources/tenant_data_source.dart';
 import '../../../features/authentication/data/datasources/user_data_source.dart';
@@ -28,10 +29,18 @@ import '../../../features/catalog/domain/repositories/teacher_pattern_repository
 import '../../../features/catalog/domain/usecases/get_teacher_patterns_usecase.dart';
 import '../../../features/catalog/domain/usecases/save_teacher_pattern_usecase.dart';
 import '../../../features/catalog/domain/usecases/delete_teacher_pattern_usecase.dart';
-import '../../../features/onboarding/domain/usecases/seed_tenant_usecase.dart';
 import '../../../features/catalog/data/datasources/subject_data_source.dart';
 import '../../../features/catalog/data/repositories/subject_repository_impl.dart';
 import '../../../features/catalog/domain/usecases/get_grades_usecase.dart';
+
+// Grade Section feature imports
+import '../../../features/catalog/presentation/bloc/grade_section_bloc.dart';
+import '../../../features/catalog/domain/repositories/grade_section_repository.dart';
+import '../../../features/catalog/data/repositories/grade_section_repository_impl.dart';
+import '../../../features/catalog/data/datasources/grade_section_remote_datasource.dart';
+import '../../../features/catalog/domain/usecases/load_grade_sections_usecase.dart';
+import '../../../features/catalog/domain/usecases/create_grade_section_usecase.dart';
+import '../../../features/catalog/domain/usecases/delete_grade_section_usecase.dart';
 import '../../../features/paper_review/domain/usecases/approve_paper_usecase.dart';
 import '../../../features/paper_workflow/data/datasources/paper_local_data_source.dart';
 import '../../../features/paper_workflow/domain/services/user_info_service.dart';
@@ -50,6 +59,9 @@ import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.da
 import '../../../features/home/presentation/bloc/home_bloc.dart';
 import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
 import '../../../features/assignments/presentation/bloc/teacher_preferences_bloc.dart';
+import '../../../features/assignments/data/datasources/teacher_subject_remote_datasource.dart';
+import '../../../features/assignments/data/repositories/teacher_subject_repository_impl.dart';
+import '../../../features/assignments/domain/repositories/teacher_subject_repository.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
@@ -62,6 +74,7 @@ import '../config/environment.dart';
 import '../feature_flags/feature_flags_impl.dart';
 import '../logging/app_logger_impl.dart';
 import '../network/network_service_impl.dart';
+import '../services/tenant_initialization_service_impl.dart';
 import '../utils/platform_utils.dart';
 import '../database/hive_database_helper.dart';
 import '../network/api_client.dart';
@@ -87,11 +100,19 @@ import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart
 import '../../../features/catalog/data/repositories/grade_repository_impl.dart';
 import '../../../features/catalog/domain/repositories/grade_repository.dart';
 
+// Grade Subject feature
+import '../../../features/catalog/data/datasources/grade_subject_data_source.dart';
+import '../../../features/catalog/data/repositories/grade_subject_repository_impl.dart';
+import '../../../features/catalog/domain/repositories/grade_subject_repository.dart';
+
 // Assignment feature imports
-import '../../../features/assignments/data/datasources/assignment_data_source.dart';
-import '../../../features/assignments/data/repositories/assignment_repository_impl.dart';
-import '../../../features/assignments/domain/repositories/assignment_repository.dart';
-import '../../../features/assignments/domain/usecases/save_teacher_assignments_usecase.dart';
+import '../../../features/assignments/data/datasources/teacher_assignment_datasource.dart';
+import '../../../features/assignments/data/repositories/teacher_assignment_repository_impl.dart';
+import '../../../features/assignments/domain/repositories/teacher_assignment_repository.dart';
+import '../../../features/assignments/domain/usecases/load_teacher_assignments_usecase.dart';
+import '../../../features/assignments/domain/usecases/save_teacher_assignment_usecase.dart';
+import '../../../features/assignments/domain/usecases/delete_teacher_assignment_usecase.dart';
+import '../../../features/assignments/domain/usecases/get_assignment_stats_usecase.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 
 // Notification feature imports
@@ -113,6 +134,7 @@ import '../../../features/admin/domain/repositories/admin_setup_repository.dart'
 import '../../../features/admin/domain/usecases/get_available_grades_usecase.dart';
 import '../../../features/admin/domain/usecases/get_subject_suggestions_usecase.dart';
 import '../../../features/admin/domain/usecases/save_admin_setup_usecase.dart';
+import '../../../features/admin/domain/usecases/validate_subject_assignment_usecase.dart';
 import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
 
 /// Global service locator instance
@@ -230,6 +252,15 @@ void _registerCoreServices() {
 
   // Cache service (no dependencies)
   sl.registerLazySingleton<CacheService>(() => CacheService());
+
+  // Tenant initialization service
+  // Used by auth layer to check if tenant has completed setup wizard
+  sl.registerLazySingleton<TenantInitializationService>(
+    () => TenantInitializationServiceImpl(
+      supabaseClient: Supabase.instance.client,
+      logger: sl<ILogger>(),
+    ),
+  );
 }
 
 /// Database layer dependencies
@@ -336,6 +367,7 @@ class _AuthModule {
           sl<ILogger>(),
           sl<IAuthProvider>(),
           sl<IClock>(),
+          sl<TenantInitializationService>(),
         ),
       );
 
@@ -374,8 +406,7 @@ class _AuthModule {
         ),
       );
 
-      // Setup onboarding dependencies (after all dependencies are ready)
-      _setupOnboardingDependencies();
+
 
       // Presentation layer (BLoC) - registered as factory for multiple instances
       // Note: AuthBloc is special - it's a singleton because it manages global auth state
@@ -414,23 +445,6 @@ class _AuthModule {
     }
   }
 
-  static void _setupOnboardingDependencies() {
-    sl<ILogger>().debug('Setting up onboarding dependencies', category: LogCategory.auth);
-
-    // Register SeedTenantUseCase
-    sl.registerLazySingleton<SeedTenantUseCase>(
-          () => SeedTenantUseCase(
-        sl<SubjectRepository>(),
-        sl<GradeRepository>(),
-        sl<ILogger>(),
-      ),
-    );
-
-    sl<ILogger>().debug('Onboarding dependencies registered successfully', category: LogCategory.auth, context: {
-      'useCase': 'SeedTenantUseCase',
-      'dependencies': ['SubjectRepository', 'GradeRepository'],
-    });
-  }
 
   static void _setupTenantDependencies() {
     sl<ILogger>().debug('Setting up tenant dependencies', category: LogCategory.auth);
@@ -668,6 +682,8 @@ class _QuestionPapersModule {
       getAllPapersForAdminUseCase: sl(),
       realtimeService: sl(),
       paperDisplayService: sl(),
+      gradeRepository: sl(),
+      teacherSubjectRepository: sl(),
     ));
 
     // Question Bank BLoC - singleton to preserve state across rebuilds
@@ -678,9 +694,8 @@ class _QuestionPapersModule {
     ));
 
     // Teacher preferences BLoC - singleton for global access
-    sl.registerLazySingleton(() => TeacherPreferencesBloc(
-      assignmentRepository: sl(),
-    ));
+    // Note: No longer depends on AssignmentRepository - uses new TeacherAssignmentRepository when needed
+    sl.registerLazySingleton(() => TeacherPreferencesBloc());
 
     sl<ILogger>().debug('Question papers BLoCs registered successfully', category: LogCategory.paper);
   }
@@ -726,6 +741,16 @@ class _GradeModule {
     sl.registerLazySingleton<GradeDataSource>(
           () => GradeDataSourceImpl(Supabase.instance.client, sl<ILogger>(), sl<CacheService>()),
     );
+
+    // Register GradeSectionRemoteDataSource
+    sl.registerLazySingleton<GradeSectionRemoteDataSource>(
+          () => GradeSectionRemoteDataSourceImpl(supabaseClient: Supabase.instance.client),
+    );
+
+    // Register GradeSubjectDataSource
+    sl.registerLazySingleton<GradeSubjectDataSource>(
+          () => GradeSubjectDataSourceImpl(Supabase.instance.client, sl<ILogger>()),
+    );
   }
 
   static void _setupRepositories() {
@@ -733,6 +758,16 @@ class _GradeModule {
 
     sl.registerLazySingleton<GradeRepository>(
           () => GradeRepositoryImpl(sl<GradeDataSource>(), sl<ILogger>()),
+    );
+
+    // Register GradeSectionRepository
+    sl.registerLazySingleton<GradeSectionRepository>(
+          () => GradeSectionRepositoryImpl(remoteDataSource: sl<GradeSectionRemoteDataSource>()),
+    );
+
+    // Register GradeSubjectRepository
+    sl.registerLazySingleton<GradeSubjectRepository>(
+          () => GradeSubjectRepositoryImpl(sl<GradeSubjectDataSource>()),
     );
   }
 
@@ -748,6 +783,17 @@ class _GradeModule {
     // BLoC registration
     sl.registerFactory<GradeBloc>(
           () => GradeBloc(repository: sl<GradeRepository>()),
+    );
+
+    // Register GradeSectionBloc
+    final gradeSectionRepository = sl<GradeSectionRepository>();
+    sl.registerFactory<GradeSectionBloc>(
+      () => GradeSectionBloc(
+        loadGradeSectionsUseCase: LoadGradeSectionsUseCase(repository: gradeSectionRepository),
+        createGradeSectionUseCase: CreateGradeSectionUseCase(repository: gradeSectionRepository),
+        deleteGradeSectionUseCase: DeleteGradeSectionUseCase(repository: gradeSectionRepository),
+        repository: gradeSectionRepository,
+      ),
     );
   }
 }
@@ -792,10 +838,15 @@ class _AssignmentModule {
   static void _setupDataSources() {
     sl<ILogger>().debug('Setting up assignment data sources', category: LogCategory.system);
 
-    sl.registerLazySingleton<AssignmentDataSource>(
-          () => AssignmentDataSourceImpl(
-        Supabase.instance.client,
-        sl<ILogger>(),
+    sl.registerLazySingleton<TeacherAssignmentDataSource>(
+      () => TeacherAssignmentDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
+      ),
+    );
+
+    sl.registerLazySingleton<TeacherSubjectRemoteDataSource>(
+      () => TeacherSubjectRemoteDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
       ),
     );
   }
@@ -803,12 +854,15 @@ class _AssignmentModule {
   static void _setupRepositories() {
     sl<ILogger>().debug('Setting up assignment repositories', category: LogCategory.system);
 
-    sl.registerLazySingleton<AssignmentRepository>(
-          () => AssignmentRepositoryImpl(
-        sl<AssignmentDataSource>(),
-        sl<GradeDataSource>(),
-        sl<SubjectDataSource>(),
-        sl<ILogger>(),
+    sl.registerLazySingleton<TeacherAssignmentRepository>(
+      () => TeacherAssignmentRepositoryImpl(
+        dataSource: sl<TeacherAssignmentDataSource>(),
+      ),
+    );
+
+    sl.registerLazySingleton<TeacherSubjectRepository>(
+      () => TeacherSubjectRepositoryImpl(
+        remoteDataSource: sl<TeacherSubjectRemoteDataSource>(),
       ),
     );
   }
@@ -816,9 +870,27 @@ class _AssignmentModule {
   static void _setupUseCases() {
     sl<ILogger>().debug('Setting up assignment use cases', category: LogCategory.system);
 
-    sl.registerLazySingleton<SaveTeacherAssignmentsUseCase>(
-          () => SaveTeacherAssignmentsUseCase(
-        sl<AssignmentRepository>(),
+    sl.registerLazySingleton<LoadTeacherAssignmentsUseCase>(
+      () => LoadTeacherAssignmentsUseCase(
+        repository: sl<TeacherAssignmentRepository>(),
+      ),
+    );
+
+    sl.registerLazySingleton<SaveTeacherAssignmentUseCase>(
+      () => SaveTeacherAssignmentUseCase(
+        repository: sl<TeacherAssignmentRepository>(),
+      ),
+    );
+
+    sl.registerLazySingleton<DeleteTeacherAssignmentUseCase>(
+      () => DeleteTeacherAssignmentUseCase(
+        repository: sl<TeacherAssignmentRepository>(),
+      ),
+    );
+
+    sl.registerLazySingleton<GetAssignmentStatsUseCase>(
+      () => GetAssignmentStatsUseCase(
+        repository: sl<TeacherAssignmentRepository>(),
       ),
     );
   }
@@ -828,11 +900,11 @@ class _AssignmentModule {
 
     // Register as factory so each page gets its own instance
     sl.registerFactory<TeacherAssignmentBloc>(
-          () => TeacherAssignmentBloc(
-        sl<AssignmentRepository>(),
-        sl<GradeRepository>(),
-        sl<SubjectRepository>(),
-        sl<UserStateService>(),
+      () => TeacherAssignmentBloc(
+        loadTeacherAssignmentsUseCase: sl<LoadTeacherAssignmentsUseCase>(),
+        saveTeacherAssignmentUseCase: sl<SaveTeacherAssignmentUseCase>(),
+        deleteTeacherAssignmentUseCase: sl<DeleteTeacherAssignmentUseCase>(),
+        getAssignmentStatsUseCase: sl<GetAssignmentStatsUseCase>(),
       ),
     );
 
@@ -979,6 +1051,7 @@ class _AdminModule {
     sl.registerLazySingleton(() => SaveAdminSetupUseCase(
       repository: sl<AdminSetupRepository>(),
     ));
+    sl.registerLazySingleton(() => ValidateSubjectAssignmentUseCase());
 
     sl<ILogger>().debug('Admin setup use cases registered successfully', category: LogCategory.system);
   }

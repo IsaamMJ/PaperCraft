@@ -1,319 +1,155 @@
-// features/assignments/presentation/bloc/teacher_assignment_bloc.dart
-import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:equatable/equatable.dart';
-import '../../../../core/domain/errors/failures.dart';
-import '../../../authentication/domain/entities/user_entity.dart';
-import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../catalog/domain/entities/grade_entity.dart';
-import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../catalog/domain/repositories/grade_repository.dart';
-import '../../../catalog/domain/repositories/subject_repository.dart';
-import '../../domain/repositories/assignment_repository.dart';
+import 'package:papercraft/core/domain/errors/failures.dart';
+import '../../domain/entities/teacher_subject_assignment_entity.dart';
+import '../../domain/usecases/delete_teacher_assignment_usecase.dart';
+import '../../domain/usecases/get_assignment_stats_usecase.dart';
+import '../../domain/usecases/load_teacher_assignments_usecase.dart';
+import '../../domain/usecases/save_teacher_assignment_usecase.dart';
+import 'teacher_assignment_event.dart';
+import 'teacher_assignment_state.dart';
 
-// =============== EVENTS ===============
-abstract class TeacherAssignmentEvent extends Equatable {
-  const TeacherAssignmentEvent();
-
-  @override
-  List<Object?> get props => [];
-}
-
-class LoadTeacherAssignments extends TeacherAssignmentEvent {
-  final UserEntity teacher;
-
-  const LoadTeacherAssignments(this.teacher);
-
-  @override
-  List<Object> get props => [teacher];
-}
-
-class AssignGrade extends TeacherAssignmentEvent {
-  final String teacherId;
-  final String gradeId;
-
-  const AssignGrade(this.teacherId, this.gradeId);
-
-  @override
-  List<Object> get props => [teacherId, gradeId];
-}
-
-class RemoveGrade extends TeacherAssignmentEvent {
-  final String teacherId;
-  final String gradeId;
-
-  const RemoveGrade(this.teacherId, this.gradeId);
-
-  @override
-  List<Object> get props => [teacherId, gradeId];
-}
-
-class AssignSubject extends TeacherAssignmentEvent {
-  final String teacherId;
-  final String subjectId;
-
-  const AssignSubject(this.teacherId, this.subjectId);
-
-  @override
-  List<Object> get props => [teacherId, subjectId];
-}
-
-class RemoveSubject extends TeacherAssignmentEvent {
-  final String teacherId;
-  final String subjectId;
-
-  const RemoveSubject(this.teacherId, this.subjectId);
-
-  @override
-  List<Object> get props => [teacherId, subjectId];
-}
-
-// =============== STATES ===============
-abstract class TeacherAssignmentState extends Equatable {
-  const TeacherAssignmentState();
-
-  @override
-  List<Object?> get props => [];
-}
-
-class TeacherAssignmentInitial extends TeacherAssignmentState {}
-
-class TeacherAssignmentLoading extends TeacherAssignmentState {
-  final String? message;
-
-  const TeacherAssignmentLoading({this.message});
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class TeacherAssignmentLoaded extends TeacherAssignmentState {
-  final UserEntity teacher;
-  final List<GradeEntity> assignedGrades;
-  final List<SubjectEntity> assignedSubjects;
-  final List<GradeEntity> availableGrades;
-  final List<SubjectEntity> availableSubjects;
-
-  const TeacherAssignmentLoaded({
-    required this.teacher,
-    required this.assignedGrades,
-    required this.assignedSubjects,
-    required this.availableGrades,
-    required this.availableSubjects,
-  });
-
-  @override
-  List<Object> get props => [
-    teacher,
-    assignedGrades,
-    assignedSubjects,
-    availableGrades,
-    availableSubjects,
-  ];
-}
-
-class TeacherAssignmentError extends TeacherAssignmentState {
-  final String message;
-
-  const TeacherAssignmentError(this.message);
-
-  @override
-  List<Object> get props => [message];
-}
-
-class AssignmentSuccess extends TeacherAssignmentState {
-  final String message;
-
-  const AssignmentSuccess(this.message);
-
-  @override
-  List<Object> get props => [message];
-}
-
-// =============== BLOC ===============
+/// BLoC for managing teacher assignments
+///
+/// Handles loading, saving, deleting, and managing statistics for teacher assignments
+/// Used by: Settings screen, Teacher assignments management page
 class TeacherAssignmentBloc extends Bloc<TeacherAssignmentEvent, TeacherAssignmentState> {
-  final AssignmentRepository _assignmentRepository;
-  final GradeRepository _gradeRepository;
-  final SubjectRepository _subjectRepository;
-  final UserStateService _userStateService;
+  final LoadTeacherAssignmentsUseCase loadTeacherAssignmentsUseCase;
+  final SaveTeacherAssignmentUseCase saveTeacherAssignmentUseCase;
+  final DeleteTeacherAssignmentUseCase deleteTeacherAssignmentUseCase;
+  final GetAssignmentStatsUseCase getAssignmentStatsUseCase;
 
-  TeacherAssignmentBloc(
-      this._assignmentRepository,
-      this._gradeRepository,
-      this._subjectRepository,
-      this._userStateService,
-      ) : super(TeacherAssignmentInitial()) {
-    on<LoadTeacherAssignments>(_onLoadTeacherAssignments);
-    on<AssignGrade>(_onAssignGrade);
-    on<RemoveGrade>(_onRemoveGrade);
-    on<AssignSubject>(_onAssignSubject);
-    on<RemoveSubject>(_onRemoveSubject);
+  TeacherAssignmentBloc({
+    required this.loadTeacherAssignmentsUseCase,
+    required this.saveTeacherAssignmentUseCase,
+    required this.deleteTeacherAssignmentUseCase,
+    required this.getAssignmentStatsUseCase,
+  }) : super(const TeacherAssignmentInitial()) {
+    on<LoadTeacherAssignmentsEvent>(_onLoadTeacherAssignments);
+    on<SaveTeacherAssignmentEvent>(_onSaveTeacherAssignment);
+    on<DeleteTeacherAssignmentEvent>(_onDeleteTeacherAssignment);
+    on<RefreshAssignmentStatsEvent>(_onRefreshAssignmentStats);
+    on<ClearTeacherAssignmentsEvent>(_onClearTeacherAssignments);
   }
 
+  /// Load all teacher assignments
   Future<void> _onLoadTeacherAssignments(
-      LoadTeacherAssignments event,
-      Emitter<TeacherAssignmentState> emit,
-      ) async {
-    emit(const TeacherAssignmentLoading(message: 'Loading assignments...'));
+    LoadTeacherAssignmentsEvent event,
+    Emitter<TeacherAssignmentState> emit,
+  ) async {
+    emit(const TeacherAssignmentsLoading());
 
-    try {
-      final academicYear = _userStateService.currentAcademicYear;
+    final result = await loadTeacherAssignmentsUseCase(
+      tenantId: event.tenantId,
+      teacherId: event.teacherId,
+      academicYear: event.academicYear,
+      activeOnly: event.activeOnly,
+    );
 
-      // Load in parallel
-      final results = await Future.wait([
-        _assignmentRepository.getTeacherAssignedGrades(event.teacher.id, academicYear),
-        _assignmentRepository.getTeacherAssignedSubjects(event.teacher.id, academicYear),
-        _gradeRepository.getGrades(),
-        _subjectRepository.getSubjects(),
-      ]);
-
-      // Extract results with proper typing
-      final assignedGradesResult = results[0] as Either<Failure, List<GradeEntity>>;
-      final assignedSubjectsResult = results[1] as Either<Failure, List<SubjectEntity>>;
-      final allGradesResult = results[2] as Either<Failure, List<GradeEntity>>;
-      final allSubjectsResult = results[3] as Either<Failure, List<SubjectEntity>>;
-
-      // Check for failures
-      if (assignedGradesResult.isLeft() ||
-          assignedSubjectsResult.isLeft() ||
-          allGradesResult.isLeft() ||
-          allSubjectsResult.isLeft()) {
-
-        // Extract error message from first failure
-        String errorMessage = 'Failed to load assignments';
-        assignedGradesResult.fold((failure) => errorMessage = failure.message, (_) {});
-
-        emit(TeacherAssignmentError(errorMessage));
-        return;
+    if (result.isLeft()) {
+      final failure = result.fold<Failure?>((f) => f, (_) => null);
+      if (failure != null) {
+        emit(TeacherAssignmentError(errorMessage: failure.message));
       }
-
-      // Extract successful values
-      final assignedGrades = assignedGradesResult.fold(
-            (_) => <GradeEntity>[],
-            (grades) => grades,
-      );
-
-      final assignedSubjects = assignedSubjectsResult.fold(
-            (_) => <SubjectEntity>[],
-            (subjects) => subjects,
-      );
-
-      final allGrades = allGradesResult.fold(
-            (_) => <GradeEntity>[],
-            (grades) => grades,
-      );
-
-      final allSubjects = allSubjectsResult.fold(
-            (_) => <SubjectEntity>[],
-            (subjects) => subjects,
-      );
-
-
-      emit(TeacherAssignmentLoaded(
-        teacher: event.teacher,
-        assignedGrades: assignedGrades,
-        assignedSubjects: assignedSubjects,
-        availableGrades: allGrades,
-        availableSubjects: allSubjects,
-      ));
-    } catch (e) {
-      emit(TeacherAssignmentError('Error: ${e.toString()}'));
+      return;
     }
+
+    final assignments = result.fold<List<TeacherSubjectAssignmentEntity>>(
+      (_) => [],
+      (a) => a,
+    );
+
+    // Also load stats for the current view
+    final statsResult = await getAssignmentStatsUseCase(
+      tenantId: event.tenantId,
+      academicYear: event.academicYear,
+    );
+
+    statsResult.fold(
+      (failure) {
+        // Emit loaded state without stats if stats loading fails
+        emit(TeacherAssignmentsLoaded(assignments: assignments));
+      },
+      (stats) {
+        emit(TeacherAssignmentsLoaded(
+          assignments: assignments,
+          stats: stats,
+        ));
+      },
+    );
   }
 
-  Future<void> _onAssignGrade(
-      AssignGrade event,
-      Emitter<TeacherAssignmentState> emit,
-      ) async {
-    emit(const TeacherAssignmentLoading(message: 'Assigning grade...'));
+  /// Save or update a teacher assignment
+  Future<void> _onSaveTeacherAssignment(
+    SaveTeacherAssignmentEvent event,
+    Emitter<TeacherAssignmentState> emit,
+  ) async {
 
-    try {
-      final academicYear = _userStateService.currentAcademicYear;
+    final result = await saveTeacherAssignmentUseCase(event.assignment);
 
-      final result = await _assignmentRepository.assignGradeToTeacher(
-        teacherId: event.teacherId,
-        gradeId: event.gradeId,
-        academicYear: academicYear,
-      );
 
-      result.fold(
-        (failure) {
-          emit(TeacherAssignmentError(failure.message));
-        },
-        (_) {
-          emit(const AssignmentSuccess('Grade assigned successfully'));
-        },
-      );
-    } catch (e) {
-      emit(TeacherAssignmentError('Failed to assign grade: ${e.toString()}'));
-    }
+    result.fold(
+      (failure) {
+        // Emit appropriate error state based on failure type
+        if (failure.message.contains('grade') ||
+            failure.message.contains('section') ||
+            failure.message.contains('subject')) {
+          emit(
+            TeacherAssignmentValidationError(
+              errorMessage: failure.message,
+            ),
+          );
+        } else {
+          emit(TeacherAssignmentError(errorMessage: failure.message));
+        }
+      },
+      (_) {
+        emit(const AssignmentSaved());
+      },
+    );
   }
 
-  Future<void> _onRemoveGrade(
-      RemoveGrade event,
-      Emitter<TeacherAssignmentState> emit,
-      ) async {
-    emit(const TeacherAssignmentLoading(message: 'Removing grade...'));
+  /// Delete a teacher assignment
+  Future<void> _onDeleteTeacherAssignment(
+    DeleteTeacherAssignmentEvent event,
+    Emitter<TeacherAssignmentState> emit,
+  ) async {
+    final result = await deleteTeacherAssignmentUseCase(event.assignmentId);
 
-    final academicYear = _userStateService.currentAcademicYear;
+    result.fold(
+      (failure) => emit(
+        TeacherAssignmentError(errorMessage: failure.message),
+      ),
+      (_) {
+        emit(const AssignmentDeleted());
+      },
+    );
+  }
 
-    final result = await _assignmentRepository.removeGradeAssignment(
-      teacherId: event.teacherId,
-      gradeId: event.gradeId,
-      academicYear: academicYear,
+  /// Refresh assignment statistics
+  Future<void> _onRefreshAssignmentStats(
+    RefreshAssignmentStatsEvent event,
+    Emitter<TeacherAssignmentState> emit,
+  ) async {
+    final result = await getAssignmentStatsUseCase(
+      tenantId: event.tenantId,
+      academicYear: event.academicYear,
     );
 
     result.fold(
-          (failure) => emit(TeacherAssignmentError(failure.message)),
-          (_) => emit(const AssignmentSuccess('Grade removed successfully')),
+      (failure) => emit(
+        TeacherAssignmentError(errorMessage: failure.message),
+      ),
+      (stats) {
+        emit(AssignmentStatsRefreshed(stats: stats));
+      },
     );
   }
 
-  Future<void> _onAssignSubject(
-      AssignSubject event,
-      Emitter<TeacherAssignmentState> emit,
-      ) async {
-    emit(const TeacherAssignmentLoading(message: 'Assigning subject...'));
-
-    try {
-      final academicYear = _userStateService.currentAcademicYear;
-
-      final result = await _assignmentRepository.assignSubjectToTeacher(
-        teacherId: event.teacherId,
-        subjectId: event.subjectId,
-        academicYear: academicYear,
-      );
-
-      result.fold(
-        (failure) {
-          emit(TeacherAssignmentError(failure.message));
-        },
-        (_) {
-          emit(const AssignmentSuccess('Subject assigned successfully'));
-        },
-      );
-    } catch (e) {
-      emit(TeacherAssignmentError('Failed to assign subject: ${e.toString()}'));
-    }
-  }
-
-  Future<void> _onRemoveSubject(
-      RemoveSubject event,
-      Emitter<TeacherAssignmentState> emit,
-      ) async {
-    emit(const TeacherAssignmentLoading(message: 'Removing subject...'));
-
-    final academicYear = _userStateService.currentAcademicYear;
-
-    final result = await _assignmentRepository.removeSubjectAssignment(
-      teacherId: event.teacherId,
-      subjectId: event.subjectId,
-      academicYear: academicYear,
-    );
-
-    result.fold(
-          (failure) => emit(TeacherAssignmentError(failure.message)),
-          (_) => emit(const AssignmentSuccess('Subject removed successfully')),
-    );
+  /// Clear all state
+  Future<void> _onClearTeacherAssignments(
+    ClearTeacherAssignmentsEvent event,
+    Emitter<TeacherAssignmentState> emit,
+  ) async {
+    emit(const TeacherAssignmentCleared());
   }
 }

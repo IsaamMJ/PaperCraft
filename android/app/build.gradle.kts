@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
@@ -49,7 +49,7 @@ android {
         }
     }
 
-    // ✅ Added flavors
+    // âœ… Added flavors
     flavorDimensions += "env"
 
     productFlavors {

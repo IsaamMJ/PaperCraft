@@ -55,6 +55,20 @@ class DisableRealtimeUpdates extends HomeEvent {
   const DisableRealtimeUpdates();
 }
 
+/// Load teacher's assigned classes (grades and sections)
+class LoadTeacherClasses extends HomeEvent {
+  final String userId;
+  final String tenantId;
+
+  const LoadTeacherClasses({
+    required this.userId,
+    required this.tenantId,
+  });
+
+  @override
+  List<Object?> get props => [userId, tenantId];
+}
+
 /// Type-safe enum for realtime event types
 enum RealtimeEventType {
   insert,

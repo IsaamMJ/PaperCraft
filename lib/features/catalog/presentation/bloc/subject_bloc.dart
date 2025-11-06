@@ -30,6 +30,19 @@ class LoadSubjectsByGrade extends SubjectEvent {
   List<Object> get props => [gradeLevel];
 }
 
+class LoadSubjectsByGradeAndSection extends SubjectEvent {
+  final String tenantId;
+  final String gradeId;
+  final String section;
+  const LoadSubjectsByGradeAndSection({
+    required this.tenantId,
+    required this.gradeId,
+    required this.section,
+  });
+  @override
+  List<Object> get props => [tenantId, gradeId, section];
+}
+
 class LoadSubjectById extends SubjectEvent {
   final String subjectId;
   const LoadSubjectById(this.subjectId);
@@ -110,6 +123,13 @@ class SubjectsByGradeLoaded extends SubjectState {
   List<Object> get props => [gradeLevel, subjects];
 }
 
+class SubjectsByGradeAndSectionLoaded extends SubjectState {
+  final List<SubjectCatalogModel> subjects;
+  const SubjectsByGradeAndSectionLoaded(this.subjects);
+  @override
+  List<Object> get props => [subjects];
+}
+
 class SubjectLoaded extends SubjectState {
   final SubjectEntity? subject;
   final String subjectId;
@@ -168,6 +188,7 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
     on<LoadSubjectsByGrade>(_onLoadSubjectsByGrade);
     on<LoadSubjectById>(_onLoadSubjectById);
     on<LoadAssignedSubjects>(_onLoadAssignedSubjects); // NEW HANDLER
+    on<LoadSubjectsByGradeAndSection>(_onLoadSubjectsByGradeAndSection);
     on<CreateSubject>(_onCreateSubject);
     on<UpdateSubject>(_onUpdateSubject);
     on<DeleteSubject>(_onDeleteSubject);
@@ -237,6 +258,28 @@ class SubjectBloc extends Bloc<SubjectEvent, SubjectState> {
           (failure) => emit(SubjectError(failure.message)),
           (subjects) => emit(SubjectsLoaded(subjects)),
     );
+  }
+
+  // =============== NEW: SUBJECTS BY GRADE AND SECTION HANDLER ===============
+  Future<void> _onLoadSubjectsByGradeAndSection(
+      LoadSubjectsByGradeAndSection event,
+      Emitter<SubjectState> emit,
+      ) async {
+    emit(const SubjectLoading(
+        message: 'Loading subjects for grade and section...'));
+
+    try {
+      final dataSource = sl<SubjectDataSource>();
+      final subjects = await dataSource.getSubjectsByGradeAndSection(
+        event.tenantId,
+        event.gradeId,
+        event.section,
+      );
+      emit(SubjectsByGradeAndSectionLoaded(subjects));
+    } catch (e) {
+      emit(SubjectError(
+          'Failed to load subjects: ${e.toString()}'));
+    }
   }
 
   Future<void> _onCreateSubject(CreateSubject event, Emitter<SubjectState> emit) async {

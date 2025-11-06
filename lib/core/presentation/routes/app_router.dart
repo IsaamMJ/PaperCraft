@@ -8,12 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
 import '../../../features/admin/presentation/pages/admin_setup_wizard_page.dart';
+import '../../../features/admin/presentation/pages/admin_assignments_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/office_staff/presentation/pages/office_staff_dashboard_page.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
-import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page.dart';
-import '../../../features/assignments/presentation/pages/teacher_assignment_management_page.dart';
-import '../../../features/assignments/presentation/pages/teacher_assignment_matrix_page.dart';
+import '../../../features/assignments/presentation/bloc/teacher_assignment_event.dart';
+import '../../../features/assignments/presentation/pages/teacher_assignments_dashboard_page.dart';
+import '../../../features/assignments/presentation/pages/teacher_assignment_detail_page_new.dart';
 import '../../../features/catalog/presentation/bloc/grade_bloc.dart';
 import '../../../features/catalog/presentation/bloc/subject_bloc.dart';
 import '../../../features/catalog/presentation/bloc/teacher_pattern_bloc.dart';
@@ -22,7 +23,6 @@ import '../../../features/catalog/presentation/pages/subject_management_page.dar
 import '../../../features/catalog/presentation/pages/user_management_page.dart';
 import '../../../features/onboarding/presentation/pages/teacher_profile_setup_page.dart';
 import '../../../features/onboarding/presentation/pages/teacher_onboarding_page.dart';
-import '../../../features/onboarding/presentation/pages/solo_teacher_onboarding_page.dart';
 import '../../../features/paper_review/presentation/pages/paper_review_page.dart';
 import '../../../features/paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../features/notifications/presentation/bloc/notification_bloc.dart';
@@ -45,6 +45,7 @@ import '../../../features/exams/presentation/bloc/exam_timetable_bloc.dart';
 
 // Admin Setup
 import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
+import '../../../features/admin/domain/entities/admin_setup_state.dart';
 
 import '../../domain/interfaces/i_logger.dart';
 import '../../infrastructure/di/injection_container.dart';
@@ -53,6 +54,7 @@ import '../../infrastructure/feature_flags/feature_flags.dart';
 
 // Authentication
 import '../../../features/authentication/domain/services/user_state_service.dart';
+import '../../../features/authentication/domain/entities/user_entity.dart';
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../../../features/authentication/presentation/bloc/auth_event.dart';
 import '../../../features/authentication/presentation/bloc/auth_state.dart';
@@ -69,6 +71,25 @@ import '../constants/app_messages.dart';
 import 'app_routes.dart';
 
 class AppRouter {
+  /// Helper function to extract tenantId from AuthBloc state
+  /// This is more reliable than UserStateService which is async
+  static String _getTenantIdFromAuth(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.tenantId ?? '';
+    }
+    return '';
+  }
+
+  /// Helper function to extract userId from AuthBloc state
+  static String _getUserIdFromAuth(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.id;
+    }
+    return '';
+  }
+
   static GoRouter createRouter(AuthBloc authBloc) {
     AppLogger.info('Creating app router', category: LogCategory.navigation);
 
@@ -117,114 +138,23 @@ class AppRouter {
       return AppRoutes.home;
     }
 
-    // Handle first-time user login with onboarding
+    // For authenticated users, check initialization status and route accordingly
     if (authState is AuthAuthenticated) {
-      final isFirstLogin = authState.isFirstLogin;
-      final isAdmin = authState.user.isAdmin;
-      final isTeacher = authState.user.isTeacher;
-
-      // If user is on any onboarding or profile setup route, don't redirect them away
-      // Let the page logic handle navigation based on tenant initialization state
-      if (currentLocation == AppRoutes.adminSetupWizard ||
-          currentLocation == AppRoutes.teacherOnboarding ||
-          currentLocation == AppRoutes.soloTeacherOnboarding ||
-          currentLocation == AppRoutes.teacherProfileSetup ||
-          currentLocation == AppRoutes.home) {
-        return null;
+      // LEVEL 1: Tenant initialization (highest priority)
+      // If tenant is not initialized, redirect to admin setup wizard
+      // Only admins should see the admin setup wizard
+      if (!authState.tenantInitialized && authState.user.role.value == 'admin') {
+        return AppRoutes.adminSetupWizard;
       }
 
-      // Redirect on first login if tenant not initialized
-      if (isFirstLogin) {
-        try {
-          final userStateService = sl<UserStateService>();
-          final currentTenant = userStateService.currentTenant;
-
-          AppLogger.info('First-time user redirect check',
-            category: LogCategory.auth,
-            context: {
-              'hasTenant': currentTenant != null,
-              'tenantId': currentTenant?.id,
-              'tenantDomain': currentTenant?.domain,
-              'currentLocation': currentLocation,
-            }
-          );
-
-          if (currentTenant == null) {
-            AppLogger.warning('Tenant is NULL, cannot redirect',
-              category: LogCategory.auth);
-            return null;
-          }
-
-          final isTenantInitialized = currentTenant.isInitialized;
-
-          AppLogger.info('Tenant found for first-time user',
-            category: LogCategory.auth,
-            context: {
-              'tenantId': currentTenant.id,
-              'tenantDomain': currentTenant.domain,
-              'isTenantInitialized': isTenantInitialized,
-            }
-          );
-
-          // ✅ If tenant not initialized, route to appropriate onboarding
-          if (!isTenantInitialized) {
-            // Check if this is a solo tenant (personal email with no domain)
-            final isSoloTenant = currentTenant.domain == null || currentTenant.domain!.isEmpty;
-
-            AppLogger.info('Routing first-time user to onboarding',
-              category: LogCategory.auth,
-              context: {
-                'userRole': authState.user.role.value,
-                'isSoloTenant': isSoloTenant,
-                'tenantDomain': currentTenant.domain,
-                'isFirstLogin': isFirstLogin,
-              }
-            );
-
-            if (isSoloTenant && isAdmin) {
-              // Solo teacher (Gmail user) → 2-step onboarding (grades + subjects only)
-              AppLogger.debug('Redirecting solo teacher to setup wizard',
-                category: LogCategory.auth);
-              return AppRoutes.soloTeacherOnboarding;
-            } else if (!isSoloTenant && isAdmin) {
-              // School admin (first user from domain) → 4-step setup wizard
-              AppLogger.debug('Redirecting school admin to setup wizard',
-                category: LogCategory.auth);
-              return AppRoutes.adminSetupWizard;
-            } else if (!isSoloTenant && isTeacher) {
-              // School teacher (subsequent user from domain) → 3-step onboarding
-              AppLogger.debug('Redirecting school teacher to onboarding',
-                category: LogCategory.auth);
-              return AppRoutes.teacherOnboarding;
-            } else {
-              AppLogger.warning('Unknown onboarding scenario',
-                category: LogCategory.auth,
-                context: {
-                  'userRole': authState.user.role.value,
-                  'isSoloTenant': isSoloTenant,
-                }
-              );
-            }
-          } else {
-            // ✅ Tenant initialized, go to profile setup or home
-            if (isTeacher) {
-              return AppRoutes.teacherProfileSetup;
-            }
-            // Admins go to dashboard after initialization
-          }
-        } catch (e, stackTrace) {
-          AppLogger.error('Exception in first-time user redirect',
-            error: e,
-            stackTrace: stackTrace,
-            category: LogCategory.auth,
-            context: {
-              'operation': 'first_time_user_redirect',
-              'errorType': e.runtimeType.toString(),
-            }
-          );
-          return null;
-        }
+      // LEVEL 2: User onboarding (only for non-admins)
+      // If user is not an admin and hasn't completed onboarding, send them there
+      if (!authState.userOnboarded && authState.user.role.value != 'admin') {
+        return AppRoutes.teacherOnboarding;
       }
+
+      // LEVEL 3: Normal operation - allow navigation
+      return null;
     }
 
     // Handle unauthenticated user trying to access protected routes
@@ -408,12 +338,11 @@ class AppRouter {
         path: AppRoutes.teacherAssignments,
         builder: (context, state) => MultiBlocProvider(
           providers: [
-            BlocProvider(create: (_) => UserManagementBloc()),
-            // Add the missing bloc providers
+            BlocProvider(create: (_) => sl<TeacherAssignmentBloc>()),
             BlocProvider(create: (_) => GradeBloc(repository: sl())),
             BlocProvider(create: (_) => sl<SubjectBloc>()),
           ],
-          child: const TeacherAssignmentManagementPage(),
+          child: const TeacherAssignmentsDashboardPage(),
         ),
       ),
 
@@ -426,14 +355,10 @@ class AppRouter {
             providers: [
               BlocProvider(create: (_) => UserManagementBloc()..add(const LoadUsers())),
               BlocProvider(
-                create: (_) => TeacherAssignmentBloc(
-                  sl(), // AssignmentRepository
-                  sl(), // GradeRepository
-                  sl(), // SubjectRepository
-                  sl(), // UserStateService
-                ),
+                create: (_) => sl<TeacherAssignmentBloc>(),
               ),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
+              BlocProvider(create: (_) => sl<GradeSectionBloc>()),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: _TeacherAssignmentDetailLoader(teacherId: teacherId),
@@ -488,14 +413,38 @@ class AppRouter {
         builder: (context, state) {
           AppLogger.info('Admin accessing setup wizard', category: LogCategory.navigation);
 
-          // Get tenant ID from user state
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          // Get tenant ID from authenticated user (more reliable than UserStateService)
+          // UserStateService is populated asynchronously, so we use the Auth state
+          final authState = context.read<AuthBloc>().state;
+
+
+          String tenantId = '';
+          if (authState is AuthAuthenticated) {
+            tenantId = authState.user.tenantId ?? '';
+            if (tenantId.isEmpty) {
+            }
+          } else {
+          }
+
+
+          AppLogger.info('Admin setup wizard loaded',
+            category: LogCategory.navigation,
+            context: {'tenantId': tenantId},
+          );
 
           return BlocProvider(
             create: (_) => sl<AdminSetupBloc>(),
             child: AdminSetupWizardPage(tenantId: tenantId),
           );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.adminAssignmentsDashboard,
+        builder: (context, state) {
+          AppLogger.info('Admin accessing assignments dashboard', category: LogCategory.navigation);
+
+          // Create an empty setup state for viewing current assignments
+          return _AssignmentsDashboardLoader();
         },
       ),
       GoRoute(
@@ -512,24 +461,20 @@ class AppRouter {
           );
         },
       ),
-      GoRoute(
-        path: AppRoutes.assignmentMatrix,
-        builder: (context, state) {
-          AppLogger.info('Admin accessing assignment matrix', category: LogCategory.navigation);
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
-              BlocProvider(create: (_) => TeacherAssignmentBloc(
-                sl(),
-                sl(),
-                sl(),
-                sl(),
-              )),
-            ],
-            child: const TeacherAssignmentMatrixPage(),
-          );
-        },
-      ),
+      // Removed: Old TeacherAssignmentMatrixPage route - replaced by TeacherAssignmentsDashboardPage
+      // GoRoute(
+      //   path: AppRoutes.assignmentMatrix,
+      //   builder: (context, state) {
+      //     AppLogger.info('Admin accessing assignment matrix', category: LogCategory.navigation);
+      //     return MultiBlocProvider(
+      //       providers: [
+      //         BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
+      //         BlocProvider(create: (_) => sl<TeacherAssignmentBloc>()),
+      //       ],
+      //       child: const TeacherAssignmentMatrixPage(),
+      //     );
+      //   },
+      // ),
 
       // Settings management routes
       GoRoute(
@@ -560,19 +505,18 @@ class AppRouter {
         path: AppRoutes.teacherOnboarding,
         builder: (context, state) {
           AppLogger.info('Teacher accessing onboarding wizard', category: LogCategory.navigation);
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
-          return TeacherOnboardingPage(tenantId: tenantId);
-        },
-      ),
 
-      GoRoute(
-        path: AppRoutes.soloTeacherOnboarding,
-        builder: (context, state) {
-          AppLogger.info('Solo teacher accessing onboarding wizard', category: LogCategory.navigation);
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
-          return SoloTeacherOnboardingPage(tenantId: tenantId);
+          // Get tenant ID from authenticated user (more reliable than UserStateService)
+          final authState = context.read<AuthBloc>().state;
+          final tenantId = (authState is AuthAuthenticated)
+              ? authState.user.tenantId ?? ''
+              : '';
+
+          // Provide AdminSetupBloc for teacher onboarding (reuses same BLoC as admin setup)
+          return BlocProvider(
+            create: (_) => sl<AdminSetupBloc>(),
+            child: TeacherOnboardingPage(tenantId: tenantId),
+          );
         },
       ),
 
@@ -614,9 +558,7 @@ class AppRouter {
           AppLogger.info('Admin managing grade sections',
               category: LogCategory.navigation);
 
-          // Get tenant ID from user state
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          final tenantId = _getTenantIdFromAuth(context);
 
           return BlocProvider(
             create: (_) => sl<GradeSectionBloc>(),
@@ -632,8 +574,7 @@ class AppRouter {
           AppLogger.info('Admin managing exam calendar',
               category: LogCategory.navigation);
 
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          final tenantId = _getTenantIdFromAuth(context);
           final academicYear = state.uri.queryParameters['academicYear'] ?? '2024-2025';
 
           return BlocProvider(
@@ -653,8 +594,7 @@ class AppRouter {
           AppLogger.info('Admin viewing exam timetables',
               category: LogCategory.navigation);
 
-          final userStateService = sl<UserStateService>();
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          final tenantId = _getTenantIdFromAuth(context);
           final academicYear = state.uri.queryParameters['academicYear'] ?? '2024-2025';
 
           return BlocProvider(
@@ -674,15 +614,14 @@ class AppRouter {
           AppLogger.info('Admin creating exam timetable',
               category: LogCategory.navigation);
 
-          final userStateService = sl<UserStateService>();
-          final currentUser = userStateService.currentUser;
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          final tenantId = _getTenantIdFromAuth(context);
+          final userId = _getUserIdFromAuth(context);
 
           return BlocProvider(
             create: (_) => sl<ExamTimetableBloc>(),
             child: ExamTimetableEditPage(
               tenantId: tenantId,
-              createdBy: currentUser?.id ?? '',
+              createdBy: userId,
               examCalendarId: state.uri.queryParameters['calendarId'],
             ),
           );
@@ -697,15 +636,14 @@ class AppRouter {
               category: LogCategory.navigation,
               context: {'timetableId': timetableId});
 
-          final userStateService = sl<UserStateService>();
-          final currentUser = userStateService.currentUser;
-          final tenantId = userStateService.currentTenant?.id ?? '';
+          final tenantId = _getTenantIdFromAuth(context);
+          final userId = _getUserIdFromAuth(context);
 
           return BlocProvider(
             create: (_) => sl<ExamTimetableBloc>(),
             child: ExamTimetableEditPage(
               tenantId: tenantId,
-              createdBy: currentUser?.id ?? '',
+              createdBy: userId,
               timetableId: timetableId,
             ),
           );
@@ -751,14 +689,80 @@ class _TeacherAssignmentDetailLoader extends StatelessWidget {
         if (state is UserManagementLoaded) {
           try {
             final teacher = state.users.firstWhere((u) => u.id == teacherId);
-            context.read<TeacherAssignmentBloc>().add(LoadTeacherAssignments(teacher));
+            context.read<TeacherAssignmentBloc>().add(
+              LoadTeacherAssignmentsEvent(
+                tenantId: teacher.tenantId ?? 'main',
+                teacherId: teacher.id,
+              ),
+            );
           } catch (e) {
             // Teacher not found - handled by detail page error state
           }
         }
       },
-      child: TeacherAssignmentDetailPage(teacherId: teacherId),
+      child: BlocBuilder<UserManagementBloc, UserManagementState>(
+        builder: (context, state) {
+          if (state is UserManagementLoaded) {
+            try {
+              final teacher =
+                  state.users.firstWhere((u) => u.id == teacherId);
+              return TeacherAssignmentDetailPageNew(teacher: teacher);
+            } catch (e) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Teacher Not Found')),
+                body: const Center(child: Text('Teacher not found')),
+              );
+            }
+          }
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        },
+      ),
     );
+  }
+}
+
+/// Helper widget to load and display the assignments dashboard
+class _AssignmentsDashboardLoader extends StatefulWidget {
+  const _AssignmentsDashboardLoader({Key? key}) : super(key: key);
+
+  @override
+  State<_AssignmentsDashboardLoader> createState() =>
+      _AssignmentsDashboardLoaderState();
+}
+
+class _AssignmentsDashboardLoaderState extends State<_AssignmentsDashboardLoader> {
+  late AdminSetupState _currentSetupState;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentSetupState();
+  }
+
+  void _loadCurrentSetupState() {
+    // Get the tenant ID from auth state
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final tenantId = authState.user.tenantId ?? '';
+      // Create setup state with empty grades (will be loaded from previous setup)
+      _currentSetupState = AdminSetupState(
+        tenantId: tenantId,
+        selectedGrades: [],
+      );
+    } else {
+      _currentSetupState = const AdminSetupState(
+        tenantId: '',
+        selectedGrades: [],
+      );
+    }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminAssignmentsDashboardPage(setupState: _currentSetupState);
   }
 }
 

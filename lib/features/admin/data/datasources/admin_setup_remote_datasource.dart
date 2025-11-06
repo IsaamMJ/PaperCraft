@@ -122,22 +122,24 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
     required List<int> gradeNumbers,
   }) async {
     try {
-      // First, delete any existing grades for this tenant to avoid duplicates
+      // First, deactivate all existing grades for this tenant
       await supabaseClient
           .from('grades')
-          .delete()
+          .update({'is_active': false})
           .eq('tenant_id', tenantId);
 
-      // Now insert the new grades
-      final gradesToInsert = gradeNumbers.map((gradeNum) => {
+      // UPSERT: For each grade, update if exists (reactivate), insert if not
+      // This handles the unique constraint properly
+      final gradeData = gradeNumbers.map((gradeNum) => {
         'tenant_id': tenantId,
         'grade_number': gradeNum,
         'is_active': true,
       }).toList();
 
+      // Upsert with conflict on (tenant_id, grade_number) unique constraint
       await supabaseClient
           .from('grades')
-          .insert(gradesToInsert, defaultToNull: false);
+          .upsert(gradeData, onConflict: 'tenant_id,grade_number');
     } catch (e) {
       throw ServerFailure('Failed to create grades: ${e.toString()}');
     }
@@ -161,23 +163,24 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
 
       final gradeId = gradeResponse['id'] as String;
 
-      // Delete existing sections for this grade
+      // Deactivate all existing sections for this grade
       await supabaseClient
           .from('grade_sections')
-          .delete()
+          .update({'is_active': false})
           .eq('grade_id', gradeId);
 
-      // Insert fresh sections
-      final sectionsToInsert = sections.map((section) => {
+      // UPSERT: For each section, update if exists (reactivate), insert if not
+      final sectionsToUpsert = sections.map((section) => {
         'tenant_id': tenantId,
         'grade_id': gradeId,
         'section_name': section,
         'is_active': true,
       }).toList();
 
+      // Upsert with conflict on (tenant_id, grade_id, section_name) unique constraint
       await supabaseClient
           .from('grade_sections')
-          .insert(sectionsToInsert, defaultToNull: false);
+          .upsert(sectionsToUpsert, onConflict: 'tenant_id,grade_id,section_name');
     } catch (e) {
       throw ServerFailure('Failed to create sections: ${e.toString()}');
     }
@@ -190,15 +193,36 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
     required List<String> subjectNames,
   }) async {
     try {
-      // Delete existing subjects for this tenant
-      // Note: subjects table doesn't have grade_number, it only stores tenant-subject links
-      await supabaseClient
-          .from('subjects')
-          .delete()
-          .eq('tenant_id', tenantId);
+      // Step 1: Get the grade ID for this grade number
+      final gradeResponse = await supabaseClient
+          .from('grades')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('grade_number', gradeNumber)
+          .single();
 
-      // For each subject name, find the catalog_subject_id and insert
-      final subjectsToInsert = <Map<String, dynamic>>[];
+      final gradeId = gradeResponse['id'] as String;
+
+      // Step 2: Get all sections for this grade
+      final sectionsResponse = await supabaseClient
+          .from('grade_sections')
+          .select('section_name')
+          .eq('grade_id', gradeId)
+          .eq('is_active', true);
+
+      final sections = (sectionsResponse as List)
+          .map((s) => s['section_name'] as String)
+          .toList();
+
+      // Step 3: Mark existing grade-section-subject mappings as inactive for this grade
+      // SOFT DELETE: Preserves data history and avoids FK constraint issues
+      await supabaseClient
+          .from('grade_section_subject')
+          .update({'is_offered': false})
+          .eq('grade_id', gradeId);
+
+      // Step 4: For each subject name, find the subject ID and create mappings for all sections
+      final gradeSubjectsToInsert = <Map<String, dynamic>>[];
 
       for (final subjectName in subjectNames) {
         // Find the catalog_subject_id for this subject name
@@ -211,20 +235,57 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
 
         final catalogSubjectId = catalogResponse['id'] as String;
 
-        subjectsToInsert.add({
-          'tenant_id': tenantId,
-          'catalog_subject_id': catalogSubjectId,
-          'is_active': true,
-        });
+        // Check if subject already exists in subjects table for this tenant
+        final subjectsResponse = await supabaseClient
+            .from('subjects')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('catalog_subject_id', catalogSubjectId);
+
+        String subjectId;
+        if ((subjectsResponse as List).isNotEmpty) {
+          // Subject already exists, use its ID
+          subjectId = subjectsResponse[0]['id'] as String;
+        } else {
+          // Subject doesn't exist, create it
+          final newSubjectResponse = await supabaseClient
+              .from('subjects')
+              .insert({
+                'tenant_id': tenantId,
+                'catalog_subject_id': catalogSubjectId,
+                'is_active': true,
+              }, defaultToNull: false)
+              .select()
+              .single();
+
+          subjectId = newSubjectResponse['id'] as String;
+        }
+
+        // Create grade-section-subject mapping for each section
+        for (final section in sections) {
+          gradeSubjectsToInsert.add({
+            'tenant_id': tenantId,
+            'grade_id': gradeId,
+            'section': section,
+            'subject_id': subjectId,
+            'is_offered': true,
+            'display_order': 0,
+          });
+        }
       }
 
-      if (subjectsToInsert.isNotEmpty) {
+      // Step 5: UPSERT all grade-section-subject mappings
+      // Update if exists (reactivate), insert if not
+      if (gradeSubjectsToInsert.isNotEmpty) {
         await supabaseClient
-            .from('subjects')
-            .insert(subjectsToInsert, defaultToNull: false);
+            .from('grade_section_subject')
+            .upsert(
+              gradeSubjectsToInsert,
+              onConflict: 'tenant_id,grade_id,section,subject_id',
+            );
       }
     } catch (e) {
-      throw ServerFailure('Failed to create subjects: ${e.toString()}');
+      throw ServerFailure('Failed to create subjects for grade: ${e.toString()}');
     }
   }
 
@@ -304,19 +365,62 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
         sectionsPerGrade[gradeNum]!.add(sectionName);
       }
 
-      // Get subjects per grade
+      // Get subjects per grade (from grade_section_subject table)
       final subjectsResponse = await supabaseClient
-          .from('subjects')
-          .select('subject_name, grade_number')
+          .from('grade_section_subject')
+          .select('*, grades(grade_number), subjects(id, catalog_subject_id)')
           .eq('tenant_id', tenantId)
-          .eq('is_active', true);
+          .eq('is_offered', true);
+
+      // Collect catalog subject IDs for lookup
+      final catalogSubjectIds = <String>{};
+      for (final gradeSectionSubject in subjectsResponse as List) {
+        final subjectData = gradeSectionSubject['subjects'] as Map<String, dynamic>?;
+        final catalogSubjectId = subjectData?['catalog_subject_id'] as String?;
+        if (catalogSubjectId != null) {
+          catalogSubjectIds.add(catalogSubjectId);
+        }
+      }
+
+      // Fetch subject names from catalog
+      final catalogSubjectMap = <String, String>{};
+      if (catalogSubjectIds.isNotEmpty) {
+        try {
+          final catalogData = await supabaseClient
+              .from('subject_catalog')
+              .select('id, subject_name')
+              .inFilter('id', catalogSubjectIds.toList());
+
+          for (final catalog in catalogData as List) {
+            final id = catalog['id'] as String;
+            final name = catalog['subject_name'] as String;
+            catalogSubjectMap[id] = name;
+          }
+        } catch (e) {
+          // Continue without catalog data
+        }
+      }
 
       final Map<int, List<String>> subjectsPerGrade = {};
-      for (final subject in subjectsResponse) {
-        final gradeNum = subject['grade_number'] as int?;
-        if (gradeNum != null) {
-          subjectsPerGrade.putIfAbsent(gradeNum, () => []);
-          subjectsPerGrade[gradeNum]!.add(subject['subject_name']);
+      for (final gradeSectionSubject in subjectsResponse as List) {
+        try {
+          final gradeData = gradeSectionSubject['grades'] as Map<String, dynamic>?;
+          final gradeNum = gradeData?['grade_number'] as int?;
+
+          final subjectData = gradeSectionSubject['subjects'] as Map<String, dynamic>?;
+          final catalogSubjectId = subjectData?['catalog_subject_id'] as String?;
+          final subjectName = catalogSubjectId != null ? catalogSubjectMap[catalogSubjectId] : null;
+
+          if (gradeNum != null && subjectName != null) {
+            subjectsPerGrade.putIfAbsent(gradeNum, () => []);
+            // Only add if not already in the list (to avoid duplicates per section)
+            if (!subjectsPerGrade[gradeNum]!.contains(subjectName)) {
+              subjectsPerGrade[gradeNum]!.add(subjectName);
+            }
+          }
+        } catch (e) {
+          // Skip on error, continue with next subject
+          continue;
         }
       }
 

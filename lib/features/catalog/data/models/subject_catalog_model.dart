@@ -19,7 +19,8 @@ class SubjectCatalogModel {
   factory SubjectCatalogModel.fromJson(Map<String, dynamic> json) {
     return SubjectCatalogModel(
       id: json['id'] as String,
-      name: json['name'] as String,
+      // Handle both 'name' and 'subject_name' keys for compatibility
+      name: (json['name'] ?? json['subject_name']) as String,
       description: json['description'] as String?,
       minGrade: json['min_grade'] as int,
       maxGrade: json['max_grade'] as int,

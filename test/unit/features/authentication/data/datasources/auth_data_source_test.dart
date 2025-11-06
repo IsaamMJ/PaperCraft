@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:papercraft/core/domain/interfaces/i_auth_provider.dart';
 import 'package:papercraft/core/domain/interfaces/i_clock.dart';
 import 'package:papercraft/core/domain/interfaces/i_logger.dart';
+import 'package:papercraft/core/domain/services/tenant_initialization_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SignOutScope;
 import 'package:papercraft/core/infrastructure/network/api_client.dart';
 import 'package:papercraft/core/infrastructure/network/models/api_response.dart';
@@ -23,6 +24,9 @@ import '../../../../../helpers/mock_clock.dart';
 class MockApiClient extends Mock implements ApiClient {}
 
 class MockLogger extends Mock implements ILogger {}
+
+class MockTenantInitializationService extends Mock
+    implements TenantInitializationService {}
 
 // ============================================================================
 // TEST HELPERS
@@ -111,11 +115,16 @@ void main() {
         stackTrace: any(named: 'stackTrace'), context: any(named: 'context')))
         .thenReturn(null);
 
+    final mockTenantInitializationService = MockTenantInitializationService();
+    when(() => mockTenantInitializationService.isTenantInitialized(any()))
+        .thenAnswer((_) async => true);
+
     authDataSource = AuthDataSource(
       mockApiClient,
       mockLogger,
       mockAuthProvider,
       fakeClock,
+      mockTenantInitializationService,
     );
   });
 
@@ -402,11 +411,16 @@ void main() {
       final testTime = DateTime(2024, 6, 15, 10, 30, 0);
       fakeClock = FakeClock(testTime);
 
+      final mockTenantInitializationService = MockTenantInitializationService();
+      when(() => mockTenantInitializationService.isTenantInitialized(any()))
+          .thenAnswer((_) async => true);
+
       authDataSource = AuthDataSource(
         mockApiClient,
         mockLogger,
         mockAuthProvider,
         fakeClock,
+        mockTenantInitializationService,
       );
 
       when(() => mockAuthProvider.currentSession).thenReturn(null);

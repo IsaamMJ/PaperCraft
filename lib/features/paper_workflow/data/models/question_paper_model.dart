@@ -89,10 +89,27 @@ class QuestionPaperModel extends QuestionPaperEntity {
             .toList();
       }
 
-      // Extract display fields from joined columns
-      final subjectName = json['subject_name'] as String?;
-      final gradeName = json['grade_name'] as String?;
-      final gradeLevel = json['grade_level'] as int?;
+      // Extract display fields from joined columns or nested relationships
+      // Support both flat fields (legacy) and nested objects (from joins)
+      String? subjectName = json['subject_name'] as String?;
+      if (subjectName == null && json['subjects'] is Map) {
+        // Extract from nested subjects relationship: subjects.subject_catalog.subject_name
+        final subjectsData = json['subjects'] as Map<String, dynamic>?;
+        if (subjectsData != null && subjectsData['subject_catalog'] is Map) {
+          final catalogData = subjectsData['subject_catalog'] as Map<String, dynamic>;
+          subjectName = catalogData['subject_name'] as String?;
+        }
+      }
+
+      String? gradeName = json['grade_name'] as String?;
+      int? gradeLevel = json['grade_level'] as int?;
+      if (gradeName == null && gradeLevel == null && json['grades'] is Map) {
+        // Extract from nested grades relationship
+        final gradesData = json['grades'] as Map<String, dynamic>?;
+        if (gradesData != null) {
+          gradeLevel = gradesData['grade_number'] as int?;
+        }
+      }
 
       // Parse selected sections if exists
       List<String>? selectedSections;

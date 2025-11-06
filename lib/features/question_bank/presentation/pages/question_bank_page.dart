@@ -382,12 +382,10 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
 
         // Initial state - show loading
         if (state is QuestionBankInitial) {
-          if (kDebugMode) print('🟡 [QuestionBankPage] Showing loading for Initial state');
           return _buildModernLoading();
         }
 
         if (state is QuestionBankLoading) {
-          if (kDebugMode) print('🟡 [QuestionBankPage] Showing loading for Loading state');
           // Show cached data during loading if available
           if (_cachedQuestionBankState != null) {
             return _buildPaginatedView(_cachedQuestionBankState!);
@@ -396,13 +394,11 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
         }
 
         if (state is QuestionBankLoaded) {
-          if (kDebugMode) print('🟢 [QuestionBankPage] Showing data for Loaded state (${state.papers.length} papers)');
           _cachedQuestionBankState = state;
           return _buildPaginatedView(state);
         }
 
         if (state is QuestionBankError) {
-          if (kDebugMode) print('🔴 [QuestionBankPage] Showing error: ${state.message}');
           // Show cached data on error if available
           if (_cachedQuestionBankState != null) {
             return _buildPaginatedView(_cachedQuestionBankState!);

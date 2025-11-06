@@ -18,6 +18,11 @@ abstract class SubjectDataSource {
       String teacherId,
       String academicYear,
       );
+  Future<List<SubjectCatalogModel>> getSubjectsByGradeAndSection(
+      String tenantId,
+      String gradeId,
+      String section,
+      );
 }
 
 class SubjectDataSourceImpl implements SubjectDataSource {
@@ -70,7 +75,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
           is_active,
           created_at,
           subject_catalog!inner(
-            name,
+            subject_name,
             description,
             min_grade,
             max_grade
@@ -132,9 +137,9 @@ class SubjectDataSourceImpl implements SubjectDataSource {
       // OPTIMIZATION: Only fetch needed columns
       final response = await _supabase
           .from('subject_catalog')
-          .select('id,name,description,min_grade,max_grade,is_active,created_at')
+          .select('id, subject_name, description, min_grade, max_grade, is_active, created_at')
           .eq('is_active', true)
-          .order('name');
+          .order('subject_name');
 
       final result = (response as List)
           .map((json) => SubjectCatalogModel.fromJson(json as Map<String, dynamic>))
@@ -176,7 +181,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             is_active,
             created_at,
             subject_catalog!inner(
-              name,
+              subject_name,
               description,
               min_grade,
               max_grade
@@ -219,7 +224,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             is_active,
             created_at,
             subject_catalog!inner(
-              name,
+              subject_name,
               description,
               min_grade,
               max_grade
@@ -251,7 +256,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             is_active,
             created_at,
             subject_catalog!inner(
-              name,
+              subject_name,
               description,
               min_grade,
               max_grade
@@ -297,7 +302,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             is_active,
             created_at,
             subject_catalog!inner(
-              name,
+              subject_name,
               description,
               min_grade,
               max_grade
@@ -330,7 +335,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             is_active,
             created_at,
             subject_catalog!inner(
-              name,
+              subject_name,
               description,
               min_grade,
               max_grade
@@ -374,10 +379,96 @@ class SubjectDataSourceImpl implements SubjectDataSource {
       'catalog_subject_id': item['catalog_subject_id'],
       'is_active': item['is_active'],
       'created_at': item['created_at'],
-      'name': catalog['name'],
+      'name': catalog['subject_name'], // Map subject_name to name for SubjectModel
       'description': catalog['description'],
       'min_grade': catalog['min_grade'],
       'max_grade': catalog['max_grade'],
     };
+  }
+
+  @override
+  Future<List<SubjectCatalogModel>> getSubjectsByGradeAndSection(
+      String tenantId,
+      String gradeId,
+      String section,
+      ) async {
+    try {
+      final cacheKey = 'subjects_${tenantId}_${gradeId}_${section}';
+      final cachedData = _cache.get<List<SubjectCatalogModel>>(cacheKey);
+      if (cachedData != null) {
+        _logger.debug('Cache HIT: getSubjectsByGradeAndSection',
+            category: LogCategory.storage,
+            context: {
+              'tenantId': tenantId,
+              'gradeId': gradeId,
+              'section': section,
+              'count': cachedData.length
+            });
+        return cachedData;
+      }
+
+      _logger.debug('Fetching subjects for grade and section',
+          category: LogCategory.storage,
+          context: {
+            'tenantId': tenantId,
+            'gradeId': gradeId,
+            'section': section,
+          });
+
+      // Query grade_section_subject to get subjects offered in this grade+section
+      final response = await _supabase
+          .from('grade_section_subject')
+          .select('''
+            subject:subject_id(
+              id,
+              catalog_subject_id,
+              subject_catalog!inner(
+                id,
+                subject_name,
+                description,
+                min_grade,
+                max_grade,
+                is_active
+              )
+            )
+          ''')
+          .eq('tenant_id', tenantId)
+          .eq('grade_id', gradeId)
+          .eq('section', section)
+          .eq('is_offered', true)
+          .order('display_order');
+
+      final result = (response as List)
+          .map((item) {
+            final subject = item['subject'];
+            if (subject == null) return null;
+
+            final catalog = subject['subject_catalog'] as Map<String, dynamic>;
+            return SubjectCatalogModel.fromJson({
+              ...catalog,
+              'id': subject['catalog_subject_id'],
+            });
+          })
+          .whereType<SubjectCatalogModel>()
+          .toList();
+
+      // Cache the result
+      _cache.set(cacheKey, result, duration: const Duration(minutes: 10));
+
+      _logger.info('Subjects fetched for grade and section',
+          category: LogCategory.storage,
+          context: {
+            'tenantId': tenantId,
+            'gradeId': gradeId,
+            'section': section,
+            'count': result.length,
+          });
+
+      return result;
+    } catch (e, stackTrace) {
+      _logger.error('Failed to fetch subjects by grade and section',
+          category: LogCategory.storage, error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }

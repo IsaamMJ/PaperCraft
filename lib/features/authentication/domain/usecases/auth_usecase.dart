@@ -17,6 +17,9 @@ class AuthUseCase {
 
   Future<Either<AuthFailure, UserEntity?>> getCurrentUser() => _repository.getCurrentUser();
 
+  Future<Either<AuthFailure, Map<String, dynamic>>> getCurrentUserWithInitStatus() =>
+    _repository.getCurrentUserWithInitStatus();
+
   Future<Either<AuthFailure, void>> signOut() => _repository.signOut();
 
   // NEW METHOD: Get user by ID for UserInfoService
