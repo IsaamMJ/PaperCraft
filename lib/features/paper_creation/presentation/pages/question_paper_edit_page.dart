@@ -10,7 +10,6 @@ import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
-import '../../../catalog/domain/services/subject_grade_service.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
@@ -61,9 +60,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
 
   // Subject - Loaded from BLoC
   SubjectEntity? _selectedSubject; // FIXED: Single subject, not list
-  List<SubjectEntity> _filteredSubjects = [];
 
-  // Store data loaded from BLoCs
+  // Store data loaded from BLoCs (already filtered by grade from the database)
   List<SubjectEntity> _availableSubjects = [];
 
   // Paper being edited
@@ -127,13 +125,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
         }
       }
 
-      // Filter subjects based on grade level from LOADED data
-      if (_selectedGradeLevel != null && _availableSubjects.isNotEmpty) {
-        _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
-          _availableSubjects,
-          _selectedGradeLevel!,
-        );
-      }
+      // NOTE: Subjects are already filtered by grade at the database level
+      // No need for client-side filtering with hardcoded values
 
       // Find matching subject (SINGLE subject, not list)
       if (_availableSubjects.isNotEmpty && paper.subjectId.isNotEmpty) {
@@ -148,10 +141,10 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                   (subject) => subject.name == paper.subject,
             );
           } catch (e2) {
-            // If still not found, use first from filtered subjects or all subjects
-            _selectedSubject = _filteredSubjects.isNotEmpty
-                ? _filteredSubjects.first
-                : _availableSubjects.first;
+            // If still not found, use first available subject
+            _selectedSubject = _availableSubjects.isNotEmpty
+                ? _availableSubjects.first
+                : null;
           }
         }
       }
@@ -200,13 +193,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
               if (state is SubjectsLoaded) {
                 setState(() {
                   _availableSubjects = state.subjects;
-                  // Re-filter if grade is already selected
-                  if (_selectedGradeLevel != null) {
-                    _filteredSubjects = SubjectGradeService.filterSubjectsByGrade(
-                      _availableSubjects,
-                      _selectedGradeLevel!,
-                    );
-                  }
+                  // NOTE: Subjects are already filtered by grade at the database level
+
                   // Re-populate selected subject if paper is loaded
                   if (_currentPaper != null && _selectedSubject == null) {
                     try {
@@ -220,10 +208,8 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
                           (subject) => subject.name == _currentPaper!.subject,
                         );
                       } catch (e2) {
-                        // If still not found, use first from filtered subjects or all subjects
-                        if (_filteredSubjects.isNotEmpty) {
-                          _selectedSubject = _filteredSubjects.first;
-                        } else if (_availableSubjects.isNotEmpty) {
+                        // If still not found, use first available subject
+                        if (_availableSubjects.isNotEmpty) {
                           _selectedSubject = _availableSubjects.first;
                         }
                       }

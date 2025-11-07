@@ -87,7 +87,8 @@
       "Bash(powershell:*)",
       "Bash(echo:*)",
       "Bash(timeout 90 flutter build:*)",
-      "Bash(timeout 30 bash -c \"cd ''E:\\New folder (2)\\papercraft'' && flutter build apk --debug 2>&1 | tail -30\")"
+      "Bash(timeout 30 bash -c \"cd ''E:\\New folder (2)\\papercraft'' && flutter build apk --debug 2>&1 | tail -30\")",
+      "Bash(timeout 120 flutter pub get:*)"
     ],
     "deny": [],
     "ask": []

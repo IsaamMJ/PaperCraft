@@ -48,7 +48,7 @@ class AuthConfig {
       // For web, use production URL when deployed
       switch (EnvironmentConfig.current) {
         case Environment.dev:
-          return 'http://localhost:3000/';
+          return 'http://localhost:3000/';  // Local development port
         case Environment.staging:
           return 'https://staging-papercraftweb.netlify.app/'; // adjust if you have staging
         case Environment.prod:

@@ -18,6 +18,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedCatalogSubjectId;
   List<SubjectCatalogModel> _catalogSubjects = [];
+  List<String> _enabledCatalogSubjectIds = [];
   bool _loadingCatalog = false;
 
   @override
@@ -34,6 +35,17 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
     context.read<SubjectBloc>().add(const LoadSubjectCatalog());
   }
 
+  Future<void> _refreshPage() async {
+    // Show loading state
+    setState(() => _loadingCatalog = true);
+
+    // Refresh both the catalog dropdown and the subjects list
+    context.read<SubjectBloc>().add(const LoadSubjectCatalog());
+    context.read<SubjectBloc>().add(const LoadSubjects());
+
+    // Loading state will be reset by BlocListener when SubjectCatalogLoaded is emitted
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<SubjectBloc, SubjectState>(
@@ -43,6 +55,15 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
           setState(() {
             _catalogSubjects = state.catalog;
             _loadingCatalog = false;
+          });
+        }
+
+        // Track enabled subject IDs to filter them from the dropdown
+        if (state is SubjectsLoaded) {
+          setState(() {
+            _enabledCatalogSubjectIds = state.subjects
+                .map((subject) => subject.catalogSubjectId)
+                .toList();
           });
         }
 
@@ -145,13 +166,26 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Enable Subject',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Enable Subject',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              IconButton(
+                onPressed: _loadingCatalog ? null : _refreshPage,
+                icon: Icon(
+                  Icons.refresh,
+                  color: _loadingCatalog ? AppColors.textTertiary : AppColors.primary,
+                ),
+                tooltip: 'Refresh subjects and catalog',
+              ),
+            ],
           ),
           SizedBox(height: UIConstants.spacing16),
           DropdownButtonFormField<String>(
@@ -165,6 +199,7 @@ class _SubjectManagementWidgetState extends State<SubjectManagementWidget> {
               ),
             ),
             items: _catalogSubjects
+                .where((catalog) => !_enabledCatalogSubjectIds.contains(catalog.id))
                 .map((catalog) => DropdownMenuItem(
               value: catalog.id,
               child: Column(

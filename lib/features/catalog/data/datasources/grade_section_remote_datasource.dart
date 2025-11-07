@@ -58,9 +58,16 @@ class GradeSectionRemoteDataSourceImpl implements GradeSectionRemoteDataSource {
 
       final response = await query.order('display_order', ascending: true);
 
-      return List<GradeSection>.from(
+      final sections = List<GradeSection>.from(
         response.map((json) => GradeSection.fromJson(json as Map<String, dynamic>)),
       );
+
+      // Debug: Show we got data from Supabase database
+      if (gradeId != null) {
+        print('   🔄 [GradeSectionRemoteDataSource] Queried Supabase for Grade ID: ${gradeId.substring(0, 8)}... -> Found ${sections.length} sections');
+      }
+
+      return sections;
     } catch (e) {
       rethrow;
     }

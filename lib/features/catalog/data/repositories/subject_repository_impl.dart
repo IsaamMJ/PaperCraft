@@ -6,7 +6,6 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/repositories/subject_repository.dart';
-import '../../domain/services/subject_grade_service.dart';
 import '../datasources/subject_data_source.dart';
 import '../models/subject_model.dart';
 
@@ -93,13 +92,13 @@ class SubjectRepositoryImpl implements SubjectRepository {
         return Left(AuthFailure('User not authenticated'));
       }
 
-      final models = await _dataSource.getSubjects(tenantId);
-      final allSubjects = models.map((m) => m.toEntity()).toList();
+      // Use database-level filtering (min_grade <= gradeLevel <= max_grade)
+      // This uses the subject_catalog min_grade and max_grade from the database
+      // No hardcoded values needed!
+      final models = await _dataSource.getSubjectsByGrade(tenantId, gradeLevel);
+      final subjects = models.map((m) => m.toEntity()).toList();
 
-      // Filter by grade level
-      final filtered = SubjectGradeService.filterSubjectsByGrade(allSubjects, gradeLevel);
-
-      return Right(filtered);
+      return Right(subjects);
     } catch (e, stackTrace) {
       _logger.error('Failed to get subjects by grade', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to get subjects: ${e.toString()}'));

@@ -1,0 +1,926 @@
+[
+  {
+    "table_name": "exam_calendar",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "exam_name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "exam_type",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "month_number",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "planned_start_date",
+    "data_type": "date",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "planned_end_date",
+    "data_type": "date",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "paper_submission_deadline",
+    "data_type": "date",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "display_order",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "metadata",
+    "data_type": "jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "timetable_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "section",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "exam_date",
+    "data_type": "date",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "start_time",
+    "data_type": "time without time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "end_time",
+    "data_type": "time without time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "duration_minutes",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "exam_calendar_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "exam_name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "exam_type",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "exam_number",
+    "data_type": "integer",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "academic_year",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "published_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "metadata",
+    "data_type": "jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetables",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "section",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "is_offered",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "display_order",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_section_subject",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "section_name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "display_order",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grade_sections",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "grade_number",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "grades",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "type",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "title",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "message",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "is_read",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "notifications",
+    "column_name": "read_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "paper_rejection_history",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "paper_rejection_history",
+    "column_name": "paper_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "paper_rejection_history",
+    "column_name": "rejection_reason",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "full_name",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "role",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "last_login_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "is_onboarded",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "reviewed_by",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "academic_year",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "title",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "exam_date",
+    "data_type": "date",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "questions",
+    "data_type": "jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "metadata",
+    "data_type": "jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "rejection_reason",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "submitted_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "reviewed_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "paper_sections",
+    "data_type": "jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "exam_type",
+    "data_type": "character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "exam_number",
+    "data_type": "integer",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "question_papers",
+    "column_name": "section",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "subject_name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "min_grade",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "max_grade",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subject_catalog",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "catalog_subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "subjects",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "teacher_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "sections",
+    "data_type": "jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "total_questions",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "total_marks",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "use_count",
+    "data_type": "integer",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "last_used_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_patterns",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "teacher_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "section",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "academic_year",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "start_date",
+    "data_type": "date",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "end_date",
+    "data_type": "date",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "teacher_subjects",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "address",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "domain",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "current_academic_year",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "is_initialized",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "tenants",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  }
+]

@@ -87,12 +87,17 @@ class ApplyQuickPatternEvent extends GradeManagementEvent {
 // =============== SUBJECT EVENTS ===============
 class LoadSubjectsForSectionEvent extends GradeManagementEvent {
   final String gradeId;
-  final String sectionId;
+  final String sectionId; // This is now the section ID (UUID)
+  final String sectionName; // Added: the actual section name (A, B, C, etc.)
 
-  const LoadSubjectsForSectionEvent(this.gradeId, this.sectionId);
+  const LoadSubjectsForSectionEvent(
+    this.gradeId,
+    this.sectionId, {
+    required this.sectionName,
+  });
 
   @override
-  List<Object?> get props => [gradeId, sectionId];
+  List<Object?> get props => [gradeId, sectionId, sectionName];
 }
 
 class SelectSubjectSectionEvent extends GradeManagementEvent {
@@ -304,6 +309,7 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         final sectionsResult = await _sectionRepository.getGradeSections(
           tenantId: tenantId,
           gradeId: grade.id,
+          // Use activeOnly: true (default) - only show active sections in UI
         );
 
         final sections = sectionsResult.fold(
@@ -408,6 +414,78 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
       final now = DateTime.now();
+
+      // Check if section already exists in database before attempting to create
+      final existingSectionsResult = await _sectionRepository.getGradeSections(
+        tenantId: tenantId,
+        gradeId: event.gradeId,
+        activeOnly: false,  // Check all sections
+      );
+
+      final existingSectionNames = existingSectionsResult.fold(
+        (failure) => <String>[],
+        (sections) => sections.map((s) => s.sectionName).toSet(),
+      );
+
+      // If section already exists, check if it needs reactivation
+      if (existingSectionNames.contains(event.sectionName)) {
+        print('⏭️ Section ${event.sectionName} already exists');
+
+        final existingSections = existingSectionsResult.fold(
+          (failure) => <GradeSection>[],
+          (sections) => sections,
+        );
+
+        // Find the section and check if it's inactive
+        final existingSection = existingSections.firstWhere(
+          (s) => s.sectionName == event.sectionName,
+          orElse: () => GradeSection(
+            id: '',
+            tenantId: '',
+            gradeId: event.gradeId,
+            sectionName: event.sectionName,
+            displayOrder: 0,
+            isActive: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        // If section is inactive, reactivate it
+        if (!existingSection.isActive && existingSection.id.isNotEmpty) {
+          print('   ⚠️ Section was inactive (is_active=false), reactivating...');
+          final reactivated = GradeSection(
+            id: existingSection.id,
+            tenantId: existingSection.tenantId,
+            gradeId: existingSection.gradeId,
+            sectionName: existingSection.sectionName,
+            displayOrder: existingSection.displayOrder,
+            isActive: true,  // MUST be active
+            createdAt: existingSection.createdAt,
+            updatedAt: DateTime.now(),
+          );
+
+          // Update in database
+          await _sectionRepository.updateGradeSection(reactivated);
+          print('   ✅ Section reactivated (is_active=true)');
+
+          // Update cache with reactivated sections
+          final updatedSections = existingSections.map((s) {
+            if (s.sectionName == event.sectionName) {
+              return reactivated;
+            }
+            return s;
+          }).toList();
+          _sectionsCache[event.gradeId] = updatedSections;
+        } else {
+          // Section is already active
+          _sectionsCache[event.gradeId] = existingSections;
+        }
+
+        _emitLoaded();
+        return;
+      }
+
       final displayOrder = (_sectionsCache[event.gradeId]?.length ?? 0) + 1;
 
       final section = GradeSection(
@@ -482,8 +560,12 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
     if (_expandedGradeId == event.gradeId) {
       _expandedGradeId = null;
+      // Clear selected section when collapsing to avoid dropdown conflicts
+      _selectedSubjectSectionId = null;
     } else {
       _expandedGradeId = event.gradeId;
+      // Clear selected section when expanding a different grade
+      _selectedSubjectSectionId = null;
     }
     _emitLoaded();
   }
@@ -499,21 +581,77 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
       final tenantId = _userStateService.currentTenantId ?? '';
       final now = DateTime.now();
 
-      // Remove existing sections
-      final existingSections = _sectionsCache[event.gradeId] ?? [];
-      for (final section in existingSections) {
-        await _sectionRepository.deleteGradeSection(section.id);
-      }
+      // First, fetch existing sections from database (in case cache is empty)
+      // Use activeOnly: false to include all sections, even if soft-deleted
+      final existingSectionsResult = await _sectionRepository.getGradeSections(
+        tenantId: tenantId,
+        gradeId: event.gradeId,
+        activeOnly: false,  // Include all sections to find duplicates
+      );
 
-      // Add new sections from pattern
+      final existingSectionNames = existingSectionsResult.fold(
+        (failure) => <String>[],
+        (sections) => sections.map((s) => s.sectionName).toSet(),
+      );
+
+      print('   Existing sections in DB: $existingSectionNames');
+
+      // Update cache if sections were fetched
+      final existingSections = existingSectionsResult.fold(
+        (failure) => _sectionsCache[event.gradeId] ?? [],
+        (sections) => sections,
+      );
+      _sectionsCache[event.gradeId] = existingSections;
+
+      // Build final sections list - combining existing and new
       final newSectionsList = <GradeSection>[];
 
       for (int i = 0; i < event.sections.length; i++) {
+        final sectionName = event.sections[i];
+
+        // Skip if section already exists
+        if (existingSectionNames.contains(sectionName)) {
+          print('⏭️ Section $sectionName already exists');
+          // Find and add existing section to list
+          try {
+            var existing = existingSections.firstWhere(
+              (s) => s.sectionName == sectionName,
+            );
+
+            // If section is inactive, ALWAYS reactivate it
+            if (!existing.isActive) {
+              print('   ⚠️ Section was inactive (is_active=false), reactivating...');
+              final reactivated = GradeSection(
+                id: existing.id,
+                tenantId: existing.tenantId,
+                gradeId: existing.gradeId,
+                sectionName: existing.sectionName,
+                displayOrder: existing.displayOrder,
+                isActive: true,  // MUST be active
+                createdAt: existing.createdAt,
+                updatedAt: now,
+              );
+
+              // Update in database
+              await _sectionRepository.updateGradeSection(reactivated);
+              existing = reactivated;
+              print('   ✅ Section reactivated (is_active=true)');
+            }
+
+            newSectionsList.add(existing);
+            print('   ✅ Added section: $sectionName (is_active=${existing.isActive})');
+          } catch (e) {
+            print('   ⚠️ Warning: Section $sectionName marked as existing but error: $e');
+          }
+          continue;
+        }
+
+        // Create new section (doesn't exist yet)
         final newSection = GradeSection(
-          id: const Uuid().v4(), // Generate UUID
+          id: const Uuid().v4(),
           tenantId: tenantId,
           gradeId: event.gradeId,
-          sectionName: event.sections[i],
+          sectionName: sectionName,
           displayOrder: i + 1,
           isActive: true,
           createdAt: now,
@@ -521,21 +659,23 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         );
 
         final result = await _sectionRepository.createGradeSection(newSection);
+
         result.fold(
           (failure) {
-            print('❌ Failed to create section ${event.sections[i]}: ${failure.message}');
-            print('   GradeID: ${event.gradeId}, TenantID: $tenantId, SectionName: ${event.sections[i]}');
+            print('❌ Failed to create section $sectionName: ${failure.message}');
+            // Don't add failed sections to the list
           },
           (createdSection) {
-            print('✅ Created section: ${createdSection.sectionName}');
+            print('✅ Created section: ${createdSection.sectionName} (ID: ${createdSection.id})');
             newSectionsList.add(createdSection);
           },
         );
       }
 
-      // Update cache with new list
+      // IMPORTANT: Update cache with the complete list (existing + newly created)
       _sectionsCache[event.gradeId] = newSectionsList;
-      print('✅ [GradeManagementBloc] Quick pattern applied successfully - Total sections: ${newSectionsList.length}');
+      print('✅ [GradeManagementBloc] Quick pattern applied - Total sections for Grade ${event.gradeNumber}: ${newSectionsList.length}');
+      print('   Sections: ${newSectionsList.map((s) => '${s.sectionName}(${s.id.substring(0, 8)})').join(", ")}');
       _emitLoaded();
     } catch (e) {
       print('❌ [GradeManagementBloc] Exception in apply pattern: $e');
@@ -573,7 +713,7 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     LoadSubjectsForSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('📚 [GradeManagementBloc] Loading subjects for Grade=${event.gradeId}, Section=${event.sectionId}');
+    print('📚 [GradeManagementBloc] Loading subjects for Grade=${event.gradeId}, Section=${event.sectionName} (ID: ${event.sectionId})');
 
     try {
       final tenantId = _userStateService.currentTenantId;
@@ -585,7 +725,7 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
       final result = await _subjectRepository.getSubjectsForGradeSection(
         tenantId: tenantId,
         gradeId: event.gradeId,
-        sectionId: event.sectionId,
+        sectionId: event.sectionName, // Pass section NAME (A, B, C), not UUID
       );
 
       result.fold(
@@ -594,9 +734,8 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
           emit(GradeManagementError(failure.message));
         },
         (subjects) {
-          print('✅ [GradeManagementBloc] Loaded ${subjects.length} subjects');
-          final currentSubjects = List<GradeSubject>.from(_subjectsCache[event.sectionId] ?? []);
-          // Replace with loaded subjects
+          print('✅ [GradeManagementBloc] Loaded ${subjects.length} subjects for section ${event.sectionName}');
+          // Cache by section ID (UUID) for UI compatibility
           _subjectsCache[event.sectionId] = subjects;
           _emitLoaded();
         },
@@ -661,10 +800,10 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
   Future<void> _loadSubjectsForSectionAfterAdd(
     String gradeId,
-    String sectionId,
+    String sectionId, // This is actually section ID (UUID), but we need to get the section name
     Emitter<GradeManagementState> emit,
   ) async {
-    print('🔄 [GradeManagementBloc] Reloading subjects after add for Section=$sectionId');
+    print('🔄 [GradeManagementBloc] Reloading subjects after add for Section ID=$sectionId');
 
     try {
       final tenantId = _userStateService.currentTenantId;
@@ -673,10 +812,17 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         return;
       }
 
+      // Find the section name from cache
+      final sections = _sectionsCache[gradeId] ?? [];
+      final section = sections.firstWhere(
+        (s) => s.id == sectionId,
+        orElse: () => throw Exception('Section not found'),
+      );
+
       final result = await _subjectRepository.getSubjectsForGradeSection(
         tenantId: tenantId,
         gradeId: gradeId,
-        sectionId: sectionId,
+        sectionId: section.sectionName, // Pass section NAME (A, B, C), not UUID
       );
 
       result.fold(
@@ -685,7 +831,7 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
           emit(GradeManagementError(failure.message));
         },
         (subjects) {
-          print('✅ [GradeManagementBloc] Reloaded ${subjects.length} subjects after add');
+          print('✅ [GradeManagementBloc] Reloaded ${subjects.length} subjects after add for section ${section.sectionName}');
           _subjectsCache[sectionId] = subjects;
           _emitLoaded();
         },

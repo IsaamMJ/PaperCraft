@@ -476,12 +476,22 @@ class _GradeManagementContentState extends State<_GradeManagementContent> {
                     .toList(),
                 onChanged: (sectionId) {
                   if (sectionId != null) {
+                    // Find the section name from the sections list
+                    final selectedSection = sections.firstWhere(
+                      (s) => s.id == sectionId,
+                      orElse: () => sections.first,
+                    );
+
                     context.read<GradeManagementBloc>().add(
                           SelectSubjectSectionEvent(sectionId),
                         );
-                    // Load subjects for selected section
+                    // Load subjects for selected section (pass section name, not UUID)
                     context.read<GradeManagementBloc>().add(
-                          LoadSubjectsForSectionEvent(grade.id, sectionId),
+                          LoadSubjectsForSectionEvent(
+                            grade.id,
+                            sectionId,
+                            sectionName: selectedSection.sectionName,
+                          ),
                         );
                     // Load available subjects for this grade
                     context.read<GradeManagementBloc>().add(
@@ -614,6 +624,16 @@ class _GradeManagementContentState extends State<_GradeManagementContent> {
     );
     final sectionName = selectedSection.sectionName;
 
+    // Get set of already-assigned subject IDs for quick lookup
+    final assignedSubjectIds = assignedSubjects
+        .map((s) => s.subjectId)
+        .toSet();
+
+    // Filter to show only unassigned subjects
+    final unassignedSubjects = availableSubjects
+        .where((s) => !assignedSubjectIds.contains(s.id))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -626,43 +646,40 @@ class _GradeManagementContentState extends State<_GradeManagementContent> {
           ),
         ),
         SizedBox(height: UIConstants.spacing12),
-        Wrap(
-          spacing: UIConstants.spacing8,
-          runSpacing: UIConstants.spacing8,
-          children: availableSubjects.map((subject) {
-            final isAssigned = assignedSubjects.any((s) => s.subjectId == subject.id);
-
-            return FilterChip(
-              label: Text(subject.name),
-              selected: isAssigned,
-              onSelected: isAssigned
-                  ? null
-                  : (_) {
-                      context.read<GradeManagementBloc>().add(
-                            AddSubjectToSectionEvent(
-                              grade.id,
-                              selectedSectionId,
-                              sectionName,
-                              subject.id,
-                            ),
-                          );
-                    },
-              backgroundColor: isAssigned
-                  ? AppColors.primary.withOpacity(0.2)
-                  : Colors.grey[100],
-              selectedColor: AppColors.primary.withOpacity(0.3),
-              side: BorderSide(
-                color: isAssigned ? AppColors.primary : Colors.grey[300]!,
-                width: isAssigned ? 2 : 1,
-              ),
-              labelStyle: TextStyle(
-                fontSize: UIConstants.fontSizeSmall,
-                color: isAssigned ? AppColors.primary : AppColors.textPrimary,
-                fontWeight: isAssigned ? FontWeight.w600 : FontWeight.normal,
-              ),
-            );
-          }).toList(),
-        ),
+        if (unassignedSubjects.isEmpty)
+          Text(
+            'All available subjects are already assigned',
+            style: TextStyle(
+              color: AppColors.textTertiary,
+              fontStyle: FontStyle.italic,
+            ),
+          )
+        else
+          Wrap(
+            spacing: UIConstants.spacing8,
+            runSpacing: UIConstants.spacing8,
+            children: unassignedSubjects.map((subject) {
+              return FilterChip(
+                label: Text(subject.name),
+                onSelected: (_) {
+                  context.read<GradeManagementBloc>().add(
+                        AddSubjectToSectionEvent(
+                          grade.id,
+                          selectedSectionId,
+                          sectionName,
+                          subject.id,
+                        ),
+                      );
+                },
+                backgroundColor: Colors.grey[100],
+                side: BorderSide(color: Colors.grey[300]!),
+                labelStyle: TextStyle(
+                  fontSize: UIConstants.fontSizeSmall,
+                  color: AppColors.textPrimary,
+                ),
+              );
+            }).toList(),
+          ),
       ],
     );
   }

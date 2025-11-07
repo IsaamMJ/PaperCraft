@@ -106,24 +106,49 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
     try {
       print('➕ [DS] Adding subject ${model.subjectId} to section ${model.section}');
 
-      final data = {
-        'id': model.id,
-        'tenant_id': model.tenantId,
-        'grade_id': model.gradeId,
-        'section': model.section, // section is text
-        'subject_id': model.subjectId,
-        'display_order': model.displayOrder,
-        'is_offered': true, // changed from is_active
-      };
-
-      final response = await _supabase
+      // First, check if a soft-deleted record exists
+      final existingRecord = await _supabase
           .from('grade_section_subject')
-          .insert(data)
           .select()
-          .single();
+          .eq('tenant_id', model.tenantId)
+          .eq('grade_id', model.gradeId)
+          .eq('section', model.section)
+          .eq('subject_id', model.subjectId)
+          .maybeSingle();
 
-      print('✅ [DS] Subject added successfully');
-      return GradeSubjectModel.fromJson(response);
+      if (existingRecord != null) {
+        // Record exists, just update is_offered back to true
+        print('   Found existing record, updating is_offered to true');
+        final response = await _supabase
+            .from('grade_section_subject')
+            .update({'is_offered': true, 'display_order': model.displayOrder})
+            .eq('id', existingRecord['id'])
+            .select()
+            .single();
+
+        print('✅ [DS] Subject re-activated successfully');
+        return GradeSubjectModel.fromJson(response);
+      } else {
+        // Record doesn't exist, insert new one
+        final data = {
+          'id': model.id,
+          'tenant_id': model.tenantId,
+          'grade_id': model.gradeId,
+          'section': model.section, // section is text
+          'subject_id': model.subjectId,
+          'display_order': model.displayOrder,
+          'is_offered': true,
+        };
+
+        final response = await _supabase
+            .from('grade_section_subject')
+            .insert(data)
+            .select()
+            .single();
+
+        print('✅ [DS] Subject added successfully');
+        return GradeSubjectModel.fromJson(response);
+      }
     } catch (e, stackTrace) {
       print('❌ [DS] Error adding subject: $e');
       _logger.error(
@@ -222,30 +247,57 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
     try {
       print('➕ [DS] Adding ${subjectIds.length} subjects to section $sectionId');
 
-      final now = DateTime.now();
-      final data = subjectIds.asMap().entries.map((entry) {
-        return {
-          'id': const Uuid().v4(),
-          'tenant_id': tenantId,
-          'grade_id': gradeId,
-          'section': sectionId, // section is text
-          'subject_id': entry.value,
-          'display_order': entry.key + 1,
-          'is_offered': true, // changed from is_active
-        };
-      }).toList();
+      final results = <GradeSubjectModel>[];
 
-      final response = await _supabase
-          .from('grade_section_subject')
-          .insert(data)
-          .select();
+      // Process each subject individually with upsert logic
+      for (int i = 0; i < subjectIds.length; i++) {
+        final subjectId = subjectIds[i];
 
-      final result = (response as List)
-          .map((json) => GradeSubjectModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+        // Check if soft-deleted record exists
+        final existingRecord = await _supabase
+            .from('grade_section_subject')
+            .select()
+            .eq('tenant_id', tenantId)
+            .eq('grade_id', gradeId)
+            .eq('section', sectionId)
+            .eq('subject_id', subjectId)
+            .maybeSingle();
 
-      print('✅ [DS] Added ${result.length} subjects');
-      return result;
+        if (existingRecord != null) {
+          // Record exists, update it
+          print('   Subject $subjectId exists, updating is_offered to true');
+          final response = await _supabase
+              .from('grade_section_subject')
+              .update({'is_offered': true, 'display_order': i + 1})
+              .eq('id', existingRecord['id'])
+              .select()
+              .single();
+
+          results.add(GradeSubjectModel.fromJson(response));
+        } else {
+          // Record doesn't exist, insert new one
+          final data = {
+            'id': const Uuid().v4(),
+            'tenant_id': tenantId,
+            'grade_id': gradeId,
+            'section': sectionId, // section is text
+            'subject_id': subjectId,
+            'display_order': i + 1,
+            'is_offered': true,
+          };
+
+          final response = await _supabase
+              .from('grade_section_subject')
+              .insert(data)
+              .select()
+              .single();
+
+          results.add(GradeSubjectModel.fromJson(response));
+        }
+      }
+
+      print('✅ [DS] Added/updated ${results.length} subjects');
+      return results;
     } catch (e, stackTrace) {
       print('❌ [DS] Error adding multiple subjects: $e');
       _logger.error(
