@@ -152,9 +152,115 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
                   ),
                   const SizedBox(height: 16),
 
-                  // Grades and sections list
-                  ...grades.map(
-                    (grade) => _buildGradeCard(context, grade),
+                  // Grades selection table
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const <DataColumn>[
+                        DataColumn(label: Text('Grade')),
+                        DataColumn(label: Text('Sections')),
+                        DataColumn(label: Text('Selected')),
+                        DataColumn(label: Text('Action')),
+                      ],
+                      rows: grades.map((grade) {
+                        final gradeId = grade.gradeId as String;
+                        final gradeNumber = grade.gradeNumber as int;
+                        final sections = grade.sections as List<String>;
+                        final selectedSections =
+                            _selectedSectionsByGrade[gradeId]?.toList() ?? [];
+                        final isAllSelected =
+                            selectedSections.length == sections.length &&
+                                sections.isNotEmpty;
+
+                        return DataRow(
+                          cells: <DataCell>[
+                            DataCell(
+                              Text('Grade $gradeNumber',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            DataCell(
+                              Text(
+                                sections.join(', '),
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                selectedSections.isEmpty
+                                    ? 'None'
+                                    : selectedSections.join(', '),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: selectedSections.isEmpty
+                                      ? Colors.grey[600]
+                                      : Colors.green,
+                                  fontWeight: selectedSections.isEmpty
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Tooltip(
+                                    message: isAllSelected
+                                        ? 'Deselect all'
+                                        : 'Select all',
+                                    child: IconButton(
+                                      icon: Icon(
+                                        isAllSelected
+                                            ? Icons.check_box
+                                            : Icons.check_box_outline_blank,
+                                        color: isAllSelected
+                                            ? Colors.green
+                                            : Colors.grey,
+                                        size: 18,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                          minWidth: 32, minHeight: 32),
+                                      onPressed: () =>
+                                          _toggleGradeSelection(gradeId, sections,
+                                              isAllSelected),
+                                    ),
+                                  ),
+                                  Tooltip(
+                                    message: 'Manage sections',
+                                    child: IconButton(
+                                      icon: const Icon(Icons.edit,
+                                          color: Colors.blue, size: 18),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                          minWidth: 32, minHeight: 32),
+                                      onPressed: () =>
+                                          _showSectionSelector(context, gradeId,
+                                              gradeNumber, sections),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                      headingRowColor:
+                          WidgetStateProperty.all(Colors.blue[50]),
+                      dataRowColor: WidgetStateProperty.all(Colors.grey[50]),
+                      headingTextStyle: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12),
+                      dataTextStyle: const TextStyle(fontSize: 11),
+                      border: TableBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        horizontalInside:
+                            BorderSide(color: Colors.grey[300]!),
+                        verticalInside: BorderSide(color: Colors.grey[300]!),
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 16),
@@ -199,80 +305,87 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
     );
   }
 
-  /// Build grade card with section selection
-  Widget _buildGradeCard(BuildContext context, dynamic grade) {
-    final gradeId = grade.gradeId as String;
-    final gradeNumber = grade.gradeNumber as int;
-    final sections = grade.sections as List<String>;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Grade header
-            Text(
-              'Grade $gradeNumber',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
-
-            // Section checkboxes
-            if (sections.isEmpty)
-              Text(
-                'No sections configured',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: sections
-                    .map((section) =>
-                        _buildSectionCheckbox(context, gradeId, section))
-                    .toList(),
-              ),
-          ],
-        ),
-      ),
-    );
+  /// Toggle selection of all sections for a grade
+  void _toggleGradeSelection(
+    String gradeId,
+    List<String> sections,
+    bool isCurrentlyAllSelected,
+  ) {
+    setState(() {
+      _selectedSectionsByGrade.putIfAbsent(gradeId, () => {});
+      if (isCurrentlyAllSelected) {
+        // Deselect all sections
+        _selectedSectionsByGrade[gradeId]!.clear();
+      } else {
+        // Select all sections
+        _selectedSectionsByGrade[gradeId]!.addAll(sections);
+      }
+      _notifyChanges();
+    });
   }
 
-  /// Build section checkbox
-  Widget _buildSectionCheckbox(
+  /// Show section selector dialog
+  void _showSectionSelector(
     BuildContext context,
     String gradeId,
-    String section,
+    int gradeNumber,
+    List<String> sections,
   ) {
-    final isSelected =
-        _selectedSectionsByGrade[gradeId]?.contains(section) ?? false;
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setState) {
+            final selectedSections =
+                _selectedSectionsByGrade[gradeId]?.toList() ?? [];
 
-    return FilterChip(
-      label: Text('Section $section'),
-      selected: isSelected,
-      onSelected: (selected) {
-        setState(() {
-          _selectedSectionsByGrade.putIfAbsent(gradeId, () => {});
-          if (selected) {
-            _selectedSectionsByGrade[gradeId]!.add(section);
-          } else {
-            _selectedSectionsByGrade[gradeId]!.remove(section);
-          }
-          _notifyChanges();
-        });
+            return AlertDialog(
+              title: Text('Select Sections - Grade $gradeNumber'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: sections
+                      .map(
+                        (section) => CheckboxListTile(
+                          title: Text('Section $section'),
+                          value: selectedSections.contains(section),
+                          onChanged: (checked) {
+                            setState(
+                              () {
+                                if (checked ?? false) {
+                                  selectedSections.add(section);
+                                } else {
+                                  selectedSections.remove(section);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    this.setState(() {
+                      _selectedSectionsByGrade[gradeId] =
+                          selectedSections.toSet();
+                      _notifyChanges();
+                    });
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
       },
-      backgroundColor: Colors.white,
-      selectedColor: Colors.blue[100],
-      checkmarkColor: Colors.blue,
-      side: BorderSide(
-        color: isSelected ? Colors.blue : Colors.grey[300]!,
-      ),
     );
   }
 
