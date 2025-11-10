@@ -273,7 +273,7 @@ class _TimetableWizardStep4EntriesState
 
             const SizedBox(height: 16),
 
-            // Added entries list
+            // Added entries table
             if (widget.wizardData.entries.isNotEmpty) ...[
               Text(
                 'Added Entries (${widget.wizardData.entries.length})',
@@ -281,9 +281,8 @@ class _TimetableWizardStep4EntriesState
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 8),
-              ...widget.wizardData.entries
-                  .map((entry) => _buildEntryListItem(context, entry)),
+              const SizedBox(height: 12),
+              _buildEntriesSmartTable(context),
             ],
           ],
         ),
@@ -291,22 +290,57 @@ class _TimetableWizardStep4EntriesState
     );
   }
 
-  /// Build entry list item
-  Widget _buildEntryListItem(
-    BuildContext context,
-    ExamTimetableEntryEntity entry,
-  ) {
-    return Card(
-      color: Colors.grey[50],
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(entry.subjectId),
-        subtitle: Text(
-          '${entry.scheduleDisplay} (Grade: ${entry.gradeId}, Section: ${entry.section})',
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: () => _removeEntry(entry),
+  /// Build smart table for displaying entries
+  Widget _buildEntriesSmartTable(BuildContext context) {
+    final entries = widget.wizardData.entries;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: const <DataColumn>[
+          DataColumn(label: Text('Grade')),
+          DataColumn(label: Text('Section')),
+          DataColumn(label: Text('Subject')),
+          DataColumn(label: Text('Date')),
+          DataColumn(label: Text('Time')),
+          DataColumn(label: Text('Duration')),
+          DataColumn(label: Text('Action')),
+        ],
+        rows: entries.map((entry) {
+          return DataRow(
+            cells: <DataCell>[
+              DataCell(Text(entry.gradeId)),
+              DataCell(Text(entry.section)),
+              DataCell(Text(entry.subjectId, overflow: TextOverflow.ellipsis)),
+              DataCell(Text(entry.examDateDisplay, style: const TextStyle(fontSize: 12))),
+              DataCell(
+                Text(
+                  entry.scheduleDisplay,
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              DataCell(Text('${entry.durationMinutes} min')),
+              DataCell(
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                  tooltip: 'Delete entry',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () => _removeEntry(entry),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+        headingRowColor: WidgetStateProperty.all(Colors.blue[50]),
+        dataRowColor: WidgetStateProperty.all(Colors.grey[50]),
+        headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        dataTextStyle: const TextStyle(fontSize: 11),
+        border: TableBorder(
+          borderRadius: BorderRadius.circular(4),
+          horizontalInside: BorderSide(color: Colors.grey[300]!),
+          verticalInside: BorderSide(color: Colors.grey[300]!),
         ),
       ),
     );
