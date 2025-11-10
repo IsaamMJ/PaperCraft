@@ -109,11 +109,17 @@ class ExamCalendar extends Equatable {
 
   /// Create from JSON response from API
   factory ExamCalendar.fromJson(Map<String, dynamic> json) {
+    // Normalize exam_type in case database has corrupt data
+    String normalizedExamType = _normalizeExamTypeValue(
+      json['exam_type'] as String,
+      json['exam_name'] as String,
+    );
+
     return ExamCalendar(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
       examName: json['exam_name'] as String,
-      examType: json['exam_type'] as String,
+      examType: normalizedExamType,
       monthNumber: json['month_number'] as int,
       plannedStartDate: DateTime.parse(json['planned_start_date'] as String),
       plannedEndDate: DateTime.parse(json['planned_end_date'] as String),
@@ -126,6 +132,67 @@ class ExamCalendar extends Equatable {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
+  }
+
+  /// Normalize exam type value - handles corrupt database data
+  /// Valid values: 'mid_term', 'final', 'unit_test', 'monthly'
+  static String _normalizeExamTypeValue(String rawValue, String examName) {
+    final normalized = rawValue.toLowerCase().trim();
+    final validTypes = ['mid_term', 'final', 'unit_test', 'monthly'];
+
+    // If already valid, return as-is
+    if (validTypes.contains(normalized)) {
+      return normalized;
+    }
+
+    // Map common variations to valid types
+    final typeMapping = {
+      'midterm': 'mid_term',
+      'mid-term': 'mid_term',
+      'mid term': 'mid_term',
+      'midyear': 'mid_term',
+      'mid year': 'mid_term',
+      'halfyearly': 'mid_term',
+      'half yearly': 'mid_term',
+      'half-yearly': 'mid_term',
+      'finalsemester': 'final',
+      'final semester': 'final',
+      'final exam': 'final',
+      'finalexam': 'final',
+      'unittests': 'unit_test',
+      'unit tests': 'unit_test',
+      'unit-test': 'unit_test',
+      'unitest': 'unit_test',
+      'monthlytests': 'monthly',
+      'monthly tests': 'monthly',
+      'monthly test': 'monthly',
+      'monthlyexam': 'monthly',
+      'monthly exam': 'monthly',
+    };
+
+    // First try direct mapping
+    if (typeMapping.containsKey(normalized)) {
+      return typeMapping[normalized]!;
+    }
+
+    // If not found in mapping, try to extract from exam name
+    final examNameLower = examName.toLowerCase();
+
+    if (examNameLower.contains('monthly')) {
+      return 'monthly';
+    }
+    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term')) {
+      return 'mid_term';
+    }
+    if (examNameLower.contains('final')) {
+      return 'final';
+    }
+    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest')) {
+      return 'unit_test';
+    }
+
+    // Default to 'monthly' if cannot determine
+    return 'monthly';
   }
 
   @override

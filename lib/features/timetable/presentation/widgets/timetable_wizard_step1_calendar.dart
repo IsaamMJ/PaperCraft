@@ -149,8 +149,13 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
         ),
         child: InkWell(
           onTap: () {
+            print('[TimetableWizardStep1Calendar] ===== CALENDAR CARD TAPPED =====');
             print('[TimetableWizardStep1Calendar] Calendar tapped: ${calendar.examName}');
+            print('[TimetableWizardStep1Calendar] Calendar examType: ${calendar.examType}');
+            print('[TimetableWizardStep1Calendar] Callback is null: ${onCalendarSelected == null}');
+            print('[TimetableWizardStep1Calendar] About to invoke callback...');
             onCalendarSelected(calendar);
+            print('[TimetableWizardStep1Calendar] Callback invoked successfully');
           },
           borderRadius: BorderRadius.circular(8),
           child: Padding(

@@ -4,30 +4,28 @@ import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../pages/exam_timetable_create_wizard_page.dart';
 
 /// Subject schedule entry for a specific date
+/// Uses fixed time: 10:00 AM - 12:00 PM (2 hours)
 class SubjectSchedule {
   String? selectedSubject;
-  Duration? startTime;
-  Duration? endTime;
   DateTime examDate;
+
+  // Fixed times (not shown in UI but used when generating entries)
+  static const Duration defaultStartTime = Duration(hours: 10);
+  static const Duration defaultEndTime = Duration(hours: 12);
 
   SubjectSchedule({
     required this.examDate,
     this.selectedSubject,
-    this.startTime,
-    this.endTime,
   });
 
-  bool get isComplete => selectedSubject != null && startTime != null && endTime != null;
+  // A schedule is complete when subject is selected (time is always fixed)
+  bool get isComplete => selectedSubject != null;
 
-  String get displayTime {
-    if (startTime == null || endTime == null) return 'Not set';
-    final startHour = startTime!.inHours;
-    final startMin = startTime!.inMinutes % 60;
-    final endHour = endTime!.inHours;
-    final endMin = endTime!.inMinutes % 60;
-    return '${startHour.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} - '
-        '${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}';
-  }
+  // Get start time (always 10:00 AM)
+  Duration get startTime => defaultStartTime;
+
+  // Get end time (always 12:00 PM)
+  Duration get endTime => defaultEndTime;
 
   String get dateDisplay {
     final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -46,12 +44,10 @@ class SubjectSchedule {
 /// When submitted, automatically generates entries for all grades × subjects.
 class TimetableWizardStep4Schedule extends StatefulWidget {
   final WizardData wizardData;
-  final ExamTimetableEntity? calendar;
   final Function(List<ExamTimetableEntryEntity>) onEntriesGenerated;
 
   const TimetableWizardStep4Schedule({
     required this.wizardData,
-    required this.calendar,
     required this.onEntriesGenerated,
     super.key,
   });
@@ -81,6 +77,10 @@ class _TimetableWizardStep4ScheduleState
   void initState() {
     super.initState();
     _initializeSchedules();
+    // Auto-generate entries when initialization completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _generateAndPassEntries();
+    });
   }
 
   /// Initialize schedules for exam dates from calendar
@@ -93,6 +93,16 @@ class _TimetableWizardStep4ScheduleState
       _schedules.add(
         SubjectSchedule(examDate: now.add(Duration(days: i + 1))),
       );
+    }
+  }
+
+  /// Generate and pass entries to parent when all schedules are complete
+  void _generateAndPassEntries() {
+    // Only generate if all schedules are complete (no validation - that shows snackbar)
+    if (_schedules.every((s) => s.isComplete)) {
+      final entries = _generateEntries();
+      widget.onEntriesGenerated(entries);
+      print('[TimetableWizardStep4Schedule] Generated and passed ${entries.length} entries to parent');
     }
   }
 
@@ -114,7 +124,7 @@ class _TimetableWizardStep4ScheduleState
             const SizedBox(height: 8),
             Text(
               'Select which subject will be conducted on each date. '
-              'The same time will apply to all selected grades.',
+              'All exams are scheduled for 10:00 AM - 12:00 PM.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -164,7 +174,7 @@ class _TimetableWizardStep4ScheduleState
     );
   }
 
-  /// Build schedule card for a date
+  /// Build schedule card for a date (date + subject only, time is fixed internally)
   Widget _buildScheduleCard(
     BuildContext context,
     int index,
@@ -186,7 +196,7 @@ class _TimetableWizardStep4ScheduleState
             ),
             const SizedBox(height: 16),
 
-            // Subject selection dropdown
+            // Subject selection dropdown (only input field)
             DropdownButtonFormField<String>(
               value: schedule.selectedSubject,
               decoration: InputDecoration(
@@ -205,62 +215,14 @@ class _TimetableWizardStep4ScheduleState
               onChanged: (value) {
                 setState(() {
                   schedule.selectedSubject = value;
+                  // Check if all schedules complete and generate entries
+                  if (_schedules.every((s) => s.isComplete)) {
+                    _generateAndPassEntries();
+                  }
                 });
               },
               validator: (value) =>
                   value == null ? 'Please select a subject' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Start time
-            GestureDetector(
-              onTap: () => _selectStartTime(index),
-              child: AbsorbPointer(
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Start Time (HH:MM)',
-                    hintText: '09:00',
-                    prefixIcon: const Icon(Icons.schedule),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  controller: TextEditingController(
-                    text: schedule.startTime != null
-                        ? '${schedule.startTime!.inHours.toString().padLeft(2, '0')}:'
-                            '${(schedule.startTime!.inMinutes % 60).toString().padLeft(2, '0')}'
-                        : '',
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Select start time' : null,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // End time
-            GestureDetector(
-              onTap: () => _selectEndTime(index),
-              child: AbsorbPointer(
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'End Time (HH:MM)',
-                    hintText: '11:00',
-                    prefixIcon: const Icon(Icons.schedule),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  controller: TextEditingController(
-                    text: schedule.endTime != null
-                        ? '${schedule.endTime!.inHours.toString().padLeft(2, '0')}:'
-                            '${(schedule.endTime!.inMinutes % 60).toString().padLeft(2, '0')}'
-                        : '',
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Select end time' : null,
-                ),
-              ),
             ),
 
             // Status indicator
@@ -278,7 +240,7 @@ class _TimetableWizardStep4ScheduleState
                     Icon(Icons.check_circle, color: Colors.green, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '${schedule.selectedSubject} at ${schedule.displayTime}',
+                      '${schedule.selectedSubject} - 10:00 AM to 12:00 PM',
                       style: TextStyle(
                         color: Colors.green[800],
                         fontSize: 12,
@@ -290,7 +252,7 @@ class _TimetableWizardStep4ScheduleState
               )
             else
               Text(
-                'Incomplete',
+                'Please select a subject',
                 style: TextStyle(
                   color: Colors.orange[700],
                   fontSize: 12,
@@ -298,58 +260,6 @@ class _TimetableWizardStep4ScheduleState
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// Select start time for a schedule
-  Future<void> _selectStartTime(int scheduleIndex) async {
-    final schedule = _schedules[scheduleIndex];
-    final initialTime = schedule.startTime ?? const Duration(hours: 9);
-
-    final hours = initialTime.inHours;
-    final minutes = initialTime.inMinutes % 60;
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => TimePickerDialog(
-        initialTime: TimeOfDay(hour: hours, minute: minutes),
-        onTimeSelected: (timeOfDay) {
-          setState(() {
-            schedule.startTime = Duration(
-              hours: timeOfDay.hour,
-              minutes: timeOfDay.minute,
-            );
-          });
-        },
-      ),
-    );
-  }
-
-  /// Select end time for a schedule
-  Future<void> _selectEndTime(int scheduleIndex) async {
-    final schedule = _schedules[scheduleIndex];
-    final initialTime = schedule.endTime ?? const Duration(hours: 11);
-
-    final hours = initialTime.inHours;
-    final minutes = initialTime.inMinutes % 60;
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => TimePickerDialog(
-        initialTime: TimeOfDay(hour: hours, minute: minutes),
-        onTimeSelected: (timeOfDay) {
-          setState(() {
-            schedule.endTime = Duration(
-              hours: timeOfDay.hour,
-              minutes: timeOfDay.minute,
-            );
-          });
-        },
       ),
     );
   }
@@ -395,7 +305,7 @@ class _TimetableWizardStep4ScheduleState
 
   /// Validate all schedules are complete
   bool _validateSchedules() {
-    // Check if all schedules are complete
+    // Check if all schedules are complete (all subjects selected)
     if (_schedules.any((s) => !s.isComplete)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -406,141 +316,7 @@ class _TimetableWizardStep4ScheduleState
       return false;
     }
 
-    // Check if end time is after start time for all
-    for (final schedule in _schedules) {
-      if (schedule.endTime! <= schedule.startTime!) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'End time must be after start time for ${schedule.dateDisplay}',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return false;
-      }
-    }
-
     return true;
   }
 
-  /// Notify parent of generated entries
-  void notifySchedulesGenerated() {
-    if (!_validateSchedules()) return;
-    final entries = _generateEntries();
-    widget.onEntriesGenerated(entries);
-  }
-}
-
-/// Custom time picker dialog
-class TimePickerDialog extends StatefulWidget {
-  final TimeOfDay initialTime;
-  final Function(TimeOfDay) onTimeSelected;
-
-  const TimePickerDialog({
-    required this.initialTime,
-    required this.onTimeSelected,
-    super.key,
-  });
-
-  @override
-  State<TimePickerDialog> createState() => _TimePickerDialogState();
-}
-
-class _TimePickerDialogState extends State<TimePickerDialog> {
-  late TimeOfDay _selectedTime;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedTime = widget.initialTime;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Select Time'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Hour selector
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  controller: TextEditingController(
-                    text: _selectedTime.hour.toString().padLeft(2, '0'),
-                  ),
-                  onChanged: (value) {
-                    final hour = int.tryParse(value) ?? _selectedTime.hour;
-                    if (hour >= 0 && hour < 24) {
-                      setState(() {
-                        _selectedTime = _selectedTime.replacing(hour: hour);
-                      });
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'HH',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(':', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              // Minute selector
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  controller: TextEditingController(
-                    text: _selectedTime.minute.toString().padLeft(2, '0'),
-                  ),
-                  onChanged: (value) {
-                    final minute = int.tryParse(value) ?? _selectedTime.minute;
-                    if (minute >= 0 && minute < 60) {
-                      setState(() {
-                        _selectedTime = _selectedTime.replacing(minute: minute);
-                      });
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'MM',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Selected: ${_selectedTime.format(context)}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            widget.onTimeSelected(_selectedTime);
-            Navigator.pop(context);
-          },
-          child: const Text('Select'),
-        ),
-      ],
-    );
-  }
 }

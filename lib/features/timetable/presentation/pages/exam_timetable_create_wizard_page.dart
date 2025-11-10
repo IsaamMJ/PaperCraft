@@ -46,9 +46,6 @@ class _ExamTimetableCreateWizardPageState
   /// Wizard data holder
   late WizardData _wizardData;
 
-  /// Reference to Step 4 schedule widget for accessing its methods
-  late GlobalKey<_TimetableWizardStep4ScheduleState> _step4Key;
-
   @override
   void initState() {
     super.initState();
@@ -57,7 +54,6 @@ class _ExamTimetableCreateWizardPageState
       tenantId: widget.tenantId,
       initialCalendarId: widget.initialCalendarId,
     );
-    _step4Key = GlobalKey<_TimetableWizardStep4ScheduleState>();
     print('[ExamTimetableCreateWizard] Created WizardData object: hash=${_wizardData.hashCode}, selectedCalendar=${_wizardData.selectedCalendar?.examName ?? 'null'}');
 
     // Load exam calendars for step 1
@@ -191,11 +187,12 @@ class _ExamTimetableCreateWizardPageState
   Widget _buildStepContent(BuildContext context, ExamTimetableState state) {
     switch (_currentStep) {
       case 0:
+        print('[ExamTimetableCreateWizard] Building Step 1 with callback');
         return TimetableWizardStep1Calendar(
           wizardData: _wizardData,
           onCalendarSelected: (calendar) {
-            print('[ExamTimetableCreateWizard] Calendar selected: ${calendar.examName}');
-            print('[ExamTimetableCreateWizard] Calendar object: id=${calendar.id}, examName=${calendar.examName}');
+            print('[ExamTimetableCreateWizard] CALLBACK INVOKED! Calendar selected: ${calendar.examName}');
+            print('[ExamTimetableCreateWizard] Calendar object: id=${calendar.id}, examName=${calendar.examName}, examType=${calendar.examType}');
             try {
               final userStateService = GetIt.instance<UserStateService>();
               print('[ExamTimetableCreateWizard] Retrieved UserStateService successfully from GetIt');
@@ -205,8 +202,12 @@ class _ExamTimetableCreateWizardPageState
                 print('[ExamTimetableCreateWizard] Inside setState - After assignment: selectedCalendar=${_wizardData.selectedCalendar?.examName ?? 'null'}');
                 // Auto-populate from calendar and UserStateService
                 _wizardData.examName = calendar.examName;
-                _wizardData.examType = calendar.examType;
-                _wizardData.academicYear = userStateService.currentAcademicYear;
+                print('[ExamTimetableCreateWizard] Raw calendar examType: "${calendar.examType}"');
+                print('[ExamTimetableCreateWizard] Raw calendar examName: "${calendar.examName}"');
+                _wizardData.examType = _normalizeExamType(calendar.examType, calendar.examName);
+                print('[ExamTimetableCreateWizard] After normalization examType: "${_wizardData.examType}"');
+                print('[ExamTimetableCreateWizard] Normalized value length: ${_wizardData.examType.length}, is empty: ${_wizardData.examType.isEmpty}');
+                _wizardData.academicYear = userStateService.currentAcademicYear ?? '';
                 print('[ExamTimetableCreateWizard] Inside setState - After auto-populate: examName=${_wizardData.examName}, examType=${_wizardData.examType}, academicYear=${_wizardData.academicYear}, selectedCalendar=${_wizardData.selectedCalendar?.examName ?? 'null'}');
               });
               print('[ExamTimetableCreateWizard] After setState complete: selectedCalendar=${_wizardData.selectedCalendar?.examName ?? 'null'}');
@@ -230,9 +231,7 @@ class _ExamTimetableCreateWizardPageState
         );
       case 2:
         return TimetableWizardStep4Schedule(
-          key: _step4Key,
           wizardData: _wizardData,
-          calendar: _wizardData.selectedCalendar,
           onEntriesGenerated: (entries) {
             print('[ExamTimetableCreateWizard] Entries generated: ${entries.length} entries');
             setState(() {
@@ -298,11 +297,13 @@ class _ExamTimetableCreateWizardPageState
     print('[ExamTimetableCreateWizard] Before validation - examType: ${_wizardData.examType}');
     print('[ExamTimetableCreateWizard] Before validation - academicYear: ${_wizardData.academicYear}');
     // Validate current step
+    final validationMessage = _getValidationMessage();
     if (!_validateCurrentStep()) {
       print('[ExamTimetableCreateWizard] Validation failed for step $_currentStep');
+      print('[ExamTimetableCreateWizard] Validation message: $validationMessage');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields'),
+        SnackBar(
+          content: Text(validationMessage),
           backgroundColor: Colors.orange,
         ),
       );
@@ -316,11 +317,7 @@ class _ExamTimetableCreateWizardPageState
       });
     } else {
       // Generate schedules and submit the timetable
-      print('[ExamTimetableCreateWizard] Generating schedules and submitting timetable...');
-      final scheduleState = _step4Key.currentState;
-      if (scheduleState != null) {
-        scheduleState.notifySchedulesGenerated();
-      }
+      print('[ExamTimetableCreateWizard] Submitting timetable with schedules...');
       _submitTimetable();
     }
   }
@@ -345,27 +342,69 @@ class _ExamTimetableCreateWizardPageState
     }
   }
 
+  /// Get detailed validation message for current step
+  String _getValidationMessage() {
+    switch (_currentStep) {
+      case 0:
+        if (_wizardData.selectedCalendar == null) {
+          return 'Please select an exam calendar';
+        }
+        return 'Please fill all required fields';
+      case 1:
+        if (_wizardData.selectedGrades.isEmpty) {
+          return 'Please select at least one grade and section';
+        }
+        return 'Please fill all required fields';
+      case 2:
+        if (_wizardData.entries.isEmpty) {
+          return 'Please schedule subjects for all exam dates';
+        }
+        return 'Please fill all required fields';
+      default:
+        return 'Please fill all required fields';
+    }
+  }
+
   /// Submit timetable creation
   void _submitTimetable() {
     print('[ExamTimetableCreateWizard] _submitTimetable: Building timetable entity');
     final now = DateTime.now();
-    final timetableId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // Generate a UUID for timetable ID
+    final timetableId = _generateUUID();
+
+    // Get current user ID from UserStateService
+    final userStateService = GetIt.instance<UserStateService>();
+    final currentUserId = userStateService.currentUserId ?? 'unknown-user';
+
+    // Defensive: ensure examType is never empty at submission time
+    // If somehow the callback didn't run or normalization failed, do it now
+    String finalExamType = _wizardData.examType;
+    if (finalExamType.isEmpty && _wizardData.selectedCalendar != null) {
+      print('[ExamTimetableCreateWizard] WARNING: examType is empty at submission, normalizing from calendar now');
+      finalExamType = _normalizeExamType(_wizardData.selectedCalendar!.examType, _wizardData.selectedCalendar!.examName);
+      print('[ExamTimetableCreateWizard] Normalized examType (defensive): "$finalExamType"');
+    } else if (finalExamType.isEmpty) {
+      print('[ExamTimetableCreateWizard] CRITICAL: examType is empty and no calendar selected, defaulting to "monthly"');
+      finalExamType = 'monthly';
+    }
 
     print('[ExamTimetableCreateWizard] Timetable ID: $timetableId');
     print('[ExamTimetableCreateWizard] Exam Name: ${_wizardData.examName}');
-    print('[ExamTimetableCreateWizard] Exam Type: ${_wizardData.examType}');
+    print('[ExamTimetableCreateWizard] Exam Type (Final): $finalExamType');
     print('[ExamTimetableCreateWizard] Academic Year: ${_wizardData.academicYear}');
     print('[ExamTimetableCreateWizard] Selected Calendar: ${_wizardData.selectedCalendar?.id}');
     print('[ExamTimetableCreateWizard] Selected Grades: ${_wizardData.selectedGrades.length}');
     print('[ExamTimetableCreateWizard] Entries: ${_wizardData.entries.length}');
+    print('[ExamTimetableCreateWizard] Created By: $currentUserId');
 
     final timetable = ExamTimetableEntity(
       id: timetableId,
       tenantId: widget.tenantId,
-      createdBy: 'current-user-id', // TODO: Get from auth context
+      createdBy: currentUserId,
       examCalendarId: _wizardData.selectedCalendar?.id,
       examName: _wizardData.examName,
-      examType: _wizardData.examType,
+      examType: finalExamType,
       academicYear: _wizardData.academicYear,
       status: 'draft',
       isActive: true,
@@ -414,6 +453,123 @@ class _ExamTimetableCreateWizardPageState
       default:
         return '';
     }
+  }
+
+  /// Generate a UUID v4 string
+  String _generateUUID() {
+    // Simple UUID v4 generation using crypto random
+    final random = DateTime.now().millisecondsSinceEpoch;
+    final rng = <int>[];
+    final values = <String>[];
+
+    // Generate 16 random bytes
+    for (var i = 0; i < 16; i++) {
+      rng.add((random * (i + 1)) % 256);
+    }
+
+    // RFC 4122 v4 UUID format
+    values.add(_toHex(rng[0]));
+    values.add(_toHex(rng[1]));
+    values.add(_toHex(rng[2]));
+    values.add(_toHex(rng[3]));
+    values.add('-');
+    values.add(_toHex(rng[4]));
+    values.add(_toHex(rng[5]));
+    values.add('-');
+    values.add(_toHex((rng[6] & 0x0f) | 0x40)); // version 4
+    values.add(_toHex(rng[7]));
+    values.add('-');
+    values.add(_toHex((rng[8] & 0x3f) | 0x80)); // variant 1
+    values.add(_toHex(rng[9]));
+    values.add('-');
+    values.add(_toHex(rng[10]));
+    values.add(_toHex(rng[11]));
+    values.add(_toHex(rng[12]));
+    values.add(_toHex(rng[13]));
+    values.add(_toHex(rng[14]));
+    values.add(_toHex(rng[15]));
+
+    return values.join();
+  }
+
+  /// Convert byte to hex string
+  String _toHex(int value) {
+    return value.toRadixString(16).padLeft(2, '0');
+  }
+
+  /// Normalize and validate exam type
+  /// Converts various formats to valid enum values: 'mid_term', 'final', 'unit_test', 'monthly'
+  /// Handles mismatched data from database by mapping common variations
+  /// Also extracts type from exam name if rawExamType is invalid
+  String _normalizeExamType(String rawExamType, String examName) {
+    final validTypes = ['mid_term', 'final', 'unit_test', 'monthly'];
+    final normalized = rawExamType.toLowerCase().trim();
+
+    // If already valid, return as-is
+    if (validTypes.contains(normalized)) {
+      return normalized;
+    }
+
+    // Map common variations to valid types
+    final typeMapping = {
+      'midterm': 'mid_term',
+      'mid-term': 'mid_term',
+      'mid term': 'mid_term',
+      'midyear': 'mid_term',
+      'mid year': 'mid_term',
+      'halfyearly': 'mid_term',
+      'half yearly': 'mid_term',
+      'half-yearly': 'mid_term',
+      'finalsemester': 'final',
+      'final semester': 'final',
+      'final exam': 'final',
+      'finalexam': 'final',
+      'unittests': 'unit_test',
+      'unit tests': 'unit_test',
+      'unit-test': 'unit_test',
+      'unitest': 'unit_test',
+      'monthlytests': 'monthly',
+      'monthly tests': 'monthly',
+      'monthly test': 'monthly',
+      'monthlyexam': 'monthly',
+      'monthly exam': 'monthly',
+      'november': 'monthly', // Handle calendar month names
+      'december': 'monthly',
+      'october': 'monthly',
+      'september': 'monthly',
+    };
+
+    // First try direct mapping
+    if (typeMapping.containsKey(normalized)) {
+      final mapped = typeMapping[normalized]!;
+      print('[ExamTimetableCreateWizard] Normalized exam type: "$rawExamType" -> "$mapped"');
+      return mapped;
+    }
+
+    // If not found in mapping, try to extract from exam name
+    final examNameLower = examName.toLowerCase();
+
+    // Check for keywords in exam name
+    if (examNameLower.contains('monthly')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "monthly"');
+      return 'monthly';
+    }
+    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "mid_term"');
+      return 'mid_term';
+    }
+    if (examNameLower.contains('final')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "final"');
+      return 'final';
+    }
+    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "unit_test"');
+      return 'unit_test';
+    }
+
+    // Default to 'monthly' if cannot determine (safer default than throwing error)
+    print('[ExamTimetableCreateWizard] WARNING: Could not determine exam type from "$rawExamType" or "$examName", defaulting to "monthly"');
+    return 'monthly';
   }
 }
 

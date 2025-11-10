@@ -96,7 +96,9 @@
       "Bash(timeout 300 flutter run:*)",
       "Bash(timeout 300 bash:*)",
       "Bash(timeout 120 bash:*)",
-      "Bash(timeout 90 flutter analyze:*)"
+      "Bash(timeout 90 flutter analyze:*)",
+      "Bash(timeout 10 sleep:*)",
+      "Bash(timeout 15 sleep:*)"
     ],
     "deny": [],
     "ask": []

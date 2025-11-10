@@ -181,7 +181,8 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     CreateExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] CreateExamTimetable: examName=${event.timetable.examName}, tenantId=${event.timetable.tenantId}');
+    print('[ExamTimetableBloc] CreateExamTimetable: examName=${event.timetable.examName}, examType="${event.timetable.examType}", tenantId=${event.timetable.tenantId}');
+    print('[ExamTimetableBloc] examType value: "${event.timetable.examType}", length=${event.timetable.examType.length}, is empty=${event.timetable.examType.isEmpty}');
     emit(const ExamTimetableLoading(message: 'Creating timetable...'));
 
     final result = await _createExamTimetableUsecase(
