@@ -126,9 +126,7 @@ class GetTimetableGradesAndSectionsUsecase {
     } catch (e) {
       print('[GetTimetableGradesAndSections] ERROR: $e');
       return Left(
-        ServerFailure(
-          message: 'Failed to fetch grades and sections: $e',
-        ),
+        ServerFailure('Failed to fetch grades and sections: $e'),
       );
     }
   }
