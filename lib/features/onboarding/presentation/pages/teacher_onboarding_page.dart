@@ -84,20 +84,6 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
         },
       );
 
-      // Check if grades table has any data at all for debugging
-      final allGrades = await supabase
-          .from('grades')
-          .select()
-          .limit(100);
-
-      AppLogger.info('DEBUG: All grades in system (not filtered)',
-        category: LogCategory.auth,
-        context: {
-          'totalGrades': (allGrades as List).length,
-          'grades': allGrades.toString(),
-        },
-      );
-
       // Update the admin setup bloc with school details
       _bloc.add(UpdateSchoolDetailsEvent(
         schoolName: currentTenant.name,
@@ -138,10 +124,37 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
         category: LogCategory.auth,
       );
 
-      final sectionsData = await supabase
-          .from('grade_sections')
-          .select('*, grades(grade_number)')
+      // FIX: Fetch distinct sections from grade_section_subject table
+      print('[TeacherOnboarding] Fetching sections for tenant: ${currentTenant.id}');
+      final sectionsRaw = await supabase
+          .from('grade_section_subject')
+          .select('grade_id, section')
           .eq('tenant_id', currentTenant.id);
+
+      // Deduplicate: sections table has multiple rows per (grade_id, section) due to different subjects
+      final sectionsMap = <String, Set<String>>{}; // grade_id -> set of sections
+      for (var row in (sectionsRaw as List)) {
+        final gradeId = row['grade_id'] as String;
+        final section = row['section'] as String;
+        sectionsMap.putIfAbsent(gradeId, () => {}).add(section);
+      }
+
+      // Convert to flat list for processing
+      final sectionsData = <Map<String, dynamic>>[];
+      sectionsMap.forEach((gradeId, sections) {
+        for (var section in sections) {
+          sectionsData.add({
+            'grade_id': gradeId,
+            'section_name': section,
+            'tenant_id': currentTenant.id,
+          });
+        }
+      });
+
+      print('[TeacherOnboarding] Raw sections data from DB: ${sectionsData.length} distinct sections');
+      for (var section in sectionsData) {
+        print('  - Grade ID: ${section['grade_id']}, Section: ${section['section_name']}, Tenant: ${section['tenant_id']}');
+      }
 
       AppLogger.info('Sections fetched from database',
         category: LogCategory.auth,
@@ -151,36 +164,59 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
         },
       );
 
+      // Build grade_number lookup map from already-fetched grades
+      final gradeNumberMap = <String, int>{};  // grade_id -> grade_number
+      for (var grade in (gradesData as List)) {
+        gradeNumberMap[grade['id'] as String] = grade['grade_number'] as int;
+      }
+
+      print('[TeacherOnboarding] Grade number map (for tenant ${currentTenant.id}):');
+      gradeNumberMap.forEach((gradeId, gradeNumber) {
+        print('  - Grade Number: $gradeNumber, Grade ID: $gradeId');
+      });
+
       final sectionsPerGrade = <int, List<AdminSetupSection>>{};
+      print('[TeacherOnboarding] Processing sections...');
       for (var section in sectionsData as List) {
         try {
-          final gradeData = section['grades'] as Map<String, dynamic>?;
-          final gradeNumber = gradeData?['grade_number'] as int?;
+          final gradeId = section['grade_id'] as String?;
           final sectionName = section['section_name'] as String;
 
-          if (gradeNumber != null) {
+          print('  Processing: gradeId=$gradeId, sectionName=$sectionName');
+
+          // Lookup grade_number from our map (only grades from this tenant)
+          if (gradeId != null && gradeNumberMap.containsKey(gradeId)) {
+            final gradeNumber = gradeNumberMap[gradeId]!;
+            print('    ✅ Found grade number: $gradeNumber, adding section $sectionName');
             sectionsPerGrade.putIfAbsent(gradeNumber, () => []).add(
               AdminSetupSection(
                 sectionName: sectionName,
                 subjects: [],
               ),
             );
+          } else {
+            print('    ❌ Grade ID $gradeId not found in map (cross-tenant?)');
           }
         } catch (e) {
+          print('    ❌ Error: $e');
           AppLogger.debug('Error processing section: $e', category: LogCategory.auth);
         }
       }
+
+      print('[TeacherOnboarding] FINAL sectionsPerGrade (for display):');
+      sectionsPerGrade.forEach((gradeNumber, sections) {
+        print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
+      });
 
       // Load available subjects for each grade and section (from grade_section_subject junction table)
       AppLogger.info('Fetching subjects per grade/section from database',
         category: LogCategory.auth,
       );
 
-      // Note: subjects table has catalog_subject_id FK to subject_catalog(id)
-      // But Supabase PostgREST may not auto-detect this, so we'll fetch separately
+      // FIX: Don't JOIN grades/subjects, fetch with tenant filter only
       final gradeSubjectsData = await supabase
           .from('grade_section_subject')
-          .select('*, grades(grade_number), subjects(id, catalog_subject_id)')
+          .select('grade_id, section, subject_id')  // Only needed columns
           .eq('tenant_id', currentTenant.id)
           .eq('is_offered', true);
 
@@ -195,60 +231,89 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
       final subjectsPerGrade = <int, List<String>>{};
       final subjectsPerGradePerSection = <int, Map<String, List<String>>>{};
 
-      // First, collect all catalog_subject_ids we need to lookup
-      final catalogSubjectIds = <String>{};
+      // First, collect all subject_ids we need to lookup
+      final subjectIds = <String>{};
       for (var gradeSectionSubject in gradeSubjectsData as List) {
-        final subjectData = gradeSectionSubject['subjects'] as Map<String, dynamic>?;
-        final catalogSubjectId = subjectData?['catalog_subject_id'] as String?;
-        if (catalogSubjectId != null) {
-          catalogSubjectIds.add(catalogSubjectId);
+        final subjectId = gradeSectionSubject['subject_id'] as String?;
+        if (subjectId != null) {
+          subjectIds.add(subjectId);
         }
       }
 
-      // Fetch all subject names from catalog in one query
-      final catalogSubjectMap = <String, String>{};
-      if (catalogSubjectIds.isNotEmpty) {
+      // Fetch all subject details (with catalog info) in one query
+      final subjectMap = <String, String>{};  // subject_id -> subject_name
+      if (subjectIds.isNotEmpty) {
         try {
-          // Use 'in' filter for multiple IDs
-          final catalogData = await supabase
-              .from('subject_catalog')
-              .select('id, subject_name')
-              .inFilter('id', catalogSubjectIds.toList());
+          // Fetch subjects with their catalog_subject_id
+          final subjectsData = await supabase
+              .from('subjects')
+              .select('id, catalog_subject_id')
+              .inFilter('id', subjectIds.toList())
+              .eq('tenant_id', currentTenant.id);  // ← Filter by tenant!
 
-          for (var catalog in catalogData as List) {
-            final id = catalog['id'] as String;
-            final name = catalog['subject_name'] as String;
-            catalogSubjectMap[id] = name;
+          // Collect catalog IDs
+          final catalogSubjectIds = <String>{};
+          final catalogMap = <String, String>{};  // catalog_id -> subject_id (from subjects table)
+
+          for (var subject in subjectsData as List) {
+            final subjectId = subject['id'] as String;
+            final catalogSubjectId = subject['catalog_subject_id'] as String?;
+            if (catalogSubjectId != null) {
+              catalogSubjectIds.add(catalogSubjectId);
+              catalogMap[catalogSubjectId] = subjectId;
+            }
+          }
+
+          // Fetch subject names from catalog
+          if (catalogSubjectIds.isNotEmpty) {
+            final catalogData = await supabase
+                .from('subject_catalog')
+                .select('id, subject_name')
+                .inFilter('id', catalogSubjectIds.toList());
+
+            for (var catalog in catalogData as List) {
+              final catalogId = catalog['id'] as String;
+              final subjectName = catalog['subject_name'] as String;
+              final subjectId = catalogMap[catalogId];
+              if (subjectId != null) {
+                subjectMap[subjectId] = subjectName;
+              }
+            }
           }
         } catch (e) {
+          AppLogger.error('Error fetching subjects',
+            category: LogCategory.auth,
+            error: e,
+          );
         }
       }
 
       // Now process the grade_section_subject data
       for (var gradeSectionSubject in gradeSubjectsData as List) {
         try {
-          final gradeData = gradeSectionSubject['grades'] as Map<String, dynamic>?;
-          final gradeNumber = gradeData?['grade_number'] as int?;
+          final gradeId = gradeSectionSubject['grade_id'] as String?;
           final sectionName = gradeSectionSubject['section'] as String?;
+          final subjectId = gradeSectionSubject['subject_id'] as String?;
 
-          final subjectData = gradeSectionSubject['subjects'] as Map<String, dynamic>?;
-          final catalogSubjectId = subjectData?['catalog_subject_id'] as String?;
-          final subjectName = catalogSubjectId != null ? catalogSubjectMap[catalogSubjectId] : null;
+          // Lookup grade_number from our map (only from this tenant's grades)
+          if (gradeId != null && gradeNumberMap.containsKey(gradeId)) {
+            final gradeNumber = gradeNumberMap[gradeId]!;
+            final subjectName = subjectId != null ? subjectMap[subjectId] : null;
 
+            if (subjectName != null) {
+              // Add subject to the list for this grade (only if not already added)
+              subjectsPerGrade.putIfAbsent(gradeNumber, () => []);
+              if (!subjectsPerGrade[gradeNumber]!.contains(subjectName)) {
+                subjectsPerGrade[gradeNumber]!.add(subjectName);
+              }
 
-          if (gradeNumber != null && subjectName != null) {
-            // Add subject to the list for this grade (only if not already added)
-            subjectsPerGrade.putIfAbsent(gradeNumber, () => []);
-            if (!subjectsPerGrade[gradeNumber]!.contains(subjectName)) {
-              subjectsPerGrade[gradeNumber]!.add(subjectName);
-            }
-
-            // Also track subjects per grade+section
-            if (sectionName != null) {
-              subjectsPerGradePerSection.putIfAbsent(gradeNumber, () => {});
-              subjectsPerGradePerSection[gradeNumber]!.putIfAbsent(sectionName, () => []);
-              if (!subjectsPerGradePerSection[gradeNumber]![sectionName]!.contains(subjectName)) {
-                subjectsPerGradePerSection[gradeNumber]![sectionName]!.add(subjectName);
+              // Also track subjects per grade+section
+              if (sectionName != null) {
+                subjectsPerGradePerSection.putIfAbsent(gradeNumber, () => {});
+                subjectsPerGradePerSection[gradeNumber]!.putIfAbsent(sectionName, () => []);
+                if (!subjectsPerGradePerSection[gradeNumber]![sectionName]!.contains(subjectName)) {
+                  subjectsPerGradePerSection[gradeNumber]![sectionName]!.add(subjectName);
+                }
               }
             }
           }
@@ -282,12 +347,23 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
       );
 
       if (mounted) {
+        print('[TeacherOnboarding] === STORING DATA IN STATE ===');
+        print('[TeacherOnboarding] Sections per grade being stored:');
+        sectionsPerGrade.forEach((gradeNumber, sections) {
+          print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
+        });
+
         setState(() {
           _availableGrades = availableGrades;
           _availableSectionsPerGrade = sectionsPerGrade;
           _availableSubjectsPerGrade = subjectsPerGrade;
           _availableSubjectsPerGradePerSection = subjectsPerGradePerSection;
         });
+
+        print('[TeacherOnboarding] === STATE UPDATED ===');
+        print('[TeacherOnboarding] Grades: ${_availableGrades.length}');
+        print('[TeacherOnboarding] Sections per grade: ${_availableSectionsPerGrade.length}');
+        print('[TeacherOnboarding] Subjects per grade: ${_availableSubjectsPerGrade.length}');
 
         AppLogger.info('State updated with available data',
           category: LogCategory.auth,
@@ -312,7 +388,7 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
           'subjects': subjectsPerGrade.length,
         },
       );
-    } catch (e, stacktrace) {
+    } catch (e, _) {
       AppLogger.error('Failed to load school onboarding data',
         category: LogCategory.auth,
         error: e,
@@ -536,6 +612,18 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
             'selectedSectionsCount': setupState.sectionsPerGrade.length,
           },
         );
+        // DEBUG: Show what's being passed to Step 2 widget
+        print('[TeacherOnboarding] === BUILDING STEP 2 ===');
+        print('[TeacherOnboarding] Selected Grades: ${setupState.selectedGrades.length}');
+        print('[TeacherOnboarding] Available Sections Per Grade Map:');
+        _availableSectionsPerGrade.forEach((gradeNumber, sections) {
+          print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
+        });
+        print('[TeacherOnboarding] Sections Per Grade (from setupState):');
+        setupState.sectionsPerGrade.forEach((gradeNumber, sectionNames) {
+          print('  Grade $gradeNumber: ${sectionNames.join(", ")}');
+        });
+
         return TeacherOnboardingStep2Sections(
           selectedGrades: setupState.selectedGrades,
           availableSectionsPerGrade: _availableSectionsPerGrade,
@@ -847,7 +935,7 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
           }
         });
       }
-    } catch (e, stacktrace) {
+    } catch (e, _) {
       AppLogger.error('Failed to mark teacher as onboarded',
         category: LogCategory.auth,
         error: e,

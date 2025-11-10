@@ -29,15 +29,18 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
   @override
   void initState() {
     super.initState();
+    print('[TeacherProfileSetupPage] initState: Loading grades and subjects');
     _loadGradesAndSubjects();
   }
 
   void _loadGradesAndSubjects() {
+    print('[TeacherProfileSetupPage] _loadGradesAndSubjects: Triggering LoadGrades and LoadSubjects events');
     context.read<GradeBloc>().add(const LoadGrades());
     context.read<SubjectBloc>().add(const LoadSubjects());
   }
 
   Future<void> _submitAssignments() async {
+    print('[TeacherProfileSetupPage] _submitAssignments: Starting submission');
     setState(() => _isSubmitting = true);
 
     try {
@@ -48,6 +51,8 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
         throw Exception('User information not available');
       }
 
+      print('[TeacherProfileSetupPage] _submitAssignments: userId=$userId, selectedGrades=${_selectedGradeIds.length}, selectedSubjects=${_selectedSubjectIds.length}');
+
       // Update last login timestamp to mark onboarding as complete
       await _updateLastLoginAt(userId);
 
@@ -56,6 +61,8 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
             category: LogCategory.auth,
             context: {'userId': userId});
 
+        print('[TeacherProfileSetupPage] _submitAssignments: Onboarding completed, navigating to home');
+
         // Refresh auth state to update isFirstLogin flag
         context.read<AuthBloc>().add(AuthCheckStatus());
 
@@ -63,6 +70,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
         context.go(AppRoutes.home);
       }
     } catch (e) {
+      print('[TeacherProfileSetupPage] _submitAssignments: ERROR - $e');
       AppLogger.warning('Error during teacher onboarding: ${e.toString()}',
           category: LogCategory.auth,
           context: {'error': e.toString()});
@@ -82,6 +90,7 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
   }
 
   Future<void> _updateLastLoginAt(String userId) async {
+    print('[TeacherProfileSetupPage] _updateLastLoginAt: Updating last_login_at for userId=$userId');
     try {
       final apiClient = sl<ApiClient>();
       await apiClient.update<void>(
@@ -90,10 +99,12 @@ class _TeacherProfileSetupPageState extends State<TeacherProfileSetupPage> {
         filters: {'id': userId},
         fromJson: (_) => null,
       );
+      print('[TeacherProfileSetupPage] _updateLastLoginAt: SUCCESS - Updated last_login_at');
       AppLogger.info('Last login timestamp updated after onboarding',
           category: LogCategory.auth,
           context: {'userId': userId});
     } catch (e) {
+      print('[TeacherProfileSetupPage] _updateLastLoginAt: ERROR - $e');
       AppLogger.warning('Failed to update last login timestamp',
           category: LogCategory.auth,
           context: {'userId': userId, 'error': e.toString()});

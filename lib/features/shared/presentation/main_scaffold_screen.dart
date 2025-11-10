@@ -293,7 +293,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<_NavItem> _getNavigationItems() {
     if (_isAdmin) {
-      // Admin navigation: Admin Dashboard, Question Bank, Settings
+      // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings
       return [
         _NavItem(
           icon: Icons.admin_panel_settings_outlined,
@@ -306,6 +306,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           activeIcon: Icons.library_books,
           label: 'Bank',
           semanticLabel: 'Question bank',
+        ),
+        _NavItem(
+          icon: Icons.calendar_today_outlined,
+          activeIcon: Icons.calendar_today,
+          label: 'Exams',
+          semanticLabel: 'Exam timetables',
         ),
         _NavItem(
           icon: Icons.settings_outlined,
@@ -860,7 +866,8 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Admin Dashboard';
         case 1: return 'Question Bank';
-        case 2: return 'Settings';
+        case 2: return 'Exam Timetables';
+        case 3: return 'Settings';
         default: return 'Papercraft';
       }
     } else {
@@ -878,7 +885,8 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       switch (index) {
         case 0: return 'Manage papers and users';
         case 1: return 'Approved question papers';
-        case 2: return 'Preferences and account';
+        case 2: return 'Create and manage exam schedules';
+        case 3: return 'Preferences and account';
         default: return '';
       }
     } else {

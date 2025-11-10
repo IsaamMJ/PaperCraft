@@ -62,6 +62,16 @@ import '../../../features/assignments/presentation/bloc/teacher_preferences_bloc
 import '../../../features/assignments/data/datasources/teacher_subject_remote_datasource.dart';
 import '../../../features/assignments/data/repositories/teacher_subject_repository_impl.dart';
 import '../../../features/assignments/domain/repositories/teacher_subject_repository.dart';
+import '../../../features/timetable/presentation/bloc/exam_timetable_bloc.dart';
+import '../../../features/timetable/data/datasources/exam_timetable_remote_data_source.dart';
+import '../../../features/timetable/data/repositories/exam_timetable_repository_impl.dart';
+import '../../../features/timetable/domain/repositories/exam_timetable_repository.dart';
+import '../../../features/timetable/domain/usecases/get_exam_calendars_usecase.dart';
+import '../../../features/timetable/domain/usecases/get_exam_timetables_usecase.dart';
+import '../../../features/timetable/domain/usecases/create_exam_timetable_usecase.dart';
+import '../../../features/timetable/domain/usecases/publish_exam_timetable_usecase.dart';
+import '../../../features/timetable/domain/usecases/add_exam_timetable_entry_usecase.dart';
+import '../../../features/timetable/domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
@@ -1027,6 +1037,14 @@ class _AdminModule {
         supabaseClient: Supabase.instance.client,
       ),
     );
+
+    // Register exam timetable data sources
+    sl<ILogger>().debug('Setting up exam timetable data sources', category: LogCategory.system);
+    sl.registerLazySingleton<ExamTimetableRemoteDataSource>(
+      () => ExamTimetableRemoteDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
+      ),
+    );
   }
 
   static void _setupRepositories() {
@@ -1035,6 +1053,14 @@ class _AdminModule {
     sl.registerLazySingleton<AdminSetupRepository>(
       () => AdminSetupRepositoryImpl(
         remoteDataSource: sl<AdminSetupRemoteDataSource>(),
+      ),
+    );
+
+    // Register exam timetable repository
+    sl<ILogger>().debug('Setting up exam timetable repositories', category: LogCategory.system);
+    sl.registerLazySingleton<ExamTimetableRepository>(
+      () => ExamTimetableRepositoryImpl(
+        remoteDataSource: sl<ExamTimetableRemoteDataSource>(),
       ),
     );
   }
@@ -1054,6 +1080,29 @@ class _AdminModule {
     sl.registerLazySingleton(() => ValidateSubjectAssignmentUseCase());
 
     sl<ILogger>().debug('Admin setup use cases registered successfully', category: LogCategory.system);
+
+    // Register exam timetable use cases
+    sl<ILogger>().debug('Setting up exam timetable use cases', category: LogCategory.system);
+    sl.registerLazySingleton(() => GetExamCalendarsUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl.registerLazySingleton(() => GetExamTimetablesUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl.registerLazySingleton(() => CreateExamTimetableUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl.registerLazySingleton(() => PublishExamTimetableUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl.registerLazySingleton(() => AddExamTimetableEntryUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl.registerLazySingleton(() => ValidateExamTimetableUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+
+    sl<ILogger>().debug('Exam timetable use cases registered successfully', category: LogCategory.system);
   }
 
   static void _setupBlocs() {
@@ -1066,6 +1115,19 @@ class _AdminModule {
     ));
 
     sl<ILogger>().debug('AdminSetupBloc registered successfully', category: LogCategory.system);
+
+    // Register ExamTimetableBloc
+    sl<ILogger>().debug('Setting up exam timetable BLoCs', category: LogCategory.system);
+    sl.registerFactory(() => ExamTimetableBloc(
+      getExamCalendarsUsecase: sl<GetExamCalendarsUsecase>(),
+      getExamTimetablesUsecase: sl<GetExamTimetablesUsecase>(),
+      createExamTimetableUsecase: sl<CreateExamTimetableUsecase>(),
+      publishExamTimetableUsecase: sl<PublishExamTimetableUsecase>(),
+      addExamTimetableEntryUsecase: sl<AddExamTimetableEntryUsecase>(),
+      validateExamTimetableUsecase: sl<ValidateExamTimetableUsecase>(),
+      repository: sl<ExamTimetableRepository>(),
+    ));
+    sl<ILogger>().debug('ExamTimetableBloc registered successfully', category: LogCategory.system);
   }
 }
 
