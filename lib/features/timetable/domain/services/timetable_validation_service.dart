@@ -103,11 +103,13 @@ class TimetableValidationService {
 
     for (final entry in entries) {
       // Check for duplicate IDs
-      if (entryIds.contains(entry.id)) {
+      if (entry.id != null && entryIds.contains(entry.id)) {
         errors.add('Duplicate entry ID: ${entry.id}');
         continue;
       }
-      entryIds.add(entry.id);
+      if (entry.id != null) {
+        entryIds.add(entry.id!);
+      }
 
       // Validate entry
       errors.addAll(_validateEntry(entry).errors);
