@@ -100,39 +100,46 @@ class ExamCalendarModel extends ExamCalendarEntity {
   }
 
   /// Normalize exam type value - handles corrupt database data
-  /// Valid values: 'mid_term', 'final', 'unit_test', 'monthly'
+  /// Valid database values: 'monthlyTest', 'halfYearlyTest', 'quarterlyTest', 'finalExam', 'dailyTest'
   static String _normalizeExamType(String rawValue, String examName) {
     final normalized = rawValue.toLowerCase().trim();
-    final validTypes = ['mid_term', 'final', 'unit_test', 'monthly'];
+    final validTypes = ['monthlytest', 'halfyearlytest', 'quarterlytest', 'finalexam', 'dailytest'];
 
-    // If already valid, return as-is
+    // If already valid (camelCase check), return as-is
     if (validTypes.contains(normalized)) {
-      return normalized;
+      return rawValue; // Return original casing
     }
 
-    // Map common variations to valid types
+    // Map common variations to database enum values
     final typeMapping = {
-      'midterm': 'mid_term',
-      'mid-term': 'mid_term',
-      'mid term': 'mid_term',
-      'midyear': 'mid_term',
-      'mid year': 'mid_term',
-      'halfyearly': 'mid_term',
-      'half yearly': 'mid_term',
-      'half-yearly': 'mid_term',
-      'finalsemester': 'final',
-      'final semester': 'final',
-      'final exam': 'final',
-      'finalexam': 'final',
-      'unittests': 'unit_test',
-      'unit tests': 'unit_test',
-      'unit-test': 'unit_test',
-      'unitest': 'unit_test',
-      'monthlytests': 'monthly',
-      'monthly tests': 'monthly',
-      'monthly test': 'monthly',
-      'monthlyexam': 'monthly',
-      'monthly exam': 'monthly',
+      'monthly': 'monthlyTest',
+      'monthly test': 'monthlyTest',
+      'monthlytests': 'monthlyTest',
+      'monthlytest': 'monthlyTest',
+      'monthly exam': 'monthlyTest',
+      'mid_term': 'halfYearlyTest',
+      'mid term': 'halfYearlyTest',
+      'midterm': 'halfYearlyTest',
+      'mid-term': 'halfYearlyTest',
+      'midyear': 'halfYearlyTest',
+      'halfyearly': 'halfYearlyTest',
+      'half yearly': 'halfYearlyTest',
+      'half-yearly': 'halfYearlyTest',
+      'quarterly': 'quarterlyTest',
+      'quarterly test': 'quarterlyTest',
+      'final': 'finalExam',
+      'final exam': 'finalExam',
+      'finalexam': 'finalExam',
+      'finalsemester': 'finalExam',
+      'unit': 'dailyTest',
+      'unit test': 'dailyTest',
+      'unittests': 'dailyTest',
+      'unittest': 'dailyTest',
+      'daily test': 'dailyTest',
+      'november': 'monthlyTest',
+      'december': 'monthlyTest',
+      'october': 'monthlyTest',
+      'september': 'monthlyTest',
     };
 
     // First try direct mapping
@@ -144,19 +151,22 @@ class ExamCalendarModel extends ExamCalendarEntity {
     final examNameLower = examName.toLowerCase();
 
     if (examNameLower.contains('monthly')) {
-      return 'monthly';
+      return 'monthlyTest';
     }
-    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term')) {
-      return 'mid_term';
+    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term') || examNameLower.contains('half yearly')) {
+      return 'halfYearlyTest';
+    }
+    if (examNameLower.contains('quarterly') || examNameLower.contains('quarter')) {
+      return 'quarterlyTest';
     }
     if (examNameLower.contains('final')) {
-      return 'final';
+      return 'finalExam';
     }
-    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest')) {
-      return 'unit_test';
+    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest') || examNameLower.contains('daily')) {
+      return 'dailyTest';
     }
 
-    // Default to 'monthly' if cannot determine
-    return 'monthly';
+    // Default to 'monthlyTest' if cannot determine
+    return 'monthlyTest';
   }
 }

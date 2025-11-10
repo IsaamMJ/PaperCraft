@@ -498,45 +498,76 @@ class _ExamTimetableCreateWizardPageState
   }
 
   /// Normalize and validate exam type
-  /// Converts various formats to valid enum values: 'mid_term', 'final', 'unit_test', 'monthly'
+  /// Converts various formats to database enum values: 'monthlyTest', 'halfYearlyTest', 'quarterlyTest', 'finalExam', 'dailyTest'
   /// Handles mismatched data from database by mapping common variations
   /// Also extracts type from exam name if rawExamType is invalid
   String _normalizeExamType(String rawExamType, String examName) {
-    final validTypes = ['mid_term', 'final', 'unit_test', 'monthly'];
+    final validTypes = ['monthlyTest', 'halfYearlyTest', 'quarterlyTest', 'finalExam', 'dailyTest'];
     final normalized = rawExamType.toLowerCase().trim();
 
-    // If already valid, return as-is
-    if (validTypes.contains(normalized)) {
-      return normalized;
+    // If already valid (camelCase check), return as-is
+    if (validTypes.contains(rawExamType)) {
+      return rawExamType;
     }
 
-    // Map common variations to valid types
+    // Map common variations to database enum values (camelCase)
     final typeMapping = {
-      'midterm': 'mid_term',
-      'mid-term': 'mid_term',
-      'mid term': 'mid_term',
-      'midyear': 'mid_term',
-      'mid year': 'mid_term',
-      'halfyearly': 'mid_term',
-      'half yearly': 'mid_term',
-      'half-yearly': 'mid_term',
-      'finalsemester': 'final',
-      'final semester': 'final',
-      'final exam': 'final',
-      'finalexam': 'final',
-      'unittests': 'unit_test',
-      'unit tests': 'unit_test',
-      'unit-test': 'unit_test',
-      'unitest': 'unit_test',
-      'monthlytests': 'monthly',
-      'monthly tests': 'monthly',
-      'monthly test': 'monthly',
-      'monthlyexam': 'monthly',
-      'monthly exam': 'monthly',
-      'november': 'monthly', // Handle calendar month names
-      'december': 'monthly',
-      'october': 'monthly',
-      'september': 'monthly',
+      'monthly': 'monthlyTest',
+      'monthly test': 'monthlyTest',
+      'monthly tests': 'monthlyTest',
+      'monthlytests': 'monthlyTest',
+      'monthlytest': 'monthlyTest',
+      'monthlyexam': 'monthlyTest',
+      'monthly exam': 'monthlyTest',
+      'mid_term': 'halfYearlyTest',
+      'mid term': 'halfYearlyTest',
+      'midterm': 'halfYearlyTest',
+      'mid-term': 'halfYearlyTest',
+      'mid year': 'halfYearlyTest',
+      'mid_year': 'halfYearlyTest',
+      'midyear': 'halfYearlyTest',
+      'half yearly': 'halfYearlyTest',
+      'half-yearly': 'halfYearlyTest',
+      'half_yearly': 'halfYearlyTest',
+      'halfyearly': 'halfYearlyTest',
+      'halfyearlytest': 'halfYearlyTest',
+      'quarterly': 'quarterlyTest',
+      'quarterly test': 'quarterlyTest',
+      'quarterly exam': 'quarterlyTest',
+      'quarterlytest': 'quarterlyTest',
+      'quarter': 'quarterlyTest',
+      'quarter test': 'quarterlyTest',
+      'final': 'finalExam',
+      'final exam': 'finalExam',
+      'finalexam': 'finalExam',
+      'final_exam': 'finalExam',
+      'finalsemester': 'finalExam',
+      'final semester': 'finalExam',
+      'unit': 'dailyTest',
+      'unit test': 'dailyTest',
+      'unit tests': 'dailyTest',
+      'unit-test': 'dailyTest',
+      'unit_test': 'dailyTest',
+      'unittest': 'dailyTest',
+      'unittests': 'dailyTest',
+      'unitest': 'dailyTest',
+      'daily': 'dailyTest',
+      'daily test': 'dailyTest',
+      'dailytest': 'dailyTest',
+      'daily_test': 'dailyTest',
+      // Handle calendar month names as monthly tests
+      'november': 'monthlyTest',
+      'december': 'monthlyTest',
+      'october': 'monthlyTest',
+      'september': 'monthlyTest',
+      'january': 'monthlyTest',
+      'february': 'monthlyTest',
+      'march': 'monthlyTest',
+      'april': 'monthlyTest',
+      'may': 'monthlyTest',
+      'june': 'monthlyTest',
+      'july': 'monthlyTest',
+      'august': 'monthlyTest',
     };
 
     // First try direct mapping
@@ -551,25 +582,29 @@ class _ExamTimetableCreateWizardPageState
 
     // Check for keywords in exam name
     if (examNameLower.contains('monthly')) {
-      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "monthly"');
-      return 'monthly';
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "monthlyTest"');
+      return 'monthlyTest';
     }
-    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term')) {
-      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "mid_term"');
-      return 'mid_term';
+    if (examNameLower.contains('mid term') || examNameLower.contains('midterm') || examNameLower.contains('mid-term') || examNameLower.contains('half yearly') || examNameLower.contains('halfyearly')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "halfYearlyTest"');
+      return 'halfYearlyTest';
+    }
+    if (examNameLower.contains('quarterly') || examNameLower.contains('quarter')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "quarterlyTest"');
+      return 'quarterlyTest';
     }
     if (examNameLower.contains('final')) {
-      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "final"');
-      return 'final';
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "finalExam"');
+      return 'finalExam';
     }
-    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest')) {
-      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "unit_test"');
-      return 'unit_test';
+    if (examNameLower.contains('unit test') || examNameLower.contains('unit-test') || examNameLower.contains('unittest') || examNameLower.contains('daily')) {
+      print('[ExamTimetableCreateWizard] Extracted exam type from name: "$examName" -> "dailyTest"');
+      return 'dailyTest';
     }
 
-    // Default to 'monthly' if cannot determine (safer default than throwing error)
-    print('[ExamTimetableCreateWizard] WARNING: Could not determine exam type from "$rawExamType" or "$examName", defaulting to "monthly"');
-    return 'monthly';
+    // Default to 'monthlyTest' if cannot determine (safer default than throwing error)
+    print('[ExamTimetableCreateWizard] WARNING: Could not determine exam type from "$rawExamType" or "$examName", defaulting to "monthlyTest"');
+    return 'monthlyTest';
   }
 }
 

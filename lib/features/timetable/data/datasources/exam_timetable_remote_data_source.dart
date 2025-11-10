@@ -410,10 +410,14 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     ExamTimetableEntity timetable,
   ) async {
     try {
+      print('[ExamTimetableRemoteDataSource] createExamTimetable: timetable.examType="${timetable.examType}"');
       final model = ExamTimetableModel.fromEntity(timetable);
+      print('[ExamTimetableRemoteDataSource] After conversion to model: model.examType="${model.examType}"');
+      final jsonData = model.toJson();
+      print('[ExamTimetableRemoteDataSource] JSON being sent to Supabase: exam_type="${jsonData['exam_type']}"');
       final response = await _supabaseClient
           .from('exam_timetables')
-          .insert(model.toJson())
+          .insert(jsonData)
           .select()
           .single();
 
