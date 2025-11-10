@@ -10,7 +10,7 @@ import '../bloc/exam_timetable_event.dart';
 import '../bloc/exam_timetable_state.dart';
 import '../widgets/timetable_wizard_step1_calendar.dart';
 import '../widgets/timetable_wizard_step3_grades.dart';
-import '../widgets/timetable_wizard_step4_entries.dart';
+import '../widgets/timetable_wizard_step4_schedule.dart';
 
 /// Multi-step wizard for creating exam timetables
 ///
@@ -46,6 +46,9 @@ class _ExamTimetableCreateWizardPageState
   /// Wizard data holder
   late WizardData _wizardData;
 
+  /// Reference to Step 4 schedule widget for accessing its methods
+  late GlobalKey<_TimetableWizardStep4ScheduleState> _step4Key;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +57,7 @@ class _ExamTimetableCreateWizardPageState
       tenantId: widget.tenantId,
       initialCalendarId: widget.initialCalendarId,
     );
+    _step4Key = GlobalKey<_TimetableWizardStep4ScheduleState>();
     print('[ExamTimetableCreateWizard] Created WizardData object: hash=${_wizardData.hashCode}, selectedCalendar=${_wizardData.selectedCalendar?.examName ?? 'null'}');
 
     // Load exam calendars for step 1
@@ -225,10 +229,12 @@ class _ExamTimetableCreateWizardPageState
           },
         );
       case 2:
-        return TimetableWizardStep4Entries(
+        return TimetableWizardStep4Schedule(
+          key: _step4Key,
           wizardData: _wizardData,
-          onEntriesChanged: (entries) {
-            print('[ExamTimetableCreateWizard] Entries changed: ${entries.length} entries');
+          calendar: _wizardData.selectedCalendar,
+          onEntriesGenerated: (entries) {
+            print('[ExamTimetableCreateWizard] Entries generated: ${entries.length} entries');
             setState(() {
               _wizardData.entries = entries;
               print('[ExamTimetableCreateWizard] Updated _wizardData.entries: ${_wizardData.entries.length}');
@@ -309,8 +315,12 @@ class _ExamTimetableCreateWizardPageState
         _currentStep++;
       });
     } else {
-      // Submit the timetable
-      print('[ExamTimetableCreateWizard] Submitting timetable...');
+      // Generate schedules and submit the timetable
+      print('[ExamTimetableCreateWizard] Generating schedules and submitting timetable...');
+      final scheduleState = _step4Key.currentState;
+      if (scheduleState != null) {
+        scheduleState.notifySchedulesGenerated();
+      }
       _submitTimetable();
     }
   }
