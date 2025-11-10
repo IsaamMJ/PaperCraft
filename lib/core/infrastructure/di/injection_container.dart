@@ -72,6 +72,17 @@ import '../../../features/timetable/domain/usecases/create_exam_timetable_usecas
 import '../../../features/timetable/domain/usecases/publish_exam_timetable_usecase.dart';
 import '../../../features/timetable/domain/usecases/add_exam_timetable_entry_usecase.dart';
 import '../../../features/timetable/domain/usecases/validate_exam_timetable_usecase.dart';
+import '../../../features/timetable/domain/usecases/get_timetable_grades_and_sections_usecase.dart';
+
+// Exam Calendar feature imports
+import '../../../features/exams/presentation/bloc/exam_calendar_bloc.dart';
+import '../../../features/exams/data/datasources/exam_calendar_remote_datasource.dart';
+import '../../../features/exams/data/repositories/exam_calendar_repository_impl.dart';
+import '../../../features/exams/domain/repositories/exam_calendar_repository.dart';
+import '../../../features/exams/domain/usecases/load_exam_calendars_usecase.dart';
+import '../../../features/exams/domain/usecases/create_exam_calendar_usecase.dart';
+import '../../../features/exams/domain/usecases/delete_exam_calendar_usecase.dart';
+
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
@@ -997,10 +1008,21 @@ class _AdminModule {
     try {
       sl<ILogger>().debug('Initializing admin setup module', category: LogCategory.system);
 
+      print('[_AdminModule] Setting up data sources...');
       _setupDataSources();
+      print('[_AdminModule] Data sources setup complete');
+
+      print('[_AdminModule] Setting up repositories...');
       _setupRepositories();
+      print('[_AdminModule] Repositories setup complete');
+
+      print('[_AdminModule] Setting up use cases...');
       _setupUseCases();
+      print('[_AdminModule] Use cases setup complete');
+
+      print('[_AdminModule] Setting up blocs...');
       _setupBlocs();
+      print('[_AdminModule] BLoCs setup complete');
 
       sl<ILogger>().info(
         'Admin setup module initialized successfully',
@@ -1015,6 +1037,8 @@ class _AdminModule {
         },
       );
     } catch (e, stackTrace) {
+      print('[_AdminModule] ERROR: $e');
+      print('[_AdminModule] StackTrace: $stackTrace');
       sl<ILogger>().error(
         'Admin setup module initialization failed',
         error: e,
@@ -1038,6 +1062,14 @@ class _AdminModule {
       ),
     );
 
+    // Register exam calendar data sources
+    sl<ILogger>().debug('Setting up exam calendar data sources', category: LogCategory.system);
+    sl.registerLazySingleton<ExamCalendarRemoteDataSource>(
+      () => ExamCalendarRemoteDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
+      ),
+    );
+
     // Register exam timetable data sources
     sl<ILogger>().debug('Setting up exam timetable data sources', category: LogCategory.system);
     sl.registerLazySingleton<ExamTimetableRemoteDataSource>(
@@ -1053,6 +1085,14 @@ class _AdminModule {
     sl.registerLazySingleton<AdminSetupRepository>(
       () => AdminSetupRepositoryImpl(
         remoteDataSource: sl<AdminSetupRemoteDataSource>(),
+      ),
+    );
+
+    // Register exam calendar repository
+    sl<ILogger>().debug('Setting up exam calendar repositories', category: LogCategory.system);
+    sl.registerLazySingleton<ExamCalendarRepository>(
+      () => ExamCalendarRepositoryImpl(
+        remoteDataSource: sl<ExamCalendarRemoteDataSource>(),
       ),
     );
 
@@ -1081,26 +1121,65 @@ class _AdminModule {
 
     sl<ILogger>().debug('Admin setup use cases registered successfully', category: LogCategory.system);
 
+    // Register exam calendar use cases
+    sl<ILogger>().debug('Setting up exam calendar use cases', category: LogCategory.system);
+    sl.registerLazySingleton(() => LoadExamCalendarsUseCase(
+      repository: sl<ExamCalendarRepository>(),
+    ));
+    sl.registerLazySingleton(() => CreateExamCalendarUseCase(
+      repository: sl<ExamCalendarRepository>(),
+    ));
+    sl.registerLazySingleton(() => DeleteExamCalendarUseCase(
+      repository: sl<ExamCalendarRepository>(),
+    ));
+
+    sl<ILogger>().debug('Exam calendar use cases registered successfully', category: LogCategory.system);
+
     // Register exam timetable use cases
+    print('[_AdminModule] Registering exam timetable use cases...');
     sl<ILogger>().debug('Setting up exam timetable use cases', category: LogCategory.system);
+
+    print('[_AdminModule] Registering GetExamCalendarsUsecase...');
     sl.registerLazySingleton(() => GetExamCalendarsUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] GetExamCalendarsUsecase registered');
+
+    print('[_AdminModule] Registering GetExamTimetablesUsecase...');
     sl.registerLazySingleton(() => GetExamTimetablesUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] GetExamTimetablesUsecase registered');
+
+    print('[_AdminModule] Registering CreateExamTimetableUsecase...');
     sl.registerLazySingleton(() => CreateExamTimetableUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] CreateExamTimetableUsecase registered');
+
+    print('[_AdminModule] Registering PublishExamTimetableUsecase...');
     sl.registerLazySingleton(() => PublishExamTimetableUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] PublishExamTimetableUsecase registered');
+
+    print('[_AdminModule] Registering AddExamTimetableEntryUsecase...');
     sl.registerLazySingleton(() => AddExamTimetableEntryUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] AddExamTimetableEntryUsecase registered');
+
+    print('[_AdminModule] Registering ValidateExamTimetableUsecase...');
     sl.registerLazySingleton(() => ValidateExamTimetableUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
+    print('[_AdminModule] ValidateExamTimetableUsecase registered');
+
+    print('[_AdminModule] Registering GetTimetableGradesAndSectionsUsecase...');
+    sl.registerLazySingleton(() => GetTimetableGradesAndSectionsUsecase(
+      supabase: sl<SupabaseClient>(),
+    ));
+    print('[_AdminModule] GetTimetableGradesAndSectionsUsecase registered');
 
     sl<ILogger>().debug('Exam timetable use cases registered successfully', category: LogCategory.system);
   }
@@ -1116,17 +1195,68 @@ class _AdminModule {
 
     sl<ILogger>().debug('AdminSetupBloc registered successfully', category: LogCategory.system);
 
-    // Register ExamTimetableBloc
-    sl<ILogger>().debug('Setting up exam timetable BLoCs', category: LogCategory.system);
-    sl.registerFactory(() => ExamTimetableBloc(
-      getExamCalendarsUsecase: sl<GetExamCalendarsUsecase>(),
-      getExamTimetablesUsecase: sl<GetExamTimetablesUsecase>(),
-      createExamTimetableUsecase: sl<CreateExamTimetableUsecase>(),
-      publishExamTimetableUsecase: sl<PublishExamTimetableUsecase>(),
-      addExamTimetableEntryUsecase: sl<AddExamTimetableEntryUsecase>(),
-      validateExamTimetableUsecase: sl<ValidateExamTimetableUsecase>(),
-      repository: sl<ExamTimetableRepository>(),
+    // Register ExamCalendarBloc
+    sl<ILogger>().debug('Setting up exam calendar BLoCs', category: LogCategory.system);
+    sl.registerFactory(() => ExamCalendarBloc(
+      loadExamCalendarsUseCase: sl<LoadExamCalendarsUseCase>(),
+      createExamCalendarUseCase: sl<CreateExamCalendarUseCase>(),
+      deleteExamCalendarUseCase: sl<DeleteExamCalendarUseCase>(),
+      repository: sl<ExamCalendarRepository>(),
     ));
+    sl<ILogger>().debug('ExamCalendarBloc registered successfully', category: LogCategory.system);
+
+    // Register ExamTimetableBloc
+    print('[_AdminModule] Registering ExamTimetableBloc...');
+    sl<ILogger>().debug('Setting up exam timetable BLoCs', category: LogCategory.system);
+    try {
+      print('[_AdminModule] Getting GetExamCalendarsUsecase...');
+      final getCalendarsUC = sl<GetExamCalendarsUsecase>();
+      print('[_AdminModule] Got GetExamCalendarsUsecase');
+
+      print('[_AdminModule] Getting GetExamTimetablesUsecase...');
+      final getTimetablesUC = sl<GetExamTimetablesUsecase>();
+      print('[_AdminModule] Got GetExamTimetablesUsecase');
+
+      print('[_AdminModule] Getting CreateExamTimetableUsecase...');
+      final createUC = sl<CreateExamTimetableUsecase>();
+      print('[_AdminModule] Got CreateExamTimetableUsecase');
+
+      print('[_AdminModule] Getting PublishExamTimetableUsecase...');
+      final publishUC = sl<PublishExamTimetableUsecase>();
+      print('[_AdminModule] Got PublishExamTimetableUsecase');
+
+      print('[_AdminModule] Getting AddExamTimetableEntryUsecase...');
+      final addEntryUC = sl<AddExamTimetableEntryUsecase>();
+      print('[_AdminModule] Got AddExamTimetableEntryUsecase');
+
+      print('[_AdminModule] Getting ValidateExamTimetableUsecase...');
+      final validateUC = sl<ValidateExamTimetableUsecase>();
+      print('[_AdminModule] Got ValidateExamTimetableUsecase');
+
+      print('[_AdminModule] Getting GetTimetableGradesAndSectionsUsecase...');
+      final gradesAndSectionsUC = sl<GetTimetableGradesAndSectionsUsecase>();
+      print('[_AdminModule] Got GetTimetableGradesAndSectionsUsecase');
+
+      print('[_AdminModule] Getting ExamTimetableRepository...');
+      final repo = sl<ExamTimetableRepository>();
+      print('[_AdminModule] Got ExamTimetableRepository');
+
+      sl.registerFactory(() => ExamTimetableBloc(
+        getExamCalendarsUsecase: getCalendarsUC,
+        getExamTimetablesUsecase: getTimetablesUC,
+        createExamTimetableUsecase: createUC,
+        publishExamTimetableUsecase: publishUC,
+        addExamTimetableEntryUsecase: addEntryUC,
+        validateExamTimetableUsecase: validateUC,
+        getTimetableGradesAndSectionsUsecase: gradesAndSectionsUC,
+        repository: repo,
+      ));
+      print('[_AdminModule] ExamTimetableBloc registered successfully');
+    } catch (e, st) {
+      print('[_AdminModule] ERROR registering ExamTimetableBloc: $e');
+      print('[_AdminModule] StackTrace: $st');
+      rethrow;
+    }
     sl<ILogger>().debug('ExamTimetableBloc registered successfully', category: LogCategory.system);
   }
 }

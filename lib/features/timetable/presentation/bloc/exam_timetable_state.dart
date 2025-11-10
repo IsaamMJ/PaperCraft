@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/exam_calendar_entity.dart';
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
+import '../../domain/entities/timetable_grade_entity.dart';
 
 /// Base class for all exam timetable BLoC states
 ///
@@ -184,6 +185,21 @@ class ExamTimetableEntryDeleted extends ExamTimetableState {
 
   @override
   List<Object?> get props => [entryId];
+}
+
+// ===== GRADES AND SECTIONS STATES =====
+
+/// Success state: Timetable grades and sections loaded
+///
+/// Loaded from database respecting school-specific grade structure
+/// Unlike hardcoded mock data, this reflects actual school configuration
+class TimetableGradesAndSectionsLoaded extends ExamTimetableState {
+  final TimetableGradesAndSectionsData gradesData;
+
+  const TimetableGradesAndSectionsLoaded({required this.gradesData});
+
+  @override
+  List<Object?> get props => [gradesData];
 }
 
 // ===== VALIDATION STATES =====

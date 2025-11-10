@@ -252,3 +252,17 @@ class ClearErrorEvent extends ExamTimetableEvent {
 class ResetExamTimetableEvent extends ExamTimetableEvent {
   const ResetExamTimetableEvent();
 }
+
+/// Event: Fetch grades and sections for timetable creation
+///
+/// Triggered when user opens timetable wizard step 3 (grades selection)
+/// Results in TimetableGradesAndSectionsLoaded or ExamTimetableError state
+/// Fetches actual school grade structure from database (not hardcoded)
+class GetTimetableGradesAndSectionsEvent extends ExamTimetableEvent {
+  final String tenantId;
+
+  const GetTimetableGradesAndSectionsEvent({required this.tenantId});
+
+  @override
+  List<Object?> get props => [tenantId];
+}

@@ -5,6 +5,7 @@ import '../../domain/usecases/add_exam_timetable_entry_usecase.dart';
 import '../../domain/usecases/create_exam_timetable_usecase.dart';
 import '../../domain/usecases/get_exam_calendars_usecase.dart';
 import '../../domain/usecases/get_exam_timetables_usecase.dart';
+import '../../domain/usecases/get_timetable_grades_and_sections_usecase.dart';
 import '../../domain/usecases/publish_exam_timetable_usecase.dart';
 import '../../domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
@@ -41,6 +42,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
   final PublishExamTimetableUsecase _publishExamTimetableUsecase;
   final AddExamTimetableEntryUsecase _addExamTimetableEntryUsecase;
   final ValidateExamTimetableUsecase _validateExamTimetableUsecase;
+  final GetTimetableGradesAndSectionsUsecase _getTimetableGradesAndSectionsUsecase;
   final ExamTimetableRepository _repository;
 
   ExamTimetableBloc({
@@ -50,6 +52,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     required PublishExamTimetableUsecase publishExamTimetableUsecase,
     required AddExamTimetableEntryUsecase addExamTimetableEntryUsecase,
     required ValidateExamTimetableUsecase validateExamTimetableUsecase,
+    required GetTimetableGradesAndSectionsUsecase getTimetableGradesAndSectionsUsecase,
     required ExamTimetableRepository repository,
   })  : _getExamCalendarsUsecase = getExamCalendarsUsecase,
         _getExamTimetablesUsecase = getExamTimetablesUsecase,
@@ -57,6 +60,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
         _publishExamTimetableUsecase = publishExamTimetableUsecase,
         _addExamTimetableEntryUsecase = addExamTimetableEntryUsecase,
         _validateExamTimetableUsecase = validateExamTimetableUsecase,
+        _getTimetableGradesAndSectionsUsecase = getTimetableGradesAndSectionsUsecase,
         _repository = repository,
         super(const ExamTimetableInitial()) {
     // Register event handlers
@@ -76,6 +80,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     on<CheckDuplicateEntryEvent>(_onCheckDuplicateEntry);
     on<CreateExamCalendarEvent>(_onCreateExamCalendar);
     on<UpdateExamCalendarEvent>(_onUpdateExamCalendar);
+    on<GetTimetableGradesAndSectionsEvent>(_onGetTimetableGradesAndSections);
     on<ClearErrorEvent>(_onClearError);
     on<ResetExamTimetableEvent>(_onResetState);
   }
@@ -394,6 +399,34 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
       // ignore: unchecked_use_of_nullable_value
       (failure) => emit(ExamTimetableError(message: failure.message)),
       (calendar) => emit(ExamCalendarUpdated(calendar: calendar)),
+    );
+  }
+
+  /// Handler: GetTimetableGradesAndSectionsEvent
+  ///
+  /// Fetches grades and sections from database respecting school-specific structure
+  /// This replaces hardcoded mock data with real academic structure
+  Future<void> _onGetTimetableGradesAndSections(
+    GetTimetableGradesAndSectionsEvent event,
+    Emitter<ExamTimetableState> emit,
+  ) async {
+    print('[ExamTimetableBloc] GetTimetableGradesAndSections: tenantId=${event.tenantId}');
+    emit(const ExamTimetableLoading(message: 'Loading grades and sections...'));
+
+    final result = await _getTimetableGradesAndSectionsUsecase(
+      params: GetTimetableGradesAndSectionsParams(tenantId: event.tenantId),
+    );
+
+    result.fold(
+      // ignore: unchecked_use_of_nullable_value
+      (failure) {
+        print('[ExamTimetableBloc] GetTimetableGradesAndSections ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (gradesData) {
+        print('[ExamTimetableBloc] GetTimetableGradesAndSections SUCCESS: loaded ${gradesData.grades.length} grades');
+        emit(TimetableGradesAndSectionsLoaded(gradesData: gradesData));
+      },
     );
   }
 
