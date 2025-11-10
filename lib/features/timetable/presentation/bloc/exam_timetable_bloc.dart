@@ -470,23 +470,22 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     AddExamEntryEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] AddExamEntry: ${event.subjectName} for Grade ${event.gradeId}-${event.section}');
+    print('[ExamTimetableBloc] AddExamEntry: ${event.subjectId} for Grade ${event.gradeId}-${event.section}');
     emit(const ExamTimetableLoading(message: 'Adding exam entry...'));
 
     // TODO: Wire up the AddExamEntryUsecase after registering it in DI
     // For now, create a dummy entry with generated ID
     final entry = ExamTimetableEntryEntity(
       id: 'entry_${DateTime.now().millisecondsSinceEpoch}',
+      tenantId: event.tenantId,
       timetableId: event.timetableId,
       gradeId: event.gradeId,
       section: event.section,
       subjectId: event.subjectId,
-      subjectName: event.subjectName,
       examDate: event.examDate,
       startTime: event.startTime,
+      endTime: event.endTime,
       durationMinutes: event.durationMinutes,
-      location: event.location,
-      notes: event.notes,
       createdAt: DateTime.now(),
     );
 

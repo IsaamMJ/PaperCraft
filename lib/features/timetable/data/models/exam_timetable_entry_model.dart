@@ -67,8 +67,8 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       'end_time': _durationToTimeString(endTime),
       'duration_minutes': durationMinutes,
       'is_active': isActive,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 

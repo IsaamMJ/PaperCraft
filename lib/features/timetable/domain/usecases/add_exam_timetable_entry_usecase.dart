@@ -85,8 +85,7 @@ class AddExamTimetableEntryUsecase {
     }
 
     // Validate required fields
-    if (entry.id.isEmpty ||
-        entry.tenantId.isEmpty ||
+    if (entry.tenantId.isEmpty ||
         entry.timetableId.isEmpty ||
         entry.gradeId.isEmpty ||
         entry.subjectId.isEmpty ||

@@ -287,42 +287,39 @@ class GetExamEntriesEvent extends ExamTimetableEvent {
 /// Triggered when user adds an exam entry via the form
 /// Results in ExamEntryAdded or ExamTimetableError state
 class AddExamEntryEvent extends ExamTimetableEvent {
+  final String tenantId;
   final String timetableId;
   final String gradeId;
   final String section;
   final String subjectId;
-  final String subjectName;
   final DateTime examDate;
-  final String startTime; // "09:00 AM"
+  final Duration startTime; // Time as Duration
+  final Duration endTime; // Time as Duration
   final int durationMinutes;
-  final String? location;
-  final String? notes;
 
   const AddExamEntryEvent({
+    required this.tenantId,
     required this.timetableId,
     required this.gradeId,
     required this.section,
     required this.subjectId,
-    required this.subjectName,
     required this.examDate,
     required this.startTime,
+    required this.endTime,
     required this.durationMinutes,
-    this.location,
-    this.notes,
   });
 
   @override
   List<Object?> get props => [
+        tenantId,
         timetableId,
         gradeId,
         section,
         subjectId,
-        subjectName,
         examDate,
         startTime,
+        endTime,
         durationMinutes,
-        location,
-        notes,
       ];
 }
 

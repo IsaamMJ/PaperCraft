@@ -15,10 +15,10 @@ class AddExamEntryUsecase {
     required AddExamEntryParams params,
   }) async {
     try {
-      print('[AddExamEntry] Adding entry: ${params.entry.subjectName} for Grade ${params.entry.gradeId}-${params.entry.section}');
-      
+      print('[AddExamEntry] Adding entry: ${params.entry.subjectId} for Grade ${params.entry.gradeId}-${params.entry.section}');
+
       final result = await _repository.addExamTimetableEntry(params.entry);
-      
+
       return result.fold(
         (failure) {
           print('[AddExamEntry] Failed to add entry: ${failure.message}');

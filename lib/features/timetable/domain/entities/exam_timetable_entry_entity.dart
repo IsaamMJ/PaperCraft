@@ -6,34 +6,34 @@ import 'package:equatable/equatable.dart';
 /// - Which grade and section takes the exam
 /// - What subject is being examined
 /// - When (date, time, duration)
-/// - Where (location/room)
+/// - Time stored as Duration for compatibility with backend
 class ExamTimetableEntryEntity extends Equatable {
   final String? id; // null for new entries, set by backend
+  final String tenantId;
   final String timetableId;
   final String gradeId;
   final String section; // 'A', 'B', 'C', etc.
   final String subjectId;
-  final String subjectName; // For display
   final DateTime examDate;
-  final String startTime; // Format: "09:00 AM"
+  final Duration startTime; // Time as Duration (e.g., Duration(hours: 9, minutes: 0))
+  final Duration endTime; // Calculated from startTime + durationMinutes
   final int durationMinutes; // 120 = 2 hours
-  final String? location; // Hall 1, Room 101, etc.
-  final String? notes; // Special instructions
+  final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   const ExamTimetableEntryEntity({
     this.id,
+    required this.tenantId,
     required this.timetableId,
     required this.gradeId,
     required this.section,
     required this.subjectId,
-    required this.subjectName,
     required this.examDate,
     required this.startTime,
+    required this.endTime,
     required this.durationMinutes,
-    this.location,
-    this.notes,
+    this.isActive = true,
     this.createdAt,
     this.updatedAt,
   });
@@ -41,52 +41,76 @@ class ExamTimetableEntryEntity extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        tenantId,
         timetableId,
         gradeId,
         section,
         subjectId,
-        subjectName,
         examDate,
         startTime,
+        endTime,
         durationMinutes,
-        location,
-        notes,
+        isActive,
         createdAt,
         updatedAt,
       ];
 
   @override
   String toString() =>
-      'ExamTimetableEntryEntity(grade: $gradeId-$section, subject: $subjectName, date: ${examDate.toString().split(' ')[0]}, time: $startTime)';
+      'ExamTimetableEntryEntity(grade: $gradeId-$section, date: ${examDate.toString().split(' ')[0]}, time: $startTimeDisplay)';
+
+  /// Get start time formatted as "HH:MM AM/PM"
+  String get startTimeDisplay {
+    final hours = startTime.inHours;
+    final minutes = startTime.inMinutes % 60;
+    final period = hours >= 12 ? 'PM' : 'AM';
+    final displayHours = hours > 12 ? hours - 12 : (hours == 0 ? 12 : hours);
+    return '${displayHours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Get end time formatted as "HH:MM AM/PM"
+  String get endTimeDisplay {
+    final hours = endTime.inHours;
+    final minutes = endTime.inMinutes % 60;
+    final period = hours >= 12 ? 'PM' : 'AM';
+    final displayHours = hours > 12 ? hours - 12 : (hours == 0 ? 12 : hours);
+    return '${displayHours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Get schedule display string (e.g., "09:00 AM - 11:00 AM")
+  String get scheduleDisplay => '$startTimeDisplay - $endTimeDisplay';
+
+  /// Check if time range is valid (endTime > startTime)
+  bool get hasValidTimeRange => endTime > startTime;
 
   /// Create a copy with modified fields
   ExamTimetableEntryEntity copyWith({
     String? id,
+    String? tenantId,
     String? timetableId,
     String? gradeId,
     String? section,
     String? subjectId,
-    String? subjectName,
     DateTime? examDate,
-    String? startTime,
+    Duration? startTime,
+    Duration? endTime,
     int? durationMinutes,
-    String? location,
-    String? notes,
+    bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return ExamTimetableEntryEntity(
       id: id ?? this.id,
+      tenantId: tenantId ?? this.tenantId,
       timetableId: timetableId ?? this.timetableId,
       gradeId: gradeId ?? this.gradeId,
       section: section ?? this.section,
       subjectId: subjectId ?? this.subjectId,
-      subjectName: subjectName ?? this.subjectName,
       examDate: examDate ?? this.examDate,
       startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
-      location: location ?? this.location,
-      notes: notes ?? this.notes,
+      isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -143,10 +167,10 @@ class ExamEntriesData extends Equatable {
             entry1.section == entry2.section) {
           // Check if overlapping times on same date
           if (entry1.examDate == entry2.examDate) {
-            // Simple time comparison (assumes HH:MM AM/PM format)
+            // Check if times overlap
             if (entry1.startTime == entry2.startTime) {
               conflicts.add(
-                'Conflict: Grade ${entry1.gradeId}-${entry1.section} has ${entry1.subjectName} and ${entry2.subjectName} at same time',
+                'Conflict: Grade ${entry1.gradeId}-${entry1.section} has ${entry1.subjectId} and ${entry2.subjectId} at same time',
               );
             }
           }

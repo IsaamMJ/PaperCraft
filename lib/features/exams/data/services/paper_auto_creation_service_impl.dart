@@ -2,7 +2,6 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
 import '../../domain/entities/exam_timetable.dart';
-import '../../domain/entities/exam_timetable_entry.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
 import '../../domain/services/paper_auto_creation_service.dart';
 import '../../../assignments/domain/repositories/teacher_subject_repository.dart';
