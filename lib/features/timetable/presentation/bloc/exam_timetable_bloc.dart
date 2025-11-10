@@ -473,8 +473,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     print('[ExamTimetableBloc] AddExamEntry: ${event.subjectId} for Grade ${event.gradeId}-${event.section}');
     emit(const ExamTimetableLoading(message: 'Adding exam entry...'));
 
-    // TODO: Wire up the AddExamEntryUsecase after registering it in DI
-    // For now, create a dummy entry with generated ID
+    // Create entry entity for submission
     final entry = ExamTimetableEntryEntity(
       id: 'entry_${DateTime.now().millisecondsSinceEpoch}',
       tenantId: event.tenantId,
@@ -489,8 +488,22 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
       createdAt: DateTime.now(),
     );
 
-    print('[ExamTimetableBloc] Entry added: ${entry.id}');
-    emit(ExamEntryAdded(entry: entry));
+    // Call use case to add entry (validates and saves to backend)
+    final result = await _addExamTimetableEntryUsecase(
+      params: AddExamTimetableEntryParams(entry: entry),
+    );
+
+    result.fold(
+      // ignore: unchecked_use_of_nullable_value
+      (failure) {
+        print('[ExamTimetableBloc] AddExamEntry ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (addedEntry) {
+        print('[ExamTimetableBloc] AddExamEntry SUCCESS: ${addedEntry.id}');
+        emit(ExamEntryAdded(entry: addedEntry));
+      },
+    );
   }
 
   /// Handler: DeleteExamEntryEvent
@@ -501,9 +514,19 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     print('[ExamTimetableBloc] DeleteExamEntry: entryId=${event.entryId}');
     emit(const ExamTimetableLoading(message: 'Deleting exam entry...'));
 
-    // TODO: Wire up the DeleteExamEntryUsecase after registering it in DI
-    // For now, just emit success
-    print('[ExamTimetableBloc] Entry deleted: ${event.entryId}');
-    emit(ExamEntryDeleted(entryId: event.entryId));
+    // Call repository to delete entry
+    final result = await _repository.deleteExamTimetableEntry(event.entryId);
+
+    result.fold(
+      // ignore: unchecked_use_of_nullable_value
+      (failure) {
+        print('[ExamTimetableBloc] DeleteExamEntry ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (_) {
+        print('[ExamTimetableBloc] DeleteExamEntry SUCCESS: ${event.entryId}');
+        emit(ExamEntryDeleted(entryId: event.entryId));
+      },
+    );
   }
 }
