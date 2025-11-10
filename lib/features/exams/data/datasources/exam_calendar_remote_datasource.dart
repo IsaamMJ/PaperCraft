@@ -64,6 +64,11 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
     bool sortByMonth = true,
   }) async {
     try {
+      print('[ExamCalendarRemoteDataSource] Fetching exam calendars...');
+      print('[ExamCalendarRemoteDataSource] TenantId: $tenantId');
+      print('[ExamCalendarRemoteDataSource] AcademicYear: $academicYear');
+      print('[ExamCalendarRemoteDataSource] ActiveOnly: $activeOnly');
+
       var query = supabaseClient
           .from('exam_calendar')
           .select()
@@ -72,6 +77,7 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
       if (academicYear != null) {
         // exam_calendar table doesn't have academic_year, but we can filter by date range
         // For now, just get all and filter by activeOnly
+        print('[ExamCalendarRemoteDataSource] Filtering by academic year (not implemented yet)');
       }
 
       if (activeOnly) {
@@ -82,10 +88,15 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
           ? query.order('month_number', ascending: true)
           : query);
 
-      return List<ExamCalendar>.from(
+      print('[ExamCalendarRemoteDataSource] Successfully fetched ${response.length} calendars');
+
+      final calendars = List<ExamCalendar>.from(
         response.map((json) => ExamCalendar.fromJson(json as Map<String, dynamic>)),
       );
+
+      return calendars;
     } catch (e) {
+      print('[ExamCalendarRemoteDataSource] ERROR fetching calendars: $e');
       rethrow;
     }
   }
@@ -131,14 +142,25 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
   @override
   Future<ExamCalendar> createExamCalendar(ExamCalendar calendar) async {
     try {
+      print('[ExamCalendarRemoteDataSource] Creating exam calendar...');
+      print('[ExamCalendarRemoteDataSource] Calendar: ${calendar.examName}');
+      print('[ExamCalendarRemoteDataSource] Calendar ID: ${calendar.id}');
+
+      final jsonData = calendar.toJson();
+      print('[ExamCalendarRemoteDataSource] JSON being sent: $jsonData');
+
       final response = await supabaseClient
           .from('exam_calendar')
-          .insert(calendar.toJson())
+          .insert(jsonData)
           .select()
           .single();
 
+      print('[ExamCalendarRemoteDataSource] Response: $response');
+      print('[ExamCalendarRemoteDataSource] Calendar created successfully with ID: ${response['id']}');
       return ExamCalendar.fromJson(response as Map<String, dynamic>);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[ExamCalendarRemoteDataSource] ERROR creating calendar: $e');
+      print('[ExamCalendarRemoteDataSource] StackTrace: $stackTrace');
       rethrow;
     }
   }
@@ -146,11 +168,14 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
   @override
   Future<void> updateExamCalendar(ExamCalendar calendar) async {
     try {
+      print('[ExamCalendarRemoteDataSource] Updating exam calendar with ID: ${calendar.id}');
       await supabaseClient
           .from('exam_calendar')
           .update(calendar.toJson())
           .eq('id', calendar.id);
+      print('[ExamCalendarRemoteDataSource] Calendar updated successfully');
     } catch (e) {
+      print('[ExamCalendarRemoteDataSource] ERROR updating calendar: $e');
       rethrow;
     }
   }
@@ -158,11 +183,14 @@ class ExamCalendarRemoteDataSourceImpl implements ExamCalendarRemoteDataSource {
   @override
   Future<void> deleteExamCalendar(String id) async {
     try {
+      print('[ExamCalendarRemoteDataSource] Deleting exam calendar with ID: $id');
       await supabaseClient
           .from('exam_calendar')
           .update({'is_active': false})
           .eq('id', id);
+      print('[ExamCalendarRemoteDataSource] Calendar deleted successfully');
     } catch (e) {
+      print('[ExamCalendarRemoteDataSource] ERROR deleting calendar: $e');
       rethrow;
     }
   }

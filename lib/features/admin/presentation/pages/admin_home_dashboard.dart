@@ -396,6 +396,14 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
           color: Colors.deepPurple,
           onTap: () => context.push(AppRoutes.adminAssignmentsDashboard),
         ),
+        SizedBox(height: UIConstants.spacing12),
+        _buildActionCard(
+          title: 'Exam Management',
+          subtitle: 'Create calendars, manage sections, and build timetables',
+          icon: Icons.calendar_today,
+          color: Colors.teal,
+          onTap: () => context.push(AppRoutes.examsHome),
+        ),
       ],
     );
   }

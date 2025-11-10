@@ -324,3 +324,41 @@ class ExamTimetableNetworkError extends ExamTimetableState {
   @override
   List<Object?> get props => [message];
 }
+
+// ===== EXAM ENTRY STATES =====
+
+/// Success state: Exam entries loaded
+///
+/// Contains all exam entries for a timetable
+class ExamEntriesLoaded extends ExamTimetableState {
+  final List<ExamTimetableEntryEntity> entries;
+
+  const ExamEntriesLoaded({required this.entries});
+
+  @override
+  List<Object?> get props => [entries];
+}
+
+/// Success state: Exam entry added
+///
+/// New entry successfully created
+class ExamEntryAdded extends ExamTimetableState {
+  final ExamTimetableEntryEntity entry;
+
+  const ExamEntryAdded({required this.entry});
+
+  @override
+  List<Object?> get props => [entry];
+}
+
+/// Success state: Exam entry deleted
+///
+/// Entry successfully removed from timetable
+class ExamEntryDeleted extends ExamTimetableState {
+  final String entryId;
+
+  const ExamEntryDeleted({required this.entryId});
+
+  @override
+  List<Object?> get props => [entryId];
+}

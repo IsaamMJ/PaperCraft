@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../admin/presentation/pages/admin_dashboard_page.dart';
+import '../../admin/presentation/pages/exams_dashboard_page.dart';
 import '../../admin/presentation/pages/settings_screen.dart';
 import '../../authentication/domain/services/user_state_service.dart';
 import '../../home/presentation/pages/home_page.dart';
 import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_bank/presentation/pages/question_bank_page.dart';
-import '../../timetable/presentation/pages/exam_timetable_list_page.dart';
 import '../../timetable/presentation/bloc/exam_timetable_bloc.dart';
 import '../../../core/infrastructure/di/injection_container.dart';
 import 'main_scaffold_screen.dart';
@@ -35,12 +35,7 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
     final adminPages = [
       SharedBlocProvider(child: const AdminDashboardPage()),
       SharedBlocProvider(child: const QuestionBankPage()),
-      BlocProvider(
-        create: (_) => sl<ExamTimetableBloc>(),
-        child: ExamTimetableListPage(
-          tenantId: tenantId,
-        ),
-      ),
+      ExamsDashboardPage(tenantId: tenantId),
       SharedBlocProvider(child: const SettingsPage()),
     ];
 

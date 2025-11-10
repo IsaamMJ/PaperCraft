@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert' show utf8, base64Encode;
+import 'dart:io' show File;
+import 'package:path_provider/path_provider.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
@@ -489,8 +491,8 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         // Web platform: use browser download
         _downloadFileWeb(csv, filename);
       } else {
-        // Mobile platform: show success message
-        // TODO: Implement share functionality for mobile
+        // Mobile platform: save file and share
+        await _downloadFileMobile(csv, filename);
       }
 
       if (!context.mounted) return;
@@ -548,6 +550,51 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
     } catch (e) {
       if (kDebugMode) {
         print('Failed to trigger download: $e');
+      }
+    }
+  }
+
+  /// Download CSV file on mobile platform
+  /// Saves the file to the Downloads directory
+  Future<void> _downloadFileMobile(String csvContent, String filename) async {
+    try {
+      // Get the downloads directory
+      final downloadsDir = await getDownloadsDirectory();
+      if (downloadsDir == null) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not access downloads directory')),
+        );
+        return;
+      }
+
+      // Create the file path
+      final filePath = '${downloadsDir.path}/$filename';
+      final file = File(filePath);
+
+      // Write CSV content to file
+      await file.writeAsString(csvContent);
+
+      if (!context.mounted) return;
+
+      // Show success message with file location
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Report saved to Downloads: $filename'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      if (kDebugMode) {
+        print('CSV file saved to: $filePath');
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving file: $e')),
+      );
+      if (kDebugMode) {
+        print('Error downloading file on mobile: $e');
       }
     }
   }

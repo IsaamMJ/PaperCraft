@@ -22,15 +22,27 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (state is ExamTimetableLoading) {
+    print('[TimetableWizardStep1Calendar] build: state=${state.runtimeType}');
+
+    // Show loading for initial state or explicit loading state
+    if (state is ExamTimetableInitial || state is ExamTimetableLoading) {
+      print('[TimetableWizardStep1Calendar] Showing loading state');
       return const Center(
-        child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading exam calendars...'),
+          ],
+        ),
       );
     }
 
     if (state is ExamCalendarsLoaded) {
       final loadedState = state as ExamCalendarsLoaded;
       final calendars = loadedState.calendars;
+      print('[TimetableWizardStep1Calendar] Calendars loaded: ${calendars.length} calendars');
 
       if (calendars.isEmpty) {
         return Center(
@@ -119,6 +131,7 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
     ExamCalendarEntity calendar,
   ) {
     final isSelected = wizardData.selectedCalendar?.id == calendar.id;
+    print('[TimetableWizardStep1Calendar] Building card for: ${calendar.examName} (selected=$isSelected)');
     final now = DateTime.now();
     final isActive = calendar.plannedStartDate.isBefore(now) &&
         calendar.plannedEndDate.isAfter(now);
@@ -135,7 +148,10 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
           ),
         ),
         child: InkWell(
-          onTap: () => onCalendarSelected(calendar),
+          onTap: () {
+            print('[TimetableWizardStep1Calendar] Calendar tapped: ${calendar.examName}');
+            onCalendarSelected(calendar);
+          },
           borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: const EdgeInsets.all(16.0),

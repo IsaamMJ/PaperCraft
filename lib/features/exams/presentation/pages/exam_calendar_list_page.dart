@@ -38,12 +38,17 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   @override
   void initState() {
     super.initState();
+    print('[ExamCalendarListPage] Initializing page...');
+    print('[ExamCalendarListPage] TenantId: ${widget.tenantId}');
+    print('[ExamCalendarListPage] AcademicYear: ${widget.academicYear}');
+
     _examNameController = TextEditingController();
     _examTypeController = TextEditingController();
     _monthNumberController = TextEditingController();
     _displayOrderController = TextEditingController(text: '1');
 
     // Load calendars on init
+    print('[ExamCalendarListPage] Adding LoadExamCalendarsEvent to bloc');
     context.read<ExamCalendarBloc>().add(
           LoadExamCalendarsEvent(
             tenantId: widget.tenantId,
@@ -81,6 +86,10 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _startDate = null;
     _endDate = null;
     _deadlineDate = null;
+
+    // IMPORTANT: Capture the BLoC BEFORE showing dialog to avoid provider scope issues
+    final bloc = context.read<ExamCalendarBloc>();
+    print('[ExamCalendarListPage] BLoC captured before dialog: ${bloc.runtimeType}');
 
     showDialog(
       context: context,
@@ -180,31 +189,69 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
             ),
             ElevatedButton(
               onPressed: () {
+                print('[ExamCalendarListPage] Create button pressed');
+                print('[ExamCalendarListPage] Exam Name: ${_examNameController.text}');
+                print('[ExamCalendarListPage] Exam Type: ${_examTypeController.text}');
+                print('[ExamCalendarListPage] Month Number: ${_monthNumberController.text}');
+                print('[ExamCalendarListPage] Start Date: $_startDate');
+                print('[ExamCalendarListPage] End Date: $_endDate');
+
+                if (_examNameController.text.isEmpty) {
+                  print('[ExamCalendarListPage] Validation failed: Exam name is empty');
+                }
+                if (_examTypeController.text.isEmpty) {
+                  print('[ExamCalendarListPage] Validation failed: Exam type is empty');
+                }
+                if (_monthNumberController.text.isEmpty) {
+                  print('[ExamCalendarListPage] Validation failed: Month number is empty');
+                }
+                if (_startDate == null) {
+                  print('[ExamCalendarListPage] Validation failed: Start date is null');
+                }
+                if (_endDate == null) {
+                  print('[ExamCalendarListPage] Validation failed: End date is null');
+                }
+
                 if (_examNameController.text.isEmpty ||
                     _examTypeController.text.isEmpty ||
                     _monthNumberController.text.isEmpty ||
                     _startDate == null ||
                     _endDate == null) {
+                  print('[ExamCalendarListPage] Validation FAILED - showing snackbar');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please fill in all required fields')),
                   );
                   return;
                 }
 
-                context.read<ExamCalendarBloc>().add(
-                      CreateExamCalendarEvent(
-                        tenantId: widget.tenantId,
-                        examName: _examNameController.text.trim(),
-                        examType: _examTypeController.text.trim(),
-                        monthNumber: int.tryParse(_monthNumberController.text) ?? 1,
-                        plannedStartDate: _startDate!,
-                        plannedEndDate: _endDate!,
-                        paperSubmissionDeadline: _deadlineDate,
-                        displayOrder: int.tryParse(_displayOrderController.text) ?? 1,
-                      ),
-                    );
+                print('[ExamCalendarListPage] Validation PASSED - adding CreateExamCalendarEvent');
+                try {
+                  print('[ExamCalendarListPage] Using pre-captured BLoC: ${bloc.runtimeType}');
 
-                Navigator.pop(context);
+                  final event = CreateExamCalendarEvent(
+                    tenantId: widget.tenantId,
+                    examName: _examNameController.text.trim(),
+                    examType: _examTypeController.text.trim(),
+                    monthNumber: int.tryParse(_monthNumberController.text) ?? 1,
+                    plannedStartDate: _startDate!,
+                    plannedEndDate: _endDate!,
+                    paperSubmissionDeadline: _deadlineDate,
+                    displayOrder: int.tryParse(_displayOrderController.text) ?? 1,
+                  );
+                  print('[ExamCalendarListPage] Event created: ${event.runtimeType}');
+
+                  bloc.add(event);
+                  print('[ExamCalendarListPage] Event added to bloc');
+
+                  print('[ExamCalendarListPage] Event added, closing dialog');
+                  Navigator.pop(context);
+                } catch (e, stackTrace) {
+                  print('[ExamCalendarListPage] ERROR adding event: $e');
+                  print('[ExamCalendarListPage] StackTrace: $stackTrace');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
               },
               child: const Text('Create'),
             ),

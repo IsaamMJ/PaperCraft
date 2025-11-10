@@ -93,7 +93,10 @@
       "Bash(timeout 60 flutter run:*)",
       "Bash(./android/gradlew:*)",
       "Bash(timeout 240 flutter run:*)",
-      "Bash(timeout 300 flutter run:*)"
+      "Bash(timeout 300 flutter run:*)",
+      "Bash(timeout 300 bash:*)",
+      "Bash(timeout 120 bash:*)",
+      "Bash(timeout 90 flutter analyze:*)"
     ],
     "deny": [],
     "ask": []

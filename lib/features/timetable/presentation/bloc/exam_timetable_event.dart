@@ -266,3 +266,75 @@ class GetTimetableGradesAndSectionsEvent extends ExamTimetableEvent {
   @override
   List<Object?> get props => [tenantId];
 }
+
+// ===== EXAM ENTRY EVENTS =====
+
+/// Event: Fetch all exam entries for a timetable
+///
+/// Triggered when user opens timetable to view/add entries
+/// Results in ExamEntriesLoaded or ExamTimetableError state
+class GetExamEntriesEvent extends ExamTimetableEvent {
+  final String timetableId;
+
+  const GetExamEntriesEvent({required this.timetableId});
+
+  @override
+  List<Object?> get props => [timetableId];
+}
+
+/// Event: Add a new exam entry
+///
+/// Triggered when user adds an exam entry via the form
+/// Results in ExamEntryAdded or ExamTimetableError state
+class AddExamEntryEvent extends ExamTimetableEvent {
+  final String timetableId;
+  final String gradeId;
+  final String section;
+  final String subjectId;
+  final String subjectName;
+  final DateTime examDate;
+  final String startTime; // "09:00 AM"
+  final int durationMinutes;
+  final String? location;
+  final String? notes;
+
+  const AddExamEntryEvent({
+    required this.timetableId,
+    required this.gradeId,
+    required this.section,
+    required this.subjectId,
+    required this.subjectName,
+    required this.examDate,
+    required this.startTime,
+    required this.durationMinutes,
+    this.location,
+    this.notes,
+  });
+
+  @override
+  List<Object?> get props => [
+        timetableId,
+        gradeId,
+        section,
+        subjectId,
+        subjectName,
+        examDate,
+        startTime,
+        durationMinutes,
+        location,
+        notes,
+      ];
+}
+
+/// Event: Delete an exam entry
+///
+/// Triggered when user clicks delete on an entry
+/// Results in ExamEntryDeleted or ExamTimetableError state
+class DeleteExamEntryEvent extends ExamTimetableEvent {
+  final String entryId;
+
+  const DeleteExamEntryEvent({required this.entryId});
+
+  @override
+  List<Object?> get props => [entryId];
+}

@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/grade_section_bloc.dart';
 import '../bloc/grade_section_event.dart';
 import '../bloc/grade_section_state.dart';
+import '../bloc/grade_bloc.dart';
+import '../../domain/entities/grade_section.dart';
+import '../../domain/entities/grade_entity.dart';
 
 /// Page to manage grade sections for a tenant
 ///
@@ -29,6 +32,7 @@ class _ManageGradeSectionsPageState extends State<ManageGradeSectionsPage> {
   late TextEditingController _sectionNameController;
   late TextEditingController _gradeIdController;
   late TextEditingController _displayOrderController;
+  Map<String, String> gradeIdToNumberMap = {}; // Map gradeId -> grade number
 
   @override
   void initState() {
@@ -44,6 +48,13 @@ class _ManageGradeSectionsPageState extends State<ManageGradeSectionsPage> {
             gradeId: widget.gradeId,
           ),
         );
+
+    // Load grades to map gradeId to grade numbers
+    context.read<GradeBloc>().add(
+          const LoadGrades(),
+        );
+
+    print('[ManageGradeSectionsPage] Grade Sections page loaded');
   }
 
   @override
@@ -291,63 +302,118 @@ class _ManageGradeSectionsPageState extends State<ManageGradeSectionsPage> {
               );
             }
 
-            // Loaded state
+            // Loaded state - GROUP BY GRADE
             if (state is GradeSectionLoaded) {
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: ElevatedButton.icon(
-                      onPressed: _showCreateDialog,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create Section'),
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: state.sections.length,
-                      itemBuilder: (context, index) {
-                        final section = state.sections[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.blue,
-                              child: Text(
-                                section.sectionName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+              // Group sections by gradeId
+              final Map<String, List<GradeSection>> sectionsByGrade = {};
+              for (final section in state.sections) {
+                sectionsByGrade.putIfAbsent(section.gradeId, () => []).add(section);
+              }
+
+              // Sort sections within each grade
+              for (final list in sectionsByGrade.values) {
+                list.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+              }
+
+              // Listen to grades to populate the map
+              return BlocListener<GradeBloc, GradeState>(
+                listener: (context, gradeState) {
+                  if (gradeState is GradesLoaded) {
+                    // Build map of gradeId -> grade number
+                    gradeIdToNumberMap.clear();
+                    for (final grade in gradeState.grades) {
+                      gradeIdToNumberMap[grade.id] = 'Grade ${grade.gradeNumber}';
+                    }
+                    print('[ManageGradeSectionsPage] Loaded ${gradeState.grades.length} grades');
+                  }
+                },
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: sectionsByGrade.length,
+                        itemBuilder: (context, index) {
+                          final gradeId = sectionsByGrade.keys.elementAt(index);
+                          final sections = sectionsByGrade[gradeId]!;
+                          final gradeName = gradeIdToNumberMap[gradeId] ?? 'Grade (Unknown)';
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 0,
+                            color: Colors.grey[50],
+                            child: Column(
+                              children: [
+                                // Grade header
+                                Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              gradeName,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${sections.length} section(s)',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                            title: Text(section.sectionName),
-                            subtitle: Text(
-                              'Grade: ${section.gradeId}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'delete') {
-                                  _showDeleteConfirmation(section.id);
-                                }
-                              },
-                              itemBuilder: (BuildContext context) => [
-                                const PopupMenuItem<String>(
-                                  value: 'delete',
-                                  child: Text('Delete'),
-                                ),
+                                const Divider(height: 1),
+                                // Sections under this grade
+                                ...sections.map((section) {
+                                  return ListTile(
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.blue,
+                                      radius: 18,
+                                      child: Text(
+                                        section.sectionName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    title: Text('Section ${section.sectionName}'),
+                                    trailing: PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'delete') {
+                                          _showDeleteConfirmation(section.id);
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) => [
+                                        const PopupMenuItem<String>(
+                                          value: 'delete',
+                                          child: Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ],
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             }
 

@@ -19,10 +19,18 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     required this.deleteExamCalendarUseCase,
     required this.repository,
   }) : super(const ExamCalendarInitial()) {
+    print('[ExamCalendarBloc] CONSTRUCTOR CALLED - Initializing handlers');
     on<LoadExamCalendarsEvent>(_onLoadExamCalendars);
+    print('[ExamCalendarBloc] Registered LoadExamCalendarsEvent handler');
+
     on<CreateExamCalendarEvent>(_onCreateExamCalendar);
+    print('[ExamCalendarBloc] Registered CreateExamCalendarEvent handler');
+
     on<DeleteExamCalendarEvent>(_onDeleteExamCalendar);
+    print('[ExamCalendarBloc] Registered DeleteExamCalendarEvent handler');
+
     on<RefreshExamCalendarsEvent>(_onRefreshExamCalendars);
+    print('[ExamCalendarBloc] Registered RefreshExamCalendarsEvent handler');
   }
 
   /// Load exam calendars
@@ -30,6 +38,10 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     LoadExamCalendarsEvent event,
     Emitter<ExamCalendarState> emit,
   ) async {
+    print('[ExamCalendarBloc] Loading exam calendars...');
+    print('[ExamCalendarBloc] TenantId: ${event.tenantId}');
+    print('[ExamCalendarBloc] AcademicYear: ${event.academicYear}');
+
     emit(const ExamCalendarLoading());
 
     final result = await loadExamCalendarsUseCase(
@@ -38,11 +50,17 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     );
 
     result.fold(
-      (failure) => emit(ExamCalendarError(failure.message)),
+      (failure) {
+        print('[ExamCalendarBloc] ERROR loading calendars: ${failure.message}');
+        emit(ExamCalendarError(failure.message));
+      },
       (calendars) {
+        print('[ExamCalendarBloc] Successfully loaded ${calendars.length} calendars');
         if (calendars.isEmpty) {
+          print('[ExamCalendarBloc] No calendars found, emitting empty state');
           emit(const ExamCalendarEmpty());
         } else {
+          print('[ExamCalendarBloc] Emitting loaded state with calendars');
           emit(ExamCalendarLoaded(calendars));
         }
       },
@@ -54,6 +72,12 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     CreateExamCalendarEvent event,
     Emitter<ExamCalendarState> emit,
   ) async {
+    print('[ExamCalendarBloc] Creating exam calendar...');
+    print('[ExamCalendarBloc] Exam Name: ${event.examName}');
+    print('[ExamCalendarBloc] Exam Type: ${event.examType}');
+    print('[ExamCalendarBloc] Start Date: ${event.plannedStartDate}');
+    print('[ExamCalendarBloc] End Date: ${event.plannedEndDate}');
+
     emit(const ExamCalendarCreating());
 
     final result = await createExamCalendarUseCase(
@@ -68,10 +92,15 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     );
 
     result.fold(
-      (failure) => emit(ExamCalendarCreationError(failure.message)),
+      (failure) {
+        print('[ExamCalendarBloc] ERROR creating calendar: ${failure.message}');
+        emit(ExamCalendarCreationError(failure.message));
+      },
       (calendar) {
+        print('[ExamCalendarBloc] Calendar created successfully with ID: ${calendar.id}');
         emit(ExamCalendarCreated(calendar));
         // Auto-reload calendars after creation
+        print('[ExamCalendarBloc] Auto-reloading calendars after creation');
         add(LoadExamCalendarsEvent(
           tenantId: event.tenantId,
           academicYear: calendar.toJson()['academic_year'] ?? '',
@@ -85,13 +114,20 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     DeleteExamCalendarEvent event,
     Emitter<ExamCalendarState> emit,
   ) async {
+    print('[ExamCalendarBloc] Deleting exam calendar with ID: ${event.calendarId}');
     emit(ExamCalendarDeleting(event.calendarId));
 
     final result = await deleteExamCalendarUseCase(calendarId: event.calendarId);
 
     result.fold(
-      (failure) => emit(ExamCalendarDeletionError(failure.message)),
-      (_) => emit(ExamCalendarDeleted(event.calendarId)),
+      (failure) {
+        print('[ExamCalendarBloc] ERROR deleting calendar: ${failure.message}');
+        emit(ExamCalendarDeletionError(failure.message));
+      },
+      (_) {
+        print('[ExamCalendarBloc] Calendar deleted successfully with ID: ${event.calendarId}');
+        emit(ExamCalendarDeleted(event.calendarId));
+      },
     );
   }
 
@@ -100,6 +136,9 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
     RefreshExamCalendarsEvent event,
     Emitter<ExamCalendarState> emit,
   ) async {
+    print('[ExamCalendarBloc] Refreshing exam calendars...');
+    print('[ExamCalendarBloc] TenantId: ${event.tenantId}');
+    print('[ExamCalendarBloc] AcademicYear: ${event.academicYear}');
     add(LoadExamCalendarsEvent(
       tenantId: event.tenantId,
       academicYear: event.academicYear,

@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/domain/errors/failures.dart';
+import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../../domain/usecases/add_exam_timetable_entry_usecase.dart';
 import '../../domain/usecases/create_exam_timetable_usecase.dart';
 import '../../domain/usecases/get_exam_calendars_usecase.dart';
@@ -81,6 +82,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     on<CreateExamCalendarEvent>(_onCreateExamCalendar);
     on<UpdateExamCalendarEvent>(_onUpdateExamCalendar);
     on<GetTimetableGradesAndSectionsEvent>(_onGetTimetableGradesAndSections);
+    on<GetExamEntriesEvent>(_onGetExamEntries);
+    on<AddExamEntryEvent>(_onAddExamEntry);
+    on<DeleteExamEntryEvent>(_onDeleteExamEntry);
     on<ClearErrorEvent>(_onClearError);
     on<ResetExamTimetableEvent>(_onResetState);
   }
@@ -444,5 +448,63 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     Emitter<ExamTimetableState> emit,
   ) async {
     emit(const ExamTimetableInitial());
+  }
+
+  // ===== EXAM ENTRY HANDLERS =====
+
+  /// Handler: GetExamEntriesEvent
+  Future<void> _onGetExamEntries(
+    GetExamEntriesEvent event,
+    Emitter<ExamTimetableState> emit,
+  ) async {
+    print('[ExamTimetableBloc] GetExamEntries: timetableId=${event.timetableId}');
+    emit(const ExamTimetableLoading(message: 'Loading exam entries...'));
+
+    // TODO: Wire up the GetExamEntriesUsecase after registering it in DI
+    // For now, emit empty list
+    emit(const ExamEntriesLoaded(entries: []));
+  }
+
+  /// Handler: AddExamEntryEvent
+  Future<void> _onAddExamEntry(
+    AddExamEntryEvent event,
+    Emitter<ExamTimetableState> emit,
+  ) async {
+    print('[ExamTimetableBloc] AddExamEntry: ${event.subjectName} for Grade ${event.gradeId}-${event.section}');
+    emit(const ExamTimetableLoading(message: 'Adding exam entry...'));
+
+    // TODO: Wire up the AddExamEntryUsecase after registering it in DI
+    // For now, create a dummy entry with generated ID
+    final entry = ExamTimetableEntryEntity(
+      id: 'entry_${DateTime.now().millisecondsSinceEpoch}',
+      timetableId: event.timetableId,
+      gradeId: event.gradeId,
+      section: event.section,
+      subjectId: event.subjectId,
+      subjectName: event.subjectName,
+      examDate: event.examDate,
+      startTime: event.startTime,
+      durationMinutes: event.durationMinutes,
+      location: event.location,
+      notes: event.notes,
+      createdAt: DateTime.now(),
+    );
+
+    print('[ExamTimetableBloc] Entry added: ${entry.id}');
+    emit(ExamEntryAdded(entry: entry));
+  }
+
+  /// Handler: DeleteExamEntryEvent
+  Future<void> _onDeleteExamEntry(
+    DeleteExamEntryEvent event,
+    Emitter<ExamTimetableState> emit,
+  ) async {
+    print('[ExamTimetableBloc] DeleteExamEntry: entryId=${event.entryId}');
+    emit(const ExamTimetableLoading(message: 'Deleting exam entry...'));
+
+    // TODO: Wire up the DeleteExamEntryUsecase after registering it in DI
+    // For now, just emit success
+    print('[ExamTimetableBloc] Entry deleted: ${event.entryId}');
+    emit(ExamEntryDeleted(entryId: event.entryId));
   }
 }

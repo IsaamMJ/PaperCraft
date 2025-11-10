@@ -43,7 +43,9 @@ class AppRoutes {
   // Exam Timetable Management routes
   static const String examsHome = '/admin/exams';
   static const String examCalendarList = '/admin/exams/calendar';
+  static const String examGradeSelection = '/admin/exams/grades';
   static const String gradeSectionsList = '/admin/exams/sections';
+  static const String examGradeSections = '/admin/exams/sections/assign';
   static const String examTimetableList = '/admin/exams/timetables';
   static const String examTimetableCreate = '/admin/exams/timetables/create';
   static const String examTimetableEdit = '/admin/exams/timetables/edit';

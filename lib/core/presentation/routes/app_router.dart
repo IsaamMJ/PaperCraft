@@ -35,13 +35,17 @@ import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dar
 import '../../../features/shared/presentation/main_scaffold_wrapper.dart';
 
 // Exam Timetable Management
+import '../../../features/admin/presentation/pages/exams_dashboard_page.dart';
 import '../../../features/catalog/presentation/pages/manage_grade_sections_page.dart';
+import '../../../features/catalog/presentation/pages/exam_grade_sections_page.dart';
 import '../../../features/catalog/presentation/bloc/grade_section_bloc.dart';
 import '../../../features/exams/presentation/pages/exam_calendar_list_page.dart';
+import '../../../features/exams/presentation/pages/exam_grade_selection_page.dart';
 import '../../../features/exams/presentation/bloc/exam_calendar_bloc.dart';
-import '../../../features/exams/presentation/pages/exam_timetable_list_page.dart';
-import '../../../features/exams/presentation/pages/exam_timetable_edit_page.dart';
-import '../../../features/exams/presentation/bloc/exam_timetable_bloc.dart';
+import '../../../features/timetable/presentation/pages/exam_timetable_list_page.dart';
+import '../../../features/timetable/presentation/pages/exam_timetable_create_wizard_page.dart';
+import '../../../features/timetable/presentation/pages/exam_timetable_edit_page.dart';
+import '../../../features/timetable/presentation/bloc/exam_timetable_bloc.dart';
 
 // Admin Setup
 import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
@@ -551,6 +555,19 @@ class AppRouter {
 
       // ========== EXAM TIMETABLE MANAGEMENT ROUTES ==========
 
+      // Exams Home Dashboard
+      GoRoute(
+        path: AppRoutes.examsHome,
+        builder: (context, state) {
+          AppLogger.info('Admin accessing exams management',
+              category: LogCategory.navigation);
+
+          final tenantId = _getTenantIdFromAuth(context);
+
+          return ExamsDashboardPage(tenantId: tenantId);
+        },
+      ),
+
       // Grade Sections Management
       GoRoute(
         path: AppRoutes.gradeSectionsList,
@@ -560,8 +577,15 @@ class AppRouter {
 
           final tenantId = _getTenantIdFromAuth(context);
 
-          return BlocProvider(
-            create: (_) => sl<GradeSectionBloc>(),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) => sl<GradeSectionBloc>(),
+              ),
+              BlocProvider(
+                create: (_) => sl<GradeBloc>(),
+              ),
+            ],
             child: ManageGradeSectionsPage(tenantId: tenantId),
           );
         },
@@ -587,23 +611,78 @@ class AppRouter {
         },
       ),
 
+      // Exam Grade Selection
+      GoRoute(
+        path: AppRoutes.examGradeSelection,
+        builder: (context, state) {
+          AppLogger.info('Admin selecting grades for exam',
+              category: LogCategory.navigation);
+
+          final tenantId = _getTenantIdFromAuth(context);
+
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) => sl<ExamCalendarBloc>(),
+              ),
+              BlocProvider(
+                create: (_) => sl<GradeBloc>(),
+              ),
+            ],
+            child: ExamGradeSelectionPage(tenantId: tenantId),
+          );
+        },
+      ),
+
+      // Exam Grade Sections Assignment
+      GoRoute(
+        path: AppRoutes.examGradeSections,
+        builder: (context, state) {
+          AppLogger.info('Admin assigning grade sections to exam',
+              category: LogCategory.navigation);
+
+          final tenantId = _getTenantIdFromAuth(context);
+          final examCalendarId = state.uri.queryParameters['calendarId'] ?? '';
+          final examCalendarName = state.uri.queryParameters['calendarName'] ?? 'Exam';
+
+          return BlocProvider(
+            create: (_) => sl<GradeSectionBloc>(),
+            child: ExamGradeSectionsPage(
+              tenantId: tenantId,
+              examCalendarId: examCalendarId,
+              examCalendarName: examCalendarName,
+            ),
+          );
+        },
+      ),
+
       // Exam Timetable List
       GoRoute(
         path: AppRoutes.examTimetableList,
         builder: (context, state) {
+          print('[AppRouter] Building ExamTimetableList route');
           AppLogger.info('Admin viewing exam timetables',
               category: LogCategory.navigation);
 
           final tenantId = _getTenantIdFromAuth(context);
-          final academicYear = state.uri.queryParameters['academicYear'] ?? '2024-2025';
 
-          return BlocProvider(
-            create: (_) => sl<ExamTimetableBloc>(),
-            child: ExamTimetableListPage(
-              tenantId: tenantId,
-              academicYear: academicYear,
-            ),
-          );
+          try {
+            print('[AppRouter] Trying to get ExamTimetableBloc from GetIt...');
+            final bloc = sl<ExamTimetableBloc>();
+            print('[AppRouter] ExamTimetableBloc retrieved successfully');
+            return BlocProvider(
+              create: (_) => bloc,
+              child: ExamTimetableListPage(
+                tenantId: tenantId,
+              ),
+            );
+          } catch (e, st) {
+            print('[AppRouter] ERROR getting ExamTimetableBloc: $e');
+            print('[AppRouter] StackTrace: $st');
+            print('[AppRouter] Available in GetIt:');
+            // Try to get any registered types
+            rethrow;
+          }
         },
       ),
 
