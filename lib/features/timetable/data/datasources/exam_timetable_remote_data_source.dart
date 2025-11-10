@@ -616,7 +616,7 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
       final response = await _supabaseClient
           .from('exam_timetable_entries')
           .update(model.toJsonRequest())
-          .eq('id', entry.id)
+          .eq('id', entry.id ?? '')
           .select()
           .single();
 

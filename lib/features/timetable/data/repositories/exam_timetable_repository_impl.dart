@@ -349,7 +349,7 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     }
 
     // Check: required fields
-    if (entry.id.isEmpty ||
+    if ((entry.id?.isEmpty ?? true) ||
         entry.tenantId.isEmpty ||
         entry.timetableId.isEmpty ||
         entry.gradeId.isEmpty ||

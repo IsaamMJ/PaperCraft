@@ -80,6 +80,16 @@ class ExamTimetableEntryEntity extends Equatable {
   /// Get schedule display string (e.g., "09:00 AM - 11:00 AM")
   String get scheduleDisplay => '$startTimeDisplay - $endTimeDisplay';
 
+  /// Get exam date formatted as "MMM DD, YYYY" (e.g., "Nov 15, 2025")
+  String get examDateDisplay {
+    final monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final month = monthNames[examDate.month - 1];
+    return '$month ${examDate.day}, ${examDate.year}';
+  }
+
   /// Check if time range is valid (endTime > startTime)
   bool get hasValidTimeRange => endTime > startTime;
 
