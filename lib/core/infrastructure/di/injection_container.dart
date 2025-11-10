@@ -1176,9 +1176,7 @@ class _AdminModule {
     print('[_AdminModule] ValidateExamTimetableUsecase registered');
 
     print('[_AdminModule] Registering GetTimetableGradesAndSectionsUsecase...');
-    sl.registerLazySingleton(() => GetTimetableGradesAndSectionsUsecase(
-      supabase: sl<SupabaseClient>(),
-    ));
+    sl.registerLazySingleton(() => GetTimetableGradesAndSectionsUsecase());
     print('[_AdminModule] GetTimetableGradesAndSectionsUsecase registered');
 
     sl<ILogger>().debug('Exam timetable use cases registered successfully', category: LogCategory.system);

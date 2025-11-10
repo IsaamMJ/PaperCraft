@@ -17,7 +17,7 @@ import '../entities/timetable_grade_entity.dart';
 ///
 /// Example:
 /// ```dart
-/// final usecase = GetTimetableGradesAndSectionsUsecase(supabase: supabase);
+/// final usecase = GetTimetableGradesAndSectionsUsecase();
 /// final result = await usecase(params: GetTimetableGradesAndSectionsParams(
 ///   tenantId: 'tenant-123',
 /// ));
@@ -27,10 +27,7 @@ import '../entities/timetable_grade_entity.dart';
 /// );
 /// ```
 class GetTimetableGradesAndSectionsUsecase {
-  final SupabaseClient _supabase;
-
-  GetTimetableGradesAndSectionsUsecase({required SupabaseClient supabase})
-      : _supabase = supabase;
+  GetTimetableGradesAndSectionsUsecase();
 
   /// Fetch grades and sections for a tenant
   ///
@@ -43,11 +40,13 @@ class GetTimetableGradesAndSectionsUsecase {
     required GetTimetableGradesAndSectionsParams params,
   }) async {
     try {
+      final supabase = Supabase.instance.client;
+
       print('[GetTimetableGradesAndSections] Fetching for tenant: ${params.tenantId}');
 
       // Step 1: Load grades for this tenant
       print('[GetTimetableGradesAndSections] Fetching grades from database');
-      final gradesData = await _supabase
+      final gradesData = await supabase
           .from('grades')
           .select()
           .eq('tenant_id', params.tenantId);
@@ -65,7 +64,7 @@ class GetTimetableGradesAndSectionsUsecase {
 
       // Step 2: Load sections from grade_section_subject table
       print('[GetTimetableGradesAndSections] Fetching sections from database');
-      final sectionsRaw = await _supabase
+      final sectionsRaw = await supabase
           .from('grade_section_subject')
           .select('grade_id, section')
           .eq('tenant_id', params.tenantId);
