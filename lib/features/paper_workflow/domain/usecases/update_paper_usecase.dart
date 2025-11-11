@@ -1,16 +1,22 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/errors/failures.dart';
-import '../../../../core/domain/usecases/usecase.dart';
 import '../entities/question_paper_entity.dart';
 import '../repositories/question_paper_repository.dart';
 
-class UpdatePaperUseCase extends UseCase<QuestionPaperEntity, QuestionPaperEntity> {
-  final QuestionPaperRepository _repository;
+class UpdatePaperUseCase {
+  final QuestionPaperRepository repository;
 
-  UpdatePaperUseCase(this._repository);
+  UpdatePaperUseCase(this.repository);
 
-  @override
   Future<Either<Failure, QuestionPaperEntity>> call(QuestionPaperEntity paper) async {
-    return await _repository.updatePaper(paper);
+    if (paper.title.trim().isEmpty) {
+      return Left(ValidationFailure('Title is required'));
+    }
+
+    if (paper.questions.isEmpty) {
+      return Left(ValidationFailure('At least one question is required'));
+    }
+
+    return await repository.updatePaper(paper);
   }
 }
