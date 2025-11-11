@@ -15,6 +15,7 @@ class TimetableDetailInfoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('[TimetableDetailInfoTab] Building with timetable: ${timetable.examName}, createdBy: ${timetable.createdBy}, status: ${timetable.status}');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

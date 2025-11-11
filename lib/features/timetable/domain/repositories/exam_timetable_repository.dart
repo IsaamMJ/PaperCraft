@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:papercraft/core/domain/errors/failures.dart';
 import 'package:papercraft/features/timetable/domain/entities/exam_calendar_entity.dart';
+import 'package:papercraft/features/timetable/domain/entities/exam_calendar_grade_mapping_entity.dart';
 import 'package:papercraft/features/timetable/domain/entities/exam_timetable_entity.dart';
 import 'package:papercraft/features/timetable/domain/entities/exam_timetable_entry_entity.dart';
 
@@ -224,5 +225,50 @@ abstract class ExamTimetableRepository {
     String sourceTimetableId,
     String newAcademicYear, {
     Duration? dateOffset,
+  });
+
+  // ===== EXAM CALENDAR GRADE SECTION MAPPING OPERATIONS (STEP 2) =====
+
+  /// Get all grade sections mapped to an exam calendar
+  ///
+  /// Returns list of grade section IDs that are associated with a specific calendar
+  /// Used in Step 2 to show which grade sections are already selected
+  Future<Either<Failure, List<String>>> getGradesForCalendar(
+    String examCalendarId,
+  );
+
+  /// Map grade sections to an exam calendar (Step 2 operation)
+  ///
+  /// Creates mappings for all provided grade sections to the calendar
+  /// Returns all created mappings
+  /// Used when user selects grade sections in Step 2
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      mapGradesToExamCalendar(
+    String tenantId,
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  );
+
+  /// Remove grade sections from an exam calendar
+  ///
+  /// Soft deletes the mappings
+  Future<Either<Failure, void>> removeGradesFromCalendar(
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  );
+
+  /// Create exam timetable with all entries in a single transaction
+  ///
+  /// Final step of wizard - creates the timetable with all subject-to-date mappings
+  /// Returns the created timetable entity
+  Future<Either<Failure, ExamTimetableEntity>>
+      createExamTimetableWithEntries({
+    required String tenantId,
+    String? examCalendarId,
+    required String examName,
+    required String examType,
+    required String academicYear,
+    required String createdByUserId,
+    required List<ExamTimetableEntryEntity> entries,
   });
 }

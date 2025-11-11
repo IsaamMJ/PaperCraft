@@ -21,8 +21,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
   @override
   void initState() {
     super.initState();
-    print('📋 [DEBUG] GradeManagementWidget initialized');
-    print('   Loading all grades...');
     context.read<GradeBloc>().add(const LoadGrades());
   }
 
@@ -225,10 +223,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
 
   void _handleStateChanges(BuildContext context, GradeState state) {
     if (state is GradeCreated) {
-      print('✅ [DEBUG] Grade Created: ${state.grade.displayName}');
-      print('   Grade ID: ${state.grade.id}');
-      print('   Grade Number: ${state.grade.gradeNumber}');
-      print('   Created At: ${state.grade.createdAt}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Grade "${state.grade.displayName}" created successfully'),
@@ -238,9 +232,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
       _clearForm();
       context.read<GradeBloc>().add(const LoadGrades());
     } else if (state is GradeUpdated) {
-      print('✏️ [DEBUG] Grade Updated: ${state.grade.displayName}');
-      print('   Grade ID: ${state.grade.id}');
-      print('   Grade Number: ${state.grade.gradeNumber}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Grade "${state.grade.displayName}" updated successfully'),
@@ -250,7 +241,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
       _clearForm();
       context.read<GradeBloc>().add(const LoadGrades());
     } else if (state is GradeDeleted) {
-      print('🗑️ [DEBUG] Grade Deleted Successfully');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Grade deleted successfully'),
@@ -259,7 +249,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
       );
       context.read<GradeBloc>().add(const LoadGrades());
     } else if (state is GradeError) {
-      print('❌ [DEBUG] Grade Error: ${state.message}');
     }
   }
 
@@ -267,7 +256,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_editingGrade == null) {
-      print('📝 [DEBUG] Adding New Grade: Grade $_selectedGradeNumber');
       final newGrade = GradeEntity(
         id: '',
         tenantId: '',
@@ -275,10 +263,8 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
         isActive: true,
         createdAt: DateTime.now(),
       );
-      print('   Sending to BLoC: $newGrade');
       context.read<GradeBloc>().add(CreateGrade(newGrade));
     } else {
-      print('📝 [DEBUG] Updating Grade: ${_editingGrade!.displayName}');
       final updatedGrade = GradeEntity(
         id: _editingGrade!.id,
         tenantId: _editingGrade!.tenantId,
@@ -286,14 +272,11 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
         isActive: _editingGrade!.isActive,
         createdAt: _editingGrade!.createdAt,
       );
-      print('   Sending to BLoC: $updatedGrade');
       context.read<GradeBloc>().add(UpdateGrade(updatedGrade));
     }
   }
 
   void _startEdit(GradeEntity grade) {
-    print('✏️ [DEBUG] Starting Edit for Grade: ${grade.displayName}');
-    print('   Grade ID: ${grade.id}');
     setState(() {
       _editingGrade = grade;
       _selectedGradeNumber = grade.gradeNumber;
@@ -301,12 +284,10 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
   }
 
   void _cancelEdit() {
-    print('❌ [DEBUG] Cancelled Grade Edit');
     _clearForm();
   }
 
   void _clearForm() {
-    print('🧹 [DEBUG] Clearing Form');
     setState(() {
       _editingGrade = null;
       _selectedGradeNumber = null;
@@ -314,8 +295,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
   }
 
   void _showDeleteDialog(GradeEntity grade) {
-    print('🗑️ [DEBUG] Showing Delete Confirmation for: ${grade.displayName}');
-    print('   Grade ID: ${grade.id}');
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -329,8 +308,6 @@ class _GradeManagementWidgetState extends State<GradeManagementWidget> {
             ),
             ElevatedButton(
               onPressed: () {
-                print('🗑️ [DEBUG] Deleting Grade: ${grade.displayName}');
-                print('   Grade ID: ${grade.id}');
                 Navigator.of(context).pop();
                 context.read<GradeBloc>().add(DeleteGrade(grade.id));
               },

@@ -129,23 +129,9 @@ class _ExamsDashboardPageState extends State<ExamsDashboardPage> {
           onTap: () {
             final userStateService = sl<UserStateService>();
             final academicYear = userStateService.currentAcademicYear;
-            print('[ExamsDashboardPage] Navigating to exam calendars with academic year: $academicYear');
             context.push('${AppRoutes.examCalendarList}?academicYear=$academicYear');
           },
           description: 'Define exam schedules that will be used as templates for timetables',
-        ),
-        SizedBox(height: UIConstants.spacing12),
-        _buildFeatureCard(
-          title: 'Grade Assignment',
-          subtitle: 'Select which grades participate in each exam',
-          icon: Icons.people,
-          color: Colors.green,
-          actionText: 'Assign Grades',
-          onTap: () {
-            print('[ExamsDashboardPage] Navigating to grade selection');
-            context.push(AppRoutes.examGradeSelection);
-          },
-          description: 'Choose grades for the exam calendar',
         ),
         SizedBox(height: UIConstants.spacing12),
         _buildFeatureCard(
@@ -157,7 +143,6 @@ class _ExamsDashboardPageState extends State<ExamsDashboardPage> {
           onTap: () {
             final userStateService = sl<UserStateService>();
             final academicYear = userStateService.currentAcademicYear;
-            print('[ExamsDashboardPage] Navigating to exam timetables with academic year: $academicYear');
             context.push('${AppRoutes.examTimetableList}?academicYear=$academicYear');
           },
           description: 'Build comprehensive exam timetables based on calendars and sections',

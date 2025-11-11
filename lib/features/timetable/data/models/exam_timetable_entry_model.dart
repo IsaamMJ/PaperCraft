@@ -6,9 +6,12 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
     required super.id,
     required super.tenantId,
     required super.timetableId,
-    required super.gradeId,
+    required super.gradeSectionId,
+    super.gradeId,
+    super.gradeNumber,
+    super.section,
     required super.subjectId,
-    required super.section,
+    super.subjectName,
     required super.examDate,
     required super.startTime,
     required super.endTime,
@@ -23,8 +26,11 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       id: entity.id,
       tenantId: entity.tenantId,
       timetableId: entity.timetableId,
+      gradeSectionId: entity.gradeSectionId,
       gradeId: entity.gradeId,
+      gradeNumber: entity.gradeNumber,
       subjectId: entity.subjectId,
+      subjectName: entity.subjectName,
       section: entity.section,
       examDate: entity.examDate,
       startTime: entity.startTime,
@@ -41,9 +47,12 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
       timetableId: json['timetable_id'] as String,
-      gradeId: json['grade_id'] as String,
+      gradeSectionId: json['grade_section_id'] as String,
+      gradeId: json['grade_id'] as String?, // Can be denormalized in query result
+      gradeNumber: null, // Will be fetched via JOIN
       subjectId: json['subject_id'] as String,
-      section: json['section'] as String,
+      subjectName: null, // Will be fetched separately
+      section: json['section'] as String?, // Can be denormalized in query result
       examDate: DateTime.parse(json['exam_date'] as String),
       startTime: _timeStringToDuration(json['start_time'] as String),
       endTime: _timeStringToDuration(json['end_time'] as String),
@@ -55,13 +64,11 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    final json = {
       'tenant_id': tenantId,
       'timetable_id': timetableId,
-      'grade_id': gradeId,
+      'grade_section_id': gradeSectionId,
       'subject_id': subjectId,
-      'section': section,
       'exam_date': examDate.toIso8601String(),
       'start_time': _durationToTimeString(startTime),
       'end_time': _durationToTimeString(endTime),
@@ -70,6 +77,21 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
+
+    // Only include id if it's not null (for updates/existing records)
+    if (id != null) {
+      json['id'] = id;
+    }
+
+    // Include optional denormalized fields if present
+    if (gradeId != null) {
+      json['grade_id'] = gradeId;
+    }
+    if (section != null) {
+      json['section'] = section;
+    }
+
+    return json;
   }
 
   Map<String, dynamic> toJsonRequest() {

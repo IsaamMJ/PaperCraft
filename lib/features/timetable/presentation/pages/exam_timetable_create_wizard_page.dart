@@ -417,14 +417,10 @@ class _ExamTimetableCreateWizardPageState
           CreateExamTimetableEvent(timetable: timetable),
         );
 
-    // Also create all entries
-    print('[ExamTimetableCreateWizard] Adding ${_wizardData.entries.length} entries...');
-    for (final entry in _wizardData.entries) {
-      print('[ExamTimetableCreateWizard] Adding entry: ${entry.id}');
-      context.read<ExamTimetableBloc>().add(
-            AddExamTimetableEntryEvent(entry: entry),
-          );
-    }
+    // Note: Entries are created via a separate flow after timetable is created
+    // The wizard generates entry data for validation/preview purposes,
+    // but actual entry creation happens in a dedicated entries management page
+    print('[ExamTimetableCreateWizard] Timetable created. Entries (${_wizardData.entries.length}) can be added separately from the timetable detail page.');
   }
 
   /// Get step title

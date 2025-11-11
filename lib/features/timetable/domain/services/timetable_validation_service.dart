@@ -127,7 +127,7 @@ class TimetableValidationService {
         'Entry: ${entry.subjectId} (Grade ${entry.gradeId}, Section ${entry.section})';
 
     // Validate required fields
-    if (entry.gradeId.isEmpty) {
+    if ((entry.gradeId?.isEmpty ?? true)) {
       errors.add('$entryRef: Grade ID cannot be empty');
     }
 
@@ -135,7 +135,7 @@ class TimetableValidationService {
       errors.add('$entryRef: Subject ID cannot be empty');
     }
 
-    if (entry.section.isEmpty) {
+    if ((entry.section?.isEmpty ?? true)) {
       errors.add('$entryRef: Section cannot be empty');
     }
 

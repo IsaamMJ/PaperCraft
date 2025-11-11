@@ -22,11 +22,9 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('[TimetableWizardStep1Calendar] build: state=${state.runtimeType}');
 
     // Show loading for initial state or explicit loading state
     if (state is ExamTimetableInitial || state is ExamTimetableLoading) {
-      print('[TimetableWizardStep1Calendar] Showing loading state');
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -42,7 +40,6 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
     if (state is ExamCalendarsLoaded) {
       final loadedState = state as ExamCalendarsLoaded;
       final calendars = loadedState.calendars;
-      print('[TimetableWizardStep1Calendar] Calendars loaded: ${calendars.length} calendars');
 
       if (calendars.isEmpty) {
         return Center(
@@ -131,7 +128,6 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
     ExamCalendarEntity calendar,
   ) {
     final isSelected = wizardData.selectedCalendar?.id == calendar.id;
-    print('[TimetableWizardStep1Calendar] Building card for: ${calendar.examName} (selected=$isSelected)');
     final now = DateTime.now();
     final isActive = calendar.plannedStartDate.isBefore(now) &&
         calendar.plannedEndDate.isAfter(now);
@@ -149,13 +145,7 @@ class TimetableWizardStep1Calendar extends StatelessWidget {
         ),
         child: InkWell(
           onTap: () {
-            print('[TimetableWizardStep1Calendar] ===== CALENDAR CARD TAPPED =====');
-            print('[TimetableWizardStep1Calendar] Calendar tapped: ${calendar.examName}');
-            print('[TimetableWizardStep1Calendar] Calendar examType: ${calendar.examType}');
-            print('[TimetableWizardStep1Calendar] Callback is null: ${onCalendarSelected == null}');
-            print('[TimetableWizardStep1Calendar] About to invoke callback...');
             onCalendarSelected(calendar);
-            print('[TimetableWizardStep1Calendar] Callback invoked successfully');
           },
           borderRadius: BorderRadius.circular(8),
           child: Padding(

@@ -251,12 +251,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       final userStateService = sl<UserStateService>();
       final currentUser = userStateService.currentUser;
 
-      print('🔍 [CreatePage] _loadSectionsForGrade called');
-      print('   gradeId: $gradeId');
-      print('   currentUser: ${currentUser?.id}');
 
       if (currentUser == null) {
-        print('❌ [CreatePage] currentUser is null');
         setState(() {
           _availableSections = [];
           _isSectionsLoading = false;
@@ -268,9 +264,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
       // Load ONLY sections that this teacher is assigned to teach in this grade
       // Query teacher_subjects table and get unique section names for this grade
-      print('📋 [CreatePage] Querying teacher_subjects table for unique sections');
-      print('   teacher_id: ${currentUser.id}');
-      print('   grade_id: $gradeId');
 
       final sectionsData = await supabase
           .from('teacher_subjects')
@@ -279,29 +272,23 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
           .eq('grade_id', gradeId)
           .eq('is_active', true);
 
-      print('✅ [CreatePage] Query result: ${(sectionsData as List).length} records found');
-      print('   Raw data: $sectionsData');
 
       // Extract unique section names (since there can be multiple subjects per section)
       final sections = <String>{};
       for (var record in sectionsData as List) {
         final section = record['section'] as String?;
-        print('   Processing record: $record -> section: $section');
         if (section != null) {
           sections.add(section);
         }
       }
 
       final sectionsList = sections.toList()..sort();
-      print('📊 [CreatePage] Final sections list (unique): $sectionsList');
 
       setState(() {
         _availableSections = sectionsList;
         _isSectionsLoading = false;
       });
     } catch (e, stackTrace) {
-      print('❌ [CreatePage] Exception loading sections: $e');
-      print('   StackTrace: $stackTrace');
       setState(() {
         _availableSections = [];
         _isSectionsLoading = false;
@@ -310,21 +297,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   void _onSectionToggled(String section, bool selected) {
-    print('🎯 [CreatePage] _onSectionToggled called');
-    print('   section: $section, selected: $selected');
 
     setState(() {
       selected ? _selectedSections.add(section) : _selectedSections.remove(section);
-      print('   Updated _selectedSections: $_selectedSections');
     });
 
     // Load subjects for selected sections
     if (_selectedSections.isNotEmpty) {
-      print('📚 [CreatePage] Loading subjects for selected sections');
       _loadSubjectsForSelectedSections();
     } else {
       // Clear subjects if no sections selected
-      print('❌ [CreatePage] No sections selected, clearing subjects');
       setState(() {
         _availableSubjects.clear();
         _subjectNameToIdMap.clear();
@@ -336,12 +318,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   /// Load subjects only for the selected sections (not all sections in grade)
   Future<void> _loadSubjectsForSelectedSections() async {
-    print('📖 [CreatePage] _loadSubjectsForSelectedSections called');
-    print('   _selectedGradeLevel: $_selectedGradeLevel');
-    print('   _selectedSections: $_selectedSections');
 
     if (_selectedGradeLevel == null || _selectedSections.isEmpty) {
-      print('❌ [CreatePage] Missing gradeLevel or sections, returning');
       return;
     }
 
@@ -349,11 +327,8 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     final currentUser = userStateService.currentUser;
     final tenantId = currentUser?.tenantId;
 
-    print('   tenantId: $tenantId');
-    print('   _selectedGrade: ${_selectedGrade?.id}');
 
     if (tenantId == null || _selectedGrade == null) {
-      print('❌ [CreatePage] Missing tenantId or grade, returning');
       return;
     }
 
@@ -363,9 +338,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       final supabase = Supabase.instance.client;
 
       // Step 1: Get teacher's assigned subjects for this grade
-      print('📋 [CreatePage] Step 1: Fetching teacher assignments from teacher_subjects table');
-      print('   teacher_id: ${currentUser!.id}');
-      print('   grade_id: ${_selectedGrade!.id}');
 
       final teacherAssignments = await supabase
           .from('teacher_subjects')
@@ -373,22 +345,17 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
           .eq('teacher_id', currentUser!.id)
           .eq('grade_id', _selectedGrade!.id);
 
-      print('✅ [CreatePage] Teacher assignments fetched: ${(teacherAssignments as List).length} subjects');
-      print('   Raw data: $teacherAssignments');
 
       final assignedSubjectIds = <String>{};
       for (var assignment in teacherAssignments as List) {
         final subjectId = assignment['subject_id'] as String?;
-        print('   Processing assignment: $assignment -> subjectId: $subjectId');
         if (subjectId != null) {
           assignedSubjectIds.add(subjectId);
         }
       }
 
-      print('📊 [CreatePage] Assigned subject IDs: $assignedSubjectIds');
 
       if (assignedSubjectIds.isEmpty) {
-        print('⚠️ [CreatePage] No subjects assigned to teacher for this grade');
         setState(() {
           _availableSubjects = [];
           _subjectNameToIdMap = {};
@@ -399,13 +366,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
       // Step 2: Get subjects offered in the SELECTED sections only
       // Build a filter for each selected section
-      print('📋 [CreatePage] Step 2: Fetching subjects from grade_section_subject for selected sections');
-      print('   Selected sections: $_selectedSections');
 
       final selectedSubjectIds = <String>{};
 
       for (var sectionName in _selectedSections) {
-        print('   Querying section: $sectionName');
         final gradeSubjectsData = await supabase
             .from('grade_section_subject')
             .select('subjects(id, catalog_subject_id)')
@@ -414,27 +378,21 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             .eq('section', sectionName)
             .eq('is_offered', true);
 
-        print('   📊 Found ${(gradeSubjectsData as List).length} subjects in section $sectionName');
 
         for (var record in gradeSubjectsData as List) {
           final subjectData = record['subjects'] as Map<String, dynamic>?;
           final subjectId = subjectData?['id'] as String?;
-          print('      Record: $record -> subjectId: $subjectId');
 
           // Only include subjects that the teacher is assigned to
           if (subjectId != null && assignedSubjectIds.contains(subjectId)) {
-            print('      ✅ Subject $subjectId is assigned to teacher, adding');
             selectedSubjectIds.add(subjectId);
           } else {
-            print('      ❌ Subject $subjectId is NOT assigned to teacher, skipping');
           }
         }
       }
 
-      print('✅ [CreatePage] Selected subject IDs: $selectedSubjectIds');
 
       if (selectedSubjectIds.isEmpty) {
-        print('⚠️ [CreatePage] No subjects found in selected sections for this teacher');
         setState(() {
           _availableSubjects = [];
           _subjectNameToIdMap = {};
@@ -444,16 +402,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       }
 
       // Step 3: Get catalog IDs for subjects in selected sections
-      print('📋 [CreatePage] Step 3: Fetching catalog IDs from subjects table');
-      print('   Subject IDs: $selectedSubjectIds');
 
       final subjectData = await supabase
           .from('subjects')
           .select('id, catalog_subject_id')
           .inFilter('id', selectedSubjectIds.toList());
 
-      print('✅ [CreatePage] Subject data fetched: ${(subjectData as List).length} records');
-      print('   Raw data: $subjectData');
 
       final catalogSubjectIds = <String>{};
       final subjectIdToCatalogId = <String, String>{};
@@ -461,17 +415,14 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       for (var record in subjectData as List) {
         final id = record['id'] as String;
         final catalogId = record['catalog_subject_id'] as String?;
-        print('   Processing: $record -> catalogId: $catalogId');
         if (catalogId != null) {
           catalogSubjectIds.add(catalogId);
           subjectIdToCatalogId[catalogId] = id;
         }
       }
 
-      print('📊 [CreatePage] Catalog subject IDs: $catalogSubjectIds');
 
       // Step 4: Fetch subject names from catalog
-      print('📋 [CreatePage] Step 4: Fetching subject names from catalog');
       final catalogSubjectMap = <String, String>{};
       if (catalogSubjectIds.isNotEmpty) {
         final catalogData = await supabase
@@ -479,28 +430,22 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             .select('id, subject_name')
             .inFilter('id', catalogSubjectIds.toList());
 
-        print('✅ [CreatePage] Catalog data fetched: ${(catalogData as List).length} names');
-        print('   Raw data: $catalogData');
 
         for (var catalog in catalogData as List) {
           final id = catalog['id'] as String;
           final name = catalog['subject_name'] as String;
-          print('   Mapping: $id -> $name');
           catalogSubjectMap[id] = name;
         }
       }
 
-      print('📊 [CreatePage] Catalog subject map: $catalogSubjectMap');
 
       // Step 5: Build display list with name-to-ID mapping
-      print('📋 [CreatePage] Step 5: Building final subject list');
       final subjectNames = <String>[];
       final nameToIdMap = <String, String>{};
 
       for (var catalogId in catalogSubjectIds) {
         final subjectName = catalogSubjectMap[catalogId];
         final subjectId = subjectIdToCatalogId[catalogId];
-        print('   Building: catalogId=$catalogId, name=$subjectName, subjectId=$subjectId');
 
         if (subjectName != null && subjectId != null) {
           subjectNames.add(subjectName);
@@ -508,8 +453,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         }
       }
 
-      print('✅ [CreatePage] Final subject names: $subjectNames');
-      print('   Final name->ID map: $nameToIdMap');
 
       setState(() {
         _availableSubjects = subjectNames;
@@ -519,8 +462,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         _isSubjectsLoading = false;
       });
     } catch (e, stackTrace) {
-      print('❌ [CreatePage] Exception loading subjects: $e');
-      print('   StackTrace: $stackTrace');
       setState(() {
         _availableSubjects = [];
         _subjectNameToIdMap = {};

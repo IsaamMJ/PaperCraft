@@ -42,19 +42,15 @@ class GetTimetableGradesAndSectionsUsecase {
     try {
       final supabase = Supabase.instance.client;
 
-      print('[GetTimetableGradesAndSections] Fetching for tenant: ${params.tenantId}');
 
       // Step 1: Load grades for this tenant
-      print('[GetTimetableGradesAndSections] Fetching grades from database');
       final gradesData = await supabase
           .from('grades')
           .select()
           .eq('tenant_id', params.tenantId);
 
-      print('[GetTimetableGradesAndSections] Grades fetched: ${(gradesData as List).length}');
 
       final availableGrades = (gradesData as List).map((g) {
-        print('[GetTimetableGradesAndSections] Processing grade: ${g['grade_number']}');
         return TimetableGradeEntity(
           gradeId: g['id'] as String,
           gradeNumber: g['grade_number'] as int,
@@ -63,13 +59,11 @@ class GetTimetableGradesAndSectionsUsecase {
       }).toList();
 
       // Step 2: Load sections from grade_section_subject table
-      print('[GetTimetableGradesAndSections] Fetching sections from database');
       final sectionsRaw = await supabase
           .from('grade_section_subject')
           .select('grade_id, section')
           .eq('tenant_id', params.tenantId);
 
-      print('[GetTimetableGradesAndSections] Raw sections fetched: ${(sectionsRaw as List).length}');
 
       // Deduplicate: junction table has multiple rows per (grade_id, section) due to different subjects
       final sectionsMap = <String, Set<String>>{}; // grade_id -> set of sections
@@ -79,7 +73,6 @@ class GetTimetableGradesAndSectionsUsecase {
         sectionsMap.putIfAbsent(gradeId, () => {}).add(section);
       }
 
-      print('[GetTimetableGradesAndSections] Deduped sections map: ${sectionsMap.length} grades');
 
       // Step 3: Build grade_number lookup map
       final gradeNumberMap = <String, int>{}; // grade_id -> grade_number
@@ -87,7 +80,6 @@ class GetTimetableGradesAndSectionsUsecase {
         gradeNumberMap[grade['id'] as String] = grade['grade_number'] as int;
       }
 
-      print('[GetTimetableGradesAndSections] Grade number map built: ${gradeNumberMap.length} entries');
 
       // Step 4: Map sections to grades
       final sectionsByGradeNumber = <int, List<String>>{};
@@ -96,11 +88,9 @@ class GetTimetableGradesAndSectionsUsecase {
           final gradeNumber = gradeNumberMap[gradeId]!;
           final sections = sectionsMap[gradeId]!.toList()..sort();
           sectionsByGradeNumber[gradeNumber] = sections;
-          print('[GetTimetableGradesAndSections] Grade $gradeNumber: ${sections.join(", ")}');
         }
       }
 
-      print('[GetTimetableGradesAndSections] Final sections by grade: ${sectionsByGradeNumber.length}');
 
       // Step 5: Create grades with populated sections
       final gradesWithSections = availableGrades
@@ -114,7 +104,6 @@ class GetTimetableGradesAndSectionsUsecase {
           })
           .toList();
 
-      print('[GetTimetableGradesAndSections] SUCCESS: ${gradesWithSections.length} grades fetched');
 
       return Right(
         TimetableGradesAndSectionsData(
@@ -123,7 +112,6 @@ class GetTimetableGradesAndSectionsUsecase {
         ),
       );
     } catch (e) {
-      print('[GetTimetableGradesAndSections] ERROR: $e');
       return Left(
         ServerFailure('Failed to fetch grades and sections: $e'),
       );

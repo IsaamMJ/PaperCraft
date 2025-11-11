@@ -87,9 +87,9 @@ class AddExamTimetableEntryUsecase {
     // Validate required fields
     if (entry.tenantId.isEmpty ||
         entry.timetableId.isEmpty ||
-        entry.gradeId.isEmpty ||
+        (entry.gradeId?.isEmpty ?? true) ||
         entry.subjectId.isEmpty ||
-        entry.section.isEmpty) {
+        (entry.section?.isEmpty ?? true)) {
       return Left(ValidationFailure('All required fields must be filled'));
     }
 

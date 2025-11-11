@@ -35,14 +35,12 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
   @override
   void initState() {
     super.initState();
-    print('[TimetableWizardStep3Grades] initState');
     _selectedSectionsByGrade = {};
     _loadGradesAndSections();
   }
 
   /// Load grades and sections from BLoC
   void _loadGradesAndSections() {
-    print('[TimetableWizardStep3Grades] Requesting grades and sections from BLoC');
     context.read<ExamTimetableBloc>().add(
           GetTimetableGradesAndSectionsEvent(tenantId: widget.wizardData.tenantId),
         );
@@ -50,10 +48,8 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
 
   @override
   Widget build(BuildContext context) {
-    print('[TimetableWizardStep3Grades] build: tenantId=${widget.wizardData.tenantId}');
     return BlocBuilder<ExamTimetableBloc, ExamTimetableState>(
       builder: (context, state) {
-        print('[TimetableWizardStep3Grades] BLoC state: ${state.runtimeType}');
 
         // Loading state
         if (state is ExamTimetableLoading) {
@@ -108,7 +104,6 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
           final gradesData = state.gradesData;
           final grades = gradesData.grades;
 
-          print('[TimetableWizardStep3Grades] Grades loaded: ${grades.length}');
 
           if (grades.isEmpty) {
             return Center(
@@ -420,7 +415,6 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
       }
     }
 
-    print('[TimetableWizardStep3Grades] Notifying parent of ${selections.length} grade selections');
     widget.onGradesSelected(selections);
   }
 }

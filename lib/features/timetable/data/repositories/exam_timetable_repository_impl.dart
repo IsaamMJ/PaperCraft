@@ -1,7 +1,9 @@
 import 'package:dartz/dartz.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/domain/errors/failures.dart';
 import '../../domain/entities/exam_calendar_entity.dart';
+import '../../domain/entities/exam_calendar_grade_mapping_entity.dart';
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
@@ -202,10 +204,10 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     // Check for duplicate
     final duplicate = await checkDuplicateEntry(
       entry.timetableId,
-      entry.gradeId,
+      entry.gradeId ?? '',
       entry.subjectId,
       entry.examDate,
-      entry.section,
+      entry.section ?? '',
     );
 
     return await duplicate.fold(
@@ -352,9 +354,9 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     if ((entry.id?.isEmpty ?? true) ||
         entry.tenantId.isEmpty ||
         entry.timetableId.isEmpty ||
-        entry.gradeId.isEmpty ||
+        (entry.gradeId?.isEmpty ?? true) ||
         entry.subjectId.isEmpty ||
-        entry.section.isEmpty) {
+        (entry.section?.isEmpty ?? true)) {
       return ValidationFailure('All required fields must be filled');
     }
 
@@ -368,5 +370,116 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     }
 
     return null;
+  }
+
+  // ===== EXAM CALENDAR GRADE SECTION MAPPING OPERATIONS (STEP 2) =====
+
+  @override
+  Future<Either<Failure, List<String>>> getGradesForCalendar(
+    String examCalendarId,
+  ) async {
+    return await _remoteDataSource.getGradesForCalendar(examCalendarId);
+  }
+
+  @override
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      mapGradesToExamCalendar(
+    String tenantId,
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  ) async {
+    return await _remoteDataSource.addGradesToCalendar(
+      tenantId,
+      examCalendarId,
+      gradeSectionIds,
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> removeGradesFromCalendar(
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  ) async {
+    return await _remoteDataSource.removeGradesFromCalendar(
+      examCalendarId,
+      gradeSectionIds,
+    );
+  }
+
+  @override
+  Future<Either<Failure, ExamTimetableEntity>>
+      createExamTimetableWithEntries({
+    required String tenantId,
+    String? examCalendarId,
+    required String examName,
+    required String examType,
+    required String academicYear,
+    required String createdByUserId,
+    required List<ExamTimetableEntryEntity> entries,
+  }) async {
+    try {
+      // First, create the timetable
+      final timetableId = _generateId('timetable');
+      print('[Repository] Creating timetable with ID: $timetableId');
+
+      final timetableEntity = ExamTimetableEntity(
+        id: timetableId,
+        tenantId: tenantId,
+        createdBy: createdByUserId,
+        examCalendarId: examCalendarId,
+        examName: examName,
+        examType: examType,
+        examNumber: 1,
+        academicYear: academicYear,
+        status: 'draft',
+        publishedAt: null,
+        isActive: true,
+        metadata: null,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Create timetable via data source
+      print('[Repository] Calling data source to create timetable...');
+      final timetableResult =
+          await _remoteDataSource.createExamTimetable(timetableEntity);
+
+      print('[Repository] Timetable creation result: ${timetableResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
+
+      if (timetableResult.isLeft()) {
+        return timetableResult;
+      }
+
+      final createdTimetable = timetableResult.getOrElse(() => timetableEntity);
+
+      // Add all entries to the timetable
+      final entriesWithTimetableId = entries.map((entry) {
+        return entry.copyWith(timetableId: createdTimetable.id);
+      }).toList();
+
+      final entriesResult =
+          await _remoteDataSource.addMultipleExamTimetableEntries(
+        entriesWithTimetableId,
+      );
+
+      if (entriesResult.isLeft()) {
+        // Rollback timetable if entries fail
+        await _remoteDataSource.deleteExamTimetable(createdTimetable.id);
+        return entriesResult.fold(
+          (failure) => Left(failure),
+          (_) => Right(createdTimetable),
+        );
+      }
+
+      return Right(createdTimetable);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  String _generateId(String prefix) {
+    // Generate a proper UUID v4
+    const uuid = Uuid();
+    return uuid.v4();
   }
 }

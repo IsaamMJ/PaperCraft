@@ -125,7 +125,6 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
       );
 
       // FIX: Fetch distinct sections from grade_section_subject table
-      print('[TeacherOnboarding] Fetching sections for tenant: ${currentTenant.id}');
       final sectionsRaw = await supabase
           .from('grade_section_subject')
           .select('grade_id, section')
@@ -151,9 +150,7 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
         }
       });
 
-      print('[TeacherOnboarding] Raw sections data from DB: ${sectionsData.length} distinct sections');
       for (var section in sectionsData) {
-        print('  - Grade ID: ${section['grade_id']}, Section: ${section['section_name']}, Tenant: ${section['tenant_id']}');
       }
 
       AppLogger.info('Sections fetched from database',
@@ -170,24 +167,19 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
         gradeNumberMap[grade['id'] as String] = grade['grade_number'] as int;
       }
 
-      print('[TeacherOnboarding] Grade number map (for tenant ${currentTenant.id}):');
       gradeNumberMap.forEach((gradeId, gradeNumber) {
-        print('  - Grade Number: $gradeNumber, Grade ID: $gradeId');
       });
 
       final sectionsPerGrade = <int, List<AdminSetupSection>>{};
-      print('[TeacherOnboarding] Processing sections...');
       for (var section in sectionsData as List) {
         try {
           final gradeId = section['grade_id'] as String?;
           final sectionName = section['section_name'] as String;
 
-          print('  Processing: gradeId=$gradeId, sectionName=$sectionName');
 
           // Lookup grade_number from our map (only grades from this tenant)
           if (gradeId != null && gradeNumberMap.containsKey(gradeId)) {
             final gradeNumber = gradeNumberMap[gradeId]!;
-            print('    ✅ Found grade number: $gradeNumber, adding section $sectionName');
             sectionsPerGrade.putIfAbsent(gradeNumber, () => []).add(
               AdminSetupSection(
                 sectionName: sectionName,
@@ -195,17 +187,13 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
               ),
             );
           } else {
-            print('    ❌ Grade ID $gradeId not found in map (cross-tenant?)');
           }
         } catch (e) {
-          print('    ❌ Error: $e');
           AppLogger.debug('Error processing section: $e', category: LogCategory.auth);
         }
       }
 
-      print('[TeacherOnboarding] FINAL sectionsPerGrade (for display):');
       sectionsPerGrade.forEach((gradeNumber, sections) {
-        print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
       });
 
       // Load available subjects for each grade and section (from grade_section_subject junction table)
@@ -347,10 +335,7 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
       );
 
       if (mounted) {
-        print('[TeacherOnboarding] === STORING DATA IN STATE ===');
-        print('[TeacherOnboarding] Sections per grade being stored:');
         sectionsPerGrade.forEach((gradeNumber, sections) {
-          print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
         });
 
         setState(() {
@@ -360,10 +345,6 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
           _availableSubjectsPerGradePerSection = subjectsPerGradePerSection;
         });
 
-        print('[TeacherOnboarding] === STATE UPDATED ===');
-        print('[TeacherOnboarding] Grades: ${_availableGrades.length}');
-        print('[TeacherOnboarding] Sections per grade: ${_availableSectionsPerGrade.length}');
-        print('[TeacherOnboarding] Subjects per grade: ${_availableSubjectsPerGrade.length}');
 
         AppLogger.info('State updated with available data',
           category: LogCategory.auth,
@@ -613,15 +594,9 @@ class _TeacherOnboardingPageState extends State<TeacherOnboardingPage> {
           },
         );
         // DEBUG: Show what's being passed to Step 2 widget
-        print('[TeacherOnboarding] === BUILDING STEP 2 ===');
-        print('[TeacherOnboarding] Selected Grades: ${setupState.selectedGrades.length}');
-        print('[TeacherOnboarding] Available Sections Per Grade Map:');
         _availableSectionsPerGrade.forEach((gradeNumber, sections) {
-          print('  Grade $gradeNumber: ${sections.map((s) => s.sectionName).join(", ")}');
         });
-        print('[TeacherOnboarding] Sections Per Grade (from setupState):');
         setupState.sectionsPerGrade.forEach((gradeNumber, sectionNames) {
-          print('  Grade $gradeNumber: ${sectionNames.join(", ")}');
         });
 
         return TeacherOnboardingStep2Sections(

@@ -98,7 +98,17 @@
       "Bash(timeout 120 bash:*)",
       "Bash(timeout 90 flutter analyze:*)",
       "Bash(timeout 10 sleep:*)",
-      "Bash(timeout 15 sleep:*)"
+      "Bash(timeout 15 sleep:*)",
+      "Bash(python:*)",
+      "Bash(timeout 10 flutter run:*)",
+      "Bash(timeout 30 flutter run:*)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(timeout 120 flutter clean:*)",
+      "Bash(timeout 90 dart compile kernel:*)",
+      "Bash(timeout 30 dart format:*)",
+      "Bash(supabase db push:*)",
+      "Bash(flutter devices:*)"
     ],
     "deny": [],
     "ask": []

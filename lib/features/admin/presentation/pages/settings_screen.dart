@@ -526,7 +526,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       _triggerDownloadViaDataUri(base64Data, filename);
     } catch (e) {
       if (kDebugMode) {
-        print('Error downloading file: $e');
       }
     }
   }
@@ -545,11 +544,9 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
 
       // For now, this is a placeholder - in production use universal_html
       if (kDebugMode) {
-        print('Download triggered for: $filename');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Failed to trigger download: $e');
       }
     }
   }
@@ -586,7 +583,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       );
 
       if (kDebugMode) {
-        print('CSV file saved to: $filePath');
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -594,7 +590,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         SnackBar(content: Text('Error saving file: $e')),
       );
       if (kDebugMode) {
-        print('Error downloading file on mobile: $e');
       }
     }
   }

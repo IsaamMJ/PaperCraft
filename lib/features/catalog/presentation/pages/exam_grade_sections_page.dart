@@ -35,7 +35,6 @@ class _ExamGradeSectionsPageState extends State<ExamGradeSectionsPage> {
   @override
   void initState() {
     super.initState();
-    print('[ExamGradeSectionsPage] Initializing for exam calendar: ${widget.examCalendarName}');
 
     // Load all grade sections
     context.read<GradeSectionBloc>().add(
@@ -50,10 +49,8 @@ class _ExamGradeSectionsPageState extends State<ExamGradeSectionsPage> {
     setState(() {
       if (_selectedSections.contains(sectionId)) {
         _selectedSections.remove(sectionId);
-        print('[ExamGradeSectionsPage] Deselected section: $sectionId');
       } else {
         _selectedSections.add(sectionId);
-        print('[ExamGradeSectionsPage] Selected section: $sectionId');
       }
     });
   }
@@ -64,7 +61,6 @@ class _ExamGradeSectionsPageState extends State<ExamGradeSectionsPage> {
         _selectedSections.add(section.id);
       }
     });
-    print('[ExamGradeSectionsPage] Selected all sections for grade');
   }
 
   void _deselectAllForGrade(List<GradeSection> gradeSections) {
@@ -73,12 +69,9 @@ class _ExamGradeSectionsPageState extends State<ExamGradeSectionsPage> {
         _selectedSections.remove(section.id);
       }
     });
-    print('[ExamGradeSectionsPage] Deselected all sections for grade');
   }
 
   void _confirmSelection() {
-    print('[ExamGradeSectionsPage] Confirmed selection of ${_selectedSections.length} sections');
-    print('[ExamGradeSectionsPage] Selected section IDs: $_selectedSections');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

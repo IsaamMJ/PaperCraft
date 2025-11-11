@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/domain/errors/failures.dart';
 import '../../domain/entities/exam_calendar_entity.dart';
+import '../../domain/entities/exam_calendar_grade_mapping_entity.dart';
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
+import '../models/exam_calendar_grade_mapping_model.dart';
 import '../models/exam_calendar_model.dart';
 import '../models/exam_timetable_entry_model.dart';
 import '../models/exam_timetable_model.dart';
@@ -206,6 +208,70 @@ abstract class ExamTimetableRemoteDataSource {
     String newAcademicYear, {
     Duration? dateOffset,
   });
+
+  // ===== EXAM CALENDAR GRADE MAPPING OPERATIONS (STEP 2) =====
+
+  /// Get all grades mapped to an exam calendar
+  ///
+  /// Returns list of grade IDs that are associated with a specific calendar
+  /// Used in Step 2 to show which grades are already selected
+  Future<Either<Failure, List<String>>> getGradesForCalendar(
+    String examCalendarId,
+  );
+
+  /// Add a grade to an exam calendar
+  ///
+  /// Creates a mapping entry for Step 2
+  /// Returns the created mapping entity
+  /// Throws error if grade already mapped to this calendar (unique constraint)
+  Future<Either<Failure, ExamCalendarGradeMappingEntity>>
+      addGradeToCalendar(
+    String tenantId,
+    String examCalendarId,
+    String gradeId,
+  );
+
+  /// Add multiple grades to an exam calendar (bulk operation)
+  ///
+  /// Used for Step 2 when user selects multiple grades at once
+  /// Returns all created mappings
+  /// Rolls back on constraint violation
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      addGradesToCalendar(
+    String tenantId,
+    String examCalendarId,
+    List<String> gradeIds,
+  );
+
+  /// Remove a grade from an exam calendar
+  ///
+  /// Soft deletes the mapping (sets is_active to false)
+  Future<Either<Failure, void>> removeGradeFromCalendar(
+    String examCalendarId,
+    String gradeId,
+  );
+
+  /// Remove multiple grades from a calendar (bulk operation)
+  ///
+  /// Soft deletes multiple mappings at once
+  Future<Either<Failure, void>> removeGradesFromCalendar(
+    String examCalendarId,
+    List<String> gradeIds,
+  );
+
+  /// Get all grade mappings for a calendar (including inactive)
+  ///
+  /// Includes soft-deleted mappings for audit trail
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      getCalendarGradeMappings(String examCalendarId);
+
+  /// Check if a grade is already mapped to a calendar
+  ///
+  /// Returns true if mapping exists and is active
+  Future<Either<Failure, bool>> isGradeMappedToCalendar(
+    String examCalendarId,
+    String gradeId,
+  );
 }
 
 /// Implementation of ExamTimetableRemoteDataSource using Supabase
@@ -410,11 +476,8 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     ExamTimetableEntity timetable,
   ) async {
     try {
-      print('[ExamTimetableRemoteDataSource] createExamTimetable: timetable.examType="${timetable.examType}"');
       final model = ExamTimetableModel.fromEntity(timetable);
-      print('[ExamTimetableRemoteDataSource] After conversion to model: model.examType="${model.examType}"');
       final jsonData = model.toJson();
-      print('[ExamTimetableRemoteDataSource] JSON being sent to Supabase: exam_type="${jsonData['exam_type']}"');
       final response = await _supabaseClient
           .from('exam_timetables')
           .insert(jsonData)
@@ -547,6 +610,9 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     String timetableId,
   ) async {
     try {
+      print('[getExamTimetableEntries] Fetching entries for timetableId=$timetableId');
+
+      // Fetch basic entries first
       final response = await _supabaseClient
           .from('exam_timetable_entries')
           .select()
@@ -558,7 +624,82 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      return Right(entries);
+      print('[getExamTimetableEntries] Got ${entries.length} entries');
+
+      if (entries.isEmpty) {
+        return Right(entries);
+      }
+
+      // Batch fetch all unique grades
+      final uniqueGradeIds = entries.map((e) => e.gradeId).toSet().toList();
+      final gradesMap = <String, int>{};
+
+      try {
+        final gradesResponse = await _supabaseClient
+            .from('grades')
+            .select('id, grade_number')
+            .inFilter('id', uniqueGradeIds);
+
+        for (var gradeData in (gradesResponse as List<dynamic>)) {
+          final id = gradeData['id'] as String;
+          final gradeNumber = gradeData['grade_number'] as int;
+          gradesMap[id] = gradeNumber;
+        }
+      } catch (e) {
+        print('[getExamTimetableEntries] Failed to fetch grades: $e');
+      }
+
+      // Batch fetch all unique subjects and their catalog info
+      final uniqueSubjectIds = entries.map((e) => e.subjectId).toSet().toList();
+      final subjectsMap = <String, String>{};
+
+      try {
+        final subjectsResponse = await _supabaseClient
+            .from('subjects')
+            .select('id, catalog_subject_id')
+            .inFilter('id', uniqueSubjectIds);
+
+        final catalogIds = <String>[];
+        final catalogIdToSubjectId = <String, String>{};
+
+        for (var subjectData in (subjectsResponse as List<dynamic>)) {
+          final subjectId = subjectData['id'] as String;
+          final catalogId = subjectData['catalog_subject_id'] as String?;
+          if (catalogId != null) {
+            catalogIds.add(catalogId);
+            catalogIdToSubjectId[catalogId] = subjectId;
+          }
+        }
+
+        // Batch fetch subject names from catalog
+        if (catalogIds.isNotEmpty) {
+          final catalogResponse = await _supabaseClient
+              .from('subject_catalog')
+              .select('id, subject_name')
+              .inFilter('id', catalogIds);
+
+          for (var catalogData in (catalogResponse as List<dynamic>)) {
+            final catalogId = catalogData['id'] as String;
+            final subjectName = catalogData['subject_name'] as String?;
+            if (subjectName != null && catalogIdToSubjectId.containsKey(catalogId)) {
+              subjectsMap[catalogIdToSubjectId[catalogId]!] = subjectName;
+            }
+          }
+        }
+      } catch (e) {
+        print('[getExamTimetableEntries] Failed to fetch subjects: $e');
+      }
+
+      // Create enriched entries with fetched data
+      final enrichedEntries = entries
+          .map((entry) => entry.copyWith(
+                gradeNumber: gradesMap[entry.gradeId],
+                subjectName: subjectsMap[entry.subjectId],
+              ))
+          .toList();
+
+      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries');
+      return Right(enrichedEntries);
     } on PostgrestException catch (e) {
       return Left(_mapPostgrestException(e));
     } catch (e) {
@@ -990,5 +1131,180 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final random = (DateTime.now().microsecond % 10000).toString().padLeft(4, '0');
     return '$prefix-$timestamp-$random';
+  }
+
+  // ===== EXAM CALENDAR GRADE MAPPING OPERATIONS (STEP 2) =====
+
+  @override
+  Future<Either<Failure, List<String>>> getGradesForCalendar(
+    String examCalendarId,
+  ) async {
+    try {
+      final response = await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .select('grade_section_id')
+          .eq('exam_calendar_id', examCalendarId)
+          .eq('is_active', true);
+
+      final gradeSectionIds = (response as List<dynamic>)
+          .map((json) => (json as Map<String, dynamic>)['grade_section_id'] as String)
+          .toList();
+
+      return Right(gradeSectionIds);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ExamCalendarGradeMappingEntity>>
+      addGradeToCalendar(
+    String tenantId,
+    String examCalendarId,
+    String gradeId,
+  ) async {
+    try {
+      final response = await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .insert({
+        'tenant_id': tenantId,
+        'exam_calendar_id': examCalendarId,
+        'grade_id': gradeId,
+        'is_active': true,
+      }).select();
+
+      final mapping = ExamCalendarGradeMappingModel.fromJson(
+          response[0] as Map<String, dynamic>);
+      return Right(mapping);
+    } on PostgrestException catch (e) {
+      if (e.message.contains('unique')) {
+        return Left(
+            ValidationFailure('Grade already mapped to this calendar'));
+      }
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      addGradesToCalendar(
+    String tenantId,
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  ) async {
+    try {
+      final inserts = gradeSectionIds.map((gradeSectionId) => {
+            'tenant_id': tenantId,
+            'exam_calendar_id': examCalendarId,
+            'grade_section_id': gradeSectionId,
+            'is_active': true,
+          }).toList();
+
+      final response = await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .insert(inserts)
+          .select();
+
+      final mappings = (response as List<dynamic>)
+          .map((json) => ExamCalendarGradeMappingModel.fromJson(
+              json as Map<String, dynamic>))
+          .toList();
+
+      return Right(mappings);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeGradeFromCalendar(
+    String examCalendarId,
+    String gradeSectionId,
+  ) async {
+    try {
+      await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .update({'is_active': false})
+          .eq('exam_calendar_id', examCalendarId)
+          .eq('grade_section_id', gradeSectionId);
+
+      return const Right(null);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeGradesFromCalendar(
+    String examCalendarId,
+    List<String> gradeSectionIds,
+  ) async {
+    try {
+      // Delete/deactivate each grade section mapping individually
+      for (final gradeSectionId in gradeSectionIds) {
+        await _supabaseClient
+            .from('exam_calendar_grade_mapping')
+            .update({'is_active': false})
+            .eq('exam_calendar_id', examCalendarId)
+            .eq('grade_section_id', gradeSectionId);
+      }
+
+      return const Right(null);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ExamCalendarGradeMappingEntity>>>
+      getCalendarGradeMappings(String examCalendarId) async {
+    try {
+      final response = await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .select()
+          .eq('exam_calendar_id', examCalendarId);
+
+      final mappings = (response as List<dynamic>)
+          .map((json) => ExamCalendarGradeMappingModel.fromJson(
+              json as Map<String, dynamic>))
+          .toList();
+
+      return Right(mappings);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> isGradeMappedToCalendar(
+    String examCalendarId,
+    String gradeId,
+  ) async {
+    try {
+      final response = await _supabaseClient
+          .from('exam_calendar_grade_mapping')
+          .select('id')
+          .eq('exam_calendar_id', examCalendarId)
+          .eq('grade_id', gradeId)
+          .eq('is_active', true);
+
+      return Right(response.isNotEmpty);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
   }
 }

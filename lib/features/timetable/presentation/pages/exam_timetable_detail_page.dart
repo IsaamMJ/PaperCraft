@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import '../../domain/entities/exam_timetable_entity.dart';
+import '../../domain/entities/exam_timetable_entry_entity.dart';
+import '../../data/utils/pdf_generator.dart';
 import '../bloc/exam_timetable_bloc.dart';
 import '../bloc/exam_timetable_event.dart';
 import '../bloc/exam_timetable_state.dart';
 import '../widgets/timetable_detail_entries_tab.dart';
-import '../widgets/timetable_detail_info_tab.dart';
 
 /// Exam Timetable Detail Page
 ///
-/// Displays detailed information about a timetable including:
-/// - Basic timetable information
-/// - List of exam entries with details
-/// - Export options
-/// - Print functionality
+/// Displays timetable header info and exam entries in a table format.
 class ExamTimetableDetailPage extends StatefulWidget {
   final String timetableId;
   final String tenantId;
@@ -31,22 +30,32 @@ class ExamTimetableDetailPage extends StatefulWidget {
 }
 
 class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
-  late int _selectedTabIndex;
+  bool _entriesLoaded = false;
+  ExamTimetableEntity? _cachedTimetable;
 
   @override
   void initState() {
     super.initState();
-    _selectedTabIndex = 0;
 
-    // Load timetable details
+    print('[ExamTimetableDetailPage] initState: Loading timetable ID=${widget.timetableId}');
+
+    // Load timetable first, THEN entries after a small delay to ensure proper state ordering
     context.read<ExamTimetableBloc>().add(
           GetExamTimetableByIdEvent(timetableId: widget.timetableId),
         );
 
-    // Load entries
-    context.read<ExamTimetableBloc>().add(
-          GetExamTimetableEntriesEvent(timetableId: widget.timetableId),
-        );
+    // Load entries AFTER timetable loads to ensure proper state sequence
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!_entriesLoaded) {
+          _entriesLoaded = true;
+          print('[ExamTimetableDetailPage] Loading entries now');
+          context.read<ExamTimetableBloc>().add(
+                GetExamTimetableEntriesEvent(timetableId: widget.timetableId),
+              );
+        }
+      });
+    });
   }
 
   @override
@@ -60,8 +69,9 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
             padding: const EdgeInsets.all(8.0),
             child: PopupMenuButton(
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  child: Row(
+                PopupMenuItem(
+                  onTap: _cachedTimetable != null ? () => _handlePrint(context) : null,
+                  child: const Row(
                     children: [
                       Icon(Icons.print),
                       SizedBox(width: 8),
@@ -69,8 +79,9 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  child: Row(
+                PopupMenuItem(
+                  onTap: _cachedTimetable != null ? () => _handleExportPdf(context) : null,
+                  child: const Row(
                     children: [
                       Icon(Icons.download),
                       SizedBox(width: 8),
@@ -85,7 +96,10 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       ),
       body: BlocBuilder<ExamTimetableBloc, ExamTimetableState>(
         builder: (context, state) {
+          print('[ExamTimetableDetailPage] State received: ${state.runtimeType}');
+
           if (state is ExamTimetableLoading) {
+            print('[ExamTimetableDetailPage] Showing loading state');
             return const Center(
               child: CircularProgressIndicator(),
             );
@@ -93,18 +107,48 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
 
           if (state is ExamTimetableLoaded) {
             final timetable = state.timetable;
+            _cachedTimetable = timetable;
+            print('[ExamTimetableDetailPage] Showing timetable: ${timetable.examName}');
 
             return Column(
               children: [
                 // Header with timetable info
                 _buildHeader(context, timetable),
 
-                // Tab bar
-                _buildTabBar(),
+                // Divider
+                Divider(height: 1, color: Colors.grey[300]),
 
-                // Tab content
+                // Entries table
                 Expanded(
-                  child: _buildTabContent(context, timetable),
+                  child: Container(
+                    color: Colors.white,
+                    child: TimetableDetailEntriesTab(
+                      timetableId: widget.timetableId,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // Handle entries loaded state - show with cached timetable header
+          if (state is ExamTimetableEntriesLoaded && _cachedTimetable != null) {
+            return Column(
+              children: [
+                // Header with cached timetable info
+                _buildHeader(context, _cachedTimetable!),
+
+                // Divider
+                Divider(height: 1, color: Colors.grey[300]),
+
+                // Entries table
+                Expanded(
+                  child: Container(
+                    color: Colors.white,
+                    child: TimetableDetailEntriesTab(
+                      timetableId: widget.timetableId,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -275,70 +319,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
     );
   }
 
-  /// Build tab bar
-  Widget _buildTabBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildTab('Information', 0),
-          _buildTab('Entries', 1),
-        ],
-      ),
-    );
-  }
-
-  /// Build individual tab
-  Widget _buildTab(String label, int index) {
-    final isSelected = _selectedTabIndex == index;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedTabIndex = index;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: isSelected ? Colors.blue : Colors.transparent,
-                width: 3,
-              ),
-            ),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? Colors.blue : Colors.grey[600],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Build tab content
-  Widget _buildTabContent(
-    BuildContext context,
-    ExamTimetableEntity timetable,
-  ) {
-    switch (_selectedTabIndex) {
-      case 0:
-        return TimetableDetailInfoTab(timetable: timetable);
-      case 1:
-        return TimetableDetailEntriesTab(
-          timetableId: widget.timetableId,
-        );
-      default:
-        return const SizedBox();
-    }
-  }
-
   /// Get status color
   Color _getStatusColor(String status) {
     switch (status) {
@@ -356,5 +336,75 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
   /// Format date
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  /// Handle export to PDF
+  Future<void> _handleExportPdf(BuildContext context) async {
+    if (_cachedTimetable == null) return;
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating PDF...')),
+      );
+
+      // Get current timetable entries from BLoC
+      final bloc = context.read<ExamTimetableBloc>();
+      final state = bloc.state;
+
+      List<ExamTimetableEntryEntity> entries = [];
+      if (state is ExamTimetableEntriesLoaded) {
+        entries = state.entries;
+      }
+
+      // Extract unique grade numbers from entries
+      final gradeNumbers = <int>{};
+      for (final entry in entries) {
+        if (entry.gradeNumber != null) {
+          gradeNumbers.add(entry.gradeNumber!);
+        }
+      }
+
+      // Get school name (you may want to pass this or get from tenant)
+      const schoolName = 'Your School Name'; // TODO: Get from tenant data
+
+      // Generate PDF
+      final pdfBytes = await TimetablePdfGenerator.generateTimetablePdf(
+        timetable: _cachedTimetable!,
+        entries: entries,
+        schoolName: schoolName,
+        gradeNumbers: gradeNumbers.toList()..sort(),
+      );
+
+      // Save file
+      final directory = await getDownloadsDirectory();
+      if (directory == null) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Downloads directory not found')),
+        );
+        return;
+      }
+
+      final fileName = '${_cachedTimetable!.examName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(pdfBytes);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF saved: ${file.path}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  /// Handle print (placeholder)
+  void _handlePrint(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Print feature coming soon')),
+    );
   }
 }

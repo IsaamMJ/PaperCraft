@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../bloc/exam_timetable_bloc.dart';
@@ -8,6 +9,7 @@ import '../bloc/exam_timetable_state.dart';
 import '../widgets/timetable_list_item.dart';
 import 'exam_timetable_create_wizard_page.dart';
 import 'exam_timetable_detail_page.dart';
+import 'exam_timetable_edit_page.dart';
 
 /// Exam Timetable List Page
 ///
@@ -40,7 +42,6 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
   @override
   void initState() {
     super.initState();
-    print('[ExamTimetableListPage] initState: tenantId=${widget.tenantId}');
     // Load timetables when page opens
     context.read<ExamTimetableBloc>().add(
           GetExamTimetablesEvent(tenantId: widget.tenantId),
@@ -137,8 +138,6 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
                               _archiveTimetable(context, timetable),
                           onDelete: () =>
                               _deleteTimetable(context, timetable),
-                          onEdit: () =>
-                              _editTimetable(context, timetable),
                         );
                       },
                     ),
@@ -287,42 +286,42 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     BuildContext context,
     ExamTimetableEntity timetable,
   ) {
-    // Get the BLoC from current context before navigating
-    final bloc = context.read<ExamTimetableBloc>();
+    try {
+      print('[ExamTimetableListPage] VIEW: Timetable ${timetable.examName} (ID: ${timetable.id}, Status: ${timetable.status})');
+      print('[ExamTimetableListPage] VIEW: Attempting navigation...');
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BlocProvider<ExamTimetableBloc>.value(
-          value: bloc,
-          child: ExamTimetableDetailPage(
-            timetableId: timetable.id,
-            tenantId: widget.tenantId,
+      // Get the BLoC from current context before navigating
+      final bloc = context.read<ExamTimetableBloc>();
+      print('[ExamTimetableListPage] VIEW: BLoC retrieved: $bloc');
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BlocProvider<ExamTimetableBloc>.value(
+            value: bloc,
+            child: ExamTimetableDetailPage(
+              timetableId: timetable.id,
+              tenantId: widget.tenantId,
+            ),
           ),
         ),
-      ),
-    );
+      );
+      print('[ExamTimetableListPage] VIEW: Navigation completed');
+    } catch (e) {
+      print('[ExamTimetableListPage] VIEW ERROR: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   /// Navigate to wizard for creating new timetable
   void _navigateToWizard(BuildContext context) {
-    print('[ExamTimetableListPage] _navigateToWizard: tenantId=${widget.tenantId}');
-
-    // Get the BLoC from current context before navigating
-    final bloc = context.read<ExamTimetableBloc>();
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BlocProvider<ExamTimetableBloc>.value(
-          value: bloc,
-          child: ExamTimetableCreateWizardPage(
-            tenantId: widget.tenantId,
-          ),
-        ),
-      ),
-    ).then((_) {
-      print('[ExamTimetableListPage] Returned from wizard');
+    // Use GoRouter to navigate to the new wizard
+    context.pushNamed('examTimetableWizard').then((_) {
       // Refresh list when returning from wizard
       _refreshTimetables();
     });
@@ -343,12 +342,26 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
-    // Navigate to edit page (TODO: Create edit page)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Edit timetable: ${timetable.examName}'),
+    print('[ExamTimetableListPage] EDIT: Timetable ${timetable.examName} (ID: ${timetable.id})');
+    // Get the BLoC from current context before navigating
+    final bloc = context.read<ExamTimetableBloc>();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider<ExamTimetableBloc>.value(
+          value: bloc,
+          child: ExamTimetableEditPage(
+            timetableId: timetable.id,
+            tenantId: widget.tenantId,
+            createdBy: timetable.createdBy ?? 'unknown',
+          ),
+        ),
       ),
-    );
+    ).then((_) {
+      // Refresh list when returning from edit page
+      _refreshTimetables();
+    });
   }
 
   /// Publish timetable
@@ -366,6 +379,7 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
+    print('[ExamTimetableListPage] PUBLISH: Confirming timetable ${timetable.examName} (ID: ${timetable.id})');
     // Show confirmation dialog
     showDialog(
       context: context,
@@ -383,9 +397,16 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<ExamTimetableBloc>().add(
-                    PublishExamTimetableEvent(timetableId: timetable.id),
-                  );
+              try {
+                final bloc = context.read<ExamTimetableBloc>();
+                print('[ExamTimetableListPage] PUBLISH: Got BLoC instance: $bloc');
+                print('[ExamTimetableListPage] PUBLISH: Current state: ${bloc.state}');
+                print('[ExamTimetableListPage] PUBLISH: Sending PublishExamTimetableEvent for ${timetable.examName}');
+                bloc.add(PublishExamTimetableEvent(timetableId: timetable.id));
+              } catch (e, st) {
+                print('[ExamTimetableListPage] PUBLISH ERROR: $e\n$st');
+                rethrow;
+              }
             },
             child: const Text('Publish'),
           ),
@@ -452,6 +473,7 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
+    print('[ExamTimetableListPage] DELETE: Confirming deletion of timetable ${timetable.examName} (ID: ${timetable.id})');
     // Show confirmation dialog
     showDialog(
       context: context,
@@ -469,9 +491,16 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<ExamTimetableBloc>().add(
-                    DeleteExamTimetableEvent(timetableId: timetable.id),
-                  );
+              try {
+                final bloc = context.read<ExamTimetableBloc>();
+                print('[ExamTimetableListPage] DELETE: Got BLoC instance: $bloc');
+                print('[ExamTimetableListPage] DELETE: Current state: ${bloc.state}');
+                print('[ExamTimetableListPage] DELETE: Sending DeleteExamTimetableEvent for ${timetable.examName}');
+                bloc.add(DeleteExamTimetableEvent(timetableId: timetable.id));
+              } catch (e, st) {
+                print('[ExamTimetableListPage] DELETE ERROR: $e\n$st');
+                rethrow;
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

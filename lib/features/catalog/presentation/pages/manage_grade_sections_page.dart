@@ -54,7 +54,6 @@ class _ManageGradeSectionsPageState extends State<ManageGradeSectionsPage> {
           const LoadGrades(),
         );
 
-    print('[ManageGradeSectionsPage] Grade Sections page loaded');
   }
 
   @override
@@ -324,7 +323,6 @@ class _ManageGradeSectionsPageState extends State<ManageGradeSectionsPage> {
                     for (final grade in gradeState.grades) {
                       gradeIdToNumberMap[grade.id] = 'Grade ${grade.gradeNumber}';
                     }
-                    print('[ManageGradeSectionsPage] Loaded ${gradeState.grades.length} grades');
                   }
                 },
                 child: Column(

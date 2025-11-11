@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../bloc/exam_timetable_bloc.dart';
 import '../bloc/exam_timetable_state.dart';
 
 /// Timetable Detail - Entries Tab
 ///
-/// Displays list of exam entries for the timetable.
+/// Displays table of exam entries for the timetable (Date | Grade | Section | Subject | Time).
 class TimetableDetailEntriesTab extends StatelessWidget {
   final String timetableId;
 
@@ -19,16 +20,15 @@ class TimetableDetailEntriesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ExamTimetableBloc, ExamTimetableState>(
       builder: (context, state) {
-        if (state is ExamTimetableLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+        print('[TimetableDetailEntriesTab] State: ${state.runtimeType}');
 
+        // CHECK ENTRIES LOADED FIRST (most specific state)
         if (state is ExamTimetableEntriesLoaded) {
+          print('[TimetableDetailEntriesTab] ✅ Entries loaded state received: ${state.entries.length} entries');
           final entries = state.entries;
 
           if (entries.isEmpty) {
+            print('[TimetableDetailEntriesTab] ✅ Showing empty state');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -55,58 +55,21 @@ class TimetableDetailEntriesTab extends StatelessWidget {
             );
           }
 
-          // Sort entries by date
-          final sortedEntries = List.from(entries);
-          sortedEntries.sort((a, b) => a.examDate.compareTo(b.examDate));
+          print('[TimetableDetailEntriesTab] ✅ Showing table with ${entries.length} entries');
+          return _buildEntriesTable(context, entries);
+        }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: sortedEntries.length,
-            itemBuilder: (context, index) {
-              final entry = sortedEntries[index];
-              final isFirst = index == 0;
-              final isSameDay = index > 0 &&
-                  sortedEntries[index - 1].examDate.day ==
-                      entry.examDate.day &&
-                  sortedEntries[index - 1].examDate.month ==
-                      entry.examDate.month &&
-                  sortedEntries[index - 1].examDate.year == entry.examDate.year;
+        // If timetable is loaded but entries are still loading, show loading indicator
+        if (state is ExamTimetableLoaded) {
+          print('[TimetableDetailEntriesTab] Timetable loaded, waiting for entries...');
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
 
-              return Column(
-                children: [
-                  // Date header (if different from previous)
-                  if (isFirst || !isSameDay)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        top: isFirst ? 0 : 16,
-                        bottom: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Colors.blue,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            entry.examDateDisplay,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  // Entry card
-                  _buildEntryCard(context, entry),
-                ],
-              );
-            },
+        if (state is ExamTimetableLoading) {
+          return const Center(
+            child: CircularProgressIndicator(),
           );
         }
 
@@ -147,81 +110,128 @@ class TimetableDetailEntriesTab extends StatelessWidget {
     );
   }
 
-  /// Build entry card
-  Widget _buildEntryCard(BuildContext context, dynamic entry) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+  /// Build entries as a scrollable table
+  Widget _buildEntriesTable(
+    BuildContext context,
+    List<ExamTimetableEntryEntity> entries,
+  ) {
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Subject and Grade/Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.subjectId,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Grade: ${entry.gradeId} | Section: ${entry.section}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    entry.durationMinutes < 60
-                        ? '${entry.durationMinutes} min'
-                        : '${entry.durationMinutes ~/ 60}h',
-                    style: TextStyle(
-                      color: Colors.blue[900],
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Time details
-            Row(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: 18,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${entry.startTimeDisplay} - ${entry.endTimeDisplay}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ],
-            ),
+            // Table header
+            _buildTableHeader(context),
+            const SizedBox(height: 8),
+            // Divider
+            Divider(color: Colors.grey[300], height: 1),
+            const SizedBox(height: 8),
+            // Table rows
+            ...entries.map((entry) => _buildTableRow(context, entry)).toList(),
           ],
         ),
       ),
     );
+  }
+
+  /// Build table header row
+  Widget _buildTableHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: _buildHeaderCell(context, 'Date'),
+          ),
+          Expanded(
+            flex: 3,
+            child: _buildHeaderCell(context, 'Subject'),
+          ),
+          Expanded(
+            flex: 2,
+            child: _buildHeaderCell(context, 'Time'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build header cell
+  Widget _buildHeaderCell(BuildContext context, String label) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[700],
+          ),
+    );
+  }
+
+  /// Build table row for each entry
+  Widget _buildTableRow(
+    BuildContext context,
+    ExamTimetableEntryEntity entry,
+  ) {
+    final isEvenRow = entry.hashCode % 2 == 0;
+
+    return Container(
+      color: isEvenRow ? Colors.grey[50] : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 1),
+      child: Row(
+        children: [
+          // Date
+          Expanded(
+            flex: 2,
+            child: Text(
+              _formatDate(entry.examDate),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ),
+          // Subject
+          Expanded(
+            flex: 3,
+            child: Text(
+              entry.subjectName ?? 'Unknown',
+              style: Theme.of(context).textTheme.bodyMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Time
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                entry.scheduleDisplay,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[900],
+                    ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format date as "10-Nov-2025"
+  String _formatDate(DateTime date) {
+    final monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final month = monthNames[date.month - 1];
+    return '${date.day.toString().padLeft(2, '0')}-$month-${date.year}';
   }
 }

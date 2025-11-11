@@ -50,7 +50,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
     String sectionId,
   ) async {
     try {
-      print('📚 [DS] Getting subjects for Grade=$gradeId, Section=$sectionId');
 
       final response = await _supabase
           .from('grade_section_subject')
@@ -65,10 +64,8 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
           .map((json) => GradeSubjectModel.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      print('✅ [DS] Loaded ${result.length} subjects');
       return result;
     } catch (e, stackTrace) {
-      print('❌ [DS] Error getting subjects: $e');
       _logger.error(
         'Failed to fetch subjects for grade-section',
         category: LogCategory.storage,
@@ -104,7 +101,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
   @override
   Future<GradeSubjectModel> addSubjectToSection(GradeSubjectModel model) async {
     try {
-      print('➕ [DS] Adding subject ${model.subjectId} to section ${model.section}');
 
       // First, check if a soft-deleted record exists
       final existingRecord = await _supabase
@@ -118,7 +114,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
 
       if (existingRecord != null) {
         // Record exists, just update is_offered back to true
-        print('   Found existing record, updating is_offered to true');
         final response = await _supabase
             .from('grade_section_subject')
             .update({'is_offered': true, 'display_order': model.displayOrder})
@@ -126,7 +121,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
             .select()
             .single();
 
-        print('✅ [DS] Subject re-activated successfully');
         return GradeSubjectModel.fromJson(response);
       } else {
         // Record doesn't exist, insert new one
@@ -146,11 +140,9 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
             .select()
             .single();
 
-        print('✅ [DS] Subject added successfully');
         return GradeSubjectModel.fromJson(response);
       }
     } catch (e, stackTrace) {
-      print('❌ [DS] Error adding subject: $e');
       _logger.error(
         'Failed to add subject to section',
         category: LogCategory.storage,
@@ -164,16 +156,13 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
   @override
   Future<void> removeSubjectFromSection(String id) async {
     try {
-      print('🗑️ [DS] Removing subject: $id');
 
       await _supabase
           .from('grade_section_subject')
           .update({'is_offered': false})
           .eq('id', id);
 
-      print('✅ [DS] Subject removed successfully');
     } catch (e, stackTrace) {
-      print('❌ [DS] Error removing subject: $e');
       _logger.error(
         'Failed to remove subject from section',
         category: LogCategory.storage,
@@ -187,14 +176,12 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
   @override
   Future<void> updateGradeSubject(GradeSubjectModel model) async {
     try {
-      print('✏️ [DS] Updating subject: ${model.id}');
 
       await _supabase
           .from('grade_section_subject')
           .update(model.toJson())
           .eq('id', model.id);
 
-      print('✅ [DS] Subject updated successfully');
     } catch (e, stackTrace) {
       _logger.error(
         'Failed to update grade subject',
@@ -245,7 +232,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
     List<String> subjectIds,
   ) async {
     try {
-      print('➕ [DS] Adding ${subjectIds.length} subjects to section $sectionId');
 
       final results = <GradeSubjectModel>[];
 
@@ -265,7 +251,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
 
         if (existingRecord != null) {
           // Record exists, update it
-          print('   Subject $subjectId exists, updating is_offered to true');
           final response = await _supabase
               .from('grade_section_subject')
               .update({'is_offered': true, 'display_order': i + 1})
@@ -296,10 +281,8 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
         }
       }
 
-      print('✅ [DS] Added/updated ${results.length} subjects');
       return results;
     } catch (e, stackTrace) {
-      print('❌ [DS] Error adding multiple subjects: $e');
       _logger.error(
         'Failed to add multiple subjects',
         category: LogCategory.storage,
@@ -317,7 +300,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
     String sectionId,
   ) async {
     try {
-      print('🧹 [DS] Clearing all subjects from section $sectionId');
 
       await _supabase
           .from('grade_section_subject')
@@ -326,7 +308,6 @@ class GradeSubjectDataSourceImpl implements GradeSubjectDataSource {
           .eq('grade_id', gradeId)
           .eq('section', sectionId); // section is text
 
-      print('✅ [DS] Subjects cleared');
     } catch (e, stackTrace) {
       _logger.error(
         'Failed to clear subjects from section',

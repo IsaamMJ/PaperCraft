@@ -40,12 +40,13 @@ import '../../../features/catalog/presentation/pages/manage_grade_sections_page.
 import '../../../features/catalog/presentation/pages/exam_grade_sections_page.dart';
 import '../../../features/catalog/presentation/bloc/grade_section_bloc.dart';
 import '../../../features/exams/presentation/pages/exam_calendar_list_page.dart';
-import '../../../features/exams/presentation/pages/exam_grade_selection_page.dart';
 import '../../../features/exams/presentation/bloc/exam_calendar_bloc.dart';
 import '../../../features/timetable/presentation/pages/exam_timetable_list_page.dart';
 import '../../../features/timetable/presentation/pages/exam_timetable_create_wizard_page.dart';
 import '../../../features/timetable/presentation/pages/exam_timetable_edit_page.dart';
+import '../../../features/timetable/presentation/pages/exam_timetable_wizard_page.dart';
 import '../../../features/timetable/presentation/bloc/exam_timetable_bloc.dart';
+import '../../../features/timetable/presentation/bloc/exam_timetable_wizard_bloc.dart';
 
 // Admin Setup
 import '../../../features/admin/presentation/bloc/admin_setup_bloc.dart';
@@ -611,29 +612,6 @@ class AppRouter {
         },
       ),
 
-      // Exam Grade Selection
-      GoRoute(
-        path: AppRoutes.examGradeSelection,
-        builder: (context, state) {
-          AppLogger.info('Admin selecting grades for exam',
-              category: LogCategory.navigation);
-
-          final tenantId = _getTenantIdFromAuth(context);
-
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider(
-                create: (_) => sl<ExamCalendarBloc>(),
-              ),
-              BlocProvider(
-                create: (_) => sl<GradeBloc>(),
-              ),
-            ],
-            child: ExamGradeSelectionPage(tenantId: tenantId),
-          );
-        },
-      ),
-
       // Exam Grade Sections Assignment
       GoRoute(
         path: AppRoutes.examGradeSections,
@@ -660,26 +638,20 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.examTimetableList,
         builder: (context, state) {
-          print('[AppRouter] Building ExamTimetableList route');
           AppLogger.info('Admin viewing exam timetables',
               category: LogCategory.navigation);
 
           final tenantId = _getTenantIdFromAuth(context);
 
           try {
-            print('[AppRouter] Trying to get ExamTimetableBloc from GetIt...');
             final bloc = sl<ExamTimetableBloc>();
-            print('[AppRouter] ExamTimetableBloc retrieved successfully');
-            return BlocProvider(
-              create: (_) => bloc,
+            return BlocProvider.value(
+              value: bloc,
               child: ExamTimetableListPage(
                 tenantId: tenantId,
               ),
             );
           } catch (e, st) {
-            print('[AppRouter] ERROR getting ExamTimetableBloc: $e');
-            print('[AppRouter] StackTrace: $st');
-            print('[AppRouter] Available in GetIt:');
             // Try to get any registered types
             rethrow;
           }
@@ -696,8 +668,9 @@ class AppRouter {
           final tenantId = _getTenantIdFromAuth(context);
           final userId = _getUserIdFromAuth(context);
 
-          return BlocProvider(
-            create: (_) => sl<ExamTimetableBloc>(),
+          final bloc = sl<ExamTimetableBloc>();
+          return BlocProvider.value(
+            value: bloc,
             child: ExamTimetableEditPage(
               tenantId: tenantId,
               createdBy: userId,
@@ -718,12 +691,36 @@ class AppRouter {
           final tenantId = _getTenantIdFromAuth(context);
           final userId = _getUserIdFromAuth(context);
 
-          return BlocProvider(
-            create: (_) => sl<ExamTimetableBloc>(),
+          final bloc = sl<ExamTimetableBloc>();
+          return BlocProvider.value(
+            value: bloc,
             child: ExamTimetableEditPage(
               tenantId: tenantId,
               createdBy: userId,
               timetableId: timetableId,
+            ),
+          );
+        },
+      ),
+
+      // New 3-Step Exam Timetable Wizard
+      GoRoute(
+        path: '/exam-timetable/wizard',
+        name: 'examTimetableWizard',
+        builder: (context, state) {
+          AppLogger.info('Opening exam timetable wizard',
+              category: LogCategory.navigation);
+
+          final tenantId = _getTenantIdFromAuth(context);
+          final userId = _getUserIdFromAuth(context);
+
+          final bloc = sl<ExamTimetableWizardBloc>();
+          return BlocProvider.value(
+            value: bloc,
+            child: ExamTimetableWizardPage(
+              tenantId: tenantId,
+              userId: userId,
+              academicYear: '2024-25',
             ),
           );
         },

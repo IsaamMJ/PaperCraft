@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../pages/exam_timetable_create_wizard_page.dart';
@@ -89,10 +91,13 @@ class _TimetableWizardStep4ScheduleState
     // Get dates from calendar if available
     // For now, using mock dates - in production, fetch from calendar entity
     final now = DateTime.now();
+    // Auto-select subjects for each date to ensure entries are generated immediately
     for (var i = 0; i < 5; i++) {
-      _schedules.add(
-        SubjectSchedule(examDate: now.add(Duration(days: i + 1))),
+      final schedule = SubjectSchedule(
+        examDate: now.add(Duration(days: i + 1)),
+        selectedSubject: _subjects[i % _subjects.length], // Auto-select subject
       );
+      _schedules.add(schedule);
     }
   }
 
@@ -102,7 +107,6 @@ class _TimetableWizardStep4ScheduleState
     if (_schedules.every((s) => s.isComplete)) {
       final entries = _generateEntries();
       widget.onEntriesGenerated(entries);
-      print('[TimetableWizardStep4Schedule] Generated and passed ${entries.length} entries to parent');
     }
   }
 
@@ -280,10 +284,12 @@ class _TimetableWizardStep4ScheduleState
       // Generate entry for each selected grade
       for (final gradeSelection in widget.wizardData.selectedGrades) {
         for (final section in gradeSelection.sections) {
+          const uuid = Uuid();
           final entry = ExamTimetableEntryEntity(
-            id: 'entry_${DateTime.now().millisecondsSinceEpoch}_${entries.length}',
+            id: null,
             tenantId: widget.wizardData.tenantId,
             timetableId: '', // Will be set when timetable is created
+            gradeSectionId: uuid.v4(), // Placeholder
             gradeId: gradeSelection.gradeId,
             section: section,
             subjectId: schedule.selectedSubject!,

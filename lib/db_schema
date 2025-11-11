@@ -78,6 +78,48 @@
     "is_nullable": "NO"
   },
   {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "exam_calendar_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "grade_section_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_calendar_grade_mapping",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
     "table_name": "exam_timetable_entries",
     "column_name": "id",
     "data_type": "uuid",
@@ -153,6 +195,12 @@
     "table_name": "exam_timetable_entries",
     "column_name": "updated_at",
     "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "exam_timetable_entries",
+    "column_name": "grade_section_id",
+    "data_type": "uuid",
     "is_nullable": "NO"
   },
   {

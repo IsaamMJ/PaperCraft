@@ -150,11 +150,15 @@ class ExamTimetableDeleted extends ExamTimetableState {
 /// Success state: Entries loaded
 class ExamTimetableEntriesLoaded extends ExamTimetableState {
   final List<ExamTimetableEntryEntity> entries;
+  final ExamTimetableEntity? timetable; // Optional timetable reference
 
-  const ExamTimetableEntriesLoaded({required this.entries});
+  const ExamTimetableEntriesLoaded({
+    required this.entries,
+    this.timetable,
+  });
 
   @override
-  List<Object?> get props => [entries];
+  List<Object?> get props => [entries, timetable];
 }
 
 /// Success state: Entry added

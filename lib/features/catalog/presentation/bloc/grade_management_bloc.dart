@@ -268,7 +268,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     LoadGradesWithSections event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('📚 [GradeManagementBloc] Loading grades with sections');
     emit(const GradeManagementLoading());
 
     try {
@@ -282,14 +281,12 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       final grades = gradesResult.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to load grades: ${failure.message}');
           return <GradeEntity>[];
         },
         (gradesList) => gradesList,
       );
 
       if (grades.isEmpty) {
-        print('⚠️ [GradeManagementBloc] No grades found');
         emit(GradeManagementLoaded(
           grades: [],
           sectionsPerGrade: {},
@@ -298,14 +295,12 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         return;
       }
 
-      print('✅ [GradeManagementBloc] Loaded ${grades.length} grades');
 
       _gradesCache = grades;
       _sectionsCache = {};
 
       // Load sections for each grade
       for (final grade in grades) {
-        print('   Loading sections for Grade ${grade.gradeNumber} (ID: ${grade.id})');
         final sectionsResult = await _sectionRepository.getGradeSections(
           tenantId: tenantId,
           gradeId: grade.id,
@@ -314,11 +309,9 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
         final sections = sectionsResult.fold(
           (failure) {
-            print('   ❌ Failed to load sections: ${failure.message}');
             return <GradeSection>[];
           },
           (sectionsList) {
-            print('   ✅ Loaded ${sectionsList.length} sections');
             return sectionsList;
           },
         );
@@ -332,7 +325,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         tenantName: _getTenantName(),
       ));
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -341,7 +333,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     AddGradeEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('➕ [GradeManagementBloc] Adding grade: Grade ${event.gradeNumber}');
 
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
@@ -357,18 +348,15 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to add grade: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (createdGrade) {
-          print('✅ [GradeManagementBloc] Grade added: ${createdGrade.displayName}');
           _gradesCache.add(createdGrade);
           _sectionsCache[createdGrade.id] = [];
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in add grade: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -377,30 +365,25 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     DeleteGradeEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('🗑️ [GradeManagementBloc] Deleting grade: Grade ${event.gradeNumber} (ID: ${event.gradeId})');
 
     try {
       final result = await _gradeRepository.deleteGrade(event.gradeId);
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to delete grade: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (_) {
-          print('✅ [GradeManagementBloc] Grade deleted successfully');
           // Create NEW list to force Equatable to detect changes
           final updatedGrades = List<GradeEntity>.from(_gradesCache);
           updatedGrades.removeWhere((g) => g.id == event.gradeId);
           _gradesCache = updatedGrades;
           _sectionsCache.remove(event.gradeId);
           _expandedGradeId = null;
-          print('   Cache updated. Total grades: ${updatedGrades.length}');
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in delete grade: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -409,7 +392,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     AddSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('➕ [GradeManagementBloc] Adding section: Grade ${event.gradeNumber}, Section ${event.sectionName}');
 
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
@@ -429,7 +411,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       // If section already exists, check if it needs reactivation
       if (existingSectionNames.contains(event.sectionName)) {
-        print('⏭️ Section ${event.sectionName} already exists');
 
         final existingSections = existingSectionsResult.fold(
           (failure) => <GradeSection>[],
@@ -453,7 +434,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
         // If section is inactive, reactivate it
         if (!existingSection.isActive && existingSection.id.isNotEmpty) {
-          print('   ⚠️ Section was inactive (is_active=false), reactivating...');
           final reactivated = GradeSection(
             id: existingSection.id,
             tenantId: existingSection.tenantId,
@@ -467,7 +447,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
           // Update in database
           await _sectionRepository.updateGradeSection(reactivated);
-          print('   ✅ Section reactivated (is_active=true)');
 
           // Update cache with reactivated sections
           final updatedSections = existingSections.map((s) {
@@ -503,21 +482,16 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to add section: ${failure.message}');
-          print('   GradeID: ${event.gradeId}, SectionName: ${event.sectionName}, TenantID: $tenantId');
           emit(GradeManagementError('Failed to add section: ${failure.message}'));
         },
         (createdSection) {
-          print('✅ [GradeManagementBloc] Section added successfully: ${createdSection.sectionName}');
           final currentSections = List<GradeSection>.from(_sectionsCache[event.gradeId] ?? []);
           currentSections.add(createdSection);
           _sectionsCache[event.gradeId] = currentSections;
-          print('   Cache updated. Total sections for grade: ${currentSections.length}');
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in add section: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -526,28 +500,23 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     RemoveSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('🗑️ [GradeManagementBloc] Removing section: Grade ${event.gradeNumber}, Section ID ${event.sectionId}');
 
     try {
       final result = await _sectionRepository.deleteGradeSection(event.sectionId);
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to remove section: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (_) {
-          print('✅ [GradeManagementBloc] Section removed successfully');
           // Create NEW list to force Equatable to detect changes
           final currentSections = List<GradeSection>.from(_sectionsCache[event.gradeId] ?? []);
           currentSections.removeWhere((s) => s.id == event.sectionId);
           _sectionsCache[event.gradeId] = currentSections;
-          print('   Cache updated. Total sections for grade: ${currentSections.length}');
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in remove section: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -556,7 +525,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     ToggleExpandGradeEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('➡️ [GradeManagementBloc] Toggling expand for grade: ${event.gradeId}');
 
     if (_expandedGradeId == event.gradeId) {
       _expandedGradeId = null;
@@ -574,8 +542,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     ApplyQuickPatternEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('⚡ [GradeManagementBloc] Applying quick pattern to Grade ${event.gradeNumber}');
-    print('   Sections: ${event.sections}');
 
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
@@ -594,7 +560,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         (sections) => sections.map((s) => s.sectionName).toSet(),
       );
 
-      print('   Existing sections in DB: $existingSectionNames');
 
       // Update cache if sections were fetched
       final existingSections = existingSectionsResult.fold(
@@ -611,7 +576,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
         // Skip if section already exists
         if (existingSectionNames.contains(sectionName)) {
-          print('⏭️ Section $sectionName already exists');
           // Find and add existing section to list
           try {
             var existing = existingSections.firstWhere(
@@ -620,7 +584,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
             // If section is inactive, ALWAYS reactivate it
             if (!existing.isActive) {
-              print('   ⚠️ Section was inactive (is_active=false), reactivating...');
               final reactivated = GradeSection(
                 id: existing.id,
                 tenantId: existing.tenantId,
@@ -635,13 +598,10 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
               // Update in database
               await _sectionRepository.updateGradeSection(reactivated);
               existing = reactivated;
-              print('   ✅ Section reactivated (is_active=true)');
             }
 
             newSectionsList.add(existing);
-            print('   ✅ Added section: $sectionName (is_active=${existing.isActive})');
           } catch (e) {
-            print('   ⚠️ Warning: Section $sectionName marked as existing but error: $e');
           }
           continue;
         }
@@ -662,11 +622,9 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
         result.fold(
           (failure) {
-            print('❌ Failed to create section $sectionName: ${failure.message}');
             // Don't add failed sections to the list
           },
           (createdSection) {
-            print('✅ Created section: ${createdSection.sectionName} (ID: ${createdSection.id})');
             newSectionsList.add(createdSection);
           },
         );
@@ -674,11 +632,8 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       // IMPORTANT: Update cache with the complete list (existing + newly created)
       _sectionsCache[event.gradeId] = newSectionsList;
-      print('✅ [GradeManagementBloc] Quick pattern applied - Total sections for Grade ${event.gradeNumber}: ${newSectionsList.length}');
-      print('   Sections: ${newSectionsList.map((s) => '${s.sectionName}(${s.id.substring(0, 8)})').join(", ")}');
       _emitLoaded();
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in apply pattern: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -688,10 +643,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     final sectionsMap = Map<String, List<GradeSection>>.from(_sectionsCache);
     final subjectsMap = Map<String, List<GradeSubject>>.from(_subjectsCache);
     final availableSubjectsMap = Map<int, List<SubjectEntity>>.from(_availableSubjectsCache);
-    print('📤 [GradeManagementBloc] Emitting loaded state with ${_gradesCache.length} grades');
-    print('   Sections cache: ${sectionsMap.entries.map((e) => '${e.key}=${e.value.length}').join(", ")}');
-    print('   Subjects cache: ${subjectsMap.entries.map((e) => '${e.key}=${e.value.length}').join(", ")}');
-    print('   Available subjects cache: ${availableSubjectsMap.entries.map((e) => 'Grade${e.key}=${e.value.length}').join(", ")}');
 
     emit(GradeManagementLoaded(
       grades: _gradesCache,
@@ -713,7 +664,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     LoadSubjectsForSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('📚 [GradeManagementBloc] Loading subjects for Grade=${event.gradeId}, Section=${event.sectionName} (ID: ${event.sectionId})');
 
     try {
       final tenantId = _userStateService.currentTenantId;
@@ -730,18 +680,15 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to load subjects: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (subjects) {
-          print('✅ [GradeManagementBloc] Loaded ${subjects.length} subjects for section ${event.sectionName}');
           // Cache by section ID (UUID) for UI compatibility
           _subjectsCache[event.sectionId] = subjects;
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception loading subjects: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -750,7 +697,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     SelectSubjectSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('➡️ [GradeManagementBloc] Selecting subject section: ${event.sectionId}');
     _selectedSubjectSectionId = event.sectionId;
     _emitLoaded();
   }
@@ -759,7 +705,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     AddSubjectToSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('➕ [GradeManagementBloc] Adding subject ${event.subjectId} to section ${event.sectionName}');
 
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
@@ -783,17 +728,14 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to add subject: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (createdSubject) {
-          print('✅ [GradeManagementBloc] Subject added successfully');
           // Reload subjects for the section to ensure UI updates with the new subject
           _loadSubjectsForSectionAfterAdd(event.gradeId, event.sectionId, emit);
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in add subject: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -803,7 +745,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     String sectionId, // This is actually section ID (UUID), but we need to get the section name
     Emitter<GradeManagementState> emit,
   ) async {
-    print('🔄 [GradeManagementBloc] Reloading subjects after add for Section ID=$sectionId');
 
     try {
       final tenantId = _userStateService.currentTenantId;
@@ -827,17 +768,14 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to reload subjects after add: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (subjects) {
-          print('✅ [GradeManagementBloc] Reloaded ${subjects.length} subjects after add for section ${section.sectionName}');
           _subjectsCache[sectionId] = subjects;
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception reloading subjects after add: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -846,18 +784,15 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     RemoveSubjectFromSectionEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('🗑️ [GradeManagementBloc] Removing subject ${event.gradeSubjectId} from section ${event.sectionId}');
 
     try {
       final result = await _subjectRepository.removeSubjectFromSection(event.gradeSubjectId);
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to remove subject: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (_) {
-          print('✅ [GradeManagementBloc] Subject removed successfully');
           final updatedSubjects = List<GradeSubject>.from(_subjectsCache[event.sectionId] ?? []);
           updatedSubjects.removeWhere((s) => s.id == event.gradeSubjectId);
           _subjectsCache[event.sectionId] = updatedSubjects;
@@ -865,7 +800,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in remove subject: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -874,8 +808,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     ApplySubjectPatternEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('⚡ [GradeManagementBloc] Applying subject pattern to section ${event.sectionId}');
-    print('   Subjects: ${event.subjectIds}');
 
     try {
       final tenantId = _userStateService.currentTenantId ?? '';
@@ -889,7 +821,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to clear subjects: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (_) async {
@@ -903,11 +834,9 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
 
           addResult.fold(
             (failure) {
-              print('❌ [GradeManagementBloc] Failed to add subjects: ${failure.message}');
               emit(GradeManagementError(failure.message));
             },
             (newSubjects) {
-              print('✅ [GradeManagementBloc] Pattern applied successfully - ${newSubjects.length} subjects added');
               _subjectsCache[event.sectionId] = newSubjects;
               _emitLoaded();
             },
@@ -915,7 +844,6 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception in apply pattern: $e');
       emit(GradeManagementError(e.toString()));
     }
   }
@@ -924,24 +852,20 @@ class GradeManagementBloc extends Bloc<GradeManagementEvent, GradeManagementStat
     LoadAvailableSubjectsForGradeEvent event,
     Emitter<GradeManagementState> emit,
   ) async {
-    print('📚 [GradeManagementBloc] Loading available subjects for Grade ${event.gradeNumber}');
 
     try {
       final result = await _subjectCatalogRepository.getSubjectsByGrade(event.gradeNumber);
 
       result.fold(
         (failure) {
-          print('❌ [GradeManagementBloc] Failed to load available subjects: ${failure.message}');
           emit(GradeManagementError(failure.message));
         },
         (subjects) {
-          print('✅ [GradeManagementBloc] Loaded ${subjects.length} available subjects for Grade ${event.gradeNumber}');
           _availableSubjectsCache[event.gradeNumber] = subjects;
           _emitLoaded();
         },
       );
     } catch (e) {
-      print('❌ [GradeManagementBloc] Exception loading available subjects: $e');
       emit(GradeManagementError(e.toString()));
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../pages/exam_timetable_create_wizard_page.dart';
@@ -309,8 +310,8 @@ class _TimetableWizardStep4EntriesState
         rows: entries.map((entry) {
           return DataRow(
             cells: <DataCell>[
-              DataCell(Text(entry.gradeId)),
-              DataCell(Text(entry.section)),
+              DataCell(Text(entry.gradeId ?? 'N/A')),
+              DataCell(Text(entry.section ?? 'N/A')),
               DataCell(Text(entry.subjectId, overflow: TextOverflow.ellipsis)),
               DataCell(Text(entry.examDateDisplay, style: const TextStyle(fontSize: 12))),
               DataCell(
@@ -357,10 +358,12 @@ class _TimetableWizardStep4EntriesState
     final endDuration = _parseTime(_endTimeController.text);
     final durationMinutes = endDuration.inMinutes - startDuration.inMinutes;
 
+    final uuid = Uuid();
     final entry = ExamTimetableEntryEntity(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: null,
       tenantId: widget.wizardData.tenantId,
       timetableId: '', // Will be set when timetable is created
+      gradeSectionId: uuid.v4(), // Placeholder
       gradeId: _selectedGrade!,
       subjectId: _subjectController.text,
       section: _selectedSection!,

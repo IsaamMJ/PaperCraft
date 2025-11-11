@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/domain/errors/failures.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
@@ -149,14 +150,22 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamTimetableByIdEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
+    print('[ExamTimetableBloc] GetExamTimetableById: timetableId=${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Loading timetable...'));
 
     final result = await _repository.getExamTimetableById(event.timetableId);
 
     result.fold(
       // ignore: unchecked_use_of_nullable_value
-      (failure) => emit(ExamTimetableError(message: failure.message)),
-      (timetable) => emit(ExamTimetableLoaded(timetable: timetable)),
+      (failure) {
+        print('[ExamTimetableBloc] GetExamTimetableById ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (timetable) {
+        print('[ExamTimetableBloc] GetExamTimetableById SUCCESS: loaded ${timetable.examName} (ID: ${timetable.id})');
+        print('[ExamTimetableBloc] Timetable data: examType=${timetable.examType}, academicYear=${timetable.academicYear}, status=${timetable.status}, createdBy=${timetable.createdBy}');
+        emit(ExamTimetableLoaded(timetable: timetable));
+      },
     );
   }
 
@@ -165,14 +174,21 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamTimetableEntriesEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    emit(const ExamTimetableLoading(message: 'Loading entries...'));
+    print('[ExamTimetableBloc] GetExamTimetableEntries: timetableId=${event.timetableId}');
 
+    // Don't emit loading state - load entries in the background
     final result = await _repository.getExamTimetableEntries(event.timetableId);
 
     result.fold(
       // ignore: unchecked_use_of_nullable_value
-      (failure) => emit(ExamTimetableError(message: failure.message)),
-      (entries) => emit(ExamTimetableEntriesLoaded(entries: entries)),
+      (failure) {
+        print('[ExamTimetableBloc] GetExamTimetableEntries ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (entries) {
+        print('[ExamTimetableBloc] GetExamTimetableEntries SUCCESS: loaded ${entries.length} entries');
+        emit(ExamTimetableEntriesLoaded(entries: entries));
+      },
     );
   }
 
@@ -223,6 +239,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     PublishExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
+    print('[ExamTimetableBloc] Publishing timetable: ${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Publishing timetable...'));
 
     final result = await _publishExamTimetableUsecase(
@@ -231,6 +248,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
 
     result.fold(
       (failure) {
+        print('[ExamTimetableBloc] Publish FAILED: ${failure.message}');
         if (failure is ValidationFailure) {
           // ignore: unchecked_use_of_nullable_value
           final errors = failure.message.split('\n');
@@ -240,7 +258,10 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
           emit(ExamTimetableError(message: failure.message));
         }
       },
-      (timetable) => emit(ExamTimetablePublished(timetable: timetable)),
+      (timetable) {
+        print('[ExamTimetableBloc] Publish SUCCESS: ${timetable.examName}');
+        emit(ExamTimetablePublished(timetable: timetable));
+      },
     );
   }
 
@@ -265,14 +286,21 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     DeleteExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
+    print('[ExamTimetableBloc] Deleting timetable: ${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Deleting timetable...'));
 
     final result = await _repository.deleteExamTimetable(event.timetableId);
 
     result.fold(
       // ignore: unchecked_use_of_nullable_value
-      (failure) => emit(ExamTimetableError(message: failure.message)),
-      (_) => emit(ExamTimetableDeleted(timetableId: event.timetableId)),
+      (failure) {
+        print('[ExamTimetableBloc] Delete FAILED: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (_) {
+        print('[ExamTimetableBloc] Delete SUCCESS: ${event.timetableId}');
+        emit(ExamTimetableDeleted(timetableId: event.timetableId));
+      },
     );
   }
 
@@ -475,10 +503,13 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     emit(const ExamTimetableLoading(message: 'Adding exam entry...'));
 
     // Create entry entity for submission
+    // TODO: gradeSectionId should come from user selection in Step 2
+    const uuid = Uuid();
     final entry = ExamTimetableEntryEntity(
-      id: 'entry_${DateTime.now().millisecondsSinceEpoch}',
+      id: null,
       tenantId: event.tenantId,
       timetableId: event.timetableId,
+      gradeSectionId: uuid.v4(), // Placeholder - should be selected from grade_sections
       gradeId: event.gradeId,
       section: event.section,
       subjectId: event.subjectId,

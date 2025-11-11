@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 /// Represents a single exam entry in an exam timetable
 ///
 /// Each entry specifies:
-/// - Which grade and section takes the exam
+/// - Which grade section takes the exam (references grade_sections table)
 /// - What subject is being examined
 /// - When (date, time, duration)
 /// - Time stored as Duration for compatibility with backend
@@ -11,9 +11,12 @@ class ExamTimetableEntryEntity extends Equatable {
   final String? id; // null for new entries, set by backend
   final String tenantId;
   final String timetableId;
-  final String gradeId;
-  final String section; // 'A', 'B', 'C', etc.
+  final String gradeSectionId; // References grade_sections table (includes both grade_id and section_name) - REQUIRED
+  final String? gradeId; // Denormalized for convenience (can be derived from grade_sections join)
+  final int? gradeNumber; // Fetched from grades table for display
+  final String? section; // Fetched from grade_sections for display ('A', 'B', 'C', etc.)
   final String subjectId;
+  final String? subjectName; // Fetched from subject_catalog for display
   final DateTime examDate;
   final Duration startTime; // Time as Duration (e.g., Duration(hours: 9, minutes: 0))
   final Duration endTime; // Calculated from startTime + durationMinutes
@@ -26,9 +29,12 @@ class ExamTimetableEntryEntity extends Equatable {
     this.id,
     required this.tenantId,
     required this.timetableId,
-    required this.gradeId,
-    required this.section,
+    required this.gradeSectionId, // Required - must be a valid UUID from grade_sections table
+    this.gradeId,
+    this.gradeNumber,
+    this.section,
     required this.subjectId,
+    this.subjectName,
     required this.examDate,
     required this.startTime,
     required this.endTime,
@@ -43,9 +49,12 @@ class ExamTimetableEntryEntity extends Equatable {
         id,
         tenantId,
         timetableId,
+        gradeSectionId,
         gradeId,
+        gradeNumber,
         section,
         subjectId,
+        subjectName,
         examDate,
         startTime,
         endTime,
@@ -98,9 +107,12 @@ class ExamTimetableEntryEntity extends Equatable {
     String? id,
     String? tenantId,
     String? timetableId,
+    String? gradeSectionId,
     String? gradeId,
+    int? gradeNumber,
     String? section,
     String? subjectId,
+    String? subjectName,
     DateTime? examDate,
     Duration? startTime,
     Duration? endTime,
@@ -113,9 +125,12 @@ class ExamTimetableEntryEntity extends Equatable {
       id: id ?? this.id,
       tenantId: tenantId ?? this.tenantId,
       timetableId: timetableId ?? this.timetableId,
+      gradeSectionId: gradeSectionId ?? this.gradeSectionId,
       gradeId: gradeId ?? this.gradeId,
+      gradeNumber: gradeNumber ?? this.gradeNumber,
       section: section ?? this.section,
       subjectId: subjectId ?? this.subjectId,
+      subjectName: subjectName ?? this.subjectName,
       examDate: examDate ?? this.examDate,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,

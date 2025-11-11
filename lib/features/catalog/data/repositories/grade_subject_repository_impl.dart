@@ -20,7 +20,6 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     bool activeOnly = true,
   }) async {
     try {
-      print('📦 [Repo] Getting subjects for Grade=$gradeId, Section=$sectionId');
 
       final models = await _dataSource.getSubjectsForGradeSection(
         tenantId,
@@ -29,11 +28,9 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
       );
 
       final entities = models.map((model) => model.toEntity()).toList();
-      print('✅ [Repo] Retrieved ${entities.length} subjects');
 
       return Right(entities);
     } catch (e) {
-      print('❌ [Repo] Error getting subjects: $e');
       return Left(StorageFailure(message: 'Failed to get subjects: $e'));
     }
   }
@@ -55,15 +52,12 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     GradeSubject gradeSubject,
   ) async {
     try {
-      print('📦 [Repo] Adding subject to section');
 
       final model = GradeSubjectModel.fromEntity(gradeSubject);
       final resultModel = await _dataSource.addSubjectToSection(model);
 
-      print('✅ [Repo] Subject added successfully');
       return Right(resultModel.toEntity());
     } catch (e) {
-      print('❌ [Repo] Error adding subject: $e');
       return Left(StorageFailure(message: 'Failed to add subject: $e'));
     }
   }
@@ -73,14 +67,11 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     String gradeSubjectId,
   ) async {
     try {
-      print('📦 [Repo] Removing subject: $gradeSubjectId');
 
       await _dataSource.removeSubjectFromSection(gradeSubjectId);
 
-      print('✅ [Repo] Subject removed successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ [Repo] Error removing subject: $e');
       return Left(StorageFailure(message: 'Failed to remove subject: $e'));
     }
   }
@@ -90,15 +81,12 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     GradeSubject gradeSubject,
   ) async {
     try {
-      print('📦 [Repo] Updating subject: ${gradeSubject.id}');
 
       final model = GradeSubjectModel.fromEntity(gradeSubject);
       await _dataSource.updateGradeSubject(model);
 
-      print('✅ [Repo] Subject updated successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ [Repo] Error updating subject: $e');
       return Left(StorageFailure(message: 'Failed to update subject: $e'));
     }
   }
@@ -110,15 +98,12 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     bool activeOnly = true,
   }) async {
     try {
-      print('📦 [Repo] Getting all subjects for Grade=$gradeId');
 
       final models = await _dataSource.getSubjectsForGrade(tenantId, gradeId);
       final entities = models.map((model) => model.toEntity()).toList();
 
-      print('✅ [Repo] Retrieved ${entities.length} subjects for grade');
       return Right(entities);
     } catch (e) {
-      print('❌ [Repo] Error getting subjects for grade: $e');
       return Left(StorageFailure(message: 'Failed to get subjects: $e'));
     }
   }
@@ -131,7 +116,6 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     required List<String> subjectIds,
   }) async {
     try {
-      print('📦 [Repo] Adding ${subjectIds.length} subjects to section');
 
       final models = await _dataSource.addMultipleSubjectsToSection(
         tenantId,
@@ -141,11 +125,9 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
       );
 
       final entities = models.map((model) => model.toEntity()).toList();
-      print('✅ [Repo] Added ${entities.length} subjects successfully');
 
       return Right(entities);
     } catch (e) {
-      print('❌ [Repo] Error adding multiple subjects: $e');
       return Left(StorageFailure(message: 'Failed to add subjects: $e'));
     }
   }
@@ -157,14 +139,11 @@ class GradeSubjectRepositoryImpl implements GradeSubjectRepository {
     required String sectionId,
   }) async {
     try {
-      print('📦 [Repo] Clearing all subjects from section');
 
       await _dataSource.clearSubjectsFromSection(tenantId, gradeId, sectionId);
 
-      print('✅ [Repo] Subjects cleared successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ [Repo] Error clearing subjects: $e');
       return Left(StorageFailure(message: 'Failed to clear subjects: $e'));
     }
   }

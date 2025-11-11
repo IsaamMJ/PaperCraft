@@ -15,17 +15,14 @@ class GetExamEntriesUsecase {
     required GetExamEntriesParams params,
   }) async {
     try {
-      print('[GetExamEntries] Fetching entries for timetable: ${params.timetableId}');
       
       final result = await _repository.getExamTimetableEntries(params.timetableId);
       
       return result.fold(
         (failure) {
-          print('[GetExamEntries] Failed to fetch entries: ${failure.message}');
           return Left(failure);
         },
         (entries) {
-          print('[GetExamEntries] Fetched ${entries.length} entries');
           final data = ExamEntriesData(
             entries: entries,
             totalCount: entries.length,
@@ -35,7 +32,6 @@ class GetExamEntriesUsecase {
         },
       );
     } catch (e) {
-      print('[GetExamEntries] ERROR: $e');
       return Left(ServerFailure('Failed to fetch exam entries: $e'));
     }
   }

@@ -193,28 +193,22 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
   }
 
   Future<void> _onLoadGrades(LoadGrades event, Emitter<GradeState> emit) async {
-    print('📚 [DEBUG] LoadGrades event triggered');
     emit(const GradeLoading(message: 'Loading grades...'));
 
     try {
-      print('   Fetching grades from repository...');
       final result = await _repository.getGrades();
 
       result.fold(
         (failure) {
-          print('❌ [DEBUG] Failed to load grades: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (grades) {
-          print('✅ [DEBUG] Successfully loaded ${grades.length} grades');
           grades.forEach((grade) {
-            print('   - ${grade.displayName} (ID: ${grade.id})');
           });
           emit(GradesLoaded(grades));
         },
       );
     } catch (e) {
-      print('❌ [DEBUG] Exception while loading grades: ${e.toString()}');
       emit(GradeError('Failed to load grades: ${e.toString()}'));
     }
   }
@@ -272,84 +266,58 @@ class GradeBloc extends Bloc<GradeEvent, GradeState> {
   // =============== NEW CRUD HANDLERS ===============
 
   Future<void> _onCreateGrade(CreateGrade event, Emitter<GradeState> emit) async {
-    print('➕ [DEBUG] CreateGrade event triggered');
-    print('   Grade Number: ${event.grade.gradeNumber}');
-    print('   Grade Name: ${event.grade.displayName}');
     emit(const GradeLoading(message: 'Creating grade...'));
 
     try {
-      print('   Sending to repository...');
       final result = await _repository.createGrade(event.grade);
 
       result.fold(
         (failure) {
-          print('❌ [DEBUG] Failed to create grade: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (grade) {
-          print('✅ [DEBUG] Grade created successfully!');
-          print('   Created Grade ID: ${grade.id}');
-          print('   Created Grade Name: ${grade.displayName}');
           emit(GradeCreated(grade));
         },
       );
     } catch (e) {
-      print('❌ [DEBUG] Exception while creating grade: ${e.toString()}');
       emit(GradeError('Failed to create grade: ${e.toString()}'));
     }
   }
 
   Future<void> _onUpdateGrade(UpdateGrade event, Emitter<GradeState> emit) async {
-    print('✏️ [DEBUG] UpdateGrade event triggered');
-    print('   Grade ID: ${event.grade.id}');
-    print('   Grade Name: ${event.grade.displayName}');
-    print('   Grade Number: ${event.grade.gradeNumber}');
     emit(const GradeLoading(message: 'Updating grade...'));
 
     try {
-      print('   Sending to repository...');
       final result = await _repository.updateGrade(event.grade);
 
       result.fold(
         (failure) {
-          print('❌ [DEBUG] Failed to update grade: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (grade) {
-          print('✅ [DEBUG] Grade updated successfully!');
-          print('   Updated Grade ID: ${grade.id}');
-          print('   Updated Grade Name: ${grade.displayName}');
           emit(GradeUpdated(grade));
         },
       );
     } catch (e) {
-      print('❌ [DEBUG] Exception while updating grade: ${e.toString()}');
       emit(GradeError('Failed to update grade: ${e.toString()}'));
     }
   }
 
   Future<void> _onDeleteGrade(DeleteGrade event, Emitter<GradeState> emit) async {
-    print('🗑️ [DEBUG] DeleteGrade event triggered');
-    print('   Grade ID to delete: ${event.id}');
     emit(const GradeLoading(message: 'Deleting grade...'));
 
     try {
-      print('   Sending deletion request to repository...');
       final result = await _repository.deleteGrade(event.id);
 
       result.fold(
         (failure) {
-          print('❌ [DEBUG] Failed to delete grade: ${failure.message}');
           emit(GradeError(failure.message));
         },
         (_) {
-          print('✅ [DEBUG] Grade deleted successfully!');
-          print('   Deleted Grade ID: ${event.id}');
           emit(GradeDeleted(event.id));
         },
       );
     } catch (e) {
-      print('❌ [DEBUG] Exception while deleting grade: ${e.toString()}');
       emit(GradeError('Failed to delete grade: ${e.toString()}'));
     }
   }

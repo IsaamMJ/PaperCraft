@@ -14,22 +14,18 @@ class DeleteExamEntryUsecase {
     required DeleteExamEntryParams params,
   }) async {
     try {
-      print('[DeleteExamEntry] Deleting entry: ${params.entryId}');
       
       final result = await _repository.deleteExamTimetableEntry(params.entryId);
       
       return result.fold(
         (failure) {
-          print('[DeleteExamEntry] Failed to delete entry: ${failure.message}');
           return Left(failure);
         },
         (_) {
-          print('[DeleteExamEntry] Entry deleted successfully');
           return const Right(null);
         },
       );
     } catch (e) {
-      print('[DeleteExamEntry] ERROR: $e');
       return Left(ServerFailure('Failed to delete exam entry: $e'));
     }
   }
