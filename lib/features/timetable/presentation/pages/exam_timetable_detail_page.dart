@@ -343,6 +343,7 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
     if (_cachedTimetable == null) return;
 
     try {
+      print('[ExamTimetableDetailPage] PDF Export: Starting...');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Generating PDF...')),
       );
@@ -368,32 +369,49 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       const schoolName = 'Your School Name'; // TODO: Get from tenant data
 
       // Generate PDF
+      print('[ExamTimetableDetailPage] PDF Export: Generating PDF with ${entries.length} entries');
       final pdfBytes = await TimetablePdfGenerator.generateTimetablePdf(
         timetable: _cachedTimetable!,
         entries: entries,
         schoolName: schoolName,
         gradeNumbers: gradeNumbers.toList()..sort(),
       );
+      print('[ExamTimetableDetailPage] PDF Export: Generated ${pdfBytes.length} bytes');
 
-      // Save file
+      // Save file to Downloads directory
       final directory = await getDownloadsDirectory();
+      print('[ExamTimetableDetailPage] PDF Export: Downloads directory: ${directory?.path}');
+
       if (directory == null) {
+        print('[ExamTimetableDetailPage] PDF Export: ERROR - Downloads directory not found');
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloads directory not found')),
+          const SnackBar(content: Text('Downloads directory not found'), backgroundColor: Colors.red),
         );
         return;
       }
 
       final fileName = '${_cachedTimetable!.examName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      final file = File('${directory.path}/$fileName');
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+
+      print('[ExamTimetableDetailPage] PDF Export: Saving to: $filePath');
       await file.writeAsBytes(pdfBytes);
+
+      final fileExists = await file.exists();
+      print('[ExamTimetableDetailPage] PDF Export: File exists after write: $fileExists');
+      print('[ExamTimetableDetailPage] PDF Export: File size: ${await file.length()} bytes');
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF saved: ${file.path}')),
+        SnackBar(
+          content: Text('PDF saved to Downloads: $fileName'),
+          duration: const Duration(seconds: 4),
+        ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      print('[ExamTimetableDetailPage] PDF Export ERROR: $e');
+      print('[ExamTimetableDetailPage] PDF Export STACKTRACE: $st');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
