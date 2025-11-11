@@ -128,22 +128,37 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _handleStateChanges(BuildContext context, QuestionPaperState state) {
+    print('🎯 [DetailPage] State changed: ${state.runtimeType}');
+
     if (state is QuestionPaperSuccess) {
+      print('   ✅ QuestionPaperSuccess received');
+      print('      - Message: "${state.message}"');
+      print('      - Action type: "${state.actionType}"');
       UiHelpers.showSuccessMessage(context, state.message);
       if (state.actionType == 'submit') {
+        print('      → Handling submit action');
         setState(() => _isSubmitting = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       } else if (state.actionType == 'pull') {
+        print('      → Handling pull action');
         setState(() => _isPulling = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       } else if (state.actionType == 'questionUpdated') {
+        print('      → Handling questionUpdated action (no navigation needed)');
         // Question was updated successfully, no navigation needed
         // The UI will automatically update with the new question data
       }
     }
     if (state is QuestionPaperError) {
+      print('   ❌ QuestionPaperError received: "${state.message}"');
       setState(() => _isSubmitting = _isPulling = false);
       UiHelpers.showErrorMessage(context, state.message);
+    }
+
+    if (state is QuestionPaperLoaded) {
+      print('   📚 QuestionPaperLoaded received');
+      print('      - Current paper: ${state.currentPaper?.title}');
+      print('      - Edited questions count: ${state.editedQuestions.length}');
     }
 
     // Load user info when paper is loaded
@@ -771,23 +786,48 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _showEditQuestionModal(Question question, int questionIndex, String sectionName) {
+    print('📝 [DetailPage] Opening edit modal for question $questionIndex in section "$sectionName"');
+
+    // Capture the page context to use in callbacks
+    final pageContext = context;
+    final bloc = context.read<QuestionPaperBloc>();
+
     showDialog(
       context: context,
-      builder: (context) => QuestionInlineEditModal(
+      builder: (dialogContext) => QuestionInlineEditModal(
         question: question,
         questionIndex: questionIndex,
         sectionName: sectionName,
         onSave: (updatedText, updatedOptions) {
-          context.read<QuestionPaperBloc>().add(
-                UpdateQuestionInline(
-                  sectionName: sectionName,
-                  questionIndex: questionIndex,
-                  updatedText: updatedText,
-                  updatedOptions: updatedOptions,
-                ),
-              );
+          print('📝 [DetailPage] onSave callback triggered');
+          print('   - Updated text: "$updatedText"');
+          print('   - Updated options: ${updatedOptions?.length ?? 0} items');
+          print('   - Dispatching UpdateQuestionInline event to BLoC...');
+
+          try {
+            print('   📤 Adding UpdateQuestionInline event to bloc');
+            bloc.add(
+              UpdateQuestionInline(
+                sectionName: sectionName,
+                questionIndex: questionIndex,
+                updatedText: updatedText,
+                updatedOptions: updatedOptions,
+              ),
+            );
+            print('   ✅ Event added to BLoC successfully');
+
+            // Close the modal
+            Navigator.pop(dialogContext);
+            print('   🔙 Modal closed');
+          } catch (e, stackTrace) {
+            print('   ❌ Error dispatching event: $e');
+            print('   Stack: $stackTrace');
+          }
         },
-        onCancel: () => Navigator.pop(context),
+        onCancel: () {
+          print('📝 [DetailPage] onCancel callback triggered');
+          Navigator.pop(dialogContext);
+        },
       ),
     );
   }
