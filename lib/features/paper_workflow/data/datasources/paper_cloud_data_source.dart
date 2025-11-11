@@ -485,7 +485,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       });
 
       final updateData = paper.toSupabaseMap();
-      updateData['modified_at'] = DateTime.now().toIso8601String();
+      updateData['updated_at'] = DateTime.now().toIso8601String();
 
       final response = await _apiClient.update<QuestionPaperModel>(
         table: _tableName,
