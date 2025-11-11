@@ -55,6 +55,7 @@ import '../../../features/paper_workflow/domain/usecases/get_papers_for_review_u
 import '../../../features/paper_workflow/domain/usecases/get_user_submissions_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/pull_for_editing_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/save_draft_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/update_paper_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.dart';
 import '../../../features/home/presentation/bloc/home_bloc.dart';
 import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
@@ -122,6 +123,7 @@ import '../../../features/paper_workflow/data/datasources/paper_local_data_sourc
 import '../../../features/paper_workflow/data/repositories/question_paper_repository_impl.dart';
 import '../../../features/paper_workflow/domain/repositories/question_paper_repository.dart';
 import '../../../features/paper_workflow/domain/usecases/delete_draft_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/update_paper_usecase.dart';
 import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart';
 
 // Grade feature
@@ -672,6 +674,7 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => SaveDraftUseCase(repository));
     sl.registerLazySingleton(() => GetDraftsUseCase(repository));
     sl.registerLazySingleton(() => DeleteDraftUseCase(repository));
+    sl.registerLazySingleton(() => UpdatePaperUseCase(repository));
     sl.registerLazySingleton(() => SubmitPaperUseCase(repository));
     sl.registerLazySingleton(() => GetUserSubmissionsUseCase(repository));
     sl.registerLazySingleton(() => GetPapersForReviewUseCase(repository));

@@ -8,6 +8,7 @@ import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
 import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
+import '../../domain/usecases/update_paper_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
 import '../../domain/usecases/get_approved_papers_usecase.dart';
 import '../../domain/usecases/get_approved_papers_paginated_usecase.dart';
@@ -361,6 +362,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetApprovedPapersUseCase _getApprovedPapersUseCase;
   final GetApprovedPapersPaginatedUseCase _getApprovedPapersPaginatedUseCase;
   final GetApprovedPapersByExamDateRangeUseCase _getApprovedPapersByExamDateRangeUseCase;
+  final UpdatePaperUseCase _updatePaperUseCase;
 
   QuestionPaperBloc({
     required SaveDraftUseCase saveDraftUseCase,
@@ -377,6 +379,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetApprovedPapersUseCase getApprovedPapersUseCase,
     required GetApprovedPapersPaginatedUseCase getApprovedPapersPaginatedUseCase,
     required GetApprovedPapersByExamDateRangeUseCase getApprovedPapersByExamDateRangeUseCase,
+    required UpdatePaperUseCase updatePaperUseCase,
   })  : _saveDraftUseCase = saveDraftUseCase,
         _submitPaperUseCase = submitPaperUseCase,
         _getDraftsUseCase = getDraftsUseCase,
@@ -391,6 +394,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getApprovedPapersUseCase = getApprovedPapersUseCase,
         _getApprovedPapersPaginatedUseCase = getApprovedPapersPaginatedUseCase,
         _getApprovedPapersByExamDateRangeUseCase = getApprovedPapersByExamDateRangeUseCase,
+        _updatePaperUseCase = updatePaperUseCase,
         super(QuestionPaperInitial()) {
     on<LoadDrafts>(_onLoadDrafts);
     on<LoadUserSubmissions>(_onLoadUserSubmissions);
@@ -854,12 +858,32 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         editedQuestions: updatedEditedQuestions,
       ));
 
-      // Also emit a success message
-      print('   📢 Emitting success state');
-      emit(QuestionPaperSuccess(
-        'Question updated successfully',
-        actionType: 'questionUpdated',
-      ));
+      // Now save the updated paper to the database
+      print('   💾 Saving updated paper to database...');
+      final result = await _updatePaperUseCase(updatedPaper);
+
+      result.fold(
+        (failure) {
+          print('   ❌ Database save failed: ${failure.message}');
+          emit(QuestionPaperError('Failed to save changes: ${failure.message}'));
+        },
+        (savedPaper) {
+          print('   ✅ Paper saved to database successfully');
+
+          // Emit final loaded state with the saved paper
+          emit(currentState.copyWith(
+            currentPaper: savedPaper,
+            editedQuestions: updatedEditedQuestions,
+          ));
+
+          // Also emit a success message
+          print('   📢 Emitting success state');
+          emit(QuestionPaperSuccess(
+            'Question updated and saved successfully',
+            actionType: 'questionUpdated',
+          ));
+        },
+      );
     } catch (e, stackTrace) {
       print('   ❌ Exception occurred: $e');
       print('   Stack trace: $stackTrace');

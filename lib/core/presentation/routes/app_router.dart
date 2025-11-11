@@ -239,6 +239,7 @@ class AppRouter {
       getApprovedPapersUseCase: sl(),
       getApprovedPapersPaginatedUseCase: sl(),
       getApprovedPapersByExamDateRangeUseCase: sl(),
+      updatePaperUseCase: sl(),
     );
   }
 

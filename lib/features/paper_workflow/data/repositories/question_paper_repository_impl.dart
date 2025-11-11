@@ -503,4 +503,27 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       return Left(ServerFailure('Failed to get rejection history: ${e.toString()}'));
     }
   }
+
+  @override
+  Future<Either<Failure, QuestionPaperEntity>> updatePaper(QuestionPaperEntity paper) async {
+    try {
+      if (!paper.hasValidQuestions) {
+        return Left(ValidationFailure('Paper contains invalid questions: ${paper.validationErrors.join(', ')}'));
+      }
+
+      final model = QuestionPaperModel.fromEntity(paper);
+      final updatedModel = await _cloudDataSource.updatePaper(model);
+
+      _logger.info('Paper updated', category: LogCategory.paper, context: {
+        'paperId': paper.id,
+        'title': paper.title,
+        'status': paper.status.toString(),
+      });
+
+      return Right(updatedModel.toEntity());
+    } catch (e, stackTrace) {
+      _logger.error('Failed to update paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to update paper: ${e.toString()}'));
+    }
+  }
 }

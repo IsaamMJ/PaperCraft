@@ -12,6 +12,7 @@ abstract class PaperCloudDataSource {
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId);
   Future<List<QuestionPaperModel>> getPapersForReview(String tenantId);
   Future<QuestionPaperModel> updatePaperStatus(String id, String status, {String? reason, String? reviewerId, bool clearRejectionData = false});
+  Future<QuestionPaperModel> updatePaper(QuestionPaperModel paper);
   Future<QuestionPaperModel?> getPaperById(String id);
   Future<void> deletePaper(String id);
   Future<List<QuestionPaperModel>> getAllPapersForAdmin(String tenantId);
@@ -471,6 +472,39 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
     } catch (e, _) {
       _logger.paperError('update_paper_status', id, e);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<QuestionPaperModel> updatePaper(QuestionPaperModel paper) async {
+    try {
+      _logger.paperAction('update_paper_started', paper.id, context: {
+        'title': paper.title,
+        'status': paper.status,
+      });
+
+      final updateData = paper.toSupabaseMap();
+      updateData['modified_at'] = DateTime.now().toIso8601String();
+
+      final response = await _apiClient.update<QuestionPaperModel>(
+        table: _tableName,
+        data: updateData,
+        filters: {'id': paper.id},
+        fromJson: QuestionPaperModel.fromSupabase,
+      );
+
+      if (response.isSuccess) {
+        _logger.paperAction('update_paper_success', paper.id, context: {
+          'title': paper.title,
+          'modifiedAt': response.data!.modifiedAt.toIso8601String(),
+        });
+        return response.data!;
+      } else {
+        throw Exception(response.message ?? 'Failed to update paper');
+      }
+    } catch (e, _) {
+      _logger.paperError('update_paper', paper.id, e);
       rethrow;
     }
   }

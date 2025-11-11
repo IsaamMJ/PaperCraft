@@ -44,6 +44,7 @@ abstract class QuestionPaperRepository {
 
   // =============== EDITING OPERATIONS ===============
   Future<Either<Failure, QuestionPaperEntity>> pullForEditing(String id);
+  Future<Either<Failure, QuestionPaperEntity>> updatePaper(QuestionPaperEntity paper);
 
   // =============== SEARCH AND QUERY ===============
   Future<Either<Failure, List<QuestionPaperEntity>>> searchPapers({

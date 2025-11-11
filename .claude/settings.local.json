@@ -108,7 +108,16 @@
       "Bash(timeout 90 dart compile kernel:*)",
       "Bash(timeout 30 dart format:*)",
       "Bash(supabase db push:*)",
-      "Bash(flutter devices:*)"
+      "Bash(flutter devices:*)",
+      "Bash(git update-index:*)",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" add \"/e/New folder (2)/papercraft/lib/features/paper_workflow/presentation/bloc/question_paper_bloc.dart\" \"/e/New folder (2)/papercraft/lib/features/paper_workflow/presentation/pages/question_paper_detail_page.dart\")",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" status)",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" show HEAD:lib/features/paper_workflow/presentation/bloc/question_paper_bloc.dart)",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" log --oneline -2)",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" show 8504571 --name-only)",
+      "Bash(git -C \"/e/New folder (2)/papercraft\" diff lib/features/paper_workflow/presentation/bloc/question_paper_bloc.dart)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
