@@ -5,6 +5,7 @@ import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../paper_review/domain/usecases/approve_paper_usecase.dart';
 import '../../domain/entities/question_paper_entity.dart';
+import '../../domain/entities/question_entity.dart';
 import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
@@ -159,6 +160,28 @@ class LoadAllTeacherPapers extends QuestionPaperEvent {
   const LoadAllTeacherPapers();
 }
 
+/// Update a single question in the current paper
+class UpdateQuestionInline extends QuestionPaperEvent {
+  final String sectionName;
+  final int questionIndex;
+  final String updatedText;
+  final List<String>? updatedOptions;
+  final double updatedMarks;
+  final String? updatedCorrectAnswer;
+
+  const UpdateQuestionInline({
+    required this.sectionName,
+    required this.questionIndex,
+    required this.updatedText,
+    this.updatedOptions,
+    required this.updatedMarks,
+    this.updatedCorrectAnswer,
+  });
+
+  @override
+  List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions, updatedMarks, updatedCorrectAnswer];
+}
+
 // =============== STATES ===============
 abstract class QuestionPaperState extends Equatable {
   const QuestionPaperState();
@@ -185,6 +208,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
   final List<QuestionPaperEntity> allPapersForAdmin;
   final List<QuestionPaperEntity> approvedPapers;
   final QuestionPaperEntity? currentPaper;
+  final Set<String> editedQuestions; // Track edited questions: "sectionName_questionIndex"
 
   const QuestionPaperLoaded({
     this.drafts = const [],
@@ -193,6 +217,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
     this.allPapersForAdmin = const [],
     this.approvedPapers = const [],
     this.currentPaper,
+    this.editedQuestions = const {},
   });
 
   @override
@@ -202,7 +227,8 @@ class QuestionPaperLoaded extends QuestionPaperState {
     papersForReview,
     allPapersForAdmin,
     approvedPapers,
-    currentPaper
+    currentPaper,
+    editedQuestions
   ];
 
   QuestionPaperLoaded copyWith({
@@ -212,6 +238,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
     List<QuestionPaperEntity>? allPapersForAdmin,
     List<QuestionPaperEntity>? approvedPapers,
     QuestionPaperEntity? currentPaper,
+    Set<String>? editedQuestions,
     bool clearCurrentPaper = false,
   }) {
     return QuestionPaperLoaded(
@@ -221,6 +248,7 @@ class QuestionPaperLoaded extends QuestionPaperState {
       allPapersForAdmin: allPapersForAdmin ?? this.allPapersForAdmin,
       approvedPapers: approvedPapers ?? this.approvedPapers,
       currentPaper: clearCurrentPaper ? null : (currentPaper ?? this.currentPaper),
+      editedQuestions: editedQuestions ?? this.editedQuestions,
     );
   }
 }
@@ -385,6 +413,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<PullForEditing>(_onPullForEditing);
     on<RefreshAll>(_onRefreshAll);
     on<LoadAllTeacherPapers>(_onLoadAllTeacherPapers);
+    on<UpdateQuestionInline>(_onUpdateQuestionInline);
   }
 
   Future<void> _onLoadDrafts(LoadDrafts event, Emitter<QuestionPaperState> emit) async {
@@ -752,6 +781,67 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       }
     } catch (e) {
       emit(QuestionPaperError('Failed to load papers: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onUpdateQuestionInline(UpdateQuestionInline event, Emitter<QuestionPaperState> emit) async {
+    if (state is! QuestionPaperLoaded) return;
+
+    final currentState = state as QuestionPaperLoaded;
+    final currentPaper = currentState.currentPaper;
+
+    if (currentPaper == null) {
+      emit(const QuestionPaperError('No paper loaded'));
+      return;
+    }
+
+    try {
+      // Update the question in the current paper
+      final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
+
+      if (!updatedQuestions.containsKey(event.sectionName)) {
+        emit(QuestionPaperError('Section "${event.sectionName}" not found'));
+        return;
+      }
+
+      final sectionQuestions = List<Question>.from(updatedQuestions[event.sectionName]!);
+
+      if (event.questionIndex < 0 || event.questionIndex >= sectionQuestions.length) {
+        emit(QuestionPaperError('Invalid question index'));
+        return;
+      }
+
+      // Update the question with new values
+      final oldQuestion = sectionQuestions[event.questionIndex];
+      sectionQuestions[event.questionIndex] = oldQuestion.copyWith(
+        text: event.updatedText,
+        marks: event.updatedMarks,
+        options: event.updatedOptions ?? oldQuestion.options,
+        correctAnswer: event.updatedCorrectAnswer ?? oldQuestion.correctAnswer,
+      );
+
+      updatedQuestions[event.sectionName] = sectionQuestions;
+
+      // Create updated paper with modified questions
+      final updatedPaper = currentPaper.copyWith(questions: updatedQuestions);
+
+      // Track which question was edited
+      final editedQuestionKey = '${event.sectionName}_${event.questionIndex}';
+      final updatedEditedQuestions = Set<String>.from(currentState.editedQuestions)..add(editedQuestionKey);
+
+      // Emit success state with updated paper and track edited questions
+      emit(currentState.copyWith(
+        currentPaper: updatedPaper,
+        editedQuestions: updatedEditedQuestions,
+      ));
+
+      // Also emit a success message
+      emit(QuestionPaperSuccess(
+        'Question updated successfully',
+        actionType: 'questionUpdated',
+      ));
+    } catch (e) {
+      emit(QuestionPaperError('Failed to update question: ${e.toString()}'));
     }
   }
 }

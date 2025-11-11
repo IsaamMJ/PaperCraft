@@ -19,6 +19,7 @@ import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
+import '../widgets/question_inline_edit_modal.dart';
 
 class QuestionPaperDetailPage extends StatelessWidget {
   final String questionPaperId;
@@ -135,6 +136,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       } else if (state.actionType == 'pull') {
         setState(() => _isPulling = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
+      } else if (state.actionType == 'questionUpdated') {
+        // Question was updated successfully, no navigation needed
+        // The UI will automatically update with the new question data
       }
     }
     if (state is QuestionPaperError) {
@@ -608,13 +612,13 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               'Section $sectionNumber: $name (${questions.length} questions)',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
         ),
-        ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value)),
+        ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value, name)),
         SizedBox(height: UIConstants.spacing24),
       ],
     );
   }
 
-  Widget _buildQuestion(int index, dynamic question) {
+  Widget _buildQuestion(int index, dynamic question, String sectionName) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -716,10 +720,23 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: AppColors.primary10, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
-            child: Text('${question.marks} marks', style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.primary)),
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.primary10, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+                child: Text('${question.marks} marks', style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              ),
+              SizedBox(height: UIConstants.spacing8),
+              if (!widget.isViewOnly)
+                IconButton(
+                  icon: Icon(Icons.edit, size: 18, color: AppColors.primary),
+                  onPressed: () => _showEditQuestionModal(question, index - 1, sectionName),
+                  tooltip: 'Edit question',
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+            ],
           ),
         ],
       ),
@@ -751,6 +768,30 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     } catch (e) {
       _showMessage('Navigation failed. Please try again.', AppColors.error);
     }
+  }
+
+  void _showEditQuestionModal(Question question, int questionIndex, String sectionName) {
+    showDialog(
+      context: context,
+      builder: (context) => QuestionInlineEditModal(
+        question: question,
+        questionIndex: questionIndex,
+        sectionName: sectionName,
+        onSave: (updatedText, updatedOptions, updatedMarks, updatedCorrectAnswer) {
+          context.read<QuestionPaperBloc>().add(
+                UpdateQuestionInline(
+                  sectionName: sectionName,
+                  questionIndex: questionIndex,
+                  updatedText: updatedText,
+                  updatedOptions: updatedOptions,
+                  updatedMarks: updatedMarks,
+                  updatedCorrectAnswer: updatedCorrectAnswer,
+                ),
+              );
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
   }
 
   Future<void> _generateAndShowPreview(QuestionPaperEntity paper) async {

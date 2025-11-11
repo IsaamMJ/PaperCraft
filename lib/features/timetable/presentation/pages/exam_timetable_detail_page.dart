@@ -379,17 +379,46 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       print('[ExamTimetableDetailPage] PDF Export: Generated ${pdfBytes.length} bytes');
 
       // Save file to Downloads directory
-      final directory = await getDownloadsDirectory();
-      print('[ExamTimetableDetailPage] PDF Export: Downloads directory: ${directory?.path}');
-
-      if (directory == null) {
-        print('[ExamTimetableDetailPage] PDF Export: ERROR - Downloads directory not found');
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloads directory not found'), backgroundColor: Colors.red),
-        );
-        return;
+      // Use the shared Downloads directory accessible to file manager (not app-specific)
+      Directory directory;
+      try {
+        // Try to get the real Downloads directory first
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          // Navigate up from app-specific directory to the shared Downloads folder
+          // App path: /storage/emulated/0/Android/data/com.pearl.papercraft.dev/files
+          // We want: /storage/emulated/0/Download
+          final parts = externalDir.path.split('/');
+          // Find the index of 'emulated'
+          final emulatedIndex = parts.indexOf('emulated');
+          if (emulatedIndex != -1) {
+            final sharedPath = '${parts.sublist(0, emulatedIndex + 2).join('/')}/Download';
+            directory = Directory(sharedPath);
+            // Create directory if it doesn't exist
+            if (!await directory.exists()) {
+              await directory.create(recursive: true);
+            }
+          } else {
+            throw Exception('Could not determine shared Download directory');
+          }
+        } else {
+          throw Exception('External storage not available');
+        }
+      } catch (e) {
+        print('[ExamTimetableDetailPage] PDF Export: Error accessing shared directory: $e, falling back to getDownloadsDirectory');
+        final fallbackDir = await getDownloadsDirectory();
+        if (fallbackDir == null) {
+          print('[ExamTimetableDetailPage] PDF Export: ERROR - Downloads directory not found');
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Downloads directory not found'), backgroundColor: Colors.red),
+          );
+          return;
+        }
+        directory = fallbackDir;
       }
+
+      print('[ExamTimetableDetailPage] PDF Export: Downloads directory: ${directory.path}');
 
       final fileName = '${_cachedTimetable!.examName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = '${directory.path}/$fileName';
