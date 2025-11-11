@@ -143,10 +143,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         print('      → Handling pull action');
         setState(() => _isPulling = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
-      } else if (state.actionType == 'questionUpdated') {
-        print('      → Handling questionUpdated action (no navigation needed)');
-        // Question was updated successfully, no navigation needed
-        // The UI will automatically update with the new question data
       }
     }
     if (state is QuestionPaperError) {
@@ -238,13 +234,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       }
       print('   → Paper loaded: ${state.currentPaper!.title}');
       return _buildPaperContent(state.currentPaper!);
-    }
-    if (state is QuestionPaperSuccess) {
-      print('   → QuestionPaperSuccess state detected');
-      // QuestionPaperSuccess is just a message state, we should render the previous loaded paper
-      // This shouldn't happen in normal flow, but if it does, show loading while we recover
-      print('   → Showing LoadingWidget (waiting for next state)');
-      return const LoadingWidget(message: 'Updating...');
     }
     print('   → Default LoadingWidget');
     return const LoadingWidget(message: 'Loading...');

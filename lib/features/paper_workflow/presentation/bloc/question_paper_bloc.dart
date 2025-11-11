@@ -876,12 +876,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
             editedQuestions: updatedEditedQuestions,
           ));
 
-          // Also emit a success message
-          print('   📢 Emitting success state');
-          emit(QuestionPaperSuccess(
-            'Question updated and saved successfully',
-            actionType: 'questionUpdated',
-          ));
+          print('   📢 Question update complete - paper displayed with latest changes');
         },
       );
     } catch (e, stackTrace) {
