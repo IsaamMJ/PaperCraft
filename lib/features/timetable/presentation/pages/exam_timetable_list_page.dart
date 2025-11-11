@@ -380,10 +380,16 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     }
 
     print('[ExamTimetableListPage] PUBLISH: Confirming timetable ${timetable.examName} (ID: ${timetable.id})');
+
+    // IMPORTANT: Capture the BLoC BEFORE showing the dialog
+    // This is because the dialog's context doesn't include the BLoC provider
+    final bloc = context.read<ExamTimetableBloc>();
+    print('[ExamTimetableListPage] PUBLISH: Captured BLoC instance: $bloc');
+
     // Show confirmation dialog
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Publish Timetable?'),
         content: Text(
           'Are you sure you want to publish "${timetable.examName}"? '
@@ -391,22 +397,15 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              try {
-                final bloc = context.read<ExamTimetableBloc>();
-                print('[ExamTimetableListPage] PUBLISH: Got BLoC instance: $bloc');
-                print('[ExamTimetableListPage] PUBLISH: Current state: ${bloc.state}');
-                print('[ExamTimetableListPage] PUBLISH: Sending PublishExamTimetableEvent for ${timetable.examName}');
-                bloc.add(PublishExamTimetableEvent(timetableId: timetable.id));
-              } catch (e, st) {
-                print('[ExamTimetableListPage] PUBLISH ERROR: $e\n$st');
-                rethrow;
-              }
+              Navigator.pop(dialogContext);
+              print('[ExamTimetableListPage] PUBLISH: Current BLoC state: ${bloc.state}');
+              print('[ExamTimetableListPage] PUBLISH: Sending PublishExamTimetableEvent for ${timetable.examName}');
+              bloc.add(PublishExamTimetableEvent(timetableId: timetable.id));
             },
             child: const Text('Publish'),
           ),
@@ -430,10 +429,14 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
+    // IMPORTANT: Capture the BLoC BEFORE showing the dialog
+    // This is because the dialog's context doesn't include the BLoC provider
+    final bloc = context.read<ExamTimetableBloc>();
+
     // Show confirmation dialog
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Archive Timetable?'),
         content: Text(
           'Archive "${timetable.examName}"? '
@@ -441,15 +444,13 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.read<ExamTimetableBloc>().add(
-                    ArchiveExamTimetableEvent(timetableId: timetable.id),
-                  );
+              Navigator.pop(dialogContext);
+              bloc.add(ArchiveExamTimetableEvent(timetableId: timetable.id));
             },
             child: const Text('Archive'),
           ),
@@ -474,10 +475,16 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     }
 
     print('[ExamTimetableListPage] DELETE: Confirming deletion of timetable ${timetable.examName} (ID: ${timetable.id})');
+
+    // IMPORTANT: Capture the BLoC BEFORE showing the dialog
+    // This is because the dialog's context doesn't include the BLoC provider
+    final bloc = context.read<ExamTimetableBloc>();
+    print('[ExamTimetableListPage] DELETE: Captured BLoC instance: $bloc');
+
     // Show confirmation dialog
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Timetable?'),
         content: Text(
           'Are you sure you want to delete "${timetable.examName}"? '
@@ -485,22 +492,15 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              try {
-                final bloc = context.read<ExamTimetableBloc>();
-                print('[ExamTimetableListPage] DELETE: Got BLoC instance: $bloc');
-                print('[ExamTimetableListPage] DELETE: Current state: ${bloc.state}');
-                print('[ExamTimetableListPage] DELETE: Sending DeleteExamTimetableEvent for ${timetable.examName}');
-                bloc.add(DeleteExamTimetableEvent(timetableId: timetable.id));
-              } catch (e, st) {
-                print('[ExamTimetableListPage] DELETE ERROR: $e\n$st');
-                rethrow;
-              }
+              Navigator.pop(dialogContext);
+              print('[ExamTimetableListPage] DELETE: Current BLoC state: ${bloc.state}');
+              print('[ExamTimetableListPage] DELETE: Sending DeleteExamTimetableEvent for ${timetable.examName}');
+              bloc.add(DeleteExamTimetableEvent(timetableId: timetable.id));
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
