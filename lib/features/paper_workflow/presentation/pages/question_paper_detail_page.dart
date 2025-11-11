@@ -159,11 +159,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       print('   📚 QuestionPaperLoaded received');
       print('      - Current paper: ${state.currentPaper?.title}');
       print('      - Edited questions count: ${state.editedQuestions.length}');
-    }
 
-    // Load user info when paper is loaded
-    if (state is QuestionPaperLoaded && state.currentPaper != null) {
-      _loadUserInfo(state.currentPaper!.createdBy);
+      // Load user info when paper is loaded
+      if (state.currentPaper != null) {
+        _loadUserInfo(state.currentPaper!.createdBy);
+      }
     }
   }
 
@@ -213,25 +213,33 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildContent(QuestionPaperState state) {
+    print('🎨 [DetailPage] Building content for state: ${state.runtimeType}');
+
     if (state is QuestionPaperLoading) {
+      print('   → Showing LoadingWidget');
       return const LoadingWidget(message: 'Loading paper details...');
     }
     if (state is QuestionPaperError) {
+      print('   → Showing ErrorStateWidget: ${state.message}');
       return ErrorStateWidget(
         message: state.message,
         onRetry: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
       );
     }
     if (state is QuestionPaperLoaded) {
+      print('   → Showing PaperContent');
       if (state.currentPaper == null) {
+        print('   → Paper is null, showing EmptyMessageWidget');
         return const EmptyMessageWidget(
           icon: Icons.description_outlined,
           title: 'Paper Not Found',
           message: 'The requested paper could not be found.',
         );
       }
+      print('   → Paper loaded: ${state.currentPaper!.title}');
       return _buildPaperContent(state.currentPaper!);
     }
+    print('   → Default LoadingWidget');
     return const LoadingWidget(message: 'Loading...');
   }
 
