@@ -166,20 +166,16 @@ class UpdateQuestionInline extends QuestionPaperEvent {
   final int questionIndex;
   final String updatedText;
   final List<String>? updatedOptions;
-  final double updatedMarks;
-  final String? updatedCorrectAnswer;
 
   const UpdateQuestionInline({
     required this.sectionName,
     required this.questionIndex,
     required this.updatedText,
     this.updatedOptions,
-    required this.updatedMarks,
-    this.updatedCorrectAnswer,
   });
 
   @override
-  List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions, updatedMarks, updatedCorrectAnswer];
+  List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions];
 }
 
 // =============== STATES ===============
@@ -811,13 +807,11 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         return;
       }
 
-      // Update the question with new values
+      // Update the question with new values (only text and options)
       final oldQuestion = sectionQuestions[event.questionIndex];
       sectionQuestions[event.questionIndex] = oldQuestion.copyWith(
         text: event.updatedText,
-        marks: event.updatedMarks,
         options: event.updatedOptions ?? oldQuestion.options,
-        correctAnswer: event.updatedCorrectAnswer ?? oldQuestion.correctAnswer,
       );
 
       updatedQuestions[event.sectionName] = sectionQuestions;

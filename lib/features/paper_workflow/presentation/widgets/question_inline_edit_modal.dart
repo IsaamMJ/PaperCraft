@@ -7,7 +7,7 @@ class QuestionInlineEditModal extends StatefulWidget {
   final Question question;
   final int questionIndex;
   final String sectionName;
-  final Function(String updatedText, List<String>? updatedOptions, double updatedMarks, String? updatedCorrectAnswer) onSave;
+  final Function(String updatedText, List<String>? updatedOptions) onSave;
   final VoidCallback onCancel;
 
   const QuestionInlineEditModal({
@@ -25,8 +25,6 @@ class QuestionInlineEditModal extends StatefulWidget {
 
 class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   late TextEditingController _questionTextController;
-  late TextEditingController _marksController;
-  late TextEditingController _correctAnswerController;
   late List<TextEditingController> _optionControllers;
   bool _isSaving = false;
 
@@ -34,8 +32,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   void initState() {
     super.initState();
     _questionTextController = TextEditingController(text: widget.question.text);
-    _marksController = TextEditingController(text: widget.question.marks.toString());
-    _correctAnswerController = TextEditingController(text: widget.question.correctAnswer ?? '');
 
     // Initialize option controllers
     _optionControllers = (widget.question.options ?? [])
@@ -46,8 +42,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   @override
   void dispose() {
     _questionTextController.dispose();
-    _marksController.dispose();
-    _correctAnswerController.dispose();
     for (var controller in _optionControllers) {
       controller.dispose();
     }
@@ -69,17 +63,10 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
   void _saveChanges() {
     final updatedText = _questionTextController.text.trim();
-    final updatedMarksStr = _marksController.text.trim();
 
     // Validation
     if (updatedText.isEmpty) {
       _showErrorSnackBar('Question text cannot be empty');
-      return;
-    }
-
-    final updatedMarks = double.tryParse(updatedMarksStr);
-    if (updatedMarks == null || updatedMarks <= 0) {
-      _showErrorSnackBar('Marks must be a positive number');
       return;
     }
 
@@ -101,12 +88,7 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
     setState(() => _isSaving = true);
 
     // Call the save callback
-    widget.onSave(
-      updatedText,
-      updatedOptions,
-      updatedMarks,
-      _correctAnswerController.text.trim().isEmpty ? null : _correctAnswerController.text.trim(),
-    );
+    widget.onSave(updatedText, updatedOptions);
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -203,42 +185,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
                     ),
                     SizedBox(height: UIConstants.spacing16),
 
-                    // Marks
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Marks'),
-                              SizedBox(height: UIConstants.spacing8),
-                              TextField(
-                                controller: _marksController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(
-                                  hintText: 'Marks',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                    borderSide: BorderSide(color: AppColors.border),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                    borderSide: BorderSide(color: AppColors.border),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                    borderSide: BorderSide(color: AppColors.primary, width: 2),
-                                  ),
-                                  contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: UIConstants.spacing16),
-
                     // Options (if MCQ or fill_blanks)
                     if (widget.question.type == 'multiple_choice' || widget.question.type == 'fill_blanks')
                       Column(
@@ -320,35 +266,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
                             ),
                           ),
                           SizedBox(height: UIConstants.spacing16),
-                        ],
-                      ),
-
-                    // Correct Answer (if MCQ)
-                    if (widget.question.type == 'multiple_choice')
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel('Correct Answer'),
-                          SizedBox(height: UIConstants.spacing8),
-                          TextField(
-                            controller: _correctAnswerController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g., A',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                borderSide: BorderSide(color: AppColors.border),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                borderSide: BorderSide(color: AppColors.border),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                borderSide: BorderSide(color: AppColors.primary, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
-                            ),
-                          ),
                         ],
                       ),
                   ],

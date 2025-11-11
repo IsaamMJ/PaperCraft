@@ -777,15 +777,13 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         question: question,
         questionIndex: questionIndex,
         sectionName: sectionName,
-        onSave: (updatedText, updatedOptions, updatedMarks, updatedCorrectAnswer) {
+        onSave: (updatedText, updatedOptions) {
           context.read<QuestionPaperBloc>().add(
                 UpdateQuestionInline(
                   sectionName: sectionName,
                   questionIndex: questionIndex,
                   updatedText: updatedText,
                   updatedOptions: updatedOptions,
-                  updatedMarks: updatedMarks,
-                  updatedCorrectAnswer: updatedCorrectAnswer,
                 ),
               );
         },
