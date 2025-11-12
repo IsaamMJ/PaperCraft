@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
 import '../../domain/entities/exam_timetable_entity.dart';
@@ -12,6 +13,7 @@ import '../bloc/exam_timetable_state.dart';
 import '../widgets/timetable_detail_entries_tab.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../features/authentication/domain/services/user_state_service.dart';
+import '../../../../features/pdf_generation/presentation/pages/pdf_preview_page.dart';
 
 /// Exam Timetable Detail Page
 ///
@@ -451,10 +453,66 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
     }
   }
 
-  /// Handle print (placeholder)
-  void _handlePrint(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Print feature coming soon')),
-    );
+  /// Handle print - show PDF preview with print option
+  Future<void> _handlePrint(BuildContext context) async {
+    if (_cachedTimetable == null) return;
+
+    try {
+      print('[ExamTimetableDetailPage] Print: Starting...');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating PDF...')),
+      );
+
+      // Get current timetable entries from BLoC
+      final bloc = context.read<ExamTimetableBloc>();
+      final state = bloc.state;
+
+      List<ExamTimetableEntryEntity> entries = [];
+      if (state is ExamTimetableEntriesLoaded) {
+        entries = state.entries;
+      }
+
+      // Extract unique grade numbers from entries
+      final gradeNumbers = <int>{};
+      for (final entry in entries) {
+        if (entry.gradeNumber != null) {
+          gradeNumbers.add(entry.gradeNumber!);
+        }
+      }
+
+      // Get school name from tenant data via UserStateService
+      final userStateService = sl<UserStateService>();
+      final schoolName = userStateService.schoolName;
+
+      // Generate PDF
+      print('[ExamTimetableDetailPage] Print: Generating PDF with ${entries.length} entries');
+      final pdfBytes = await TimetablePdfGenerator.generateTimetablePdf(
+        timetable: _cachedTimetable!,
+        entries: entries,
+        schoolName: schoolName,
+        gradeNumbers: gradeNumbers.toList()..sort(),
+      );
+      print('[ExamTimetableDetailPage] Print: Generated ${pdfBytes.length} bytes');
+
+      if (!context.mounted) return;
+
+      // Navigate to PDF preview page with print functionality
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PdfPreviewPage(
+            pdfBytes: pdfBytes,
+            paperTitle: '${_cachedTimetable!.examName} - Exam Timetable',
+            layoutType: 'timetable',
+          ),
+        ),
+      );
+    } catch (e, st) {
+      print('[ExamTimetableDetailPage] Print ERROR: $e');
+      print('[ExamTimetableDetailPage] Print STACKTRACE: $st');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 }
