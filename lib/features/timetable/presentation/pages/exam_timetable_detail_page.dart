@@ -10,6 +10,8 @@ import '../bloc/exam_timetable_bloc.dart';
 import '../bloc/exam_timetable_event.dart';
 import '../bloc/exam_timetable_state.dart';
 import '../widgets/timetable_detail_entries_tab.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
+import '../../../../features/authentication/domain/services/user_state_service.dart';
 
 /// Exam Timetable Detail Page
 ///
@@ -365,8 +367,9 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         }
       }
 
-      // Get school name (you may want to pass this or get from tenant)
-      const schoolName = 'Your School Name'; // TODO: Get from tenant data
+      // Get school name from tenant data via UserStateService
+      final userStateService = sl<UserStateService>();
+      final schoolName = userStateService.schoolName;
 
       // Generate PDF
       print('[ExamTimetableDetailPage] PDF Export: Generating PDF with ${entries.length} entries');
