@@ -630,23 +630,59 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         return Right(entries);
       }
 
-      // Batch fetch all unique grades
-      final uniqueGradeIds = entries.map((e) => e.gradeId).toSet().toList();
-      final gradesMap = <String, int>{};
+      // Batch fetch all unique grade sections and their corresponding grades
+      final uniqueGradeSectionIds = entries.map((e) => e.gradeSectionId).toSet().toList();
+      final gradesMap = <String, int>{}; // gradeId -> gradeNumber mapping
 
       try {
-        final gradesResponse = await _supabaseClient
-            .from('grades')
-            .select('id, grade_number')
-            .inFilter('id', uniqueGradeIds);
+        // Step 1: Get grade_id from grade_sections table
+        final gradeSectionsResponse = await _supabaseClient
+            .from('grade_sections')
+            .select('id, grade_id')
+            .inFilter('id', uniqueGradeSectionIds);
 
-        for (var gradeData in (gradesResponse as List<dynamic>)) {
-          final id = gradeData['id'] as String;
-          final gradeNumber = gradeData['grade_number'] as int;
-          gradesMap[id] = gradeNumber;
+        // Collect all unique grade IDs
+        final uniqueGradeIds = <String>{};
+        for (var gs in (gradeSectionsResponse as List<dynamic>)) {
+          final gradeId = gs['grade_id'] as String;
+          uniqueGradeIds.add(gradeId);
+        }
+
+        // Step 2: Fetch grade numbers for all collected grade IDs
+        if (uniqueGradeIds.isNotEmpty) {
+          final gradesResponse = await _supabaseClient
+              .from('grades')
+              .select('id, grade_number')
+              .inFilter('id', uniqueGradeIds.toList());
+
+          for (var gradeData in (gradesResponse as List<dynamic>)) {
+            final id = gradeData['id'] as String;
+            final gradeNumber = gradeData['grade_number'] as int;
+            gradesMap[id] = gradeNumber;
+          }
         }
       } catch (e) {
-        print('[getExamTimetableEntries] Failed to fetch grades: $e');
+        print('[getExamTimetableEntries] Failed to fetch grades via grade_sections: $e');
+      }
+
+      // Step 3: Map grade_section_id -> gradeNumber by joining through grade_id
+      final gradeSectionToGradeNumber = <String, int>{};
+      try {
+        final gradeSectionsResponse = await _supabaseClient
+            .from('grade_sections')
+            .select('id, grade_id')
+            .inFilter('id', uniqueGradeSectionIds);
+
+        for (var gs in (gradeSectionsResponse as List<dynamic>)) {
+          final gradeSectionId = gs['id'] as String;
+          final gradeId = gs['grade_id'] as String;
+          final gradeNumber = gradesMap[gradeId];
+          if (gradeNumber != null) {
+            gradeSectionToGradeNumber[gradeSectionId] = gradeNumber;
+          }
+        }
+      } catch (e) {
+        print('[getExamTimetableEntries] Failed to map grade_section_id to grade_number: $e');
       }
 
       // Batch fetch all unique subjects and their catalog info
@@ -691,14 +727,15 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
       }
 
       // Create enriched entries with fetched data
+      // Use gradeSectionToGradeNumber mapping to get the correct grade number for each entry
       final enrichedEntries = entries
           .map((entry) => entry.copyWith(
-                gradeNumber: gradesMap[entry.gradeId],
+                gradeNumber: gradeSectionToGradeNumber[entry.gradeSectionId],
                 subjectName: subjectsMap[entry.subjectId],
               ))
           .toList();
 
-      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries');
+      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries with grades: ${enrichedEntries.where((e) => e.gradeNumber != null).length} entries have grade numbers');
       return Right(enrichedEntries);
     } on PostgrestException catch (e) {
       return Left(_mapPostgrestException(e));
