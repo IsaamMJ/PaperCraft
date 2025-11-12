@@ -714,6 +714,8 @@ class AppRouter {
 
           final tenantId = _getTenantIdFromAuth(context);
           final userId = _getUserIdFromAuth(context);
+          final userStateService = sl<UserStateService>();
+          final academicYear = userStateService.currentAcademicYear ?? '2024-2025';
 
           final bloc = sl<ExamTimetableWizardBloc>();
           return BlocProvider.value(
@@ -721,7 +723,7 @@ class AppRouter {
             child: ExamTimetableWizardPage(
               tenantId: tenantId,
               userId: userId,
-              academicYear: '2024-25',
+              academicYear: academicYear,
             ),
           );
         },

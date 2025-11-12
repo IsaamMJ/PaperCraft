@@ -27,6 +27,9 @@ class ExamTimetableWizardBloc
   /// Store the current user ID
   late String _currentUserId;
 
+  /// Store the academic year for the timetable
+  late String _currentAcademicYear;
+
   ExamTimetableWizardBloc({
     required this.getExamCalendars,
     required this.mapGradesToExamCalendar,
@@ -53,8 +56,9 @@ class ExamTimetableWizardBloc
     InitializeWizardEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    // Store the user ID for later use in submission
+    // Store the user ID and academic year for later use in submission
     _currentUserId = event.userId;
+    _currentAcademicYear = event.academicYear;
 
     emit(const WizardStep1State(isLoading: true));
 
@@ -455,7 +459,7 @@ class ExamTimetableWizardBloc
         examCalendarId: step3State.selectedCalendar.id,
         examName: step3State.selectedCalendar.examName,
         examType: step3State.selectedCalendar.examType,
-        academicYear: '2024-25', // TODO: Get from user state
+        academicYear: _currentAcademicYear, // Uses the academic year from initialization
         createdByUserId: _currentUserId, // Now using the stored user ID
         entries: step3State.entries,
       ),
