@@ -70,7 +70,7 @@ class TimetablePdfGenerator {
                 pw.SizedBox(height: 6),
                 _buildDetailRow('Status', timetable.status.toUpperCase()),
                 pw.SizedBox(height: 6),
-                _buildDetailRow('Grades', gradeNumbers.map((g) => 'Grade $g').join(', ')),
+                _buildDetailRow('Grades', _formatGradeRange(gradeNumbers)),
               ],
             ),
           ),
@@ -153,7 +153,7 @@ class TimetablePdfGenerator {
         return dateA.compareTo(dateB);
       });
 
-    // Build table data - only show Date, Subject, Time (Grades already shown at top)
+    // Build table data - show Date, Subject (with grades), Time
     final List<List<String>> tableData = [];
     for (final key in sortedKeys) {
       final groupedList = groupedEntries[key] ?? [];
@@ -161,9 +161,20 @@ class TimetablePdfGenerator {
 
       final firstEntry = groupedList.first;
 
+      // Extract and format grades for this subject
+      final grades = groupedList
+          .map((e) => e.gradeNumber)
+          .whereType<int>()
+          .toSet()
+          .toList()
+        ..sort();
+
+      final gradeText = grades.isEmpty ? '' : ' (${_formatGradeRange(grades)})';
+      final subjectWithGrades = '${firstEntry.subjectName ?? 'Unknown'}$gradeText';
+
       tableData.add([
         _formatDate(firstEntry.examDate),
-        firstEntry.subjectName ?? 'Unknown',
+        subjectWithGrades,
         firstEntry.scheduleDisplay,
       ]);
     }
@@ -236,5 +247,41 @@ class TimetablePdfGenerator {
     ];
     final month = monthNames[date.month - 1];
     return '${date.day.toString().padLeft(2, '0')}-$month-${date.year}';
+  }
+
+  /// Format grades as ranges (e.g., [1,2,3,5] → "1-3, 5")
+  static String _formatGradeRange(List<int> grades) {
+    if (grades.isEmpty) return '';
+    if (grades.length == 1) return '${grades.first}';
+
+    final sortedGrades = grades.toList()..sort();
+    final ranges = <String>[];
+    int rangeStart = sortedGrades.first;
+    int rangeEnd = sortedGrades.first;
+
+    for (int i = 1; i < sortedGrades.length; i++) {
+      if (sortedGrades[i] == rangeEnd + 1) {
+        // Continue the range
+        rangeEnd = sortedGrades[i];
+      } else {
+        // Range broken, save current range and start new one
+        if (rangeStart == rangeEnd) {
+          ranges.add('$rangeStart');
+        } else {
+          ranges.add('$rangeStart-$rangeEnd');
+        }
+        rangeStart = sortedGrades[i];
+        rangeEnd = sortedGrades[i];
+      }
+    }
+
+    // Add the last range
+    if (rangeStart == rangeEnd) {
+      ranges.add('$rangeStart');
+    } else {
+      ranges.add('$rangeStart-$rangeEnd');
+    }
+
+    return ranges.join(', ');
   }
 }
