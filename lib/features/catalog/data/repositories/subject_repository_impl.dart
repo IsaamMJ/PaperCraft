@@ -106,6 +106,24 @@ class SubjectRepositoryImpl implements SubjectRepository {
   }
 
   @override
+  Future<Either<Failure, List<SubjectEntity>>> getSubjectsByGradeAndSection(
+    String tenantId,
+    String gradeId,
+    String section,
+  ) async {
+    try {
+      // Query from grade_section_subject table which is the source of truth
+      final models = await _dataSource.getSubjectsByGradeAndSection(tenantId, gradeId, section);
+      final subjects = models.map((m) => m.toEntity()).toList();
+
+      return Right(subjects);
+    } catch (e, stackTrace) {
+      _logger.error('Failed to get subjects by grade and section', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to get subjects: ${e.toString()}'));
+    }
+  }
+
+  @override
   Future<Either<Failure, SubjectEntity?>> getSubjectById(String id) async {
     try {
       final model = await _dataSource.getSubjectById(id);

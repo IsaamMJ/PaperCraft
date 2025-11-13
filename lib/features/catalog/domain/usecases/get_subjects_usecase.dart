@@ -39,3 +39,26 @@ class GetSubjectByIdUseCase {
     return await repository.getSubjectById(id.trim());
   }
 }
+
+class GetSubjectsByGradeAndSectionUseCase {
+  final SubjectRepository repository;
+
+  GetSubjectsByGradeAndSectionUseCase(this.repository);
+
+  Future<Either<Failure, List<SubjectEntity>>> call(
+    String tenantId,
+    String gradeId,
+    String section,
+  ) async {
+    if (tenantId.trim().isEmpty) {
+      return Left(ValidationFailure('Tenant ID is required'));
+    }
+    if (gradeId.trim().isEmpty) {
+      return Left(ValidationFailure('Grade ID is required'));
+    }
+    if (section.trim().isEmpty) {
+      return Left(ValidationFailure('Section is required'));
+    }
+    return await repository.getSubjectsByGradeAndSection(tenantId, gradeId, section);
+  }
+}

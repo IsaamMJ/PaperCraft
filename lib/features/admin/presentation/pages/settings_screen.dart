@@ -6,6 +6,9 @@ import 'dart:convert' show utf8, base64Encode;
 import 'dart:io' show File, Platform, Directory;
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
+// Conditional import for web download helper
+// Uses web-specific version on Flutter web, stub on other platforms
+import '../utils/web_download_helper_stub.dart' if (dart.library.html) '../utils/web_download_helper.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
@@ -518,12 +521,8 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
     }
 
     try {
-      final bytes = utf8.encode(csvContent);
-      final base64Data = base64Encode(bytes);
-      final dataUri = 'data:text/csv;base64,$base64Data';
-
-      // Use simple HTML-based download without dart:js
-      _downloadViaHtmlElement(dataUri, filename);
+      // Directly execute web download with CSV content
+      _executeWebDownload(csvContent, filename);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -535,61 +534,23 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
     }
   }
 
-  /// Download via HTML element approach (works on Flutter web without dart:js)
-  void _downloadViaHtmlElement(String dataUri, String filename) {
-    if (!kIsWeb) return;
-
-    try {
-      // This approach uses HTML manipulation which is available on Flutter web
-      // without requiring dart:js import (which causes compile errors on mobile)
-
-      // We'll use the open_file package or create an iframe element
-      // For now, provide user instruction on how to download manually
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Preparing download...'),
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: 'Download',
-            onPressed: () {
-              // Create a simple HTML page that triggers download
-              _executeWebDownload(dataUri, filename);
-            },
-          ),
-        ),
-      );
-
-      // Try to execute immediately
-      _executeWebDownload(dataUri, filename);
-    } catch (e) {
-      if (kDebugMode) {
-        print('HTML download error: $e');
-      }
-    }
-  }
-
   /// Execute web download (this will work on Flutter web)
-  void _executeWebDownload(String dataUri, String filename) {
-    // For Flutter web, we can use window.open or other approaches
-    // that don't require dart:js import
+  void _executeWebDownload(String csvContent, String filename) {
+    // Only execute on web platform
     if (!kIsWeb) return;
 
     try {
-      // Create a blob URL and trigger download
-      // This uses Flutter web's built-in capabilities
-      // The actual implementation depends on the web framework
-      // For now, we'll use a fallback that should work on most browsers
-
-      // For Flutter web apps, we need to use JavaScript to trigger the download
-      // Since we can't import dart:js, we use a workaround with HTML element
-      // The data URI approach with link.click() works in most browsers
+      // Use web download helper to trigger browser download
+      WebDownloadHelper.downloadCsvFile(csvContent, filename);
 
       if (kDebugMode) {
         print('Download initiated for: $filename');
       }
     } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading file: $e')),
+      );
       if (kDebugMode) {
         print('Web download execution error: $e');
       }

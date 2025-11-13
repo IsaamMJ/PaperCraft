@@ -8,6 +8,7 @@ import '../../domain/usecases/create_exam_timetable_usecase.dart';
 import '../../domain/usecases/get_exam_calendars_usecase.dart';
 import '../../domain/usecases/get_exam_timetables_usecase.dart';
 import '../../domain/usecases/get_timetable_grades_and_sections_usecase.dart';
+import '../../domain/usecases/get_valid_subjects_for_grade_selection_usecase.dart';
 import '../../domain/usecases/publish_exam_timetable_usecase.dart';
 import '../../domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
@@ -45,6 +46,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
   final AddExamTimetableEntryUsecase _addExamTimetableEntryUsecase;
   final ValidateExamTimetableUsecase _validateExamTimetableUsecase;
   final GetTimetableGradesAndSectionsUsecase _getTimetableGradesAndSectionsUsecase;
+  final GetValidSubjectsForGradeSelectionUsecase _getValidSubjectsUsecase;
   final ExamTimetableRepository _repository;
 
   ExamTimetableBloc({
@@ -55,6 +57,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     required AddExamTimetableEntryUsecase addExamTimetableEntryUsecase,
     required ValidateExamTimetableUsecase validateExamTimetableUsecase,
     required GetTimetableGradesAndSectionsUsecase getTimetableGradesAndSectionsUsecase,
+    required GetValidSubjectsForGradeSelectionUsecase getValidSubjectsUsecase,
     required ExamTimetableRepository repository,
   })  : _getExamCalendarsUsecase = getExamCalendarsUsecase,
         _getExamTimetablesUsecase = getExamTimetablesUsecase,
@@ -63,6 +66,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
         _addExamTimetableEntryUsecase = addExamTimetableEntryUsecase,
         _validateExamTimetableUsecase = validateExamTimetableUsecase,
         _getTimetableGradesAndSectionsUsecase = getTimetableGradesAndSectionsUsecase,
+        _getValidSubjectsUsecase = getValidSubjectsUsecase,
         _repository = repository,
         super(const ExamTimetableInitial()) {
     // Register event handlers
@@ -83,6 +87,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     on<CreateExamCalendarEvent>(_onCreateExamCalendar);
     on<UpdateExamCalendarEvent>(_onUpdateExamCalendar);
     on<GetTimetableGradesAndSectionsEvent>(_onGetTimetableGradesAndSections);
+    on<LoadValidSubjectsEvent>(_onLoadValidSubjects);
     on<GetExamEntriesEvent>(_onGetExamEntries);
     on<AddExamEntryEvent>(_onAddExamEntry);
     on<DeleteExamEntryEvent>(_onDeleteExamEntry);
@@ -459,6 +464,38 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
       (gradesData) {
         print('[ExamTimetableBloc] GetTimetableGradesAndSections SUCCESS: loaded ${gradesData.grades.length} grades');
         emit(TimetableGradesAndSectionsLoaded(gradesData: gradesData));
+      },
+    );
+  }
+
+  /// Handler: LoadValidSubjectsEvent
+  ///
+  /// Fetches valid subjects for selected grade-section combinations
+  /// Used in Step 3 wizard to populate Step 4 subject dropdowns
+  /// Results in ValidSubjectsLoaded state with map of valid subjects per grade-section
+  Future<void> _onLoadValidSubjects(
+    LoadValidSubjectsEvent event,
+    Emitter<ExamTimetableState> emit,
+  ) async {
+    print('[ExamTimetableBloc] LoadValidSubjects: tenantId=${event.tenantId}, selectedGradeSectionIds=${event.selectedGradeSectionIds.join(", ")}');
+    emit(const ExamTimetableLoading(message: 'Loading valid subjects...'));
+
+    final result = await _getValidSubjectsUsecase(
+      GetValidSubjectsForGradeSelectionParams(
+        tenantId: event.tenantId,
+        selectedGradeSectionIds: event.selectedGradeSectionIds,
+      ),
+    );
+
+    result.fold(
+      // ignore: unchecked_use_of_nullable_value
+      (failure) {
+        print('[ExamTimetableBloc] LoadValidSubjects ERROR: ${failure.message}');
+        emit(ExamTimetableError(message: failure.message));
+      },
+      (validSubjectsMap) {
+        print('[ExamTimetableBloc] LoadValidSubjects SUCCESS: loaded subjects for ${validSubjectsMap.length} grade-sections');
+        emit(ValidSubjectsLoaded(validSubjectsPerGradeSection: validSubjectsMap));
       },
     );
   }

@@ -453,9 +453,17 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
       final createdTimetable = timetableResult.getOrElse(() => timetableEntity);
 
       // Add all entries to the timetable
+      print('[Repository] Updating entries with timetable ID: ${createdTimetable.id}');
+      print('[Repository] Number of entries to update: ${entries.length}');
+
       final entriesWithTimetableId = entries.map((entry) {
-        return entry.copyWith(timetableId: createdTimetable.id);
+        print('[Repository] Before copyWith - Entry subject ${entry.subjectId}: timetableId="${entry.timetableId}"');
+        final updated = entry.copyWith(timetableId: createdTimetable.id);
+        print('[Repository] After copyWith - Entry subject ${entry.subjectId}: timetableId="${updated.timetableId}"');
+        return updated;
       }).toList();
+
+      print('[Repository] Sending ${entriesWithTimetableId.length} entries to data source');
 
       final entriesResult =
           await _remoteDataSource.addMultipleExamTimetableEntries(
@@ -481,5 +489,19 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     // Generate a proper UUID v4
     const uuid = Uuid();
     return uuid.v4();
+  }
+
+  // ===== SUBJECT VALIDATION OPERATIONS =====
+
+  @override
+  Future<Either<Failure, Map<String, List<String>>>>
+      getValidSubjectsForGradeSelection({
+    required String tenantId,
+    required List<String> selectedGradeSectionIds,
+  }) async {
+    return await _remoteDataSource.getValidSubjectsForGradeSelection(
+      tenantId: tenantId,
+      selectedGradeSectionIds: selectedGradeSectionIds,
+    );
   }
 }

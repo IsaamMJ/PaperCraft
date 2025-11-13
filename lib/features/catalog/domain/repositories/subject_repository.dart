@@ -6,6 +6,7 @@ import '../entities/subject_entity.dart';
 abstract class SubjectRepository {
   Future<Either<Failure, List<SubjectEntity>>> getSubjects();
   Future<Either<Failure, List<SubjectEntity>>> getSubjectsByGrade(int gradeLevel);
+  Future<Either<Failure, List<SubjectEntity>>> getSubjectsByGradeAndSection(String tenantId, String gradeId, String section);
   Future<Either<Failure, SubjectEntity?>> getSubjectById(String id);
 
   // NEW CRUD METHODS

@@ -300,4 +300,77 @@ class TimetableValidationService {
         ? ValidationResult.valid()
         : ValidationResult.invalid(errors);
   }
+
+  /// Validate that a subject is offered in the given grade+section combination
+  /// This ensures consistency with the academic structure (grade_section_subject table)
+  ///
+  /// Parameters:
+  /// - subjectName: Name of the subject (e.g., "EVS", "Science")
+  /// - gradeNumber: Grade number (e.g., 1, 2, 3)
+  /// - section: Section name (e.g., "A", "B", "C")
+  /// - offeredSubjectsPerGradeSection: Map of (grade_number|section) -> list of subject names
+  ///
+  /// Returns: ValidationResult with errors if subject is not valid for the grade+section
+  ValidationResult validateSubjectForGradeSection({
+    required String subjectName,
+    required int gradeNumber,
+    required String section,
+    required Map<String, List<String>> offeredSubjectsPerGradeSection,
+  }) {
+    final errors = <String>[];
+
+    // Create the key to look up valid subjects
+    final key = '${gradeNumber}_$section';
+
+    // Check if this grade+section combination exists in the academic structure
+    if (!offeredSubjectsPerGradeSection.containsKey(key)) {
+      errors.add(
+        'Grade $gradeNumber, Section $section does not exist in academic structure. '
+        'Please verify the grade and section are configured in school settings.',
+      );
+      return ValidationResult.invalid(errors);
+    }
+
+    // Get the list of subjects offered in this grade+section
+    final offeredSubjects = offeredSubjectsPerGradeSection[key] ?? [];
+
+    // Check if the selected subject is in the offered subjects list
+    if (!offeredSubjects.contains(subjectName)) {
+      errors.add(
+        'Subject "$subjectName" is not offered in Grade $gradeNumber, Section $section. '
+        'Available subjects: ${offeredSubjects.join(", ")}. '
+        'Please configure this subject in the academic structure if needed.',
+      );
+      return ValidationResult.invalid(errors);
+    }
+
+    return ValidationResult.valid();
+  }
+
+  /// Validate all entries against the academic structure
+  /// Ensures no subject is assigned to a grade+section that doesn't have it
+  ValidationResult validateEntriesAgainstAcademicStructure(
+    List<ExamTimetableEntryEntity> entries,
+    Map<String, List<String>> offeredSubjectsPerGradeSection,
+  ) {
+    final errors = <String>[];
+
+    for (final entry in entries) {
+      // For each entry, check if subject is valid for grade+section
+      final validation = validateSubjectForGradeSection(
+        subjectName: entry.subjectName,
+        gradeNumber: int.tryParse(entry.gradeNumber?.toString() ?? '') ?? 0,
+        section: entry.section ?? '',
+        offeredSubjectsPerGradeSection: offeredSubjectsPerGradeSection,
+      );
+
+      if (!validation.isValid) {
+        errors.addAll(validation.errors);
+      }
+    }
+
+    return errors.isEmpty
+        ? ValidationResult.valid()
+        : ValidationResult.invalid(errors);
+  }
 }

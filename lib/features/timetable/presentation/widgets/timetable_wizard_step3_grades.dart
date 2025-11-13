@@ -396,6 +396,7 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
   /// Notify parent of changes
   void _notifyChanges() {
     final selections = <GradeSelection>[];
+    final selectedGradeSectionIds = <String>[];
 
     // Get grade information from the loaded data
     // Note: In a full implementation, we'd have access to the full grade data
@@ -412,7 +413,24 @@ class _TimetableWizardStep3GradesState extends State<TimetableWizardStep3Grades>
             sections: sections,
           ),
         );
+
+        // Build grade-section IDs for valid subjects query: "gradeId_section"
+        for (final section in sections) {
+          selectedGradeSectionIds.add('${gradeId}_$section');
+        }
       }
+    }
+
+    // Trigger loading of valid subjects for selected grade-sections
+    // This populates WizardData.validSubjectsPerGradeSection for use in Step 4
+    if (selectedGradeSectionIds.isNotEmpty) {
+      print('[Step 3] Loading valid subjects for ${selectedGradeSectionIds.length} grade-section combinations');
+      context.read<ExamTimetableBloc>().add(
+            LoadValidSubjectsEvent(
+              tenantId: widget.wizardData.tenantId,
+              selectedGradeSectionIds: selectedGradeSectionIds,
+            ),
+          );
     }
 
     widget.onGradesSelected(selections);

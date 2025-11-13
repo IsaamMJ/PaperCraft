@@ -335,3 +335,29 @@ class DeleteExamEntryEvent extends ExamTimetableEvent {
   @override
   List<Object?> get props => [entryId];
 }
+
+// ===== SUBJECT VALIDATION EVENTS =====
+
+/// Event: Load valid subjects for selected grade-sections
+///
+/// Triggered in Step 3 when user selects grades
+/// Fetches all subjects that are configured in the academic structure
+/// for the selected grade-section combinations
+///
+/// Results in ValidSubjectsLoaded or ExamTimetableError state
+///
+/// Usage: User selects Grade 1 & 3 in Step 3
+///        This event is triggered with their grade_section IDs
+///        Returns: {"1_A": ["EVS", "Math"], "3_A": ["Science", "Math"]}
+class LoadValidSubjectsEvent extends ExamTimetableEvent {
+  final String tenantId;
+  final List<String> selectedGradeSectionIds;
+
+  const LoadValidSubjectsEvent({
+    required this.tenantId,
+    required this.selectedGradeSectionIds,
+  });
+
+  @override
+  List<Object?> get props => [tenantId, selectedGradeSectionIds];
+}

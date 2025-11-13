@@ -93,6 +93,13 @@ class _ExamTimetableCreateWizardPageState
             );
             // Navigate back to timetable list
             Navigator.of(context).pop();
+          } else if (state is ValidSubjectsLoaded) {
+            // Store valid subjects in WizardData for use in Step 4
+            print('[ExamTimetableCreateWizard] ValidSubjectsLoaded: received subjects for ${state.validSubjectsPerGradeSection.length} grade-sections');
+            setState(() {
+              _wizardData.validSubjectsPerGradeSection = state.validSubjectsPerGradeSection;
+              print('[ExamTimetableCreateWizard] Updated _wizardData.validSubjectsPerGradeSection: ${_wizardData.validSubjectsPerGradeSection.keys.join(", ")}');
+            });
           } else if (state is ExamTimetableError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -615,6 +622,12 @@ class WizardData {
   String academicYear = '';
   List<GradeSelection> selectedGrades = [];
   List<ExamTimetableEntryEntity> entries = [];
+
+  /// Map of (gradeNumber_section) -> [subject_names]
+  /// Populated in Step 3 when grades are selected
+  /// Used in Step 4 to filter available subjects
+  /// Example: {"1_A": ["EVS", "Math", "English"], "3_A": ["Science", "Math", "English"]}
+  Map<String, List<String>> validSubjectsPerGradeSection = {};
 
   WizardData({
     required this.tenantId,

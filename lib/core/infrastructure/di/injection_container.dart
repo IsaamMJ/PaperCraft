@@ -75,6 +75,7 @@ import '../../../features/timetable/domain/usecases/publish_exam_timetable_useca
 import '../../../features/timetable/domain/usecases/add_exam_timetable_entry_usecase.dart';
 import '../../../features/timetable/domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../../features/timetable/domain/usecases/get_timetable_grades_and_sections_usecase.dart';
+import '../../../features/timetable/domain/usecases/get_valid_subjects_for_grade_selection_usecase.dart';
 import '../../../features/timetable/domain/usecases/map_grades_to_exam_calendar_usecase.dart';
 import '../../../features/timetable/domain/usecases/get_grades_for_calendar_usecase.dart';
 import '../../../features/timetable/domain/usecases/create_exam_timetable_with_entries_usecase.dart';
@@ -1163,6 +1164,10 @@ class _AdminModule {
 
     sl.registerLazySingleton(() => GetTimetableGradesAndSectionsUsecase());
 
+    sl.registerLazySingleton(() => GetValidSubjectsForGradeSelectionUsecase(
+      repository: sl<ExamTimetableRepository>(),
+    ));
+
     // Register wizard step use cases
     sl<ILogger>().debug('Setting up exam timetable wizard use cases', category: LogCategory.system);
 
@@ -1220,6 +1225,8 @@ class _AdminModule {
 
       final gradesAndSectionsUC = sl<GetTimetableGradesAndSectionsUsecase>();
 
+      final getValidSubjectsUC = sl<GetValidSubjectsForGradeSelectionUsecase>();
+
       final repo = sl<ExamTimetableRepository>();
 
       sl.registerFactory(() => ExamTimetableBloc(
@@ -1230,6 +1237,7 @@ class _AdminModule {
         addExamTimetableEntryUsecase: addEntryUC,
         validateExamTimetableUsecase: validateUC,
         getTimetableGradesAndSectionsUsecase: gradesAndSectionsUC,
+        getValidSubjectsUsecase: getValidSubjectsUC,
         repository: repo,
       ));
     } catch (e, st) {
@@ -1261,6 +1269,20 @@ class _AdminModule {
         ));
       }
 
+      // Register GetSubjectsByGradeUseCase if not already registered
+      if (!sl.isRegistered<GetSubjectsByGradeUseCase>()) {
+        sl.registerLazySingleton(() => GetSubjectsByGradeUseCase(
+          sl<SubjectRepository>(),
+        ));
+      }
+
+      // Register GetSubjectsByGradeAndSectionUseCase if not already registered
+      if (!sl.isRegistered<GetSubjectsByGradeAndSectionUseCase>()) {
+        sl.registerLazySingleton(() => GetSubjectsByGradeAndSectionUseCase(
+          sl<SubjectRepository>(),
+        ));
+      }
+
       sl.registerLazySingleton(() => ExamTimetableWizardBloc(
         getExamCalendars: sl<GetExamCalendarsUsecase>(),
         mapGradesToExamCalendar: sl<MapGradesToExamCalendarUsecase>(),
@@ -1268,6 +1290,8 @@ class _AdminModule {
         createExamTimetableWithEntries: sl<CreateExamTimetableWithEntriesUsecase>(),
         getGrades: sl<GetGradesUseCase>(),
         getSubjects: sl<GetSubjectsUseCase>(),
+        getSubjectsByGrade: sl<GetSubjectsByGradeUseCase>(),
+        getSubjectsByGradeAndSection: sl<GetSubjectsByGradeAndSectionUseCase>(),
         loadGradeSections: sl<LoadGradeSectionsUseCase>(),
       ));
     } catch (e, st) {

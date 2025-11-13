@@ -206,6 +206,20 @@ class TimetableGradesAndSectionsLoaded extends ExamTimetableState {
   List<Object?> get props => [gradesData];
 }
 
+/// Success state: Valid subjects for selected grades loaded
+///
+/// Contains map of grade-section combinations to their valid subjects
+/// Used in Step 3 after user selects grades to populate Step 4 dropdowns
+/// Format: {"1_A": ["EVS", "Math", "English"], "3_A": ["Science", "Math", "English"]}
+class ValidSubjectsLoaded extends ExamTimetableState {
+  final Map<String, List<String>> validSubjectsPerGradeSection;
+
+  const ValidSubjectsLoaded({required this.validSubjectsPerGradeSection});
+
+  @override
+  List<Object?> get props => [validSubjectsPerGradeSection];
+}
+
 // ===== VALIDATION STATES =====
 
 /// Success state: Validation completed

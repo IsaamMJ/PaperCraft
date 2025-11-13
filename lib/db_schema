@@ -970,5 +970,35 @@
     "column_name": "updated_at",
     "data_type": "timestamp with time zone",
     "is_nullable": "NO"
+  },
+  {
+    "table_name": "valid_timetable_entries",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "valid_timetable_entries",
+    "column_name": "grade_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "valid_timetable_entries",
+    "column_name": "section",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "valid_timetable_entries",
+    "column_name": "subject_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "valid_timetable_entries",
+    "column_name": "subject_name",
+    "data_type": "text",
+    "is_nullable": "YES"
   }
 ]

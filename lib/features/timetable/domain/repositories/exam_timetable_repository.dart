@@ -271,4 +271,31 @@ abstract class ExamTimetableRepository {
     required String createdByUserId,
     required List<ExamTimetableEntryEntity> entries,
   });
+
+  // ===== SUBJECT VALIDATION OPERATIONS =====
+
+  /// Get valid subjects for selected grade-section combinations (Step 3 → Step 4)
+  ///
+  /// Fetches all subjects that are offered in the selected grade+section combinations
+  /// from the academic structure (grade_section_subject table).
+  ///
+  /// Parameters:
+  /// - tenantId: School tenant ID
+  /// - selectedGradeSectionIds: List of grade_section IDs selected in Step 3
+  ///
+  /// Returns a map with key format "gradeNumber_section" and values as list of subject names
+  /// Example return value:
+  /// {
+  ///   "1_A": ["EVS", "Math", "English"],
+  ///   "1_B": ["EVS", "Math", "English"],
+  ///   "3_A": ["Science", "Math", "English"]
+  /// }
+  ///
+  /// Used in Step 4 to filter available subjects based on selected grades
+  /// and to validate subject assignments against the academic structure
+  Future<Either<Failure, Map<String, List<String>>>>
+      getValidSubjectsForGradeSelection({
+    required String tenantId,
+    required List<String> selectedGradeSectionIds,
+  });
 }

@@ -1,4 +1,6 @@
 // features/catalog/data/models/subject_catalog_model.dart
+import '../../domain/entities/subject_entity.dart';
+
 class SubjectCatalogModel {
   final String id;
   final String name;
@@ -37,5 +39,20 @@ class SubjectCatalogModel {
       'max_grade': maxGrade,
       'is_active': isActive,
     };
+  }
+
+  /// Convert catalog model to subject entity
+  SubjectEntity toEntity() {
+    return SubjectEntity(
+      id: id,
+      tenantId: '', // Catalog model doesn't have tenant ID
+      catalogSubjectId: id,
+      name: name,
+      description: description,
+      minGrade: minGrade,
+      maxGrade: maxGrade,
+      isActive: isActive,
+      createdAt: DateTime.now(),
+    );
   }
 }

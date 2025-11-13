@@ -272,6 +272,24 @@ abstract class ExamTimetableRemoteDataSource {
     String examCalendarId,
     String gradeId,
   );
+
+  // ===== SUBJECT VALIDATION OPERATIONS =====
+
+  /// Get valid subjects for selected grade-section combinations
+  ///
+  /// Fetches all subjects offered in the given grade+section combinations
+  /// from the grade_section_subject table, filtered by is_offered = true.
+  ///
+  /// Parameters:
+  /// - tenantId: School tenant ID
+  /// - selectedGradeSectionIds: List of grade_section UUIDs selected in Step 3
+  ///
+  /// Returns a map with key format "gradeNumber_section" and values as list of subject names
+  Future<Either<Failure, Map<String, List<String>>>>
+      getValidSubjectsForGradeSelection({
+    required String tenantId,
+    required List<String> selectedGradeSectionIds,
+  });
 }
 
 /// Implementation of ExamTimetableRemoteDataSource using Supabase
@@ -476,8 +494,11 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     ExamTimetableEntity timetable,
   ) async {
     try {
+      print('[DataSource] Creating timetable - ID: ${timetable.id}');
       final model = ExamTimetableModel.fromEntity(timetable);
       final jsonData = model.toJson();
+      print('[DataSource] JSON to insert: ${jsonData['id']}, examName: ${jsonData['exam_name']}');
+
       final response = await _supabaseClient
           .from('exam_timetables')
           .insert(jsonData)
@@ -485,10 +506,13 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           .single();
 
       final created = ExamTimetableModel.fromJson(response as Map<String, dynamic>);
+      print('[DataSource] Timetable created with ID: ${created.id}');
       return Right(created);
     } on PostgrestException catch (e) {
+      print('[DataSource] PostgrestException creating timetable: ${e.toString()}');
       return Left(_mapPostgrestException(e));
     } catch (e) {
+      print('[DataSource] Error creating timetable: ${e.toString()}');
       return Left(ServerFailure('Failed to create exam timetable: ${e.toString()}'));
     }
   }
@@ -862,20 +886,36 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         return const Right([]);
       }
 
-      final models = entries.map((e) => ExamTimetableEntryModel.fromEntity(e).toJson()).toList();
-      final response = await _supabaseClient
-          .from('exam_timetable_entries')
-          .insert(models)
-          .select();
+      print('[DataSource] Received ${entries.length} entries to insert');
+      final models = entries.map((e) {
+        print('[DataSource] Converting entry - subject: ${e.subjectId}, timetableId: "${e.timetableId}"');
+        return ExamTimetableEntryModel.fromEntity(e).toJson();
+      }).toList();
 
-      final created = (response as List<dynamic>)
-          .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      print('[DataSource] Sample entry JSON to insert: ${models.isNotEmpty ? models.first : "no entries"}');
 
-      return Right(created);
-    } on PostgrestException catch (e) {
-      return Left(_mapPostgrestException(e));
+      try {
+        final response = await _supabaseClient
+            .from('exam_timetable_entries')
+            .insert(models)
+            .select();
+
+        final created = (response as List<dynamic>)
+            .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        print('[DataSource] Successfully inserted ${created.length} entries');
+        return Right(created);
+      } on PostgrestException catch (e) {
+        print('[DataSource] Postgrest error inserting entries:');
+        print('[DataSource]   Code: ${e.code}');
+        print('[DataSource]   Message: ${e.message}');
+        print('[DataSource]   Details: ${e.details}');
+        print('[DataSource]   Hint: ${e.hint}');
+        return Left(_mapPostgrestException(e));
+      }
     } catch (e) {
+      print('[DataSource] General error inserting entries: ${e.toString()}');
       return Left(ServerFailure('Failed to add multiple exam entries: ${e.toString()}'));
     }
   }
@@ -1239,16 +1279,23 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     List<String> gradeSectionIds,
   ) async {
     try {
-      final inserts = gradeSectionIds.map((gradeSectionId) => {
-            'tenant_id': tenantId,
-            'exam_calendar_id': examCalendarId,
-            'grade_section_id': gradeSectionId,
-            'is_active': true,
-          }).toList();
+      print('[ExamTimetableRemoteDataSource] addGradesToCalendar: Mapping ${gradeSectionIds.length} sections to calendar $examCalendarId');
+
+      final inserts = gradeSectionIds.map((gradeSectionId) {
+        print('[ExamTimetableRemoteDataSource]   - Preparing insert for section: $gradeSectionId');
+        return {
+          'tenant_id': tenantId,
+          'exam_calendar_id': examCalendarId,
+          'grade_section_id': gradeSectionId,
+          'is_active': true,
+        };
+      }).toList();
+
+      print('[ExamTimetableRemoteDataSource] Calling upsert with ${inserts.length} records, onConflict on exam_calendar_id,grade_section_id');
 
       final response = await _supabaseClient
           .from('exam_calendar_grade_mapping')
-          .insert(inserts)
+          .upsert(inserts, onConflict: 'exam_calendar_id,grade_section_id')
           .select();
 
       final mappings = (response as List<dynamic>)
@@ -1256,10 +1303,13 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
               json as Map<String, dynamic>))
           .toList();
 
+      print('[ExamTimetableRemoteDataSource] Successfully mapped ${mappings.length} grade-sections to calendar');
       return Right(mappings);
     } on PostgrestException catch (e) {
+      print('[ExamTimetableRemoteDataSource] PostgrestException in addGradesToCalendar: ${e.message}');
       return Left(ServerFailure(e.message));
     } catch (e) {
+      print('[ExamTimetableRemoteDataSource] Exception in addGradesToCalendar: $e');
       return Left(ServerFailure(e.toString()));
     }
   }
@@ -1347,6 +1397,73 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
       return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, List<String>>>>
+      getValidSubjectsForGradeSelection({
+    required String tenantId,
+    required List<String> selectedGradeSectionIds,
+  }) async {
+    try {
+      if (selectedGradeSectionIds.isEmpty) {
+        return const Right({});
+      }
+
+      // Query grade_section_subject joined with grade_sections and subject_catalog
+      // to get all valid (grade_number, section, subject_name) combinations
+      final response = await _supabaseClient
+          .from('grade_section_subject')
+          .select('''
+            grade_section_id,
+            subject_id,
+            grade_sections!inner(grade_id, section_name),
+            subjects!inner(catalog_subject_id),
+            subject_catalog!inner(subject_name)
+          ''')
+          .eq('tenant_id', tenantId)
+          .eq('is_offered', true)
+          .eq('grade_sections.is_active', true)
+          .eq('subjects.is_active', true)
+          .inFilter('grade_section_id', selectedGradeSectionIds);
+
+      // Build the result map: "gradeNumber_section" -> [subject_names]
+      final Map<String, List<String>> result = {};
+
+      if (response.isNotEmpty && response is List) {
+        for (final item in response) {
+          if (item is Map<String, dynamic>) {
+            final gradeSection = item['grade_sections'];
+            final subjects = item['subjects'];
+            final subjectCatalog = item['subject_catalog'];
+
+            if (gradeSection != null && subjectCatalog != null) {
+              final gradeId = gradeSection['grade_id'];
+              final sectionName = gradeSection['section_name'];
+              final subjectName = subjectCatalog['subject_name'];
+
+              final key = '${gradeId}_$sectionName';
+
+              if (!result.containsKey(key)) {
+                result[key] = [];
+              }
+
+              if (subjectName != null && !result[key]!.contains(subjectName)) {
+                result[key]!.add(subjectName);
+              }
+            }
+          }
+        }
+      }
+
+      return Right(result);
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure(
+          'Failed to fetch valid subjects: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure(
+          'Error fetching valid subjects: ${e.toString()}'));
     }
   }
 }
