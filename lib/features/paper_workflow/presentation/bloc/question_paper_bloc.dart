@@ -6,6 +6,7 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../paper_review/domain/usecases/approve_paper_usecase.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/update_paper_usecase.dart';
@@ -177,6 +178,20 @@ class UpdateQuestionInline extends QuestionPaperEvent {
 
   @override
   List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions];
+}
+
+/// Update section name
+class UpdateSectionName extends QuestionPaperEvent {
+  final String oldSectionName;
+  final String newSectionName;
+
+  const UpdateSectionName({
+    required this.oldSectionName,
+    required this.newSectionName,
+  });
+
+  @override
+  List<Object> get props => [oldSectionName, newSectionName];
 }
 
 // =============== STATES ===============
@@ -414,6 +429,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<RefreshAll>(_onRefreshAll);
     on<LoadAllTeacherPapers>(_onLoadAllTeacherPapers);
     on<UpdateQuestionInline>(_onUpdateQuestionInline);
+    on<UpdateSectionName>(_onUpdateSectionName);
   }
 
   Future<void> _onLoadDrafts(LoadDrafts event, Emitter<QuestionPaperState> emit) async {
@@ -883,6 +899,102 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       print('   ❌ Exception occurred: $e');
       print('   Stack trace: $stackTrace');
       emit(QuestionPaperError('Failed to update question: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onUpdateSectionName(UpdateSectionName event, Emitter<QuestionPaperState> emit) async {
+    print('🎯 [BLoC] UpdateSectionName event received');
+    print('   - Old section name: "${event.oldSectionName}"');
+    print('   - New section name: "${event.newSectionName}"');
+
+    if (state is! QuestionPaperLoaded) {
+      print('   ❌ Error: State is not QuestionPaperLoaded');
+      return;
+    }
+
+    final currentState = state as QuestionPaperLoaded;
+    final currentPaper = currentState.currentPaper;
+
+    if (currentPaper == null) {
+      print('   ❌ Error: No paper loaded');
+      emit(const QuestionPaperError('No paper loaded'));
+      return;
+    }
+
+    try {
+      print('   📋 Checking paper structure...');
+
+      // Update section name in paperSections
+      final updatedSections = currentPaper.paperSections != null
+          ? List<PaperSectionEntity>.from(currentPaper.paperSections!)
+          : <PaperSectionEntity>[];
+      var sectionIndex = -1;
+
+      for (int i = 0; i < updatedSections.length; i++) {
+        if (updatedSections[i].name == event.oldSectionName) {
+          sectionIndex = i;
+          break;
+        }
+      }
+
+      if (sectionIndex == -1) {
+        print('   ❌ Error: Section "${event.oldSectionName}" not found in paperSections');
+        emit(QuestionPaperError('Section not found'));
+        return;
+      }
+
+      // Update the section name
+      final oldSection = updatedSections[sectionIndex];
+      print('   🔄 Updating section:');
+      print('      - Old name: "${oldSection.name}"');
+      print('      - New name: "${event.newSectionName}"');
+
+      // Create updated section with new name (assuming section has a copyWith method)
+      updatedSections[sectionIndex] = oldSection.copyWith(name: event.newSectionName);
+
+      // Update questions map to use new section name
+      final updatedQuestions = <String, List<Question>>{};
+      currentPaper.questions.forEach((sectionName, questions) {
+        if (sectionName == event.oldSectionName) {
+          updatedQuestions[event.newSectionName] = questions;
+        } else {
+          updatedQuestions[sectionName] = questions;
+        }
+      });
+
+      // Create updated paper
+      final updatedPaper = currentPaper.copyWith(
+        paperSections: updatedSections,
+        questions: updatedQuestions,
+      );
+
+      print('   ✅ Section name updated successfully');
+
+      // Emit success state with updated paper
+      emit(currentState.copyWith(currentPaper: updatedPaper));
+
+      // Save the updated paper to the database
+      print('   💾 Saving updated paper to database...');
+      final result = await _updatePaperUseCase(updatedPaper);
+
+      result.fold(
+        (failure) {
+          print('   ❌ Database save failed: ${failure.message}');
+          emit(QuestionPaperError('Failed to save changes: ${failure.message}'));
+        },
+        (savedPaper) {
+          print('   ✅ Paper saved to database successfully');
+
+          // Emit final loaded state with the saved paper
+          emit(currentState.copyWith(currentPaper: savedPaper));
+
+          print('   📢 Section name update complete');
+        },
+      );
+    } catch (e, stackTrace) {
+      print('   ❌ Exception occurred: $e');
+      print('   Stack trace: $stackTrace');
+      emit(QuestionPaperError('Failed to update section: ${e.toString()}'));
     }
   }
 }

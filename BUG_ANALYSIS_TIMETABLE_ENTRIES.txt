@@ -1,0 +1,172 @@
+BUG ANALYSIS: Only Grade 1 Section B Entries Being Created
+
+SUMMARY:
+The timetable creation wizard creates entries for ONLY the first selected grade and only ONE of its sections, instead of ALL selected grades and their sections.
+
+ROOT CAUSE LOCATION:
+File: E:\New folder (2)\papercraft\lib\features\timetable\presentation\bloc\exam_timetable_wizard_bloc.dart
+Method: _onAssignSubjectDate() (lines 316-406)
+Specific Lines: 360-361, 374-389
+
+THE BUG:
+Line 360: final firstGradeId = step3State.selectedGradeIds[0];  // ONLY takes FIRST grade
+Line 361: final gradeSectionId = step3State.gradeSectionMapping[firstGradeId];
+
+This creates an entry for ONLY the first grade, not all selected grades.
+
+CONTRIBUTING PROBLEM IN _onSelectGrades():
+Lines 247-251: The mapping loop OVERWRITES section IDs:
+  for (final section in sections) {
+    allSectionIds.add(section.id);
+    gradeSectionMapping[gradeId] = section.id;  // OVERWRITES! Only last section kept
+  }
+
+WHY THIS HAPPENS:
+1. User selects grades 1-5 in Step 2
+2. For each grade, all sections are fetched (A, B, C, etc)
+3. But gradeSectionMapping[gradeId] = section.id overwrites with only the LAST section
+4. In Step 3, when assigning subjects, it uses selectedGradeIds[0] (first grade only)
+5. Only one entry is created per subject, for Grade 1 only
+
+FLOW DIAGRAM:
+Step 1 (wizard_step2_grades.dart, lines 139-180):
+  User selects: Grade 1, Grade 2, Grade 3, Grade 4, Grade 5
+  -> _selectedGradeIds = {grade-1, grade-2, grade-3, grade-4, grade-5}
+
+Step 2 (exam_timetable_wizard_bloc.dart, _onSelectGrades, lines 208-314):
+  For each grade, load sections
+  Expand to: allSectionIds = [grade-1-sec-a, grade-1-sec-b, grade-1-sec-c, 
+                               grade-2-sec-a, grade-2-sec-b, ... ]
+  But mapping only keeps last: gradeSectionMapping = {grade-1: grade-1-sec-c, 
+                                                       grade-2: grade-2-sec-c, ...}
+
+Step 3 (wizard_step3_schedule.dart, lines 166-197):
+  User assigns each subject to a date
+  Triggers: AssignSubjectDateEvent
+
+Step 3 continued (exam_timetable_wizard_bloc.dart, _onAssignSubjectDate):
+  firstGradeId = selectedGradeIds[0]  // Takes ONLY Grade 1
+  gradeSectionId = gradeSectionMapping[firstGradeId]  // Get section for Grade 1
+  
+  Creates SINGLE entry with:
+    gradeId: grade-1
+    gradeSectionId: grade-1-sec-c  (or whatever is last in mapping)
+    section: 'A'
+
+  This happens for EVERY subject assignment, but only for Grade 1!
+
+Step 4 (exam_timetable_wizard_bloc.dart, _onSubmitWizard, lines 440-485):
+  Submits all entries to database
+  But entries only contain Grade 1 entries
+
+DATABASE RESULT:
+exam_timetable_entries contains only:
+  - Subject 1 -> Grade 1 Section C
+  - Subject 2 -> Grade 1 Section C
+  - Subject 3 -> Grade 1 Section C
+  ... (repeat for all subjects)
+
+EXPECTED RESULT SHOULD BE:
+exam_timetable_entries should contain:
+  - Subject 1 -> Grade 1 Section A, Grade 1 Section B, Grade 1 Section C
+           -> Grade 2 Section A, Grade 2 Section B, Grade 2 Section C
+           -> Grade 3 Section A, Grade 3 Section B, Grade 3 Section C
+           -> Grade 4 Section A, Grade 4 Section B, Grade 4 Section C
+           -> Grade 5 Section A, Grade 5 Section B, Grade 5 Section C
+  - Subject 2 -> Same (for all grades/sections)
+  - etc.
+
+FILES INVOLVED:
+=== Presentation Layer ===
+1. E:\New folder (2)\papercraft\lib\features\timetable\presentation\pages\exam_timetable_wizard_page.dart
+   - Main wizard orchestrator
+   - Manages step progression
+
+2. E:\New folder (2)\papercraft\lib\features\timetable\presentation\widgets\wizard_step2_grades.dart
+   - Grade selection UI (lines 139-180)
+   - Collects selected grade IDs correctly
+
+3. E:\New folder (2)\papercraft\lib\features\timetable\presentation\widgets\wizard_step3_schedule.dart
+   - Subject date assignment UI (lines 166-197)
+   - Triggers AssignSubjectDateEvent for each subject
+
+=== Business Logic Layer ===
+4. E:\New folder (2)\papercraft\lib\features\timetable\presentation\bloc\exam_timetable_wizard_bloc.dart
+   
+   - _onSelectGrades() (lines 208-314)
+     Location of bug #1: gradeSectionMapping overwrites sections
+     Line 249: gradeSectionMapping[gradeId] = section.id;  // OVERWRITES
+   
+   - _onAssignSubjectDate() (lines 316-406)
+     Location of bug #2: Only uses first grade
+     Line 360: final firstGradeId = step3State.selectedGradeIds[0];
+     Lines 374-389: Creates entry for only firstGradeId
+   
+   - _onSubmitWizard() (lines 440-485)
+     Submits incomplete entries list
+
+=== Domain Layer ===
+5. E:\New folder (2)\papercraft\lib\features\timetable\domain\usecases\create_exam_timetable_with_entries_usecase.dart
+   - Receives incomplete entries list and validates
+   - No logic to expand entries for multiple grades
+
+=== Data Layer ===
+6. E:\New folder (2)\papercraft\lib\features\timetable\data\repositories\exam_timetable_repository_impl.dart
+   (lines 410-478, createExamTimetableWithEntries method)
+   
+7. E:\New folder (2)\papercraft\lib\features\timetable\data\datasources\exam_timetable_remote_data_source.dart
+   (lines 857-881, addMultipleExamTimetableEntries method)
+
+FIXES REQUIRED:
+
+Fix #1: Change gradeSectionMapping structure (Line 249 in _onSelectGrades)
+Current:
+  gradeSectionMapping[gradeId] = section.id;  // Overwrites
+
+Should be:
+  if (!gradeSectionMapping.containsKey(gradeId)) {
+    gradeSectionMapping[gradeId] = [];
+  }
+  gradeSectionMapping[gradeId]!.add(section.id);
+
+Then change the type:
+  final gradeSectionMapping = <String, List<String>>{};  // ONE-TO-MANY
+
+Fix #2: Create entries for ALL grades, not just first (Lines 350-406 in _onAssignSubjectDate)
+Current:
+  final firstGradeId = step3State.selectedGradeIds[0];
+  final gradeSectionId = step3State.gradeSectionMapping[firstGradeId];
+  final newEntry = ExamTimetableEntryEntity(...);
+
+Should be:
+  final List<ExamTimetableEntryEntity> newEntries = [];
+  
+  for (final gradeId in step3State.selectedGradeIds) {
+    final sectionIds = step3State.gradeSectionMapping[gradeId] ?? [];
+    
+    for (final sectionId in sectionIds) {
+      final newEntry = ExamTimetableEntryEntity(
+        gradeSectionId: sectionId,
+        gradeId: gradeId,
+        // ... other fields
+      );
+      newEntries.add(newEntry);
+    }
+  }
+  
+  // Combine with existing entries
+  final updatedEntries = [...step3State.entries, ...newEntries];
+
+Alternative Fix: Create entries in Step 2
+Instead of deferring entry creation to Step 3, create all entries when grades are selected
+in _onSelectGrades. In Step 3, just assign dates to existing entries.
+
+TESTING TO VERIFY BUG:
+1. Create a new timetable
+2. Step 1: Select a calendar
+3. Step 2: Select all 5 grades (1, 2, 3, 4, 5)
+4. Step 3: Assign all subjects to dates
+5. Check database table exam_timetable_entries
+6. RESULT: Only entries for Grade 1 exist (BUG CONFIRMED)
+7. EXPECTED: Entries for Grades 1-5 should exist
+

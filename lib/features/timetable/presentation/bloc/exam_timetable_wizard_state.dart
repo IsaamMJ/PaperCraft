@@ -108,7 +108,8 @@ class WizardStep3State extends ExamTimetableWizardState {
   final List<String> selectedGradeIds;
   final List<SubjectEntity> subjects;
   final List<ExamTimetableEntryEntity> entries;
-  final Map<String, String> gradeSectionMapping; // Maps gradeId -> gradeSectionId
+  final Map<String, dynamic> gradeSectionMapping; // Maps gradeId -> List of sections with id, name
+  final Map<String, dynamic> sectionDetailsMap; // Maps gradeSectionId -> {gradeId, sectionName}
   final bool isLoading;
   final String? error;
 
@@ -119,6 +120,7 @@ class WizardStep3State extends ExamTimetableWizardState {
     this.subjects = const [],
     this.entries = const [],
     this.gradeSectionMapping = const {},
+    this.sectionDetailsMap = const {},
     this.isLoading = false,
     this.error,
   });
@@ -129,7 +131,8 @@ class WizardStep3State extends ExamTimetableWizardState {
     List<String>? selectedGradeIds,
     List<SubjectEntity>? subjects,
     List<ExamTimetableEntryEntity>? entries,
-    Map<String, String>? gradeSectionMapping,
+    Map<String, dynamic>? gradeSectionMapping,
+    Map<String, dynamic>? sectionDetailsMap,
     bool? isLoading,
     String? error,
   }) {
@@ -140,6 +143,7 @@ class WizardStep3State extends ExamTimetableWizardState {
       subjects: subjects ?? this.subjects,
       entries: entries ?? this.entries,
       gradeSectionMapping: gradeSectionMapping ?? this.gradeSectionMapping,
+      sectionDetailsMap: sectionDetailsMap ?? this.sectionDetailsMap,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );

@@ -673,14 +673,19 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
             .select('id, grade_id')
             .inFilter('id', uniqueGradeSectionIds);
 
+        print('[getExamTimetableEntries] gradesMap=$gradesMap');
+        print('[getExamTimetableEntries] uniqueGradeSectionIds=$uniqueGradeSectionIds');
+
         for (var gs in (gradeSectionsResponse as List<dynamic>)) {
           final gradeSectionId = gs['id'] as String;
           final gradeId = gs['grade_id'] as String;
           final gradeNumber = gradesMap[gradeId];
+          print('[getExamTimetableEntries] Mapping: gradeSectionId=$gradeSectionId -> gradeId=$gradeId -> gradeNumber=$gradeNumber');
           if (gradeNumber != null) {
             gradeSectionToGradeNumber[gradeSectionId] = gradeNumber;
           }
         }
+        print('[getExamTimetableEntries] Final gradeSectionToGradeNumber mapping: $gradeSectionToGradeNumber');
       } catch (e) {
         print('[getExamTimetableEntries] Failed to map grade_section_id to grade_number: $e');
       }

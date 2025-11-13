@@ -228,7 +228,8 @@ class ExamTimetableWizardBloc
 
     // Expand selected grades to all their sections
     final List<String> allSectionIds = [];
-    final gradeSectionMapping = <String, String>{};
+    final gradeSectionMapping = <String, List<String>>{};
+    final sectionDetailsMap = <String, Map<String, String>>{}; // gradeSectionId -> {gradeId, sectionName}
 
     for (final gradeId in event.gradeSectionIds) {
       print('[WizardBloc] Loading sections for grade: $gradeId');
@@ -244,11 +245,18 @@ class ExamTimetableWizardBloc
         },
         (sections) {
           print('[WizardBloc] Grade $gradeId has ${sections.length} sections');
+          final sectionIds = <String>[];
           for (final section in sections) {
             allSectionIds.add(section.id);
-            gradeSectionMapping[gradeId] = section.id;
+            sectionIds.add(section.id);
+            // Store section details for later lookup
+            sectionDetailsMap[section.id] = {
+              'gradeId': gradeId,
+              'sectionName': section.sectionName,
+            };
             print('[WizardBloc] Added section: ${section.sectionName} (${section.id}) for grade $gradeId');
           }
+          gradeSectionMapping[gradeId] = sectionIds;
         },
       );
     }
@@ -304,6 +312,7 @@ class ExamTimetableWizardBloc
               selectedGradeIds: event.gradeSectionIds, // Store original grade IDs for reference
               subjects: subjects,
               gradeSectionMapping: gradeSectionMapping,
+              sectionDetailsMap: sectionDetailsMap,
               isLoading: false,
             ));
             print('[WizardBloc] WizardStep3State emitted successfully with ${allSectionIds.length} grade sections');
@@ -347,8 +356,7 @@ class ExamTimetableWizardBloc
       return;
     }
 
-    // MVP: Use the first selected grade's first available section
-    // Grade section mapping was populated in _onSelectGrades
+    // Create ONE entry per subject that applies to ALL selected grades
     if (step3State.selectedGradeIds.isEmpty) {
       emit(WizardValidationErrorState(
         errors: ['No grades selected'],
@@ -357,50 +365,60 @@ class ExamTimetableWizardBloc
       return;
     }
 
-    final firstGradeId = step3State.selectedGradeIds[0];
-    final gradeSectionId = step3State.gradeSectionMapping[firstGradeId];
-
-    if (gradeSectionId == null || gradeSectionId.isEmpty) {
-      emit(WizardValidationErrorState(
-        errors: ['Grade section mapping not found for grade $firstGradeId. Please go back and reselect grades.'],
-        step: 'step_3',
-      ));
-      return;
+    // Validate that all grades have section mappings
+    for (final gradeId in step3State.selectedGradeIds) {
+      final sections = step3State.gradeSectionMapping[gradeId];
+      if (sections == null || sections.isEmpty) {
+        emit(WizardValidationErrorState(
+          errors: ['Grade section mapping not found for grade $gradeId. Please go back and reselect grades.'],
+          step: 'step_3',
+        ));
+        return;
+      }
     }
 
-    print('[WizardBloc] Creating entry with gradeSectionId: $gradeSectionId for grade: $firstGradeId');
+    // Create ONE entry per subject that applies to all selected grades
+    // The timetable tracks which grades it's for, so we create entries for each grade section
+    final List<ExamTimetableEntryEntity> newEntries = [];
 
-    // Create entry with actual gradeSectionId from the mapping
-    final newEntry = ExamTimetableEntryEntity(
-      id: null, // Let database generate UUID
-      tenantId: step3State.tenantId,
-      timetableId: '',
-      gradeSectionId: gradeSectionId, // Real grade_section_id from database
-      gradeId: firstGradeId,
-      section: 'A', // Default section (denormalized from grade_sections)
-      subjectId: event.subjectId,
-      examDate: event.examDate,
-      startTime: Duration(hours: event.startTime.hour, minutes: event.startTime.minute),
-      endTime: Duration(hours: event.endTime.hour, minutes: event.endTime.minute),
-      durationMinutes: durationMinutes,
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    // Check if subject already assigned
-    final existingIndex =
-        step3State.entries.indexWhere((e) => e.subjectId == event.subjectId);
-    List<ExamTimetableEntryEntity> updatedEntries;
-
-    if (existingIndex >= 0) {
-      // Replace existing
-      updatedEntries = List.from(step3State.entries);
-      updatedEntries[existingIndex] = newEntry;
-    } else {
-      // Add new
-      updatedEntries = [...step3State.entries, newEntry];
+    // Get all grade section IDs from all selected grades
+    final allGradeSectionIds = <String>{};
+    for (final gradeId in step3State.selectedGradeIds) {
+      final gradeSectionIds = step3State.gradeSectionMapping[gradeId] as List<dynamic>? ?? [];
+      allGradeSectionIds.addAll(gradeSectionIds.cast<String>());
     }
+
+    // Create one entry per grade section with proper gradeId and section name
+    for (final gradeSectionId in allGradeSectionIds) {
+      // Look up section details from the map
+      final sectionDetails = step3State.sectionDetailsMap[gradeSectionId] as Map<String, dynamic>?;
+      final gradeId = sectionDetails?['gradeId'] as String? ?? '';
+      final sectionName = sectionDetails?['sectionName'] as String? ?? '';
+
+      final newEntry = ExamTimetableEntryEntity(
+        id: null, // Let database generate UUID
+        tenantId: step3State.tenantId,
+        timetableId: '',
+        gradeSectionId: gradeSectionId, // Real grade_section_id from database
+        gradeId: gradeId, // Actual grade ID
+        section: sectionName, // Actual section name (A, B, C, etc.)
+        subjectId: event.subjectId,
+        examDate: event.examDate,
+        startTime: Duration(hours: event.startTime.hour, minutes: event.startTime.minute),
+        endTime: Duration(hours: event.endTime.hour, minutes: event.endTime.minute),
+        durationMinutes: durationMinutes,
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      newEntries.add(newEntry);
+    }
+
+    print('[WizardBloc] Creating ${newEntries.length} entries (${allGradeSectionIds.length} sections across ${step3State.selectedGradeIds.length} grades) for subject: ${event.subjectId}');
+
+    // Remove existing entries for this subject and add new ones for all grade sections
+    final updatedEntries = step3State.entries.where((e) => e.subjectId != event.subjectId).toList();
+    updatedEntries.addAll(newEntries);
 
     emit(step3State.copyWith(entries: updatedEntries));
   }

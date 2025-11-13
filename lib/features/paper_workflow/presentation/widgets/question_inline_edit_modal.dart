@@ -26,7 +26,34 @@ class QuestionInlineEditModal extends StatefulWidget {
 class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   late TextEditingController _questionTextController;
   late List<TextEditingController> _optionControllers;
+  late List<TextEditingController> _columnAControllers;
+  late List<TextEditingController> _columnBControllers;
   bool _isSaving = false;
+
+  /// Helper method to check if question is "Match the Following" type
+  bool _isMatchFollowing() => widget.question.type == 'match_following';
+
+  /// Parse options into two columns for match_following questions
+  void _parseMatchingPairs() {
+    if (!_isMatchFollowing() || widget.question.options == null || widget.question.options!.isEmpty) {
+      return;
+    }
+
+    final options = widget.question.options!;
+    final separatorIndex = options.indexOf('---SEPARATOR---');
+
+    if (separatorIndex == -1) return;
+
+    final columnA = options.sublist(0, separatorIndex);
+    final columnB = options.sublist(separatorIndex + 1);
+
+    _columnAControllers = columnA.map((opt) => TextEditingController(text: opt)).toList();
+    _columnBControllers = columnB.map((opt) => TextEditingController(text: opt)).toList();
+
+    print('🔍 [MatchFollowing] Parsed ${columnA.length} pairs');
+    print('   - Column A items: ${columnA.length}');
+    print('   - Column B items: ${columnB.length}');
+  }
 
   @override
   void initState() {
@@ -40,9 +67,20 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
     _questionTextController = TextEditingController(text: widget.question.text);
 
     // Initialize option controllers
-    _optionControllers = (widget.question.options ?? [])
-        .map((option) => TextEditingController(text: option))
-        .toList();
+    if (_isMatchFollowing()) {
+      // For match_following, parse pairs separately
+      _optionControllers = [];
+      _columnAControllers = [];
+      _columnBControllers = [];
+      _parseMatchingPairs();
+    } else {
+      // For other types, use regular option controllers
+      _optionControllers = (widget.question.options ?? [])
+          .map((option) => TextEditingController(text: option))
+          .toList();
+      _columnAControllers = [];
+      _columnBControllers = [];
+    }
   }
 
   @override
@@ -52,22 +90,46 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
     for (var controller in _optionControllers) {
       controller.dispose();
     }
+    for (var controller in _columnAControllers) {
+      controller.dispose();
+    }
+    for (var controller in _columnBControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _addOption() {
-    print('➕ [InlineEditModal] Added new option (total: ${_optionControllers.length + 1})');
-    setState(() {
-      _optionControllers.add(TextEditingController());
-    });
+    if (_isMatchFollowing()) {
+      print('➕ [MatchFollowing] Added new pair (total: ${_columnAControllers.length + 1})');
+      setState(() {
+        _columnAControllers.add(TextEditingController());
+        _columnBControllers.add(TextEditingController());
+      });
+    } else {
+      print('➕ [InlineEditModal] Added new option (total: ${_optionControllers.length + 1})');
+      setState(() {
+        _optionControllers.add(TextEditingController());
+      });
+    }
   }
 
   void _removeOption(int index) {
-    print('➖ [InlineEditModal] Removed option at index $index (total before: ${_optionControllers.length})');
-    setState(() {
-      _optionControllers[index].dispose();
-      _optionControllers.removeAt(index);
-    });
+    if (_isMatchFollowing()) {
+      print('➖ [MatchFollowing] Removed pair at index $index (total before: ${_columnAControllers.length})');
+      setState(() {
+        _columnAControllers[index].dispose();
+        _columnBControllers[index].dispose();
+        _columnAControllers.removeAt(index);
+        _columnBControllers.removeAt(index);
+      });
+    } else {
+      print('➖ [InlineEditModal] Removed option at index $index (total before: ${_optionControllers.length})');
+      setState(() {
+        _optionControllers[index].dispose();
+        _optionControllers.removeAt(index);
+      });
+    }
   }
 
   void _saveChanges() {
@@ -86,7 +148,38 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
     // Get updated options
     List<String>? updatedOptions;
-    if (_optionControllers.isNotEmpty) {
+
+    if (_isMatchFollowing()) {
+      // Handle match_following - combine columns with separator
+      final columnA = _columnAControllers
+          .map((ctrl) => ctrl.text.trim())
+          .where((text) => text.isNotEmpty)
+          .toList();
+
+      final columnB = _columnBControllers
+          .map((ctrl) => ctrl.text.trim())
+          .where((text) => text.isNotEmpty)
+          .toList();
+
+      if (columnA.isEmpty || columnB.isEmpty) {
+        print('   ❌ Validation failed: Both columns must have at least one item');
+        _showErrorSnackBar('Both columns must have at least one item');
+        return;
+      }
+
+      // Ensure equal number of items
+      if (columnA.length != columnB.length) {
+        print('   ❌ Validation failed: Column A (${columnA.length}) and Column B (${columnB.length}) must have equal items');
+        _showErrorSnackBar('Both columns must have the same number of items');
+        return;
+      }
+
+      // Combine with separator
+      updatedOptions = [...columnA, '---SEPARATOR---', ...columnB];
+      print('   ✅ MatchFollowing options validated:');
+      print('      - Column A: ${columnA.length} items');
+      print('      - Column B: ${columnB.length} items');
+    } else if (_optionControllers.isNotEmpty) {
       updatedOptions = _optionControllers
           .map((ctrl) => ctrl.text.trim())
           .where((text) => text.isNotEmpty)
@@ -213,8 +306,141 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
                     ),
                     SizedBox(height: UIConstants.spacing16),
 
+                    // Match the Following Options
+                    if (widget.question.type == 'match_following')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Matching Pairs'),
+                          SizedBox(height: UIConstants.spacing8),
+                          Container(
+                            padding: const EdgeInsets.all(UIConstants.paddingSmall),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary05,
+                              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                              border: Border.all(color: AppColors.primary20),
+                            ),
+                            child: Column(
+                              children: [
+                                // Header
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Column A',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: UIConstants.fontSizeSmall,
+                                            color: AppColors.primary,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        child: Icon(Icons.arrow_forward, size: 16, color: AppColors.textSecondary),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          'Column B',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: UIConstants.fontSizeSmall,
+                                            color: AppColors.primary,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Pairs
+                                ..._columnAControllers.asMap().entries.map((e) {
+                                  final index = e.key;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _columnAControllers[index],
+                                            decoration: InputDecoration(
+                                              hintText: 'Item ${index + 1}',
+                                              isDense: true,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.border),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.border),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.primary, width: 2),
+                                              ),
+                                              contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          child: Icon(Icons.arrow_forward, size: 16, color: AppColors.textSecondary),
+                                        ),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _columnBControllers[index],
+                                            decoration: InputDecoration(
+                                              hintText: 'Match ${index + 1}',
+                                              isDense: true,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.border),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.border),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                                borderSide: BorderSide(color: AppColors.primary, width: 2),
+                                              ),
+                                              contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: UIConstants.spacing8),
+                                        if (_columnAControllers.length > 2)
+                                          IconButton(
+                                            icon: Icon(Icons.delete_outline, color: AppColors.error),
+                                            onPressed: () => _removeOption(index),
+                                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: UIConstants.spacing12),
+                          TextButton.icon(
+                            onPressed: _addOption,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Pair'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: UIConstants.spacing16),
+                        ],
+                      ),
+
                     // Options (if MCQ or fill_blanks)
-                    if (widget.question.type == 'multiple_choice' || widget.question.type == 'fill_blanks')
+                    if (!widget.question.type.contains('match') && (widget.question.type == 'multiple_choice' || widget.question.type == 'fill_blanks'))
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

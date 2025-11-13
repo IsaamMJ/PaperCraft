@@ -22,7 +22,7 @@ class TimetablePdfGenerator {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(20),
         build: (context) => [
           // Header with school name
@@ -86,33 +86,11 @@ class TimetablePdfGenerator {
           ),
           pw.SizedBox(height: 10),
 
-          // Table
-          pw.TableHelper.fromTextArray(
-            headers: ['Date', 'Subject', 'Time'],
-            data: entries
-                .map((entry) => [
-                      _formatDate(entry.examDate),
-                      entry.subjectName ?? 'Unknown',
-                      entry.scheduleDisplay,
-                    ])
-                .toList(),
-            headerStyle: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.white,
-            ),
-            headerDecoration: const pw.BoxDecoration(
-              color: primaryColor,
-            ),
-            cellHeight: 30,
-            cellAlignment: pw.Alignment.centerLeft,
-            rowDecoration: pw.BoxDecoration(
-              border: pw.Border(
-                bottom: pw.BorderSide(
-                  color: PdfColors.grey300,
-                  width: 0.5,
-                ),
-              ),
-            ),
+          // Group entries by (examDate, subjectName, scheduleDisplay)
+          // This avoids repetition and shows all grades for each subject
+          pw.SizedBox(
+            width: double.infinity,
+            child: _buildGroupedTimetableTable(entries, primaryColor),
           ),
 
           pw.SizedBox(height: 40),
@@ -153,6 +131,65 @@ class TimetablePdfGenerator {
     );
 
     return pdf.save();
+  }
+
+  /// Build grouped timetable showing all grades per subject
+  static pw.Widget _buildGroupedTimetableTable(
+    List<ExamTimetableEntryEntity> entries,
+    PdfColor primaryColor,
+  ) {
+    // Group entries by (examDate, subjectName, scheduleDisplay)
+    final Map<String, List<ExamTimetableEntryEntity>> groupedEntries = {};
+    for (final entry in entries) {
+      final key = '${entry.examDate}|${entry.subjectName}|${entry.scheduleDisplay}';
+      groupedEntries.putIfAbsent(key, () => []).add(entry);
+    }
+
+    // Sort by exam date
+    final sortedKeys = groupedEntries.keys.toList()
+      ..sort((a, b) {
+        final dateA = a.split('|')[0];
+        final dateB = b.split('|')[0];
+        return dateA.compareTo(dateB);
+      });
+
+    // Build table data - only show Date, Subject, Time (Grades already shown at top)
+    final List<List<String>> tableData = [];
+    for (final key in sortedKeys) {
+      final groupedList = groupedEntries[key] ?? [];
+      if (groupedList.isEmpty) continue;
+
+      final firstEntry = groupedList.first;
+
+      tableData.add([
+        _formatDate(firstEntry.examDate),
+        firstEntry.subjectName ?? 'Unknown',
+        firstEntry.scheduleDisplay,
+      ]);
+    }
+
+    // Build and return the table (Grades column removed - shown at top of PDF)
+    return pw.TableHelper.fromTextArray(
+      headers: ['Date', 'Subject', 'Time'],
+      data: tableData,
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        color: PdfColors.white,
+      ),
+      headerDecoration: pw.BoxDecoration(
+        color: primaryColor,
+      ),
+      cellHeight: 30,
+      cellAlignment: pw.Alignment.centerLeft,
+      rowDecoration: pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(
+            color: PdfColors.grey300,
+            width: 0.5,
+          ),
+        ),
+      ),
+    );
   }
 
   /// Build a detail row for exam info

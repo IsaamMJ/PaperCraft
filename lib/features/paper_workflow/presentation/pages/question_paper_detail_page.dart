@@ -20,6 +20,7 @@ import '../../domain/services/user_info_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
 import '../widgets/question_inline_edit_modal.dart';
+import '../widgets/section_edit_modal.dart';
 
 class QuestionPaperDetailPage extends StatelessWidget {
   final String questionPaperId;
@@ -627,9 +628,23 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           padding: const EdgeInsets.all(12),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
-          child: Text(
-              'Section $sectionNumber: $name (${questions.length} questions)',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                    'Section $sectionNumber: $name (${questions.length} questions)',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+              ),
+              if (!widget.isViewOnly)
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18, color: Colors.white),
+                  onPressed: () => _showEditSectionModal(name, sectionNumber),
+                  tooltip: 'Edit section name',
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+            ],
+          ),
         ),
         ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value, name)),
         SizedBox(height: UIConstants.spacing24),
@@ -830,6 +845,48 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         },
         onCancel: () {
           print('📝 [DetailPage] onCancel callback triggered');
+          Navigator.pop(dialogContext);
+        },
+      ),
+    );
+  }
+
+  void _showEditSectionModal(String sectionName, int sectionNumber) {
+    print('📝 [DetailPage] Opening edit modal for section $sectionNumber: "$sectionName"');
+
+    final bloc = context.read<QuestionPaperBloc>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => SectionEditModal(
+        sectionName: sectionName,
+        sectionNumber: sectionNumber,
+        onSave: (newName) {
+          print('📝 [DetailPage] onSave callback triggered for section');
+          print('   - Old name: "$sectionName"');
+          print('   - New name: "$newName"');
+          print('   - Dispatching UpdateSectionName event to BLoC...');
+
+          try {
+            print('   📤 Adding UpdateSectionName event to bloc');
+            bloc.add(
+              UpdateSectionName(
+                oldSectionName: sectionName,
+                newSectionName: newName,
+              ),
+            );
+            print('   ✅ Event added to BLoC successfully');
+
+            // Close the modal
+            Navigator.pop(dialogContext);
+            print('   🔙 Modal closed');
+          } catch (e, stackTrace) {
+            print('   ❌ Error dispatching event: $e');
+            print('   Stack: $stackTrace');
+          }
+        },
+        onCancel: () {
+          print('📝 [DetailPage] onCancel callback triggered for section');
           Navigator.pop(dialogContext);
         },
       ),

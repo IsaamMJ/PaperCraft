@@ -369,6 +369,11 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         }
       }
 
+      print('[ExamTimetableDetailPage] PDF Export: DEBUG - entries.length=${entries.length}, gradeNumbers=$gradeNumbers, entries with grades=${entries.where((e) => e.gradeNumber != null).length}');
+      for (int i = 0; i < entries.length; i++) {
+        print('[ExamTimetableDetailPage] Entry $i: gradeNumber=${entries[i].gradeNumber}, gradeSectionId=${entries[i].gradeSectionId}');
+      }
+
       // Get school name from tenant data via UserStateService
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
@@ -478,6 +483,11 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         if (entry.gradeNumber != null) {
           gradeNumbers.add(entry.gradeNumber!);
         }
+      }
+
+      print('[ExamTimetableDetailPage] Print: DEBUG - entries.length=${entries.length}, gradeNumbers=$gradeNumbers, entries with grades=${entries.where((e) => e.gradeNumber != null).length}');
+      for (int i = 0; i < entries.length; i++) {
+        print('[ExamTimetableDetailPage] Print Entry $i: gradeNumber=${entries[i].gradeNumber}, gradeSectionId=${entries[i].gradeSectionId}');
       }
 
       // Get school name from tenant data via UserStateService

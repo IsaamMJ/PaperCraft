@@ -115,6 +115,21 @@ class TimetableDetailEntriesTab extends StatelessWidget {
     BuildContext context,
     List<ExamTimetableEntryEntity> entries,
   ) {
+    // Group entries by (examDate, subjectName, scheduleDisplay)
+    final Map<String, List<ExamTimetableEntryEntity>> groupedEntries = {};
+    for (final entry in entries) {
+      final key = '${entry.examDate}|${entry.subjectName}|${entry.scheduleDisplay}';
+      groupedEntries.putIfAbsent(key, () => []).add(entry);
+    }
+
+    // Sort by exam date and time
+    final sortedKeys = groupedEntries.keys.toList()
+      ..sort((a, b) {
+        final dateA = a.split('|')[0];
+        final dateB = b.split('|')[0];
+        return dateA.compareTo(dateB);
+      });
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -127,8 +142,13 @@ class TimetableDetailEntriesTab extends StatelessWidget {
             // Divider
             Divider(color: Colors.grey[300], height: 1),
             const SizedBox(height: 8),
-            // Table rows
-            ...entries.map((entry) => _buildTableRow(context, entry)).toList(),
+            // Table rows - one per subject per time
+            ...sortedKeys.asMap().entries.map((entry) {
+              final key = entry.value;
+              final groupedList = groupedEntries[key] ?? [];
+              final isEvenRow = entry.key % 2 == 0;
+              return _buildGroupedTableRow(context, groupedList, isEvenRow);
+            }).toList(),
           ],
         ),
       ),
@@ -153,6 +173,10 @@ class TimetableDetailEntriesTab extends StatelessWidget {
             flex: 2,
             child: _buildHeaderCell(context, 'Time'),
           ),
+          Expanded(
+            flex: 2,
+            child: _buildHeaderCell(context, 'Grades'),
+          ),
         ],
       ),
     );
@@ -166,6 +190,91 @@ class TimetableDetailEntriesTab extends StatelessWidget {
             fontWeight: FontWeight.bold,
             color: Colors.grey[700],
           ),
+    );
+  }
+
+  /// Build grouped table row showing all grades for a subject
+  Widget _buildGroupedTableRow(
+    BuildContext context,
+    List<ExamTimetableEntryEntity> groupedEntries,
+    bool isEvenRow,
+  ) {
+    if (groupedEntries.isEmpty) return const SizedBox.shrink();
+
+    final firstEntry = groupedEntries.first;
+
+    // Extract unique grades and sections from the group
+    final gradesSet = <String>{};
+    for (final entry in groupedEntries) {
+      final gradeNum = entry.gradeNumber ?? 0;
+      final section = entry.section ?? '';
+      gradesSet.add('$gradeNum$section');
+    }
+    final gradesList = gradesSet.toList()..sort();
+    final gradesDisplay = gradesList.join(', ');
+
+    return Container(
+      color: isEvenRow ? Colors.grey[50] : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 1),
+      child: Row(
+        children: [
+          // Date
+          Expanded(
+            flex: 2,
+            child: Text(
+              _formatDate(firstEntry.examDate),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ),
+          // Subject
+          Expanded(
+            flex: 3,
+            child: Text(
+              firstEntry.subjectName ?? 'Unknown',
+              style: Theme.of(context).textTheme.bodyMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Time
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                firstEntry.scheduleDisplay,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[900],
+                    ),
+              ),
+            ),
+          ),
+          // Grades - showing all grades/sections for this subject
+          Expanded(
+            flex: 2,
+            child: Tooltip(
+              message: gradesDisplay,
+              child: Text(
+                gradesDisplay,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -117,7 +117,8 @@
       "Bash(git -C \"/e/New folder (2)/papercraft\" show 8504571 --name-only)",
       "Bash(git -C \"/e/New folder (2)/papercraft\" diff lib/features/paper_workflow/presentation/bloc/question_paper_bloc.dart)",
       "Bash(git rm:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(__NEW_LINE__ cd \"E:\\New folder (2)\\papercraft\" ls -la)"
     ],
     "deny": [],
     "ask": []

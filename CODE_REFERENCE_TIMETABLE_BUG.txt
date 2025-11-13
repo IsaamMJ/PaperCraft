@@ -1,0 +1,220 @@
+CODE REFERENCE FOR EXAM TIMETABLE ENTRY BUG
+
+FILE 1: exam_timetable_wizard_bloc.dart
+Location: E:\New folder (2)\papercraft\lib\features\timetable\presentation\bloc\exam_timetable_wizard_bloc.dart
+
+BUG LOCATION 1 - _onSelectGrades method (lines 208-314)
+========================================================
+Lines 247-251:
+  for (final section in sections) {
+    allSectionIds.add(section.id);
+    gradeSectionMapping[gradeId] = section.id;  // <-- BUG: OVERWRITES
+    print('[WizardBloc] Added section: ${section.sectionName} (${section.id}) for grade $gradeId');
+  }
+
+Problem: gradeSectionMapping is Map<String, String>, so each section overwrites the previous
+Result: Only the LAST section for each grade is kept in the mapping
+
+Fix approach:
+1. Change type: final gradeSectionMapping = <String, List<String>>{};
+2. Change assignment:
+   if (!gradeSectionMapping.containsKey(gradeId)) {
+     gradeSectionMapping[gradeId] = [];
+   }
+   gradeSectionMapping[gradeId]!.add(section.id);
+
+Current state output (line 309):
+  print('[WizardBloc] WizardStep3State emitted successfully with ${allSectionIds.length} grade sections');
+  
+Shows allSectionIds is correctly populated with ALL sections
+But gradeSectionMapping only has last sections for each grade
+
+
+BUG LOCATION 2 - _onAssignSubjectDate method (lines 316-406)
+============================================================
+Lines 350-361:
+  // MVP: Use the first selected grade's first available section
+  // Grade section mapping was populated in _onSelectGrades
+  if (step3State.selectedGradeIds.isEmpty) {
+    emit(WizardValidationErrorState(...));
+    return;
+  }
+
+  final firstGradeId = step3State.selectedGradeIds[0];  // <-- BUG: ONLY FIRST GRADE
+  final gradeSectionId = step3State.gradeSectionMapping[firstGradeId];
+
+  if (gradeSectionId == null || gradeSectionId.isEmpty) {  // <-- Checks string, not list
+    emit(WizardValidationErrorState(...));
+    return;
+  }
+
+  print('[WizardBloc] Creating entry with gradeSectionId: $gradeSectionId for grade: $firstGradeId');
+
+Lines 374-389 (Entry creation):
+  final newEntry = ExamTimetableEntryEntity(
+    id: null,
+    tenantId: step3State.tenantId,
+    timetableId: '',
+    gradeSectionId: gradeSectionId,  // <-- Only from firstGrade
+    gradeId: firstGradeId,           // <-- Only first grade
+    section: 'A',                     // <-- Hardcoded!
+    subjectId: event.subjectId,
+    examDate: event.examDate,
+    startTime: Duration(hours: event.startTime.hour, minutes: event.startTime.minute),
+    endTime: Duration(hours: event.endTime.hour, minutes: event.endTime.minute),
+    durationMinutes: durationMinutes,
+    isActive: true,
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+  );
+
+Lines 391-405 (Entry added to list):
+  final existingIndex = step3State.entries.indexWhere((e) => e.subjectId == event.subjectId);
+  List<ExamTimetableEntryEntity> updatedEntries;
+
+  if (existingIndex >= 0) {
+    updatedEntries = List.from(step3State.entries);
+    updatedEntries[existingIndex] = newEntry;  // <-- Replaces, not expands
+  } else {
+    updatedEntries = [...step3State.entries, newEntry];  // <-- Adds single entry
+  }
+
+  emit(step3State.copyWith(entries: updatedEntries));
+
+Problem: 
+1. Only uses selectedGradeIds[0] (first grade)
+2. Only uses single gradeSectionId from mapping
+3. Creates ONE entry per subject, for first grade only
+4. Does NOT create entries for other selected grades
+
+Fix approach:
+1. Change gradeSectionMapping type handling (now List<String> instead of String)
+2. Loop through ALL selectedGradeIds:
+   for (final gradeId in step3State.selectedGradeIds) {
+     final sectionIds = step3State.gradeSectionMapping[gradeId] ?? [];
+     for (final sectionId in sectionIds) {
+       // Create entry
+     }
+   }
+
+
+FILE 2: wizard_step2_grades.dart
+Location: E:\New folder (2)\papercraft\lib\features\timetable\presentation\widgets\wizard_step2_grades.dart
+
+Grade Selection (lines 139-180):
+================================
+The UI correctly collects grade IDs:
+
+for (final grade in state.availableGrades) {
+  final isSelected = _selectedGradeIds.contains(grade.id);
+  
+  return CheckboxListTile(
+    value: isSelected,
+    onChanged: (value) {
+      setState(() {
+        if (value == true) {
+          _selectedGradeIds.add(grade.id);
+        } else {
+          _selectedGradeIds.remove(grade.id);
+        }
+        
+        context.read<ExamTimetableWizardBloc>().add(
+          UpdateUserGradeSelectionEvent(
+            selectedGradeSectionIds: List.from(_selectedGradeIds),
+          ),
+        );
+      });
+    },
+    // ...
+  );
+}
+
+This correctly sends ALL selected grade IDs to BLoC via UpdateUserGradeSelectionEvent
+
+
+FILE 3: wizard_step3_schedule.dart
+Location: E:\New folder (2)\papercraft\lib\features\timetable\presentation\widgets\wizard_step3_schedule.dart
+
+Subject Assignment (lines 166-197):
+==================================
+When user selects a date for a subject:
+
+onDateSelected: (date) {
+  context.read<ExamTimetableWizardBloc>().add(AssignSubjectDateEvent(
+    subjectId: subject.id,
+    examDate: date,
+    startTime: const TimeOfDay(hour: 9, minute: 0),
+    endTime: const TimeOfDay(hour: 11, minute: 0),
+  ));
+},
+
+AssignSubjectDateEvent is triggered once per subject
+BUT in _onAssignSubjectDate, it creates only one entry per subject (for first grade)
+
+
+FILE 4: exam_timetable_wizard_state.dart
+Location: E:\New folder (2)\papercraft\lib\features\timetable\presentation\bloc\exam_timetable_wizard_state.dart
+
+WizardStep3State stores:
+- selectedGradeIds: List<String>  (All selected grades)
+- gradeSectionMapping: Map<String, String>  (Only last section per grade - BUG)
+- entries: List<ExamTimetableEntryEntity>  (Only entries for grade 1)
+
+This structure needs to be updated to support List<String> for gradeSectionMapping
+
+
+KEY DATA FLOW:
+==============
+Step 2 - Grade Selection:
+  UI: User selects grades 1, 2, 3, 4, 5
+  Event: SelectGradesEvent(gradeSectionIds: [grade-1, grade-2, grade-3, grade-4, grade-5])
+  
+_onSelectGrades handler:
+  1. For each grade in event.gradeSectionIds:
+     - Load sections from database
+     - Add all section IDs to allSectionIds list ✓ CORRECT
+     - Overwrite gradeSectionMapping[gradeId] with last section ID ✗ BUG #1
+  
+  2. Call mapGradesToExamCalendar(allSectionIds)
+     - This correctly maps ALL sections to the calendar
+  
+  3. Emit WizardStep3State with:
+     - selectedGradeIds = [grade-1, grade-2, grade-3, grade-4, grade-5] ✓
+     - gradeSectionMapping = {grade-1: grade-1-sec-c, ...} ✗ BUG #1
+     - entries = [] ✓
+
+Step 3 - Subject Assignment:
+  UI: User selects date for Subject 1
+  Event: AssignSubjectDateEvent(subjectId: subject-1, examDate: 2024-01-15, ...)
+  
+_onAssignSubjectDate handler:
+  1. Take firstGradeId = selectedGradeIds[0] ✗ BUG #2
+  2. Get gradeSectionId = gradeSectionMapping[firstGradeId] ✗ BUG #2
+  3. Create SINGLE entry for (subject-1, grade-1, section-c) ✗ BUG #2
+  4. Add to entries list
+  
+  Result: ONE entry created instead of (grades.length * sections_per_grade)
+  
+  Should create entries for:
+    (subject-1, grade-1, sec-a), (subject-1, grade-1, sec-b), (subject-1, grade-1, sec-c)
+    (subject-1, grade-2, sec-a), (subject-1, grade-2, sec-b), (subject-1, grade-2, sec-c)
+    ... and so on for all grades
+
+
+SUMMARY OF BUGS:
+================
+BUG #1: gradeSectionMapping stores only last section per grade
+  Location: exam_timetable_wizard_bloc.dart line 249
+  Type: Data structure misuse
+  Impact: Loses all but last section for each grade
+
+BUG #2: Entry creation only uses first grade
+  Location: exam_timetable_wizard_bloc.dart lines 360-389
+  Type: Incomplete loop/logic
+  Impact: Only creates entries for first selected grade
+
+BUG #3: Section hardcoded to 'A'
+  Location: exam_timetable_wizard_bloc.dart line 380
+  Type: Hardcoded value
+  Impact: Entries show wrong section letter
+
