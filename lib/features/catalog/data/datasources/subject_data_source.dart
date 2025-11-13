@@ -459,7 +459,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
 
             return SubjectCatalogModel.fromJson({
               ...catalog as Map<String, dynamic>,
-              'id': subject['catalog_subject_id'],
+              'id': subject['id'],  // Use actual subjects.id, not catalog_subject_id
             });
           })
           .whereType<SubjectCatalogModel>()
