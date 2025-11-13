@@ -110,6 +110,8 @@ class WizardStep3State extends ExamTimetableWizardState {
   final List<ExamTimetableEntryEntity> entries;
   final Map<String, dynamic> gradeSectionMapping; // Maps gradeId -> List of sections with id, name
   final Map<String, dynamic> sectionDetailsMap; // Maps gradeSectionId -> {gradeId, sectionName}
+  final Map<String, List<String>> subjectToGradesMap; // Maps subjectId -> list of gradeIds that have it
+  final Map<String, int> gradeIdToNumberMap; // Maps gradeId -> grade number (1, 2, 3, 4, 5, etc.)
   final bool isLoading;
   final String? error;
 
@@ -121,6 +123,8 @@ class WizardStep3State extends ExamTimetableWizardState {
     this.entries = const [],
     this.gradeSectionMapping = const {},
     this.sectionDetailsMap = const {},
+    this.subjectToGradesMap = const {},
+    this.gradeIdToNumberMap = const {},
     this.isLoading = false,
     this.error,
   });
@@ -133,6 +137,8 @@ class WizardStep3State extends ExamTimetableWizardState {
     List<ExamTimetableEntryEntity>? entries,
     Map<String, dynamic>? gradeSectionMapping,
     Map<String, dynamic>? sectionDetailsMap,
+    Map<String, List<String>>? subjectToGradesMap,
+    Map<String, int>? gradeIdToNumberMap,
     bool? isLoading,
     String? error,
   }) {
@@ -144,6 +150,8 @@ class WizardStep3State extends ExamTimetableWizardState {
       entries: entries ?? this.entries,
       gradeSectionMapping: gradeSectionMapping ?? this.gradeSectionMapping,
       sectionDetailsMap: sectionDetailsMap ?? this.sectionDetailsMap,
+      subjectToGradesMap: subjectToGradesMap ?? this.subjectToGradesMap,
+      gradeIdToNumberMap: gradeIdToNumberMap ?? this.gradeIdToNumberMap,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
@@ -177,6 +185,9 @@ class WizardStep3State extends ExamTimetableWizardState {
     subjects,
     entries,
     gradeSectionMapping,
+    sectionDetailsMap,
+    subjectToGradesMap,
+    gradeIdToNumberMap,
     isLoading,
     error,
   ];

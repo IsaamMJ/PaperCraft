@@ -393,7 +393,8 @@ class SubjectDataSourceImpl implements SubjectDataSource {
       String section,
       ) async {
     try {
-      final cacheKey = 'subjects_${tenantId}_${gradeId}_${section}';
+      // Cache key includes filter status to avoid stale data
+      final cacheKey = 'subjects_${tenantId}_${gradeId}_${section}_offered_true';
       final cachedData = _cache.get<List<SubjectCatalogModel>>(cacheKey);
       if (cachedData != null) {
         _logger.debug('Cache HIT: getSubjectsByGradeAndSection',
@@ -422,7 +423,7 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             subject:subject_id(
               id,
               catalog_subject_id,
-              subject_catalog!inner(
+              subject_catalog(
                 id,
                 subject_name,
                 description,
@@ -443,9 +444,21 @@ class SubjectDataSourceImpl implements SubjectDataSource {
             final subject = item['subject'];
             if (subject == null) return null;
 
-            final catalog = subject['subject_catalog'] as Map<String, dynamic>;
+            final catalog = subject['subject_catalog'];
+            if (catalog == null) {
+              _logger.warning(
+                'Subject has no catalog entry',
+                category: LogCategory.storage,
+                context: {
+                  'subjectId': subject['id'],
+                  'catalogSubjectId': subject['catalog_subject_id'],
+                },
+              );
+              return null;
+            }
+
             return SubjectCatalogModel.fromJson({
-              ...catalog,
+              ...catalog as Map<String, dynamic>,
               'id': subject['catalog_subject_id'],
             });
           })
