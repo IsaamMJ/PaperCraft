@@ -546,6 +546,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   }) async {
     try {
       final createdPapers = <QuestionPaperEntity>[];
+      print('[autoAssignPapersForTimetable] Processing ${timetableEntries.length} timetable entries');
 
       for (final entry in timetableEntries) {
         final entryId = entry['id'] as String;
@@ -560,6 +561,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
 
         // Get teachers assigned to this entry
         final teachers = entry['teachers'] as List<dynamic>? ?? [];
+        print('[autoAssignPapersForTimetable] Entry: id=$entryId, gradeId=$gradeId, subjectId=$subjectId, section=$section, teacherCount=${teachers.length}');
 
         // Create a paper for each teacher
         for (final teacherData in teachers) {
@@ -595,26 +597,35 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
           );
 
           // Save the auto-assigned paper (use submitPaper which handles creation)
-          final model = QuestionPaperModel.fromEntity(paper);
-          final savedModel = await _cloudDataSource.submitPaper(model);
-          createdPapers.add(savedModel.toEntity());
+          try {
+            final model = QuestionPaperModel.fromEntity(paper);
+            print('[autoAssignPapersForTimetable] Creating paper: id=${paper.id}, teacherId=$teacherId, title=${paper.title}');
+            final savedModel = await _cloudDataSource.submitPaper(model);
+            createdPapers.add(savedModel.toEntity());
+            print('[autoAssignPapersForTimetable] Paper created successfully: ${paper.id}');
 
-          _logger.info(
-            'Paper auto-assigned to teacher',
-            category: LogCategory.paper,
-            context: {
-              'paperId': paper.id,
-              'teacherId': teacherId,
-              'teacherName': teacherName,
-              'title': paper.title,
-              'timetableEntryId': entryId,
-            },
-          );
+            _logger.info(
+              'Paper auto-assigned to teacher',
+              category: LogCategory.paper,
+              context: {
+                'paperId': paper.id,
+                'teacherId': teacherId,
+                'teacherName': teacherName,
+                'title': paper.title,
+                'timetableEntryId': entryId,
+              },
+            );
+          } catch (e) {
+            print('[autoAssignPapersForTimetable] ERROR creating paper: $e');
+            rethrow;
+          }
         }
       }
 
+      print('[autoAssignPapersForTimetable] COMPLETED: Created ${createdPapers.length} papers');
       return Right(createdPapers);
     } catch (e, stackTrace) {
+      print('[autoAssignPapersForTimetable] EXCEPTION: $e\n$stackTrace');
       _logger.error(
         'Failed to auto-assign papers for timetable',
         category: LogCategory.paper,
