@@ -133,6 +133,7 @@ class PublishTimetableAndAutoAssignPapersUsecase {
       );
 
       if (entries.isEmpty) {
+        print('[PublishTimetableAndAutoAssignPapersUsecase] No exam entries found');
         _logger.info(
           'No exam entries found for auto-assignment',
           context: {'timetableId': timetable.id},
@@ -147,14 +148,20 @@ class PublishTimetableAndAutoAssignPapersUsecase {
 
       // Step 2: For each entry, fetch teachers and build timetableEntries data
       final timetableEntriesForAssignment = <Map<String, dynamic>>[];
+      print('[PublishTimetableAndAutoAssignPapersUsecase] Processing ${entries.length} entries for auto-assignment');
 
       for (final entry in entries) {
-        if (!entry.isActive || entry.gradeId == null) continue;
+        print('[PublishTimetableAndAutoAssignPapersUsecase] Entry: isActive=${entry.isActive}, gradeId=${entry.gradeId}, gradeNumber=${entry.gradeNumber}, section=${entry.section}, subject=${entry.subjectName}');
+        if (!entry.isActive || entry.gradeId == null) {
+          print('[PublishTimetableAndAutoAssignPapersUsecase] Skipping entry: isActive=${entry.isActive}, gradeId=${entry.gradeId}');
+          continue;
+        }
 
         // Get teachers assigned to this grade/section/subject
         // IMPORTANT: Use the actual section value from the entry (can be null, 'A', 'B', etc.)
         // Do NOT default to 'A' - that would cause mismatches with teacher assignments
         final section = entry.section ?? '';
+        print('[PublishTimetableAndAutoAssignPapersUsecase] Querying teachers: gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section, academicYear=${timetable.academicYear}');
         _logger.info(
           'Querying teachers',
           context: {
@@ -179,6 +186,7 @@ class PublishTimetableAndAutoAssignPapersUsecase {
 
         final teachers = await teachersResult.fold(
           (failure) async {
+            print('[PublishTimetableAndAutoAssignPapersUsecase] FAILURE: No teachers found for gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section: ${failure.toString()}');
             _logger.warning(
               'Failed to fetch teachers for entry',
               context: {
@@ -194,6 +202,7 @@ class PublishTimetableAndAutoAssignPapersUsecase {
             return <Map<String, dynamic>>[];
           },
           (teacherSubjects) async {
+            print('[PublishTimetableAndAutoAssignPapersUsecase] SUCCESS: Found ${teacherSubjects.length} teachers for gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section');
             _logger.info(
               'Found teachers for entry',
               context: {
