@@ -180,8 +180,9 @@ class QuestionPaperModel extends QuestionPaperEntity {
     if (gradeId.isEmpty) {
       throw ArgumentError('Grade ID cannot be empty');
     }
-    if (paperSections.isEmpty) {
-      throw ArgumentError('Paper sections cannot be empty');
+    // Paper sections can be empty for draft papers, but must have at least one for submitted/reviewed papers
+    if (paperSections.isEmpty && status != PaperStatus.draft) {
+      throw ArgumentError('Paper sections cannot be empty (must have at least one section for non-draft papers)');
     }
     if (reviewedBy != null && reviewedBy!.isEmpty) {
       throw ArgumentError('Reviewed By cannot be empty string (use null instead)');
