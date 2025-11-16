@@ -78,6 +78,12 @@
     "is_nullable": "NO"
   },
   {
+    "table_name": "exam_calendar",
+    "column_name": "marks_config",
+    "data_type": "jsonb",
+    "is_nullable": "YES"
+  },
+  {
     "table_name": "exam_calendar_grade_mapping",
     "column_name": "id",
     "data_type": "uuid",

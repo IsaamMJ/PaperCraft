@@ -32,6 +32,7 @@ class CreateExamCalendarEvent extends ExamCalendarEvent {
   final DateTime plannedEndDate;
   final DateTime? paperSubmissionDeadline;
   final int displayOrder;
+  final Map<String, dynamic>? marksConfig;
 
   const CreateExamCalendarEvent({
     required this.tenantId,
@@ -42,6 +43,7 @@ class CreateExamCalendarEvent extends ExamCalendarEvent {
     required this.plannedEndDate,
     this.paperSubmissionDeadline,
     required this.displayOrder,
+    this.marksConfig,
   });
 
   @override
@@ -54,6 +56,7 @@ class CreateExamCalendarEvent extends ExamCalendarEvent {
     plannedEndDate,
     paperSubmissionDeadline,
     displayOrder,
+    marksConfig,
   ];
 }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/exam_calendar_entity.dart';
+import '../../domain/entities/mark_config_entity.dart';
+import 'marks_configuration_widget.dart';
 
 /// Exam Calendar Form Dialog
 ///
@@ -36,6 +38,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
   DateTime? _plannedStartDate;
   DateTime? _plannedEndDate;
   DateTime? _paperSubmissionDeadline;
+  List<MarkConfigEntity> _marksConfig = [];
 
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
@@ -66,6 +69,11 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
     _plannedEndDate = widget.initialCalendar?.plannedEndDate;
     _paperSubmissionDeadline =
         widget.initialCalendar?.paperSubmissionDeadline;
+    _marksConfig = widget.initialCalendar?.marksConfig ?? [];
+
+    print('🔍 EXAM CALENDAR FORM - initState called');
+    print('   Initial marks config: ${_marksConfig.length} items');
+    print('   Available grades: ${_getAllAvailableGrades()}');
   }
 
   @override
@@ -78,19 +86,34 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        widget.initialCalendar != null
-            ? 'Edit Exam Calendar'
-            : 'Create Exam Calendar',
-      ),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    print('🎨 ExamCalendarFormDialog.build() called');
+    print('   Marks config items: ${_marksConfig.length}');
+    print('   Available grades count: ${_getAllAvailableGrades().length}');
+    return Dialog(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              widget.initialCalendar != null
+                  ? 'Edit Exam Calendar'
+                  : 'Create Exam Calendar',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+          Divider(),
+          // Scrollable Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               // Exam Name
               TextFormField(
                 controller: _examNameController,
@@ -247,26 +270,71 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // Mark Configuration Section
+              Builder(
+                builder: (context) {
+                  print('🏗️ Building MarksConfigurationWidget section');
+                  final grades = _getAllAvailableGrades();
+                  print('   Grades for widget: $grades');
+                  return Container(
+                    color: Colors.blue.shade100,
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        const Text('✅ MARKS CONFIGURATION WIDGET IS HERE', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        Text('Grades available: ${grades.length}'),
+                        const SizedBox(height: 12),
+                        MarksConfigurationWidget(
+                          allGrades: grades,
+                          initialConfigs: _marksConfig,
+                          onConfigsChanged: (updatedConfigs) {
+                            print('📝 Marks config changed: ${updatedConfigs.length} items');
+                            setState(() {
+                              _marksConfig = updatedConfigs;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ],
           ),
-        ),
+              ),
+            ),
+          ),
+          // Divider
+          Divider(),
+          // Actions
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitForm,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitForm,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
     );
   }
 
@@ -318,6 +386,13 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
     }
   }
 
+  /// Get all available grades from 1-12
+  List<int> _getAllAvailableGrades() {
+    final grades = List.generate(12, (index) => index + 1);
+    print('📚 _getAllAvailableGrades() called - returning: $grades (count: ${grades.length})');
+    return grades;
+  }
+
   /// Submit form
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
@@ -342,6 +417,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
         paperSubmissionDeadline: _paperSubmissionDeadline!,
         displayOrder: widget.initialCalendar?.displayOrder ?? 0,
         metadata: widget.initialCalendar?.metadata ?? {},
+        marksConfig: _marksConfig.isNotEmpty ? _marksConfig : null,
         isActive: widget.initialCalendar?.isActive ?? true,
         createdAt: widget.initialCalendar?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),

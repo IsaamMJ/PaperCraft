@@ -3,6 +3,7 @@ package com.pearl.papercraft
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Environment
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -11,9 +12,11 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val NOTIFICATION_CHANNEL = "com.pearl.papercraft/notifications"
+    private val FILE_CHANNEL = "com.pearl.papercraft/files"
     private val REQUEST_CODE_NOTIFICATION = 2713
 
     private var notificationMethodChannel: MethodChannel? = null
+    private var fileMethodChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -27,6 +30,19 @@ class MainActivity : FlutterActivity() {
                 }
                 "requestNotificationPermission" -> {
                     requestNotificationPermission(result)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // File operations channel
+        fileMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FILE_CHANNEL)
+        fileMethodChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getPublicDownloadsDirectory" -> {
+                    result.success(getPublicDownloadsDirectory())
                 }
                 else -> {
                     result.notImplemented()
@@ -93,6 +109,13 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         super.onDestroy()
         notificationMethodChannel = null
+        fileMethodChannel = null
         pendingNotificationPermissionResult = null
+    }
+
+    // ============= FILE OPERATIONS METHODS =============
+
+    private fun getPublicDownloadsDirectory(): String {
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
     }
 }

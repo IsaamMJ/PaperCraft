@@ -52,57 +52,8 @@ class WizardStep1State extends ExamTimetableWizardState {
   List<Object?> get props => [calendars, selectedCalendar, isLoading, error];
 }
 
-/// Step 2: Select grades
+/// Step 2: Assign subjects to dates
 class WizardStep2State extends ExamTimetableWizardState {
-  final String tenantId;
-  final ExamCalendarEntity selectedCalendar;
-  final List<GradeEntity> availableGrades;
-  final List<String> selectedGradeIds;
-  final bool isLoading;
-  final String? error;
-
-  const WizardStep2State({
-    required this.tenantId,
-    required this.selectedCalendar,
-    this.availableGrades = const [],
-    this.selectedGradeIds = const [],
-    this.isLoading = false,
-    this.error,
-  });
-
-  WizardStep2State copyWith({
-    String? tenantId,
-    ExamCalendarEntity? selectedCalendar,
-    List<GradeEntity>? availableGrades,
-    List<String>? selectedGradeIds,
-    bool? isLoading,
-    String? error,
-  }) {
-    return WizardStep2State(
-      tenantId: tenantId ?? this.tenantId,
-      selectedCalendar: selectedCalendar ?? this.selectedCalendar,
-      availableGrades: availableGrades ?? this.availableGrades,
-      selectedGradeIds: selectedGradeIds ?? this.selectedGradeIds,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-    );
-  }
-
-  bool isGradeSelected(String gradeId) => selectedGradeIds.contains(gradeId);
-
-  @override
-  List<Object?> get props => [
-    tenantId,
-    selectedCalendar,
-    availableGrades,
-    selectedGradeIds,
-    isLoading,
-    error,
-  ];
-}
-
-/// Step 3: Assign subjects to dates
-class WizardStep3State extends ExamTimetableWizardState {
   final String tenantId;
   final ExamCalendarEntity selectedCalendar;
   final List<String> selectedGradeIds;
@@ -115,7 +66,7 @@ class WizardStep3State extends ExamTimetableWizardState {
   final bool isLoading;
   final String? error;
 
-  const WizardStep3State({
+  const WizardStep2State({
     required this.tenantId,
     required this.selectedCalendar,
     required this.selectedGradeIds,
@@ -129,7 +80,7 @@ class WizardStep3State extends ExamTimetableWizardState {
     this.error,
   });
 
-  WizardStep3State copyWith({
+  WizardStep2State copyWith({
     String? tenantId,
     ExamCalendarEntity? selectedCalendar,
     List<String>? selectedGradeIds,
@@ -142,7 +93,7 @@ class WizardStep3State extends ExamTimetableWizardState {
     bool? isLoading,
     String? error,
   }) {
-    return WizardStep3State(
+    return WizardStep2State(
       tenantId: tenantId ?? this.tenantId,
       selectedCalendar: selectedCalendar ?? this.selectedCalendar,
       selectedGradeIds: selectedGradeIds ?? this.selectedGradeIds,

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/exam_timetable_bloc.dart';
 import '../bloc/exam_timetable_event.dart';
 import '../bloc/exam_timetable_state.dart';
-import 'exam_timetable_create_wizard_page.dart';
+import 'exam_timetable_wizard_page.dart';
 
 /// Exam Timetable Edit Page
 ///
@@ -47,9 +47,10 @@ class _ExamTimetableEditPageState extends State<ExamTimetableEditPage> {
   Widget build(BuildContext context) {
     // If creating a new timetable, use the wizard
     if (widget.timetableId == null) {
-      return ExamTimetableCreateWizardPage(
+      return ExamTimetableWizardPage(
         tenantId: widget.tenantId,
-        initialCalendarId: widget.examCalendarId,
+        userId: widget.createdBy,
+        academicYear: '', // Will be set from UserStateService in wizard
       );
     }
 
@@ -81,9 +82,10 @@ class _ExamTimetableEditPageState extends State<ExamTimetableEditPage> {
         if (state is ExamTimetableLoaded) {
           // For now, redirect to the wizard for editing
           // This can be replaced with a dedicated edit UI
-          return ExamTimetableCreateWizardPage(
+          return ExamTimetableWizardPage(
             tenantId: widget.tenantId,
-            initialCalendarId: state.timetable.examCalendarId ?? widget.examCalendarId,
+            userId: widget.createdBy,
+            academicYear: '', // Will be set from UserStateService in wizard
           );
         }
 

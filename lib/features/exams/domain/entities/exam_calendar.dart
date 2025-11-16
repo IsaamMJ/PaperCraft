@@ -20,6 +20,7 @@ class ExamCalendar extends Equatable {
   final DateTime? paperSubmissionDeadline; // Soft deadline for paper creation
   final int displayOrder; // For UI ordering
   final Map<String, dynamic>? metadata; // Future expansion
+  final Map<String, dynamic>? marksConfig; // Grade-wise mark configurations
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -35,6 +36,7 @@ class ExamCalendar extends Equatable {
     this.paperSubmissionDeadline,
     required this.displayOrder,
     this.metadata,
+    this.marksConfig,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -66,6 +68,7 @@ class ExamCalendar extends Equatable {
     DateTime? paperSubmissionDeadline,
     int? displayOrder,
     Map<String, dynamic>? metadata,
+    Map<String, dynamic>? marksConfig,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -82,6 +85,7 @@ class ExamCalendar extends Equatable {
           paperSubmissionDeadline ?? this.paperSubmissionDeadline,
       displayOrder: displayOrder ?? this.displayOrder,
       metadata: metadata ?? this.metadata,
+      marksConfig: marksConfig ?? this.marksConfig,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -101,6 +105,7 @@ class ExamCalendar extends Equatable {
       'paper_submission_deadline': paperSubmissionDeadline?.toIso8601String().split('T')[0],
       'display_order': displayOrder,
       'metadata': metadata,
+      'marks_config': marksConfig,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -128,6 +133,7 @@ class ExamCalendar extends Equatable {
           : null,
       displayOrder: json['display_order'] as int,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      marksConfig: json['marks_config'] as Map<String, dynamic>?,
       isActive: json['is_active'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -207,6 +213,7 @@ class ExamCalendar extends Equatable {
     paperSubmissionDeadline,
     displayOrder,
     metadata,
+    marksConfig,
     isActive,
     createdAt,
     updatedAt,

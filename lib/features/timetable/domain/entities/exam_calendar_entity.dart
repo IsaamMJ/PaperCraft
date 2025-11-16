@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'dart:convert';
+import 'mark_config_entity.dart';
 
 /// Represents an exam calendar template that can be reused across academic years.
 /// This is a master record for exam periods (e.g., "Mid-term Exams", "Final Exams").
@@ -51,6 +53,11 @@ class ExamCalendarEntity extends Equatable {
   /// Can store custom information like notes, version info, etc.
   final Map<String, dynamic>? metadata;
 
+  /// Marks configuration for different grade ranges
+  /// Maps grade ranges to their total marks (e.g., Grade 1-5: 25 marks)
+  /// Can be null if marks haven't been configured yet
+  final List<MarkConfigEntity>? marksConfig;
+
   /// Whether this calendar is active
   /// Soft delete flag - inactive calendars are hidden from users
   final bool isActive;
@@ -72,6 +79,7 @@ class ExamCalendarEntity extends Equatable {
     this.paperSubmissionDeadline,
     this.displayOrder = 0,
     this.metadata,
+    this.marksConfig,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -90,6 +98,7 @@ class ExamCalendarEntity extends Equatable {
     DateTime? paperSubmissionDeadline,
     int? displayOrder,
     Map<String, dynamic>? metadata,
+    List<MarkConfigEntity>? marksConfig,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -106,6 +115,7 @@ class ExamCalendarEntity extends Equatable {
           paperSubmissionDeadline ?? this.paperSubmissionDeadline,
       displayOrder: displayOrder ?? this.displayOrder,
       metadata: metadata ?? this.metadata,
+      marksConfig: marksConfig ?? this.marksConfig,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -125,6 +135,7 @@ class ExamCalendarEntity extends Equatable {
       'paper_submission_deadline': paperSubmissionDeadline?.toIso8601String(),
       'display_order': displayOrder,
       'metadata': metadata,
+      'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -137,6 +148,46 @@ class ExamCalendarEntity extends Equatable {
     final rawExamType = json['exam_type'] as String;
     // Normalize exam type to handle corrupt database data
     final normalizedExamType = _normalizeExamType(rawExamType, examName);
+
+    // Parse marks configuration if present
+    // Supports three formats:
+    // 1. Legacy list format: List<Map> with grade ranges
+    // 2. New map format: Map with selected_grades and marks
+    // 3. JSON string format: String representation of the above
+    List<MarkConfigEntity>? marksConfigList;
+    final marksConfigJson = json['marks_config'];
+    if (marksConfigJson != null) {
+      try {
+        // Handle JSON string format (from database)
+        if (marksConfigJson is String && marksConfigJson.isNotEmpty) {
+          print('🔍 Parsing marks_config from JSON string: $marksConfigJson');
+          final parsed = jsonDecode(marksConfigJson);
+          print('📊 Parsed marks_config: $parsed (type: ${parsed.runtimeType})');
+          if (parsed is List) {
+            marksConfigList = (parsed)
+                .map((item) => MarkConfigEntity.fromJson(item as Map<String, dynamic>))
+                .toList();
+          } else if (parsed is Map<String, dynamic>) {
+            print('📋 Converting map format to list format');
+            marksConfigList = _convertMapConfigToList(parsed);
+            print('✅ Converted to ${marksConfigList?.length ?? 0} mark configs');
+          }
+        } else if (marksConfigJson is List) {
+          // Legacy list format
+          marksConfigList = (marksConfigJson)
+              .map((item) => MarkConfigEntity.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else if (marksConfigJson is Map<String, dynamic>) {
+          // New map format with selected_grades
+          // Extract selected_grades for grade filtering in timetable creation
+          // Convert to legacy format for backward compatibility
+          final selectedGradesMap = marksConfigJson;
+          marksConfigList = _convertMapConfigToList(selectedGradesMap);
+        }
+      } catch (e) {
+        print('⚠️ Error parsing marks_config: $e');
+      }
+    }
 
     return ExamCalendarEntity(
       id: json['id'] as String,
@@ -152,10 +203,85 @@ class ExamCalendarEntity extends Equatable {
           : null,
       displayOrder: json['display_order'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      marksConfig: marksConfigList,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
+  }
+
+  /// Extract selected grades from marks_config
+  /// Returns null if no grades are selected
+  static List<int>? getSelectedGradesFromMarksConfig(List<MarkConfigEntity>? marksConfig) {
+    print('🎯 getSelectedGradesFromMarksConfig called: marksConfig=${marksConfig == null ? "null" : "${marksConfig.length} items"}');
+    if (marksConfig == null || marksConfig.isEmpty) {
+      print('📭 No marks config, returning null');
+      return null;
+    }
+
+    // Collect all grades covered by the marks config
+    final selectedGrades = <int>{};
+    for (final config in marksConfig) {
+      print('   - Config: grades ${config.minGrade}-${config.maxGrade}, marks=${config.totalMarks}, label=${config.label}');
+      for (int i = config.minGrade; i <= config.maxGrade; i++) {
+        selectedGrades.add(i);
+      }
+    }
+
+    final result = selectedGrades.toList()..sort();
+    print('   ✅ Selected grades: $result');
+    return result;
+  }
+
+  /// Convert new map format to legacy list format
+  /// Map format: {"selected_grades": [1,2,3,4,5], "grades_1_to_5_marks": 25, ...}
+  static List<MarkConfigEntity>? _convertMapConfigToList(Map<String, dynamic> configMap) {
+    print('🔄 _convertMapConfigToList called with map: $configMap');
+    final selectedGrades = configMap['selected_grades'] as List<dynamic>?;
+    print('   selectedGrades: $selectedGrades');
+    if (selectedGrades == null || selectedGrades.isEmpty) {
+      print('   📭 No selected_grades, returning null');
+      return null;
+    }
+
+    final grades = selectedGrades.cast<int>().toList()..sort();
+    print('   Sorted grades: $grades');
+
+    // Create mark configs for grade ranges
+    List<MarkConfigEntity> configs = [];
+
+    // Check for grades 1-5
+    final grades1To5 = grades.where((g) => g <= 5).toList();
+    if (grades1To5.isNotEmpty) {
+      final marks1To5 = configMap['grades_1_to_5_marks'] as int?;
+      print('   Grades 1-5: $grades1To5, marks: $marks1To5');
+      if (marks1To5 != null) {
+        configs.add(MarkConfigEntity(
+          minGrade: grades1To5.first,
+          maxGrade: grades1To5.last,
+          totalMarks: marks1To5,
+          label: 'Grades ${grades1To5.first}-${grades1To5.last}',
+        ));
+      }
+    }
+
+    // Check for grades 6-12
+    final grades6To12 = grades.where((g) => g >= 6).toList();
+    if (grades6To12.isNotEmpty) {
+      final marks6To12 = configMap['grades_6_to_12_marks'] as int?;
+      print('   Grades 6-12: $grades6To12, marks: $marks6To12');
+      if (marks6To12 != null) {
+        configs.add(MarkConfigEntity(
+          minGrade: grades6To12.first,
+          maxGrade: grades6To12.last,
+          totalMarks: marks6To12,
+          label: 'Grades ${grades6To12.first}-${grades6To12.last}',
+        ));
+      }
+    }
+
+    print('   ✅ Created ${configs.length} mark configs');
+    return configs.isEmpty ? null : configs;
   }
 
   @override
@@ -180,6 +306,7 @@ class ExamCalendarEntity extends Equatable {
         paperSubmissionDeadline,
         displayOrder,
         metadata,
+        marksConfig,
         isActive,
         createdAt,
         updatedAt,

@@ -5,15 +5,13 @@ import '../bloc/exam_timetable_wizard_bloc.dart';
 import '../bloc/exam_timetable_wizard_event.dart';
 import '../bloc/exam_timetable_wizard_state.dart';
 import '../widgets/wizard_step1_calendar.dart';
-import '../widgets/wizard_step2_grades.dart';
 import '../widgets/wizard_step3_schedule.dart';
 
 /// Main Exam Timetable Wizard Page
 ///
-/// Orchestrates the 3-step wizard flow:
-/// 1. Select exam calendar
-/// 2. Select participating grades
-/// 3. Assign subjects to exam dates
+/// Orchestrates the 2-step wizard flow:
+/// 1. Select exam calendar (grades are automatically loaded from calendar)
+/// 2. Assign subjects to exam dates
 class ExamTimetableWizardPage extends StatefulWidget {
   final String tenantId;
   final String userId;
@@ -102,11 +100,8 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
               print('[WizardPage] Navigating to Step 0 (Calendar)');
               _goToStep(0);
             } else if (state is WizardStep2State) {
-              print('[WizardPage] Navigating to Step 1 (Grades), availableGrades count: ${state.availableGrades.length}');
+              print('[WizardPage] Navigating to Step 1 (Schedule)');
               _goToStep(1);
-            } else if (state is WizardStep3State) {
-              print('[WizardPage] Navigating to Step 2 (Schedule)');
-              _goToStep(2);
             } else if (state is WizardCompletedState) {
               _showSuccessDialog(context, state);
             } else if (state is WizardErrorState) {
@@ -142,7 +137,6 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     WizardStep1Calendar(),
-                    WizardStep2Grades(),
                     WizardStep3Schedule(),
                   ],
                 ),
@@ -170,9 +164,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
             children: [
               _buildStepBubble(0, 'Calendar'),
               _buildStepConnector(0),
-              _buildStepBubble(1, 'Grades'),
-              _buildStepConnector(1),
-              _buildStepBubble(2, 'Schedule'),
+              _buildStepBubble(1, 'Schedule'),
             ],
           ),
           const SizedBox(height: 8),
@@ -180,7 +172,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (_currentStep + 1) / 3,
+              value: (_currentStep + 1) / 2,
               minHeight: 4,
               backgroundColor: Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation(Colors.blue.shade400),
@@ -268,8 +260,8 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
               if (_currentStep > 0)
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: state is! WizardStep3State ||
-                            !(state as WizardStep3State).isLoading
+                    onPressed: state is! WizardStep2State ||
+                            !(state as WizardStep2State).isLoading
                         ? _goBack
                         : null,
                     child: const Text('Back'),
@@ -305,19 +297,6 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
             }
           : null;
     } else if (state is WizardStep2State) {
-      print('[WizardPage] Step2 button check - selectedGradeIds: ${state.selectedGradeIds.length}, isLoading: ${state.isLoading}');
-      return state.selectedGradeIds.isNotEmpty && !state.isLoading
-          ? () {
-              print('[WizardPage] Next button clicked on Step 2 with ${state.selectedGradeIds.length} grade sections');
-              context.read<ExamTimetableWizardBloc>().add(
-                    SelectGradesEvent(
-                      examCalendarId: state.selectedCalendar.id,
-                      gradeSectionIds: List.from(state.selectedGradeIds),
-                    ),
-                  );
-            }
-          : null;
-    } else if (state is WizardStep3State) {
       return !state.isLoading
           ? () {
               context
@@ -330,7 +309,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
   }
 
   Widget _getNextButtonLabel(ExamTimetableWizardState state) {
-    if (state is WizardStep3State && state.isLoading) {
+    if (state is WizardStep2State && state.isLoading) {
       return const SizedBox(
         height: 20,
         width: 20,
@@ -338,7 +317,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
       );
     }
 
-    if (_currentStep == 2) {
+    if (_currentStep == 1) {
       return const Text('Create Timetable');
     }
 

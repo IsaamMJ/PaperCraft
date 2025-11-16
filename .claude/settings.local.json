@@ -125,7 +125,13 @@
       "Bash(tail:*)",
       "Bash(timeout 90 flutter clean:*)",
       "Bash(timeout 60 flutter clean:*)",
-      "Bash(timeout 150 flutter pub get:*)"
+      "Bash(timeout 150 flutter pub get:*)",
+      "Bash(timeout 30 flutter clean:*)",
+      "Bash(timeout 5 sleep:*)",
+      "Bash(timeout 150 flutter run:*)",
+      "Bash(./gradlew:*)",
+      "Bash(timeout 180 flutter pub get:*)",
+      "Bash(timeout 300 flutter build:*)"
     ],
     "deny": [],
     "ask": []

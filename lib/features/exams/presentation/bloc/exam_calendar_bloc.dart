@@ -72,6 +72,7 @@ class ExamCalendarBloc extends Bloc<ExamCalendarEvent, ExamCalendarState> {
       plannedEndDate: event.plannedEndDate,
       paperSubmissionDeadline: event.paperSubmissionDeadline,
       displayOrder: event.displayOrder,
+      marksConfig: event.marksConfig,
     );
 
     result.fold(

@@ -36,8 +36,8 @@ class _WizardStep3ScheduleState extends State<WizardStep3Schedule> {
       child: BlocBuilder<ExamTimetableWizardBloc, ExamTimetableWizardState>(
         builder: (context, state) {
           print('[Step3Schedule] BlocBuilder: state type = ${state.runtimeType}');
-          if (state is! WizardStep3State) {
-            print('[Step3Schedule] Not WizardStep3State, returning SizedBox.shrink()');
+          if (state is! WizardStep2State) {
+            print('[Step3Schedule] Not WizardStep2State, returning SizedBox.shrink()');
             return const SizedBox.shrink();
           }
 

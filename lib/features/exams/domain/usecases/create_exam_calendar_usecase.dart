@@ -26,6 +26,7 @@ class CreateExamCalendarUseCase {
     DateTime? paperSubmissionDeadline,
     required int displayOrder,
     Map<String, dynamic>? metadata,
+    Map<String, dynamic>? marksConfig,
   }) async {
     // Validate inputs
     if (monthNumber < 1 || monthNumber > 12) {
@@ -81,6 +82,7 @@ class CreateExamCalendarUseCase {
       paperSubmissionDeadline: paperSubmissionDeadline,
       displayOrder: displayOrder,
       metadata: metadata,
+      marksConfig: marksConfig,
       isActive: true,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),

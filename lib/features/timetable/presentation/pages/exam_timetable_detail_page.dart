@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../../domain/entities/exam_timetable_entry_entity.dart';
@@ -388,44 +389,40 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       );
       print('[ExamTimetableDetailPage] PDF Export: Generated ${pdfBytes.length} bytes');
 
-      // Save file to Downloads directory
-      // Use the shared Downloads directory accessible to file manager (not app-specific)
-      Directory directory;
-      try {
-        // Try to get the real Downloads directory first
-        final externalDir = await getExternalStorageDirectory();
-        if (externalDir != null) {
-          // Navigate up from app-specific directory to the shared Downloads folder
-          // App path: /storage/emulated/0/Android/data/com.pearl.papercraft.dev/files
-          // We want: /storage/emulated/0/Download
-          final parts = externalDir.path.split('/');
-          // Find the index of 'emulated'
-          final emulatedIndex = parts.indexOf('emulated');
-          if (emulatedIndex != -1) {
-            final sharedPath = '${parts.sublist(0, emulatedIndex + 2).join('/')}/Download';
-            directory = Directory(sharedPath);
-            // Create directory if it doesn't exist
-            if (!await directory.exists()) {
-              await directory.create(recursive: true);
-            }
-          } else {
-            throw Exception('Could not determine shared Download directory');
-          }
-        } else {
-          throw Exception('External storage not available');
-        }
-      } catch (e) {
-        print('[ExamTimetableDetailPage] PDF Export: Error accessing shared directory: $e, falling back to getDownloadsDirectory');
-        final fallbackDir = await getDownloadsDirectory();
-        if (fallbackDir == null) {
-          print('[ExamTimetableDetailPage] PDF Export: ERROR - Downloads directory not found');
+      // Request permission for Android 11+ (MANAGE_EXTERNAL_STORAGE)
+      if (Platform.isAndroid) {
+        final status = await Permission.manageExternalStorage.request();
+        if (!status.isGranted) {
+          print('[ExamTimetableDetailPage] PDF Export: MANAGE_EXTERNAL_STORAGE permission denied');
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Downloads directory not found'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Permission to write to Downloads folder is required'),
+              backgroundColor: Colors.red,
+            ),
           );
           return;
         }
-        directory = fallbackDir;
+      }
+
+      // Create the actual shared Downloads directory
+      // On Android, this is /storage/emulated/0/Download (note: no 's' at the end)
+      final downloadsPath = '/storage/emulated/0/Download';
+      final directory = Directory(downloadsPath);
+
+      // Ensure directory exists
+      if (!await directory.exists()) {
+        try {
+          await directory.create(recursive: true);
+          print('[ExamTimetableDetailPage] PDF Export: Created Downloads directory: $downloadsPath');
+        } catch (e) {
+          print('[ExamTimetableDetailPage] PDF Export: ERROR - Could not create Downloads directory: $e');
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Cannot create Downloads folder: $e'), backgroundColor: Colors.red),
+          );
+          return;
+        }
       }
 
       print('[ExamTimetableDetailPage] PDF Export: Downloads directory: ${directory.path}');

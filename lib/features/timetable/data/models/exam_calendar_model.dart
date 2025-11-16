@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:papercraft/features/timetable/domain/entities/exam_calendar_entity.dart';
+import 'package:papercraft/features/timetable/domain/entities/mark_config_entity.dart';
+import 'mark_config_model.dart';
 
 /// Data model for ExamCalendarEntity
 /// Used for API requests/responses and database mapping
@@ -15,6 +18,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
     super.paperSubmissionDeadline,
     super.displayOrder,
     super.metadata,
+    super.marksConfig,
     super.isActive,
     required super.createdAt,
     required super.updatedAt,
@@ -33,6 +37,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       paperSubmissionDeadline: entity.paperSubmissionDeadline,
       displayOrder: entity.displayOrder,
       metadata: entity.metadata,
+      marksConfig: entity.marksConfig,
       isActive: entity.isActive,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
@@ -45,6 +50,46 @@ class ExamCalendarModel extends ExamCalendarEntity {
     final rawExamType = json['exam_type'] as String;
     // Normalize exam type to handle corrupt database data
     final normalizedExamType = _normalizeExamType(rawExamType, examName);
+
+    // Parse marks configuration if present
+    // Supports three formats:
+    // 1. Legacy list format: List<Map> with grade ranges
+    // 2. New map format: Map with selected_grades and marks
+    // 3. JSON string format: String representation of the above
+    List<MarkConfigEntity>? marksConfigList;
+    final marksConfigJson = json['marks_config'];
+    if (marksConfigJson != null) {
+      try {
+        // Handle JSON string format (from database)
+        if (marksConfigJson is String && marksConfigJson.isNotEmpty) {
+          print('🔍 [ExamCalendarModel] Parsing marks_config from JSON string: $marksConfigJson');
+          final parsed = jsonDecode(marksConfigJson);
+          print('📊 [ExamCalendarModel] Parsed marks_config: $parsed (type: ${parsed.runtimeType})');
+          if (parsed is List) {
+            marksConfigList = (parsed)
+                .map((item) => MarkConfigModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+          } else if (parsed is Map<String, dynamic>) {
+            print('📋 [ExamCalendarModel] Converting map format to list format');
+            marksConfigList = _convertMapConfigToList(parsed);
+            print('✅ [ExamCalendarModel] Converted to ${marksConfigList?.length ?? 0} mark configs');
+          }
+        } else if (marksConfigJson is List) {
+          // Legacy list format
+          marksConfigList = (marksConfigJson)
+              .map((item) => MarkConfigModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else if (marksConfigJson is Map<String, dynamic>) {
+          // New map format with selected_grades
+          // Convert to legacy format for backward compatibility
+          print('📋 [ExamCalendarModel] Converting map format to list format');
+          marksConfigList = _convertMapConfigToList(marksConfigJson);
+          print('✅ [ExamCalendarModel] Converted to ${marksConfigList?.length ?? 0} mark configs');
+        }
+      } catch (e) {
+        print('⚠️ [ExamCalendarModel] Error parsing marks_config: $e');
+      }
+    }
 
     return ExamCalendarModel(
       id: json['id'] as String,
@@ -60,10 +105,62 @@ class ExamCalendarModel extends ExamCalendarEntity {
           : null,
       displayOrder: json['display_order'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      marksConfig: marksConfigList,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
+  }
+
+  /// Convert new map format to legacy list format
+  /// Map format: {\"selected_grades\": [1,2,3,4,5], \"grades_1_to_5_marks\": 25, ...}
+  static List<MarkConfigEntity>? _convertMapConfigToList(Map<String, dynamic> configMap) {
+    print('🔄 [ExamCalendarModel] _convertMapConfigToList called with map: $configMap');
+    final selectedGrades = configMap['selected_grades'] as List<dynamic>?;
+    print('   selectedGrades: $selectedGrades');
+    if (selectedGrades == null || selectedGrades.isEmpty) {
+      print('   📭 No selected_grades, returning null');
+      return null;
+    }
+
+    final grades = selectedGrades.cast<int>().toList()..sort();
+    print('   Sorted grades: $grades');
+
+    // Create mark configs for grade ranges
+    List<MarkConfigEntity> configs = [];
+
+    // Check for grades 1-5
+    final grades1To5 = grades.where((g) => g <= 5).toList();
+    if (grades1To5.isNotEmpty) {
+      final marks1To5 = configMap['grades_1_to_5_marks'] as int?;
+      print('   Grades 1-5: $grades1To5, marks: $marks1To5');
+      if (marks1To5 != null) {
+        configs.add(MarkConfigModel(
+          minGrade: grades1To5.first,
+          maxGrade: grades1To5.last,
+          totalMarks: marks1To5,
+          label: 'Grades ${grades1To5.first}-${grades1To5.last}',
+        ));
+      }
+    }
+
+    // Check for grades 6-12
+    final grades6To12 = grades.where((g) => g >= 6).toList();
+    if (grades6To12.isNotEmpty) {
+      final marks6To12 = configMap['grades_6_to_12_marks'] as int?;
+      print('   Grades 6-12: $grades6To12, marks: $marks6To12');
+      if (marks6To12 != null) {
+        configs.add(MarkConfigModel(
+          minGrade: grades6To12.first,
+          maxGrade: grades6To12.last,
+          totalMarks: marks6To12,
+          label: 'Grades ${grades6To12.first}-${grades6To12.last}',
+        ));
+      }
+    }
+
+    print('   ✅ Created ${configs.length} mark configs');
+    return configs.isEmpty ? null : configs;
   }
 
   /// Convert to JSON for Supabase insert/update
@@ -79,6 +176,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       'paper_submission_deadline': paperSubmissionDeadline?.toIso8601String(),
       'display_order': displayOrder,
       'metadata': metadata,
+      'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -96,6 +194,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       'paper_submission_deadline': paperSubmissionDeadline?.toIso8601String(),
       'display_order': displayOrder,
       'metadata': metadata,
+      'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
     };
   }
 

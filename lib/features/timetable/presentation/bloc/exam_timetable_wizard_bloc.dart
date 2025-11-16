@@ -15,7 +15,9 @@ import '../../../catalog/domain/usecases/get_subjects_usecase.dart' show GetSubj
 import 'exam_timetable_wizard_event.dart';
 import 'exam_timetable_wizard_state.dart';
 
-/// BLoC for managing the 3-step exam timetable wizard
+/// BLoC for managing the 2-step exam timetable wizard
+/// Step 1: Select exam calendar (automatically filters grades from calendar's marks config)
+/// Step 2: Assign subjects to exam dates
 class ExamTimetableWizardBloc
     extends Bloc<ExamTimetableWizardEvent, ExamTimetableWizardState> {
   final GetExamCalendarsUsecase getExamCalendars;
@@ -47,8 +49,6 @@ class ExamTimetableWizardBloc
   }) : super(const WizardInitial()) {
     on<InitializeWizardEvent>(_onInitializeWizard);
     on<SelectExamCalendarEvent>(_onSelectExamCalendar);
-    on<UpdateUserGradeSelectionEvent>(_onUpdateUserGradeSelection);
-    on<SelectGradesEvent>(_onSelectGrades);
     on<AssignSubjectDateEvent>(_onAssignSubjectDate);
     on<RemoveSubjectAssignmentEvent>(_onRemoveSubjectAssignment);
     on<UpdateSubjectAssignmentEvent>(_onUpdateSubjectAssignment);
@@ -84,7 +84,8 @@ class ExamTimetableWizardBloc
     );
   }
 
-  /// Step 1 → Step 2: Transition to grade selection
+  /// Step 1 → Step 2: Transition to loading and automatically selecting grades
+  /// (Grades are automatically selected from calendar's marks config)
   Future<void> _onSelectExamCalendar(
     SelectExamCalendarEvent event,
     Emitter<ExamTimetableWizardState> emit,
@@ -100,17 +101,17 @@ class ExamTimetableWizardBloc
       tenantId = event.calendar.tenantId;
     } else if (currentState is WizardStep2State) {
       tenantId = currentState.tenantId;
-    } else if (currentState is WizardStep3State) {
+    } else if (currentState is WizardStep2State) {
       tenantId = currentState.tenantId;
     }
 
     print('[WizardBloc] TenantId: $tenantId');
 
-    // Emit loading state
-    print('[WizardBloc] Emitting WizardStep2State with isLoading=true');
+    // Emit loading state to show spinner in UI
     emit(WizardStep2State(
       tenantId: tenantId,
       selectedCalendar: event.calendar,
+      selectedGradeIds: const [],
       isLoading: true,
     ));
 
@@ -124,133 +125,71 @@ class ExamTimetableWizardBloc
     await gradesResult.fold(
       (failure) async {
         print('[WizardBloc] FAILURE loading grades: $failure');
-        emit(WizardStep2State(
-          tenantId: tenantId,
-          selectedCalendar: event.calendar,
-          isLoading: false,
-          error: failure.toString(),
-        ));
+        emit(WizardErrorState(message: 'Failed to load grades: $failure'));
       },
       (allGrades) async {
         print('[WizardBloc] SUCCESS: Loaded ${allGrades.length} grades');
-        print('[WizardBloc] Checking for already mapped grades for calendar: ${event.calendar.id}');
+        print('[WizardBloc] Filtering grades based on calendar marks config...');
 
-        // Check if grades are already mapped (for resume scenario)
-        await _loadMappedGradesAndEmit(
+        // Filter grades based on exam calendar's selected grades
+        List<GradeEntity> availableGrades = allGrades;
+        final selectedGradesFromCalendar = ExamCalendarEntity.getSelectedGradesFromMarksConfig(
+          event.calendar.marksConfig,
+        );
+
+        if (selectedGradesFromCalendar != null && selectedGradesFromCalendar.isNotEmpty) {
+          print('[WizardBloc] 📚 Filtering grades: selected from calendar = $selectedGradesFromCalendar');
+          availableGrades = allGrades.where((grade) {
+            return selectedGradesFromCalendar.contains(grade.gradeNumber);
+          }).toList();
+          print('[WizardBloc] ✅ Filtered to ${availableGrades.length} grades');
+        }
+
+        // Automatically select all filtered grades (since they come from calendar)
+        final selectedGradeIds = availableGrades.map((g) => g.id).toList();
+        print('[WizardBloc] 🔄 Automatically selecting ${selectedGradeIds.length} filtered grades');
+
+        // Process selected grades (expand to sections and move to step 3)
+        await _processSelectedGradesAndTransitionToStep3(
           tenantId: tenantId,
-          allGrades: allGrades,
           calendar: event.calendar,
+          selectedGradeIds: selectedGradeIds,
+          availableGrades: availableGrades,
           emit: emit,
         );
       },
     );
   }
 
-  /// Helper method to load mapped grades asynchronously
-  /// This avoids the nested async callback issue in fold()
-  Future<void> _loadMappedGradesAndEmit({
+  /// Helper method to process selected grades and transition directly to step 2
+  /// This skips the grade selection UI since grades are auto-selected from calendar
+  Future<void> _processSelectedGradesAndTransitionToStep3({
     required String tenantId,
-    required List<GradeEntity> allGrades,
     required ExamCalendarEntity calendar,
+    required List<String> selectedGradeIds,
+    required List<GradeEntity> availableGrades,
     required Emitter<ExamTimetableWizardState> emit,
   }) async {
-    print('[WizardBloc] Inside _loadMappedGradesAndEmit helper');
-    print('[WizardBloc] Helper received allGrades count: ${allGrades.length}');
+    print('[WizardBloc] Processing ${selectedGradeIds.length} selected grades...');
 
-    final mappedResult = await getGradesForCalendar(
-      GetGradesForCalendarParams(examCalendarId: calendar.id),
-    );
-
-    print('[WizardBloc] Mapped grades result: ${mappedResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
-    print('[WizardBloc] About to fold the result...');
-
-    mappedResult.fold(
-      (failure) {
-        print('[WizardBloc] FAILURE checking mapped grades: $failure');
-        emit(WizardStep2State(
-          tenantId: tenantId,
-          selectedCalendar: calendar,
-          availableGrades: allGrades,
-          isLoading: false,
-          error: failure.toString(),
-        ));
-      },
-      (alreadyMappedGradeIds) {
-        print('[WizardBloc] SUCCESS: Found ${alreadyMappedGradeIds.length} already mapped grades');
-        print('[WizardBloc] Emitting WizardStep2State with:');
-        print('  - availableGrades: ${allGrades.length}');
-        print('  - selectedGradeIds: ${alreadyMappedGradeIds.length}');
-        print('  - isLoading: false');
-
-        final newState = WizardStep2State(
-          tenantId: tenantId,
-          selectedCalendar: calendar,
-          availableGrades: allGrades,
-          selectedGradeIds: alreadyMappedGradeIds,
-          isLoading: false,
-        );
-
-        print('[WizardBloc] About to emit: ${newState.availableGrades.length} grades');
-        emit(newState);
-        print('[WizardBloc] State emitted successfully');
-      },
-    );
-  }
-
-  /// Update user's grade section selection locally (Step 2 checkbox changes)
-  Future<void> _onUpdateUserGradeSelection(
-    UpdateUserGradeSelectionEvent event,
-    Emitter<ExamTimetableWizardState> emit,
-  ) async {
-    if (state is! WizardStep2State) return;
-    final step2State = state as WizardStep2State;
-
-    print('[WizardBloc] User updated grade section selection: ${event.selectedGradeSectionIds.length} sections selected');
-
-    // Update the state with the new user selection
-    emit(step2State.copyWith(selectedGradeIds: event.selectedGradeSectionIds));
-  }
-
-  /// Step 2 → Step 3: Expand grades to sections and transition to subject assignment
-  Future<void> _onSelectGrades(
-    SelectGradesEvent event,
-    Emitter<ExamTimetableWizardState> emit,
-  ) async {
-    if (state is! WizardStep2State) return;
-    final step2State = state as WizardStep2State;
-
-    emit(step2State.copyWith(isLoading: true, error: null));
-
-    // Validate at least one grade selected (note: event.gradeSectionIds contains grade IDs from UI)
-    if (event.gradeSectionIds.isEmpty) {
-      emit(WizardValidationErrorState(
-        errors: ['Please select at least one grade'],
-        step: 'step_2',
-      ));
-      return;
-    }
-
-    print('[WizardBloc] User selected ${event.gradeSectionIds.length} grades, expanding to sections...');
-
-    // Expand selected grades to all their sections
-    // IMPORTANT: We need SECTION IDs (from grade_sections table), not grade IDs!
+    // Expand selected grades to sections (same logic as _onSelectGrades)
     final List<String> allSectionIds = [];
     final gradeSectionMapping = <String, List<String>>{};
-    final sectionDetailsMap = <String, Map<String, String>>{}; // sectionId -> {gradeId, sectionName}
-    final Map<String, int> gradeIdToGradeNumberMap = {}; // gradeId -> grade_number
+    final sectionDetailsMap = <String, Map<String, String>>{};
+    final Map<String, int> gradeIdToGradeNumberMap = {};
 
-    // Build grade ID to grade number mapping from available grades in state
-    print('[WizardBloc] Building grade ID to grade number mapping from ${step2State.availableGrades.length} available grades');
-    for (final grade in step2State.availableGrades) {
+    // Build the grade ID to grade number mapping from available grades
+    print('[WizardBloc] Building grade ID to grade number mapping from ${availableGrades.length} available grades');
+    for (final grade in availableGrades) {
       gradeIdToGradeNumberMap[grade.id] = grade.gradeNumber;
-      print('[WizardBloc] Grade mapping: ${grade.id} -> grade_number: ${grade.gradeNumber}');
+      print('[WizardBloc] Grade mapping: ${grade.id} → grade_number: ${grade.gradeNumber}');
     }
 
-    for (final gradeId in event.gradeSectionIds) {
+    for (final gradeId in selectedGradeIds) {
       print('[WizardBloc] Loading sections for grade: $gradeId');
 
       final sectionsResult = await loadGradeSections(
-        tenantId: step2State.tenantId,
+        tenantId: tenantId,
         gradeId: gradeId,
       );
 
@@ -263,117 +202,173 @@ class ExamTimetableWizardBloc
 
           if (sections.isEmpty) {
             print('[WizardBloc] WARNING: Grade $gradeId has no sections configured');
-          } else {
-            // Add SECTION IDs (not grade IDs)
-            final sectionIds = <String>[];
-            for (final section in sections) {
-              final sectionId = section.id; // This is the UUID from grade_sections table
-              allSectionIds.add(sectionId);
-              sectionIds.add(sectionId);
+            return;
+          }
 
-              // Store section details for later lookup
-              sectionDetailsMap[sectionId] = {
-                'gradeId': gradeId,
-                'sectionName': section.sectionName,
-              };
-              print('[WizardBloc] Added section: ${section.sectionName} (ID: $sectionId) for grade $gradeId');
-            }
-            gradeSectionMapping[gradeId] = sectionIds;
+          gradeSectionMapping[gradeId] = sections.map((s) => s.id).toList();
+
+          for (final section in sections) {
+            sectionDetailsMap[section.id] = {
+              'gradeId': gradeId,
+              'sectionName': section.sectionName,
+            };
+            allSectionIds.add(section.id);
+            print('[WizardBloc] Added section: ${section.sectionName} (${section.id})');
           }
         },
       );
     }
 
+    print('[WizardBloc] Expanded to ${allSectionIds.length} section IDs');
+
     if (allSectionIds.isEmpty) {
-      // No grades have sections
-      emit(step2State.copyWith(
-        isLoading: false,
-        error: 'Selected grades have no sections configured. Please configure sections in the academic structure first.',
+      emit(WizardErrorState(
+        message: 'No sections found for selected grades. Please configure sections in settings.',
       ));
       return;
     }
 
-    // Map all expanded grade sections to calendar
-    print('[WizardBloc] Mapping ${allSectionIds.length} section(s) to calendar ${event.examCalendarId}');
-    final result = await mapGradesToExamCalendar(
+    // Check if grades are already mapped for this calendar
+    print('[WizardBloc] Checking if grades are already mapped for this calendar...');
+    final alreadyMappedResult = await getGradesForCalendar(
+      GetGradesForCalendarParams(examCalendarId: calendar.id),
+    );
+
+    print('[WizardBloc] Already mapped check: ${alreadyMappedResult.isRight() ? 'SUCCESS' : 'NOT FOUND'}');
+
+    // If grades are already mapped, skip the mapping step and go directly to subjects
+    final gradesAlreadyMapped = alreadyMappedResult.fold(
+      (failure) => false,
+      (alreadyMappedIds) {
+        print('[WizardBloc] Grades already mapped (${alreadyMappedIds.length} found), skipping mapping step');
+        return true;
+      },
+    );
+
+    if (gradesAlreadyMapped) {
+      // Load subjects for the sections
+      print('[WizardBloc] Loading subjects for ${allSectionIds.length} sections...');
+      await _loadSubjectsAndTransitionToStep2(
+        tenantId: tenantId,
+        calendar: calendar,
+        selectedGradeIds: selectedGradeIds,
+        gradeSectionMapping: gradeSectionMapping,
+        sectionDetailsMap: sectionDetailsMap,
+        gradeIdToGradeNumberMap: gradeIdToGradeNumberMap,
+        emit: emit,
+      );
+      return;
+    }
+
+    // Map grades to calendar only if not already mapped
+    print('[WizardBloc] Mapping ${allSectionIds.length} section IDs to calendar...');
+    final mapResult = await mapGradesToExamCalendar(
       MapGradesToExamCalendarParams(
-        tenantId: step2State.tenantId,
-        examCalendarId: event.examCalendarId,
+        tenantId: tenantId,
+        examCalendarId: calendar.id,
         gradeSectionIds: allSectionIds,
       ),
     );
 
-    print('[WizardBloc] Grade section mapping result: ${result.isRight() ? 'SUCCESS' : 'FAILURE'}');
+    print('[WizardBloc] Map result: ${mapResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
 
-    await result.fold(
-      (failure) async {
-        print('[WizardBloc] FAILURE mapping grade sections: $failure');
-        emit(step2State.copyWith(
-          isLoading: false,
-          error: failure.toString(),
-        ));
+    mapResult.fold(
+      (failure) {
+        print('[WizardBloc] FAILURE mapping grades: $failure');
+        emit(WizardErrorState(message: 'Failed to map grades: $failure'));
       },
-      (mappings) async {
-        print('[WizardBloc] SUCCESS mapping ${mappings.length} grade sections, loading subjects...');
+      (mappedResults) async {
+        print('[WizardBloc] Successfully mapped ${mappedResults.length} grades');
 
-        // Load subjects from grade_section_subject table for each grade+section combination
-        // This is the source of truth for which subjects are actually available per grade/section
-        print('[WizardBloc] Querying grade_section_subject table for ${sectionDetailsMap.length} sections...');
-        final Map<String, SubjectEntity> subjectMap = <String, SubjectEntity>{}; // Deduplicate by subject ID
-        final Map<String, List<String>> subjectToGradesMap = <String, List<String>>{}; // Track subject -> list of gradeIds
-
-        // Iterate through each section and load its configured subjects
-        for (final sectionId in sectionDetailsMap.keys) {
-          final sectionDetails = sectionDetailsMap[sectionId] as Map<String, dynamic>? ?? {};
-          final gradeId = sectionDetails['gradeId'] as String?;
-          final sectionName = sectionDetails['sectionName'] as String?;
-
-          if (gradeId != null && sectionName != null) {
-            print('[WizardBloc] Loading subjects for grade=$gradeId, section=$sectionName');
-            final subjectsResult = await getSubjectsByGradeAndSection(
-              step2State.tenantId,
-              gradeId,
-              sectionName,
-            );
-
-            await subjectsResult.fold(
-              (failure) async {
-                print('[WizardBloc] WARNING: Failed to load subjects for grade $gradeId, section $sectionName: $failure');
-                // Continue with other sections instead of failing completely
-              },
-              (subjects) {
-                print('[WizardBloc] Loaded ${subjects.length} subjects for grade $gradeId, section $sectionName');
-                // Add to map - keyed by subject ID to automatically deduplicate
-                for (final subject in subjects) {
-                  subjectMap[subject.id] = subject;
-
-                  // Track which grades have this subject
-                  if (!subjectToGradesMap.containsKey(subject.id)) {
-                    subjectToGradesMap[subject.id] = [];
-                  }
-                  if (!subjectToGradesMap[subject.id]!.contains(gradeId)) {
-                    subjectToGradesMap[subject.id]!.add(gradeId);
-                  }
-                }
-              },
-            );
-          }
-        }
-
-        final uniqueSubjects = subjectMap.values.toList();
-        print('[WizardBloc] Combined total: ${uniqueSubjects.length} unique subjects after deduplication (was ${subjectMap.length})');
-        _emitStep3State(emit, step2State, event, uniqueSubjects, gradeSectionMapping, sectionDetailsMap, allSectionIds.length, subjectToGradesMap, gradeIdToGradeNumberMap);
+        // Load subjects for the sections
+        print('[WizardBloc] Loading subjects for ${allSectionIds.length} sections...');
+        await _loadSubjectsAndTransitionToStep2(
+          tenantId: tenantId,
+          calendar: calendar,
+          selectedGradeIds: selectedGradeIds,
+          gradeSectionMapping: gradeSectionMapping,
+          sectionDetailsMap: sectionDetailsMap,
+          gradeIdToGradeNumberMap: gradeIdToGradeNumberMap,
+          emit: emit,
+        );
       },
     );
   }
+
+  /// Load subjects and transition to step 2
+  Future<void> _loadSubjectsAndTransitionToStep2({
+    required String tenantId,
+    required ExamCalendarEntity calendar,
+    required List<String> selectedGradeIds,
+    required Map<String, List<String>> gradeSectionMapping,
+    required Map<String, Map<String, String>> sectionDetailsMap,
+    required Map<String, int> gradeIdToGradeNumberMap,
+    required Emitter<ExamTimetableWizardState> emit,
+  }) async {
+    // Load subjects per grade+section (same logic as _onSelectGrades)
+    print('[WizardBloc] Loading subjects for ${gradeSectionMapping.length} grades...');
+    final Map<String, SubjectEntity> subjectMap = <String, SubjectEntity>{};
+    final Map<String, List<String>> subjectToGradesMap = <String, List<String>>{};
+
+    for (final sectionId in sectionDetailsMap.keys) {
+      final details = sectionDetailsMap[sectionId];
+      final gradeId = details?['gradeId'];
+      final sectionName = details?['sectionName'];
+
+      if (gradeId != null && sectionName != null) {
+        print('[WizardBloc] Loading subjects for grade=$gradeId, section=$sectionName');
+        final subjectsResult = await getSubjectsByGradeAndSection(
+          tenantId,
+          gradeId,
+          sectionName,
+        );
+
+        await subjectsResult.fold(
+          (failure) async {
+            print('[WizardBloc] WARNING: Failed to load subjects for grade $gradeId, section $sectionName: $failure');
+          },
+          (subjects) {
+            print('[WizardBloc] Loaded ${subjects.length} subjects for grade $gradeId, section $sectionName');
+            for (final subject in subjects) {
+              subjectMap[subject.id] = subject;
+
+              if (!subjectToGradesMap.containsKey(subject.id)) {
+                subjectToGradesMap[subject.id] = [];
+              }
+              if (!subjectToGradesMap[subject.id]!.contains(gradeId)) {
+                subjectToGradesMap[subject.id]!.add(gradeId);
+              }
+            }
+          },
+        );
+      }
+    }
+
+    final uniqueSubjects = subjectMap.values.toList();
+    print('[WizardBloc] Loaded ${uniqueSubjects.length} unique subjects');
+    print('[WizardBloc] Emitting WizardStep2State to move to schedule step');
+
+    emit(WizardStep2State(
+      tenantId: tenantId,
+      selectedCalendar: calendar,
+      selectedGradeIds: selectedGradeIds,
+      subjects: uniqueSubjects,
+      gradeSectionMapping: gradeSectionMapping,
+      sectionDetailsMap: sectionDetailsMap,
+      subjectToGradesMap: subjectToGradesMap,
+      gradeIdToNumberMap: gradeIdToGradeNumberMap,
+      isLoading: false,
+    ));
+  }
+
 
   /// Step 3: Assign a subject to an exam date
   Future<void> _onAssignSubjectDate(
     AssignSubjectDateEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    if (state is! WizardStep3State) return;
-    final step3State = state as WizardStep3State;
+    if (state is! WizardStep2State) return;
+    final step3State = state as WizardStep2State;
 
     // Validate date is within calendar range
     if (event.examDate.isBefore(step3State.selectedCalendar.plannedStartDate) ||
@@ -479,8 +474,8 @@ class ExamTimetableWizardBloc
     RemoveSubjectAssignmentEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    if (state is! WizardStep3State) return;
-    final step3State = state as WizardStep3State;
+    if (state is! WizardStep2State) return;
+    final step3State = state as WizardStep2State;
 
     final updatedEntries =
         step3State.entries.where((e) => e.subjectId != event.subjectId).toList();
@@ -493,7 +488,7 @@ class ExamTimetableWizardBloc
     UpdateSubjectAssignmentEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    if (state is! WizardStep3State) return;
+    if (state is! WizardStep2State) return;
 
     // Remove and re-add with new values
     add(RemoveSubjectAssignmentEvent(subjectId: event.subjectId));
@@ -510,8 +505,8 @@ class ExamTimetableWizardBloc
     SubmitWizardEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    if (state is! WizardStep3State) return;
-    final step3State = state as WizardStep3State;
+    if (state is! WizardStep2State) return;
+    final step3State = state as WizardStep2State;
 
     print('[WizardBloc] Submitting wizard with ${step3State.entries.length} entries');
     for (var i = 0; i < step3State.entries.length; i++) {
@@ -553,35 +548,6 @@ class ExamTimetableWizardBloc
     );
   }
 
-  /// Helper method to emit Step3State
-  void _emitStep3State(
-    Emitter<ExamTimetableWizardState> emit,
-    WizardStep2State step2State,
-    SelectGradesEvent event,
-    List<SubjectEntity> subjects,
-    Map<String, List<String>> gradeSectionMapping,
-    Map<String, Map<String, String>> sectionDetailsMap,
-    int sectionCount,
-    Map<String, List<String>> subjectToGradesMap,
-    Map<String, int> gradeIdToGradeNumberMap,
-  ) {
-    print('[WizardBloc] Emitting WizardStep3State with ${subjects.length} subjects');
-    print('[WizardBloc] Subject to grades mapping: ${subjectToGradesMap.entries.map((e) => '${e.key}: ${e.value.join(", ")}').join(" | ")}');
-    print('[WizardBloc] Grade ID to number mapping: ${gradeIdToGradeNumberMap.entries.map((e) => '${e.key}: grade ${e.value}').join(", ")}');
-    emit(WizardStep3State(
-      tenantId: step2State.tenantId,
-      selectedCalendar: step2State.selectedCalendar,
-      selectedGradeIds: event.gradeSectionIds, // Store original grade IDs for reference
-      subjects: subjects,
-      gradeSectionMapping: gradeSectionMapping,
-      sectionDetailsMap: sectionDetailsMap,
-      subjectToGradesMap: subjectToGradesMap, // Pass the mapping so UI can show correct grade availability
-      gradeIdToNumberMap: gradeIdToGradeNumberMap, // Pass grade ID to number mapping
-      isLoading: false,
-    ));
-    print('[WizardBloc] WizardStep3State emitted successfully with $sectionCount grade sections and ${subjects.length} subjects');
-  }
-
   /// Go back to previous step
   Future<void> _onGoBack(
     GoBackEvent event,
@@ -589,7 +555,7 @@ class ExamTimetableWizardBloc
   ) async {
     final currentState = state;
 
-    if (currentState is WizardStep3State) {
+    if (currentState is WizardStep2State) {
       // Go back to Step 2
       emit(WizardStep2State(
         tenantId: currentState.tenantId,
