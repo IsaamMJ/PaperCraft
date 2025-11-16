@@ -58,4 +58,20 @@ abstract class QuestionPaperRepository {
 
   // =============== REJECTION HISTORY ===============
   Future<Either<Failure, List<Map<String, dynamic>>>> getRejectionHistory(String paperId);
+
+  // =============== AUTO-ASSIGNMENT OPERATIONS ===============
+  /// Auto-assign question papers to teachers when timetable is published
+  /// Creates blank draft papers with pre-filled metadata for each teacher
+  /// Parameters:
+  /// - [timetableId] - The exam timetable ID being published
+  /// - [tenantId] - The tenant ID
+  /// - [timetableEntries] - List of timetable entries with teacher assignments
+  /// - [academicYear] - The academic year for the papers
+  /// Returns list of created question papers
+  Future<Either<Failure, List<QuestionPaperEntity>>> autoAssignPapersForTimetable({
+    required String timetableId,
+    required String tenantId,
+    required List<Map<String, dynamic>> timetableEntries,
+    required String academicYear,
+  });
 }

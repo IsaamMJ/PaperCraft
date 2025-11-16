@@ -1,5 +1,6 @@
 enum UserRole {
   admin,
+  director,
   teacher,
   office_staff,
   student,
@@ -10,6 +11,8 @@ enum UserRole {
     switch (role.toLowerCase()) {
       case 'admin':
         return UserRole.admin;
+      case 'director':
+        return UserRole.director;
       case 'teacher':
         return UserRole.teacher;
       case 'office_staff':
@@ -29,6 +32,8 @@ enum UserRole {
     switch (this) {
       case UserRole.admin:
         return 'admin';
+      case UserRole.director:
+        return 'director';
       case UserRole.teacher:
         return 'teacher';
       case UserRole.office_staff:
@@ -46,6 +51,8 @@ enum UserRole {
     switch (this) {
       case UserRole.admin:
         return 'Admin';
+      case UserRole.director:
+        return 'Director';
       case UserRole.teacher:
         return 'Teacher';
       case UserRole.office_staff:

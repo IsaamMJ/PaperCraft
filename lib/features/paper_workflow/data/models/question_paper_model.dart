@@ -32,6 +32,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
     super.reviewedAt,
     super.reviewedBy,
     super.rejectionReason,
+    super.examTimetableEntryId,
+    super.section,
   });
 
   factory QuestionPaperModel.fromEntity(QuestionPaperEntity entity) {
@@ -60,6 +62,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       reviewedAt: entity.reviewedAt,
       reviewedBy: entity.reviewedBy,
       rejectionReason: entity.rejectionReason,
+      examTimetableEntryId: entity.examTimetableEntryId,
+      section: entity.section,
     );
   }
 
@@ -352,6 +356,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
     DateTime? reviewedAt,
     String? reviewedBy,
     String? rejectionReason,
+    String? examTimetableEntryId,
+    String? section,
   }) {
     return QuestionPaperModel(
       id: id ?? this.id,
@@ -378,6 +384,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      examTimetableEntryId: examTimetableEntryId ?? this.examTimetableEntryId,
+      section: section ?? this.section,
     );
   }
 }

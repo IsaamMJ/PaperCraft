@@ -43,6 +43,10 @@ class QuestionPaperEntity extends Equatable {
   final String? reviewedBy;
   final String? rejectionReason;
 
+  // Auto-assignment fields
+  final String? examTimetableEntryId;  // Links to auto-assigned exam timetable entry
+  final String? section;              // Section (e.g., "A", "B") - pre-filled for auto-assigned papers
+
   const QuestionPaperEntity({
     required this.id,
     required this.title,
@@ -68,6 +72,8 @@ class QuestionPaperEntity extends Equatable {
     this.reviewedAt,
     this.reviewedBy,
     this.rejectionReason,
+    this.examTimetableEntryId,
+    this.section,
   });
 
   // Computed properties
@@ -255,6 +261,8 @@ class QuestionPaperEntity extends Equatable {
     DateTime? reviewedAt,
     String? reviewedBy,
     String? rejectionReason,
+    String? examTimetableEntryId,
+    String? section,
   }) {
     return QuestionPaperEntity(
       id: id ?? this.id,
@@ -281,6 +289,8 @@ class QuestionPaperEntity extends Equatable {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      examTimetableEntryId: examTimetableEntryId ?? this.examTimetableEntryId,
+      section: section ?? this.section,
     );
   }
 
@@ -310,5 +320,7 @@ class QuestionPaperEntity extends Equatable {
     reviewedAt,
     reviewedBy,
     rejectionReason,
+    examTimetableEntryId,
+    section,
   ];
 }

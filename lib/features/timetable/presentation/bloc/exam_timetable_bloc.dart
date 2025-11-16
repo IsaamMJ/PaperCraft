@@ -10,6 +10,7 @@ import '../../domain/usecases/get_exam_timetables_usecase.dart';
 import '../../domain/usecases/get_timetable_grades_and_sections_usecase.dart';
 import '../../domain/usecases/get_valid_subjects_for_grade_selection_usecase.dart';
 import '../../domain/usecases/publish_exam_timetable_usecase.dart';
+import '../../domain/usecases/publish_timetable_and_auto_assign_papers_usecase.dart';
 import '../../domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../domain/repositories/exam_timetable_repository.dart';
 import 'exam_timetable_event.dart';
@@ -43,6 +44,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
   final GetExamTimetablesUsecase _getExamTimetablesUsecase;
   final CreateExamTimetableUsecase _createExamTimetableUsecase;
   final PublishExamTimetableUsecase _publishExamTimetableUsecase;
+  final PublishTimetableAndAutoAssignPapersUsecase _publishTimetableAndAutoAssignUsecase;
   final AddExamTimetableEntryUsecase _addExamTimetableEntryUsecase;
   final ValidateExamTimetableUsecase _validateExamTimetableUsecase;
   final GetTimetableGradesAndSectionsUsecase _getTimetableGradesAndSectionsUsecase;
@@ -54,6 +56,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     required GetExamTimetablesUsecase getExamTimetablesUsecase,
     required CreateExamTimetableUsecase createExamTimetableUsecase,
     required PublishExamTimetableUsecase publishExamTimetableUsecase,
+    required PublishTimetableAndAutoAssignPapersUsecase publishTimetableAndAutoAssignUsecase,
     required AddExamTimetableEntryUsecase addExamTimetableEntryUsecase,
     required ValidateExamTimetableUsecase validateExamTimetableUsecase,
     required GetTimetableGradesAndSectionsUsecase getTimetableGradesAndSectionsUsecase,
@@ -63,6 +66,7 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
         _getExamTimetablesUsecase = getExamTimetablesUsecase,
         _createExamTimetableUsecase = createExamTimetableUsecase,
         _publishExamTimetableUsecase = publishExamTimetableUsecase,
+        _publishTimetableAndAutoAssignUsecase = publishTimetableAndAutoAssignUsecase,
         _addExamTimetableEntryUsecase = addExamTimetableEntryUsecase,
         _validateExamTimetableUsecase = validateExamTimetableUsecase,
         _getTimetableGradesAndSectionsUsecase = getTimetableGradesAndSectionsUsecase,
@@ -240,20 +244,32 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
   }
 
   /// Handler: PublishExamTimetableEvent
+  ///
+  /// This handler publishes the exam timetable and automatically assigns
+  /// question papers to teachers for their assigned subjects.
+  ///
+  /// Flow:
+  /// 1. Call PublishTimetableAndAutoAssignPapersUsecase (orchestration)
+  /// 2. This internally:
+  ///    - Publishes the timetable (calls PublishExamTimetableUsecase)
+  ///    - Fetches all exam entries
+  ///    - Gets teachers for each entry
+  ///    - Creates blank question papers for each teacher
+  /// 3. Teachers see their assigned papers in the dashboard
   Future<void> _onPublishExamTimetable(
     PublishExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] Publishing timetable: ${event.timetableId}');
-    emit(const ExamTimetableLoading(message: 'Publishing timetable...'));
+    print('[ExamTimetableBloc] Publishing timetable and auto-assigning papers: ${event.timetableId}');
+    emit(const ExamTimetableLoading(message: 'Publishing timetable and assigning papers...'));
 
-    final result = await _publishExamTimetableUsecase(
-      params: PublishExamTimetableParams(timetableId: event.timetableId),
+    final result = await _publishTimetableAndAutoAssignUsecase(
+      params: PublishTimetableAndAutoAssignPapersParams(timetableId: event.timetableId),
     );
 
     result.fold(
       (failure) {
-        print('[ExamTimetableBloc] Publish FAILED: ${failure.message}');
+        print('[ExamTimetableBloc] Publish & Auto-Assign FAILED: ${failure.message}');
         if (failure is ValidationFailure) {
           // ignore: unchecked_use_of_nullable_value
           final errors = failure.message.split('\n');
@@ -263,9 +279,10 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
           emit(ExamTimetableError(message: failure.message));
         }
       },
-      (timetable) {
-        print('[ExamTimetableBloc] Publish SUCCESS: ${timetable.examName}');
-        emit(ExamTimetablePublished(timetable: timetable));
+      (result) {
+        print('[ExamTimetableBloc] Publish & Auto-Assign SUCCESS: ${result.timetable.examName}');
+        print('[ExamTimetableBloc] Auto-assigned ${result.autoAssignedPapersCount} question papers');
+        emit(ExamTimetablePublished(timetable: result.timetable));
       },
     );
   }

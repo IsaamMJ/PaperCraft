@@ -7,6 +7,7 @@ import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/paper_status.dart';
+import '../../../catalog/domain/entities/exam_type.dart';
 import '../../domain/repositories/question_paper_repository.dart';
 import '../datasources/paper_cloud_data_source.dart';
 import '../datasources/paper_local_data_source.dart';
@@ -116,6 +117,15 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
 
       if (!paper.canSubmit) {
         return Left(ValidationFailure(_getSubmissionError(paper)));
+      }
+
+      // Marks validation for auto-assigned papers
+      // If paper is linked to an exam timetable entry, validate marks against exam calendar
+      if (paper.examTimetableEntryId != null) {
+        final marksValidationError = await _validatePaperMarksAgainstExamCalendar(paper);
+        if (marksValidationError != null) {
+          return Left(ValidationFailure(marksValidationError));
+        }
       }
 
       _logger.info('Submitting paper', category: LogCategory.paper, context: {
@@ -524,6 +534,182 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
     } catch (e, stackTrace) {
       _logger.error('Failed to update paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to update paper: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<QuestionPaperEntity>>> autoAssignPapersForTimetable({
+    required String timetableId,
+    required String tenantId,
+    required List<Map<String, dynamic>> timetableEntries,
+    required String academicYear,
+  }) async {
+    try {
+      final createdPapers = <QuestionPaperEntity>[];
+
+      for (final entry in timetableEntries) {
+        final entryId = entry['id'] as String;
+        final gradeId = entry['grade_id'] as String;
+        final subjectId = entry['subject_id'] as String;
+        final section = entry['section'] as String?;
+        final examDate = entry['exam_date'] != null
+            ? DateTime.parse(entry['exam_date'] as String)
+            : null;
+        final examType = entry['exam_type'] as String? ?? 'monthlyTest';
+        final examNumber = entry['exam_number'] as int?;
+
+        // Get teachers assigned to this entry
+        final teachers = entry['teachers'] as List<dynamic>? ?? [];
+
+        // Create a paper for each teacher
+        for (final teacherData in teachers) {
+          final teacherId = teacherData['teacher_id'] as String;
+          final teacherName = teacherData['teacher_name'] as String?;
+
+          // Generate title: "Grade 2 Mathematics - 21 Nov 2025"
+          final dateStr = examDate != null
+              ? '${examDate.day} ${_monthName(examDate.month)} ${examDate.year}'
+              : 'TBD';
+          final subjectName = entry['subject_name'] as String? ?? 'Subject';
+          final title = 'Grade ${entry['grade_number'] ?? '?'} $subjectName - $dateStr';
+
+          final paper = QuestionPaperEntity(
+            id: _generateId(),
+            title: title,
+            subjectId: subjectId,
+            gradeId: gradeId,
+            academicYear: academicYear,
+            createdBy: teacherId,
+            createdAt: DateTime.now(),
+            modifiedAt: DateTime.now(),
+            status: PaperStatus.draft,
+            examDate: examDate,
+            examType: _parseExamType(examType),
+            examNumber: examNumber,
+            paperSections: [],
+            questions: {},
+            tenantId: tenantId,
+            userId: teacherId,
+            examTimetableEntryId: entryId,
+            section: section,
+          );
+
+          // Save the auto-assigned paper (use submitPaper which handles creation)
+          final model = QuestionPaperModel.fromEntity(paper);
+          final savedModel = await _cloudDataSource.submitPaper(model);
+          createdPapers.add(savedModel.toEntity());
+
+          _logger.info(
+            'Paper auto-assigned to teacher',
+            category: LogCategory.paper,
+            context: {
+              'paperId': paper.id,
+              'teacherId': teacherId,
+              'teacherName': teacherName,
+              'title': paper.title,
+              'timetableEntryId': entryId,
+            },
+          );
+        }
+      }
+
+      return Right(createdPapers);
+    } catch (e, stackTrace) {
+      _logger.error(
+        'Failed to auto-assign papers for timetable',
+        category: LogCategory.paper,
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return Left(ServerFailure('Failed to auto-assign papers: ${e.toString()}'));
+    }
+  }
+
+  /// Generate a unique ID for new papers
+  String _generateId() {
+    return DateTime.now().millisecondsSinceEpoch.toString() +
+           (DateTime.now().microsecond % 1000).toString();
+  }
+
+  /// Convert month number to month name
+  String _monthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+
+  /// Parse exam type string to ExamType enum
+  ExamType _parseExamType(String examType) {
+    switch (examType.toLowerCase()) {
+      case 'monthlytest':
+      case 'monthly':
+        return ExamType.monthlyTest;
+      case 'dailytest':
+      case 'daily':
+        return ExamType.dailyTest;
+      case 'quarterlyexam':
+      case 'quarterly':
+        return ExamType.quarterlyExam;
+      case 'annualexam':
+      case 'annual':
+      case 'finalexam':
+      case 'final':
+        return ExamType.annualExam;
+      default:
+        return ExamType.monthlyTest;
+    }
+  }
+
+  /// Validate paper marks against exam calendar marks config
+  ///
+  /// For auto-assigned papers with exam_timetable_entry_id:
+  /// 1. Fetch the exam timetable entry
+  /// 2. Get the associated exam calendar via the timetable
+  /// 3. Extract marks_config (List<MarkConfigEntity>)
+  /// 4. Find matching grade range for the paper's grade_id
+  /// 5. Validate: paper.totalMarks <= marks_config.totalMarks
+  ///
+  /// Returns:
+  /// - null if validation passes
+  /// - Error message string if validation fails
+  ///
+  /// Note: This requires access to exam_timetable_entries and exam_calendars tables
+  /// Current implementation uses a placeholder - full validation should be implemented
+  /// by fetching actual exam calendar marks config
+  Future<String?> _validatePaperMarksAgainstExamCalendar(QuestionPaperEntity paper) async {
+    try {
+      // TODO: Implement full marks validation
+      // 1. Use exam_timetable_entry_id to fetch entry from database
+      // 2. Get timetable_id from entry
+      // 3. Fetch exam_calendar linked to timetable_id
+      // 4. Extract marks_config for paper's grade range
+      // 5. Compare paper.totalMarks with max_marks
+
+      // For now, we allow submission but log the total marks
+      _logger.info(
+        'Paper marks for exam calendar validation',
+        category: LogCategory.paper,
+        context: {
+          'paperId': paper.id,
+          'totalMarks': paper.totalMarks,
+          'examTimetableEntryId': paper.examTimetableEntryId,
+        },
+      );
+
+      // Placeholder: No marks validation failure for now
+      // Will be fully implemented with access to exam calendar data
+      return null;
+    } catch (e, stackTrace) {
+      _logger.error(
+        'Error validating paper marks against exam calendar',
+        category: LogCategory.paper,
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Don't fail submission due to validation error - just log it
+      return null;
     }
   }
 }

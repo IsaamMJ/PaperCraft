@@ -57,6 +57,7 @@ import '../../../features/paper_workflow/domain/usecases/pull_for_editing_usecas
 import '../../../features/paper_workflow/domain/usecases/save_draft_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/update_paper_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/submit_paper_usecase.dart';
+import '../../../features/paper_workflow/domain/usecases/auto_assign_question_papers_usecase.dart';
 import '../../../features/home/presentation/bloc/home_bloc.dart';
 import '../../../features/question_bank/presentation/bloc/question_bank_bloc.dart';
 import '../../../features/assignments/presentation/bloc/teacher_preferences_bloc.dart';
@@ -72,6 +73,7 @@ import '../../../features/timetable/domain/usecases/get_exam_calendars_usecase.d
 import '../../../features/timetable/domain/usecases/get_exam_timetables_usecase.dart';
 import '../../../features/timetable/domain/usecases/create_exam_timetable_usecase.dart';
 import '../../../features/timetable/domain/usecases/publish_exam_timetable_usecase.dart';
+import '../../../features/timetable/domain/usecases/publish_timetable_and_auto_assign_papers_usecase.dart';
 import '../../../features/timetable/domain/usecases/add_exam_timetable_entry_usecase.dart';
 import '../../../features/timetable/domain/usecases/validate_exam_timetable_usecase.dart';
 import '../../../features/timetable/domain/usecases/get_timetable_grades_and_sections_usecase.dart';
@@ -677,6 +679,7 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => DeleteDraftUseCase(repository));
     sl.registerLazySingleton(() => UpdatePaperUseCase(repository));
     sl.registerLazySingleton(() => SubmitPaperUseCase(repository));
+    sl.registerLazySingleton(() => AutoAssignQuestionPapersUsecase(repository: repository));
     sl.registerLazySingleton(() => GetUserSubmissionsUseCase(repository));
     sl.registerLazySingleton(() => GetPapersForReviewUseCase(repository));
     sl.registerLazySingleton(() => ApprovePaperUseCase(
@@ -1154,6 +1157,15 @@ class _AdminModule {
       repository: sl<ExamTimetableRepository>(),
     ));
 
+    sl.registerLazySingleton(() => PublishTimetableAndAutoAssignPapersUsecase(
+      publishUsecase: sl<PublishExamTimetableUsecase>(),
+      timetableRepository: sl<ExamTimetableRepository>(),
+      teacherSubjectRepository: sl<TeacherSubjectRepository>(),
+      userRepository: sl<UserRepository>(),
+      autoAssignUsecase: sl<AutoAssignQuestionPapersUsecase>(),
+      logger: sl<ILogger>(),
+    ));
+
     sl.registerLazySingleton(() => AddExamTimetableEntryUsecase(
       repository: sl<ExamTimetableRepository>(),
     ));
@@ -1219,6 +1231,8 @@ class _AdminModule {
 
       final publishUC = sl<PublishExamTimetableUsecase>();
 
+      final publishAndAutoAssignUC = sl<PublishTimetableAndAutoAssignPapersUsecase>();
+
       final addEntryUC = sl<AddExamTimetableEntryUsecase>();
 
       final validateUC = sl<ValidateExamTimetableUsecase>();
@@ -1234,6 +1248,7 @@ class _AdminModule {
         getExamTimetablesUsecase: getTimetablesUC,
         createExamTimetableUsecase: createUC,
         publishExamTimetableUsecase: publishUC,
+        publishTimetableAndAutoAssignUsecase: publishAndAutoAssignUC,
         addExamTimetableEntryUsecase: addEntryUC,
         validateExamTimetableUsecase: validateUC,
         getTimetableGradesAndSectionsUsecase: gradesAndSectionsUC,

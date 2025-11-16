@@ -689,12 +689,13 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         print('[getExamTimetableEntries] Failed to fetch grades via grade_sections: $e');
       }
 
-      // Step 3: Map grade_section_id -> gradeNumber by joining through grade_id
+      // Step 3: Map grade_section_id -> (gradeNumber, sectionName) by joining through grade_id
       final gradeSectionToGradeNumber = <String, int>{};
+      final gradeSectionToSectionName = <String, String>{};
       try {
         final gradeSectionsResponse = await _supabaseClient
             .from('grade_sections')
-            .select('id, grade_id')
+            .select('id, grade_id, section_name')
             .inFilter('id', uniqueGradeSectionIds);
 
         print('[getExamTimetableEntries] gradesMap=$gradesMap');
@@ -703,15 +704,20 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         for (var gs in (gradeSectionsResponse as List<dynamic>)) {
           final gradeSectionId = gs['id'] as String;
           final gradeId = gs['grade_id'] as String;
+          final sectionName = gs['section_name'] as String?;
           final gradeNumber = gradesMap[gradeId];
-          print('[getExamTimetableEntries] Mapping: gradeSectionId=$gradeSectionId -> gradeId=$gradeId -> gradeNumber=$gradeNumber');
+          print('[getExamTimetableEntries] Mapping: gradeSectionId=$gradeSectionId -> gradeId=$gradeId -> gradeNumber=$gradeNumber, section=$sectionName');
           if (gradeNumber != null) {
             gradeSectionToGradeNumber[gradeSectionId] = gradeNumber;
           }
+          if (sectionName != null) {
+            gradeSectionToSectionName[gradeSectionId] = sectionName;
+          }
         }
         print('[getExamTimetableEntries] Final gradeSectionToGradeNumber mapping: $gradeSectionToGradeNumber');
+        print('[getExamTimetableEntries] Final gradeSectionToSectionName mapping: $gradeSectionToSectionName');
       } catch (e) {
-        print('[getExamTimetableEntries] Failed to map grade_section_id to grade_number: $e');
+        print('[getExamTimetableEntries] Failed to map grade_section_id to grade_number and section: $e');
       }
 
       // Batch fetch all unique subjects and their catalog info
@@ -756,15 +762,17 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
       }
 
       // Create enriched entries with fetched data
-      // Use gradeSectionToGradeNumber mapping to get the correct grade number for each entry
+      // Use gradeSectionToGradeNumber and gradeSectionToSectionName mappings to enrich entries
       final enrichedEntries = entries
           .map((entry) => entry.copyWith(
                 gradeNumber: gradeSectionToGradeNumber[entry.gradeSectionId],
+                section: gradeSectionToSectionName[entry.gradeSectionId] ?? entry.section,
                 subjectName: subjectsMap[entry.subjectId],
               ))
           .toList();
 
       print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries with grades: ${enrichedEntries.where((e) => e.gradeNumber != null).length} entries have grade numbers');
+      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries with sections: ${enrichedEntries.where((e) => e.section != null).length} entries have sections');
       return Right(enrichedEntries);
     } on PostgrestException catch (e) {
       return Left(_mapPostgrestException(e));

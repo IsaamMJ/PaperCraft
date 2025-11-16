@@ -442,6 +442,8 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     switch (role) {
       case UserRole.admin:
         return AppColors.error;
+      case UserRole.director:
+        return AppColors.warning;
       case UserRole.teacher:
         return AppColors.primary;
       case UserRole.office_staff:
@@ -459,6 +461,8 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     switch (role) {
       case UserRole.admin:
         return Icons.admin_panel_settings;
+      case UserRole.director:
+        return Icons.supervised_user_circle;
       case UserRole.teacher:
         return Icons.school;
       case UserRole.office_staff:
