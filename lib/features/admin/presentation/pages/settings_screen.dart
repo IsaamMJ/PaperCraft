@@ -802,7 +802,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
 
       for (final grade in selectedGrades) {
         if (kDebugMode) {
-          print('🔍 Processing Grade: ${grade.gradeNumber} (ID: ${grade.id})');
         }
 
         final sectionsResult = await sl<GradeSectionRepository>().getGradeSections(
@@ -815,14 +814,12 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
           (list) => list,
         );
         if (kDebugMode) {
-          print('   Found ${sections.length} sections');
         }
         sectionsPerGrade[grade.id] = sections;
 
         for (final section in sections) {
           final key = '${grade.id}_${section.id}';
           if (kDebugMode) {
-            print('   Processing Section: ${section.sectionName}');
           }
 
           // Step 1: Get all subjects offered in this grade/section
@@ -834,14 +831,10 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
 
           final subjectsForSection = subjectsForSectionResult.fold(
             (failure) {
-              if (kDebugMode) print('   ❌ Failed to fetch subjects: $failure');
               return <GradeSubject>[];
             },
             (list) => list,
           );
-          if (kDebugMode) {
-            print('   Found ${subjectsForSection.length} subjects in this section');
-          }
 
           // Step 2: For each subject, get the teachers assigned
           final teachersForSection = <TeacherSubject>[];
@@ -857,18 +850,10 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
 
             final teachers = teachersResult.fold(
               (failure) {
-                if (kDebugMode) print('      ❌ Failed to fetch teachers for subject ${gradeSubject.subjectId}: $failure');
                 return <TeacherSubject>[];
               },
               (list) => list,
             );
-
-            if (kDebugMode && teachers.isNotEmpty) {
-              print('      Found ${teachers.length} teacher(s) for subject ${gradeSubject.subjectId}');
-              for (final t in teachers) {
-                print('         - Teacher: ${t.teacherId}');
-              }
-            }
 
             teachersForSection.addAll(teachers);
 
@@ -879,7 +864,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
           }
 
           if (kDebugMode) {
-            print('   Total teachers for Grade ${grade.gradeNumber}-${section.sectionName}: ${teachersForSection.length}');
           }
 
           teacherAssignmentsPerSection[key] = teachersForSection;
@@ -887,7 +871,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       }
 
       if (kDebugMode) {
-        print('📊 Total teacher assignments collected: ${allTeacherIds.length} unique teachers');
       }
 
       // Fetch actual teacher names from user repository
@@ -956,7 +939,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         SnackBar(content: Text('Error downloading file: $e')),
       );
       if (kDebugMode) {
-        print('Web download error: $e');
       }
     }
   }
@@ -971,7 +953,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       WebDownloadHelper.downloadCsvFile(csvContent, filename);
 
       if (kDebugMode) {
-        print('Download initiated for: $filename');
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -979,7 +960,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         SnackBar(content: Text('Error downloading file: $e')),
       );
       if (kDebugMode) {
-        print('Web download execution error: $e');
       }
     }
   }
@@ -1002,7 +982,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
           targetDir = Directory(downloadsDirPath);
         } catch (e) {
           if (kDebugMode) {
-            print('Platform channel error: $e');
           }
           throw Exception('Failed to get Downloads directory: $e');
         }
@@ -1044,7 +1023,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       );
 
       if (kDebugMode) {
-        print('File saved to: $filePath');
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -1055,7 +1033,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         ),
       );
       if (kDebugMode) {
-        print('Mobile download error: $e');
       }
     }
   }

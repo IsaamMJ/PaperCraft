@@ -8,7 +8,6 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../../core/presentation/utils/date_formatter_helper.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
-import '../../../../core/presentation/widgets/skeleton_loader.dart';
 import '../../../../core/presentation/widgets/connectivity_indicator.dart';
 import '../../../authentication/domain/entities/user_role.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -16,14 +15,11 @@ import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
-import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
 import '../../../notifications/presentation/bloc/notification_bloc.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
-import '../widgets/classes_card_section.dart';
-import '../../../catalog/domain/entities/teacher_class.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -159,7 +155,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ],
             ),
           ),
-          floatingActionButton: !isAdmin ? _buildCreateButton() : null,
+          floatingActionButton: null,
         );
       },
     );
@@ -260,7 +256,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // If we have cached data and it's a refresh, show data with loading indicator
             if (_cachedHomeState != null) {
               final papers = _getAllPapers(_cachedHomeState!, isAdmin);
-              return _buildPapersList(papers, isAdmin);
+              return _buildPapersListWithTabs(papers, isAdmin);
             }
             // Show skeleton for initial load
             return _buildLoading();
@@ -281,7 +277,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // If we have cached data, show it even on error
             if (_cachedHomeState != null) {
               final papers = _getAllPapers(_cachedHomeState!, isAdmin);
-              return _buildPapersList(papers, isAdmin);
+              return _buildPapersListWithTabs(papers, isAdmin);
             }
             return _buildError(errorMessage);
           }
@@ -290,13 +286,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Cache this state for future use
             _cachedHomeState = state;
             final papers = _getAllPapers(state, isAdmin);
-            return _buildPapersList(papers, isAdmin);
+            return _buildPapersListWithTabs(papers, isAdmin);
           }
 
           // Fallback: show cached data or empty state
           if (_cachedHomeState != null) {
             final papers = _getAllPapers(_cachedHomeState!, isAdmin);
-            return _buildPapersList(papers, isAdmin);
+            return _buildPapersListWithTabs(papers, isAdmin);
           }
 
           return _buildEmpty(isAdmin);
@@ -387,91 +383,246 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildPapersList(List<QuestionPaperEntity> papers, bool isAdmin) {
+  Widget _buildPapersListWithTabs(List<QuestionPaperEntity> papers, bool isAdmin) {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
-        final teacherClasses = (state is HomeLoaded) ? state.teacherClasses : <TeacherClass>[];
-        final shouldShowClasses = !isAdmin && teacherClasses.isNotEmpty;
+        // Separate auto-assigned and manual papers
+        final autoAssignedPapers = papers.where((p) => p.isAutoAssigned).toList();
+        final manualPapers = papers.where((p) => !p.isAutoAssigned).toList();
 
-        // If no papers, show classes (if any) and empty state
-        if (papers.isEmpty) {
-          return SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (index == 0) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Show classes section for teachers
-                      if (shouldShowClasses) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: ClassesCardSection(
-                            classes: teacherClasses,
-                          ),
-                        ),
-                      ],
-                      // Empty state
-                      SizedBox(
-                        height: 250,
-                        child: EmptyMessageWidget(
-                          icon: Icons.description_outlined,
-                          title: isAdmin ? 'No papers to review' : 'No papers yet',
-                          message: isAdmin
-                              ? 'Papers submitted by teachers will appear here'
-                              : 'Create your first question paper to get started',
-                        ),
-                      ),
-                    ],
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              childCount: 1,
-            ),
-          );
+        // Build list items: Assigned section + Assigned papers (grouped by exam) + Manual section + Manual papers
+        final listItems = <_PaperListItem>[];
+
+        if (!isAdmin) {
+          // Add assigned section header
+          listItems.add(_AssignedSectionHeader());
+
+          if (autoAssignedPapers.isEmpty) {
+            listItems.add(_EmptyAssignedState());
+          } else {
+            // Sort auto-assigned papers by exam date (upcoming first)
+            final sortedPapers = List<QuestionPaperEntity>.from(autoAssignedPapers);
+            sortedPapers.sort((a, b) {
+              final dateA = a.examTimetableDate ?? DateTime(2099);
+              final dateB = b.examTimetableDate ?? DateTime(2099);
+              return dateA.compareTo(dateB);
+            });
+
+            // Group auto-assigned papers by exam name (maintains sorted order)
+            final papersByExam = <String, List<QuestionPaperEntity>>{};
+            for (final paper in sortedPapers) {
+              final examName = paper.examName ?? 'Unknown Exam';
+              papersByExam.putIfAbsent(examName, () => []).add(paper);
+            }
+
+            // Add papers grouped by exam with subsection headers (in chronological order)
+            for (final examName in papersByExam.keys) {
+              listItems.add(_ExamSubsectionHeader(examName: examName));
+              for (final paper in papersByExam[examName]!) {
+                listItems.add(_AutoAssignedPaperItem(paper: paper));
+              }
+            }
+          }
+
+          // Add manual section header if there are any papers
+          if (manualPapers.isNotEmpty || autoAssignedPapers.isNotEmpty) {
+            listItems.add(_ManualSectionHeader());
+          }
+
+          if (manualPapers.isEmpty && autoAssignedPapers.isNotEmpty) {
+            listItems.add(_EmptyManualState());
+          } else {
+            // Add manual papers
+            for (final paper in manualPapers) {
+              listItems.add(_ManualPaperItem(paper: paper));
+            }
+          }
+        } else {
+          // For admin, just show all papers
+          for (final paper in papers) {
+            listItems.add(_ManualPaperItem(paper: paper));
+          }
+
+          if (papers.isEmpty) {
+            listItems.add(_EmptyAdminState());
+          }
         }
 
-        // If there are papers, show classes (if any) + papers list
         return SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              // First item: Classes section (if applicable) or papers heading
-              if (index == 0) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Show classes section for teachers
-                    if (shouldShowClasses) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: ClassesCardSection(
-                          classes: teacherClasses,
-                        ),
-                      ),
-                    ],
-                    // Papers section heading
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text(
-                        isAdmin ? 'Papers for Review' : 'Your Question Papers',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    _buildPaperCard(papers[index]),
-                  ],
-                );
+              if (index >= listItems.length) {
+                return const SizedBox.shrink();
               }
-              return _buildPaperCard(papers[index]);
+
+              final item = listItems[index];
+              if (item is _AssignedSectionHeader) {
+                return _buildAssignedExamsHeader();
+              } else if (item is _ExamSubsectionHeader) {
+                return _buildExamSubsectionHeader(item.examName);
+              } else if (item is _ManualSectionHeader) {
+                return _buildMyPapersHeader();
+              } else if (item is _AutoAssignedPaperItem) {
+                return _buildAutoAssignedPaperCard(item.paper);
+              } else if (item is _ManualPaperItem) {
+                return _buildPaperCard(item.paper);
+              } else if (item is _EmptyAssignedState) {
+                return _buildEmptyAssignedState();
+              } else if (item is _EmptyManualState) {
+                return _buildEmptyManualState();
+              } else if (item is _EmptyAdminState) {
+                return _buildEmptyAdminState();
+              }
+              return const SizedBox.shrink();
             },
-            childCount: papers.length,
+            childCount: listItems.length,
           ),
         );
       },
+    );
+  }
+
+  Widget _buildExamSubsectionHeader(String examName) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
+      child: Text(
+        examName,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssignedExamsHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: Text(
+        'Assigned Exams (Upcoming)',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMyPapersHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 12),
+      child: Text(
+        'My Papers',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyAssignedState() {
+    return SizedBox(
+      height: 200,
+      child: EmptyMessageWidget(
+        icon: Icons.assignment_outlined,
+        title: 'No assigned exams yet',
+        message: 'Exams will appear here when your school publishes the timetable',
+      ),
+    );
+  }
+
+  Widget _buildEmptyManualState() {
+    return SizedBox(
+      height: 200,
+      child: EmptyMessageWidget(
+        icon: Icons.description_outlined,
+        title: 'No papers created yet',
+        message: 'Create your first question paper to get started',
+      ),
+    );
+  }
+
+  Widget _buildEmptyAdminState() {
+    return SizedBox(
+      height: 200,
+      child: EmptyMessageWidget(
+        icon: Icons.description_outlined,
+        title: 'No papers to review',
+        message: 'Papers submitted by teachers will appear here',
+      ),
+    );
+  }
+
+  Widget _buildAutoAssignedPaperCard(QuestionPaperEntity paper) {
+    // Format the subtitle: "Grade 5 | English | Section A | 23 Dec 2025"
+    final gradeText = paper.grade ?? 'Unknown Grade';
+    final subjectText = paper.subject ?? 'Unknown Subject';
+    final sectionText = paper.section ?? 'All Sections';
+
+    // Use exam timetable date if available, otherwise fall back to paper exam date
+    final dateText = paper.examTimetableDate != null
+        ? '${paper.examTimetableDate!.day} ${_getMonthName(paper.examTimetableDate!.month)} ${paper.examTimetableDate!.year}'
+        : (paper.examDate != null
+            ? '${paper.examDate!.day} ${_getMonthName(paper.examDate!.month)} ${paper.examDate!.year}'
+            : 'No date');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        border: Border.all(color: AppColors.primary20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black04,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push(AppRoutes.questionPaperViewWithId(paper.id)),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+          child: Padding(
+            padding: const EdgeInsets.all(UIConstants.paddingMedium),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Grade | Subject | Section | Date (no exam name here, shown in section header)
+                          Text(
+                            '$gradeText | $subjectText | $sectionText | $dateText',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: UIConstants.spacing12),
+                    PaperStatusBadge(status: paper.status, isCompact: true),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -492,7 +643,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.push(AppRoutes.questionPaperViewWithId(paper.id)),
+          onTap: () {
+            // Open create page for draft papers, view page for others
+            // Draft papers are incomplete and need questions to be added
+            if (paper.status == PaperStatus.draft || (paper.totalQuestions ?? 0) == 0) {
+              context.push(AppRoutes.questionPaperCreateWithDraftId(paper.id));
+            } else {
+              context.push(AppRoutes.questionPaperViewWithId(paper.id));
+            }
+          },
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
           child: Padding(
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -691,6 +850,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return 'Good evening';
   }
 
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+
   List<QuestionPaperEntity> _getAllPapers(HomeLoaded state, bool isAdmin) {
     if (isAdmin) {
       return [...state.papersForReview, ...state.allPapersForAdmin];
@@ -782,3 +949,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 }
+
+// Helper classes for list item types
+abstract class _PaperListItem {}
+
+class _AssignedSectionHeader extends _PaperListItem {}
+
+class _ExamSubsectionHeader extends _PaperListItem {
+  final String examName;
+  _ExamSubsectionHeader({required this.examName});
+}
+
+class _ManualSectionHeader extends _PaperListItem {}
+
+class _AutoAssignedPaperItem extends _PaperListItem {
+  final QuestionPaperEntity paper;
+  _AutoAssignedPaperItem({required this.paper});
+}
+
+class _ManualPaperItem extends _PaperListItem {
+  final QuestionPaperEntity paper;
+  _ManualPaperItem({required this.paper});
+}
+
+class _EmptyAssignedState extends _PaperListItem {}
+
+class _EmptyManualState extends _PaperListItem {}
+
+class _EmptyAdminState extends _PaperListItem {}

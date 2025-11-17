@@ -64,7 +64,6 @@ class GradeSectionRemoteDataSourceImpl implements GradeSectionRemoteDataSource {
 
       // Debug: Show we got data from Supabase database
       if (gradeId != null) {
-        print('   🔄 [GradeSectionRemoteDataSource] Queried Supabase for Grade ID: ${gradeId.substring(0, 8)}... -> Found ${sections.length} sections');
       }
 
       return sections;

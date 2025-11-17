@@ -160,17 +160,13 @@ class ExamCalendarEntity extends Equatable {
       try {
         // Handle JSON string format (from database)
         if (marksConfigJson is String && marksConfigJson.isNotEmpty) {
-          print('🔍 Parsing marks_config from JSON string: $marksConfigJson');
           final parsed = jsonDecode(marksConfigJson);
-          print('📊 Parsed marks_config: $parsed (type: ${parsed.runtimeType})');
           if (parsed is List) {
             marksConfigList = (parsed)
                 .map((item) => MarkConfigEntity.fromJson(item as Map<String, dynamic>))
                 .toList();
           } else if (parsed is Map<String, dynamic>) {
-            print('📋 Converting map format to list format');
             marksConfigList = _convertMapConfigToList(parsed);
-            print('✅ Converted to ${marksConfigList?.length ?? 0} mark configs');
           }
         } else if (marksConfigJson is List) {
           // Legacy list format
@@ -185,7 +181,6 @@ class ExamCalendarEntity extends Equatable {
           marksConfigList = _convertMapConfigToList(selectedGradesMap);
         }
       } catch (e) {
-        print('⚠️ Error parsing marks_config: $e');
       }
     }
 
@@ -213,39 +208,31 @@ class ExamCalendarEntity extends Equatable {
   /// Extract selected grades from marks_config
   /// Returns null if no grades are selected
   static List<int>? getSelectedGradesFromMarksConfig(List<MarkConfigEntity>? marksConfig) {
-    print('🎯 getSelectedGradesFromMarksConfig called: marksConfig=${marksConfig == null ? "null" : "${marksConfig.length} items"}');
     if (marksConfig == null || marksConfig.isEmpty) {
-      print('📭 No marks config, returning null');
       return null;
     }
 
     // Collect all grades covered by the marks config
     final selectedGrades = <int>{};
     for (final config in marksConfig) {
-      print('   - Config: grades ${config.minGrade}-${config.maxGrade}, marks=${config.totalMarks}, label=${config.label}');
       for (int i = config.minGrade; i <= config.maxGrade; i++) {
         selectedGrades.add(i);
       }
     }
 
     final result = selectedGrades.toList()..sort();
-    print('   ✅ Selected grades: $result');
     return result;
   }
 
   /// Convert new map format to legacy list format
   /// Map format: {"selected_grades": [1,2,3,4,5], "grades_1_to_5_marks": 25, ...}
   static List<MarkConfigEntity>? _convertMapConfigToList(Map<String, dynamic> configMap) {
-    print('🔄 _convertMapConfigToList called with map: $configMap');
     final selectedGrades = configMap['selected_grades'] as List<dynamic>?;
-    print('   selectedGrades: $selectedGrades');
     if (selectedGrades == null || selectedGrades.isEmpty) {
-      print('   📭 No selected_grades, returning null');
       return null;
     }
 
     final grades = selectedGrades.cast<int>().toList()..sort();
-    print('   Sorted grades: $grades');
 
     // Create mark configs for grade ranges
     List<MarkConfigEntity> configs = [];
@@ -254,7 +241,6 @@ class ExamCalendarEntity extends Equatable {
     final grades1To5 = grades.where((g) => g <= 5).toList();
     if (grades1To5.isNotEmpty) {
       final marks1To5 = configMap['grades_1_to_5_marks'] as int?;
-      print('   Grades 1-5: $grades1To5, marks: $marks1To5');
       if (marks1To5 != null) {
         configs.add(MarkConfigEntity(
           minGrade: grades1To5.first,
@@ -269,7 +255,6 @@ class ExamCalendarEntity extends Equatable {
     final grades6To12 = grades.where((g) => g >= 6).toList();
     if (grades6To12.isNotEmpty) {
       final marks6To12 = configMap['grades_6_to_12_marks'] as int?;
-      print('   Grades 6-12: $grades6To12, marks: $marks6To12');
       if (marks6To12 != null) {
         configs.add(MarkConfigEntity(
           minGrade: grades6To12.first,
@@ -280,7 +265,6 @@ class ExamCalendarEntity extends Equatable {
       }
     }
 
-    print('   ✅ Created ${configs.length} mark configs');
     return configs.isEmpty ? null : configs;
   }
 

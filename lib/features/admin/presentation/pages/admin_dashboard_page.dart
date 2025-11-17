@@ -6,13 +6,12 @@ import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
-import '../../../../core/presentation/utils/date_utils.dart';
 import '../../../../core/presentation/utils/ui_helpers.dart';
-import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
-import '../../../paper_workflow/domain/services/user_info_service.dart';
+import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -22,19 +21,12 @@ class AdminDashboardPage extends StatefulWidget {
 }
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
-  late final UserInfoService _userInfoService;
-  final Map<String, String> _userNames = {};
-
-  String _searchQuery = '';
-  String _selectedSubject = '';
   bool _isRefreshing = false;
-
-  final _subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography'];
+  bool _showUnassignedPapers = false;
 
   @override
   void initState() {
     super.initState();
-    _userInfoService = sl<UserInfoService>();
     _checkAdminAndLoad();
   }
 
@@ -83,226 +75,61 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
   }
 
-  void _handleApprove(String paperId) async {
-    final confirm = await _showConfirmDialog(
-      title: 'Approve Paper',
-      content: 'Are you sure you want to approve this paper?',
-      confirmText: 'Approve',
-      confirmColor: AppColors.success,
-      icon: Icons.check_circle_outline,
-    );
-    if (confirm == true && mounted) {
-      context.read<QuestionPaperBloc>().add(ApprovePaper(paperId));
-    }
-  }
-
-  void _handleReject(String paperId, String paperTitle) async {
-    final reason = await _showRejectDialog(paperTitle);
-    if (reason != null && reason.isNotEmpty && mounted) {
-      context.read<QuestionPaperBloc>().add(RejectPaper(paperId, reason));
-    }
-  }
-
   void _handleViewDetails(String paperId) {
     context.go(AppRoutes.questionPaperViewWithId(paperId));
-  }
-
-  Future<bool?> _showConfirmDialog({
-    required String title,
-    required String content,
-    required String confirmText,
-    required Color confirmColor,
-    required IconData icon,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(UIConstants.paddingSmall),
-              decoration: BoxDecoration(
-                color: confirmColor == AppColors.success ? AppColors.success10 : AppColors.primary10,
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-              child: Icon(icon, color: confirmColor, size: 20),
-            ),
-            const SizedBox(width: UIConstants.spacing12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: UIConstants.fontSizeLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          content,
-          style: const TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: confirmColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              ),
-            ),
-            child: Text(confirmText),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<String> _getUserName(String userId) async {
-    if (_userNames.containsKey(userId)) {
-      return _userNames[userId]!;
-    }
-
-    try {
-      final name = await _userInfoService.getUserFullName(userId);
-      _userNames[userId] = name;
-      return name;
-    } catch (e) {
-      return 'User $userId';
-    }
-  }
-
-  Future<String?> _showRejectDialog(String paperTitle) async {
-    final controller = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(UIConstants.paddingSmall),
-                decoration: BoxDecoration(
-                  color: AppColors.error10,
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                ),
-                child: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
-              ),
-              const SizedBox(width: UIConstants.spacing12),
-              const Expanded(
-                child: Text(
-                  'Reject Paper',
-                  style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(UIConstants.spacing12),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                ),
-                child: Text(
-                  'Paper: $paperTitle',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ),
-              const SizedBox(height: UIConstants.spacing16),
-              const Text(
-                'Rejection reason:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: UIConstants.spacing8),
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  hintText: 'Enter reason...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  ),
-                  contentPadding: const EdgeInsets.all(UIConstants.spacing12),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                ),
-              ),
-              child: const Text('Reject'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose(); // Always dispose controller after dialog closes
-    }
-  }
-
-  List<QuestionPaperEntity> _filterPapers(List<QuestionPaperEntity> papers) {
-    // Performance optimization: early return if no filters applied
-    if (_searchQuery.isEmpty && _selectedSubject.isEmpty) {
-      return papers;
-    }
-
-    // Calculate lowercase once instead of for each paper
-    final searchLower = _searchQuery.toLowerCase();
-
-    return papers.where((paper) {
-      // Check subject first (faster check)
-      if (_selectedSubject.isNotEmpty && paper.subject != _selectedSubject) {
-        return false;
-      }
-
-      // Early return if no search query
-      if (_searchQuery.isEmpty) return true;
-
-      // Only calculate lowercase once per paper
-      return paper.title.toLowerCase().contains(searchLower) ||
-          paper.createdBy.toLowerCase().contains(searchLower);
-    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: BlocListener<QuestionPaperBloc, QuestionPaperState>(
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        backgroundColor: AppColors.surface,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _buildHeader(),
+            _buildContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.all(UIConstants.paddingMedium),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primary08,
+              AppColors.secondary08,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        child: Text(
+          sl<UserStateService>().currentTenantName,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: BlocListener<QuestionPaperBloc, QuestionPaperState>(
         listener: (context, state) {
           if (state is QuestionPaperSuccess) {
             UiHelpers.showSuccessMessage(context, state.message);
@@ -311,539 +138,436 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             UiHelpers.showErrorMessage(context, state.message);
           }
         },
-        child: Column(
-          children: [
-            _buildSearchAndFilters(),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: UIConstants.paddingMedium,
-                vertical: UIConstants.spacing12,
-              ),
-              child: const Text(
-                'All Papers',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeXXLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            Expanded(child: _buildPapersList()),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(AppRoutes.questionPaperCreate),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add),
-        label: const Text('Create Paper'),
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilters() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        UIConstants.paddingMedium,
-        MediaQuery.of(context).padding.top + UIConstants.paddingMedium,
-        UIConstants.paddingMedium,
-        UIConstants.paddingMedium,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black04,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search papers...',
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: AppColors.textSecondary,
-                  size: UIConstants.iconMedium,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                  onPressed: () => setState(() => _searchQuery = ''),
-                  icon: const Icon(Icons.clear, size: UIConstants.iconSmall),
-                )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: UIConstants.paddingMedium,
-                  vertical: UIConstants.spacing12,
-                ),
-              ),
-              onChanged: (value) => setState(() => _searchQuery = value),
-            ),
-          ),
-          const SizedBox(height: UIConstants.spacing12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterChip(
-                  'Subject',
-                  _selectedSubject,
-                  _subjects,
-                      (v) => setState(() => _selectedSubject = v ?? ''),
-                ),
-              ),
-              if (_selectedSubject.isNotEmpty || _searchQuery.isNotEmpty) ...[
-                const SizedBox(width: UIConstants.spacing8),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedSubject = '';
-                    _searchQuery = '';
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: UIConstants.spacing12,
-                      vertical: UIConstants.spacing8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.error10,
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.clear,
-                          size: UIConstants.iconSmall,
-                          color: AppColors.error,
-                        ),
-                        SizedBox(width: UIConstants.spacing4),
-                        Text(
-                          'Clear',
-                          style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: UIConstants.fontSizeSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(
-      String label,
-      String value,
-      List<String> options,
-      ValueChanged<String?> onChanged,
-      ) {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: value.isNotEmpty
-            ? AppColors.primary10
-            : AppColors.background,
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(
-          color: value.isNotEmpty
-              ? AppColors.primary
-              : AppColors.border,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value.isEmpty ? null : value,
-          hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: UIConstants.spacing12),
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
-            ),
-          ),
-          items: [
-            DropdownMenuItem(value: '', child: Text('All ${label}s')),
-            ...options.map((option) =>
-                DropdownMenuItem(value: option, child: Text(option))),
-          ],
-          onChanged: onChanged,
-          icon: const Icon(Icons.keyboard_arrow_down, size: UIConstants.iconSmall),
-          isExpanded: true,
-          style: const TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPapersList() {
-    return BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
-      builder: (context, state) {
-        if (state is QuestionPaperLoading && !_isRefreshing) {
-          return _buildLoading();
-        }
-
-        if (state is QuestionPaperLoaded) {
-          final filteredPapers = _filterPapers(state.allPapersForAdmin);
-
-          return RefreshIndicator(
-            onRefresh: _onRefresh,
-            color: AppColors.primary,
-            child: filteredPapers.isEmpty
-                ? _buildEmptyState()
-                : CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _buildStatsHeader('All Papers', filteredPapers.length),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: UIConstants.paddingMedium,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) => _buildPaperCard(filteredPapers[index]),
-                      childCount: filteredPapers.length,
-                      addAutomaticKeepAlives: true,
-                      addRepaintBoundaries: true,
-                    ),
-                  ),
-                ),
-                const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-              ],
-            ),
-          );
-        }
-
-        if (state is QuestionPaperError) {
-          return RefreshIndicator(
-            onRefresh: _onRefresh,
-            color: AppColors.primary,
-            child: _buildErrorState(state.message),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: _onRefresh,
-          color: AppColors.primary,
-          child: _buildEmptyState(),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatsHeader(String title, int count) {
-    return Container(
-      margin: const EdgeInsets.all(UIConstants.paddingMedium),
-      padding: const EdgeInsets.all(UIConstants.paddingMedium),
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient.scale(0.1),
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.primary10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(UIConstants.paddingSmall),
-            decoration: BoxDecoration(
-              color: AppColors.primary10,
-              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            ),
-            child: const Icon(
-              Icons.assignment,
-              size: UIConstants.iconMedium,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: UIConstants.spacing12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$count Papers in $title',
-                  style: const TextStyle(
-                    fontSize: UIConstants.fontSizeLarge,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const Text(
-                  'Manage and review submissions',
-                  style: TextStyle(
-                    fontSize: UIConstants.fontSizeSmall,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaperCard(QuestionPaperEntity paper) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
-    return Container(
-      key: ValueKey(paper.id),
-      margin: const EdgeInsets.only(bottom: UIConstants.spacing12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black04,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(UIConstants.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        paper.title,
-                        style: TextStyle(
-                          fontSize: isSmallScreen
-                              ? UIConstants.fontSizeMedium
-                              : UIConstants.fontSizeLarge,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: UIConstants.spacing8),
-                      Wrap(
-                        spacing: UIConstants.spacing8,
-                        runSpacing: UIConstants.spacing4,
-                        children: [
-                          _buildTag(paper.subject ?? 'Unknown Subject', AppColors.primary),
-                          _buildStatusTag(paper),
-                        ],
-                      ),
-                      const SizedBox(height: UIConstants.spacing8),
-                      FutureBuilder<String>(
-                        future: _getUserName(paper.createdBy),
-                        builder: (context, snapshot) {
-                          final displayName = snapshot.data ?? 'Loading...';
-                          return Text(
-                            'Created by $displayName',
-                            style: const TextStyle(
-                              fontSize: UIConstants.fontSizeSmall,
-                              color: AppColors.textSecondary,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  AppDateUtils.formatShortDate(paper.createdAt),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: UIConstants.spacing12),
-            Row(
-              children: [
-                if (!isSmallScreen) ...[
-                  _buildMetric(Icons.quiz, '${paper.totalQuestions}', 'Questions'),
-                  const SizedBox(width: UIConstants.spacing16),
-                  _buildMetric(Icons.grade, '${paper.totalMarks}', 'Marks'),
-                ] else
-                  Expanded(
-                    child: Wrap(
-                      spacing: UIConstants.spacing12,
-                      runSpacing: UIConstants.spacing8,
-                      children: [
-                        _buildMetric(Icons.quiz, '${paper.totalQuestions}', 'Q'),
-                        _buildMetric(Icons.grade, '${paper.totalMarks}', 'M'),
-                      ],
-                    ),
-                  ),
-                const Spacer(),
-                _buildActions(paper),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTag(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: UIConstants.spacing8,
-        vertical: UIConstants.spacing4,
-      ),
-      decoration: BoxDecoration(
-        color: color == AppColors.primary ? AppColors.primary10 : color == AppColors.success ? AppColors.success10 : color == AppColors.error ? AppColors.error10 : AppColors.warning10,
-        borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusTag(QuestionPaperEntity paper) {
-    Color color;
-    String text;
-    if (paper.status.isApproved) {
-      color = AppColors.success;
-      text = 'APPROVED';
-    } else if (paper.status.isRejected) {
-      color = AppColors.error;
-      text = 'REJECTED';
-    } else {
-      color = AppColors.warning;
-      text = 'PENDING';
-    }
-    return _buildTag(text, color);
-  }
-
-  Widget _buildMetric(IconData icon, String value, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: UIConstants.spacing4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActions(QuestionPaperEntity paper) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildActionButton(
-          Icons.visibility,
-          AppColors.primary,
-              () => _handleViewDetails(paper.id),
-        ),
-        if (paper.status.isSubmitted) ...[
-          const SizedBox(width: UIConstants.spacing8),
-          _buildActionButton(
-            Icons.check,
-            AppColors.success,
-                () => _handleApprove(paper.id),
-          ),
-          const SizedBox(width: UIConstants.spacing8),
-          _buildActionButton(
-            Icons.close,
-            AppColors.error,
-                () => _handleReject(paper.id, paper.title),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color == AppColors.primary ? AppColors.primary10 : color == AppColors.success ? AppColors.success10 : color == AppColors.error ? AppColors.error10 : AppColors.warning10,
-        borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-          child: Icon(icon, size: UIConstants.iconSmall, color: color),
+        child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
+          builder: (context, state) {
+            if (state is QuestionPaperLoading && !_isRefreshing) {
+              return _buildLoading();
+            }
+            if (state is QuestionPaperError) {
+              return _buildError(state.message);
+            }
+            if (state is QuestionPaperLoaded) {
+              final papers = state.allPapersForAdmin;
+              if (papers.isEmpty) {
+                return _buildEmptyState();
+              }
+              return _buildPapersView(papers);
+            }
+            return _buildEmptyState();
+          },
         ),
       ),
     );
   }
 
   Widget _buildLoading() {
-    return const LoadingWidget(message: 'Loading papers...');
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading papers...',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError(String message) {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+            const SizedBox(height: 16),
+            Text('Error loading papers', style: Theme.of(context).textTheme.titleLarge),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: EmptyMessageWidget(
-          icon: Icons.description_outlined,
-          title: 'No Papers Found',
-          message: (_searchQuery.isNotEmpty || _selectedSubject.isNotEmpty)
-              ? 'No papers match your current filters'
-              : 'No papers have been submitted yet\nPull down to refresh',
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.description_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('No question papers', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Papers will appear once teachers submit them',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildErrorState(String message) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: ErrorStateWidget(
-          message: message,
-          onRetry: _loadInitialData,
+  Widget _buildPapersView(List<QuestionPaperEntity> allPapers) {
+    // Separate assigned and unassigned papers
+    final assignedPapers = <String, List<QuestionPaperEntity>>{};
+    final unassignedPapers = <QuestionPaperEntity>[];
+
+    for (var paper in allPapers) {
+      if (paper.examName != null && paper.examName!.isNotEmpty) {
+        assignedPapers.putIfAbsent(paper.examName!, () => []).add(paper);
+      } else {
+        unassignedPapers.add(paper);
+      }
+    }
+
+    // Sort papers within each exam by date first, then by subject
+    assignedPapers.forEach((_, papers) {
+      papers.sort((a, b) {
+        final dateA = a.examTimetableDate ?? a.examDate ?? DateTime(2999);
+        final dateB = b.examTimetableDate ?? b.examDate ?? DateTime(2999);
+        final dateCompare = dateA.compareTo(dateB);
+        if (dateCompare != 0) return dateCompare;
+        // If same date, sort by subject
+        return (a.subject ?? '').compareTo(b.subject ?? '');
+      });
+    });
+
+    // Sort exams by earliest date
+    final sortedExams = assignedPapers.keys.toList()
+      ..sort((examA, examB) {
+        final firstDateA = assignedPapers[examA]?.first.examTimetableDate ??
+            assignedPapers[examA]?.first.examDate ??
+            DateTime(2999);
+        final firstDateB = assignedPapers[examB]?.first.examTimetableDate ??
+            assignedPapers[examB]?.first.examDate ??
+            DateTime(2999);
+        return firstDateA.compareTo(firstDateB);
+      });
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (assignedPapers.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16, top: 8),
+              child: Text(
+                'UPCOMING EXAMS',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+              ),
+            ),
+            ...sortedExams.map((examName) {
+              final papers = assignedPapers[examName]!;
+              return _buildExamSection(examName, papers);
+            }),
+          ],
+          if (unassignedPapers.isNotEmpty) _buildUnassignedPapersSection(unassignedPapers),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnassignedPapersSection(List<QuestionPaperEntity> papers) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _showUnassignedPapers = !_showUnassignedPapers),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.grey[200]!, Colors.grey[100]!],
+                ),
+                borderRadius: _showUnassignedPapers
+                    ? const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      )
+                    : BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Not Assigned (${papers.length})',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    _showUnassignedPapers ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showUnassignedPapers)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: papers.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
+              itemBuilder: (context, index) => _buildPaperCard(papers[index]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExamSection(String examName, List<QuestionPaperEntity> papers) {
+    final firstPaper = papers.first;
+    final examDate = firstPaper.examTimetableDate ?? firstPaper.examDate;
+    final formattedDate = examDate != null
+        ? '${examDate.day} ${_getMonthName(examDate.month)} ${examDate.year}'
+        : 'No date';
+
+    // Group papers by subject
+    final papersBySubject = <String, List<QuestionPaperEntity>>{};
+    for (final paper in papers) {
+      final subject = paper.subject ?? 'Unassigned Subject';
+      papersBySubject.putIfAbsent(subject, () => []).add(paper);
+    }
+
+    // Get sorted subject names
+    final sortedSubjects = papersBySubject.keys.toList()..sort();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Exam header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary10, AppColors.secondary10],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(examName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        )),
+                const SizedBox(height: 6),
+                Text(formattedDate,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          // Papers grouped by subject, then by grade
+          ...sortedSubjects.asMap().entries.map((entry) {
+            final index = entry.key;
+            final subject = entry.value;
+            final subjectPapers = papersBySubject[subject]!;
+            final isLastSubject = index == sortedSubjects.length - 1;
+
+            // Group papers by grade within this subject
+            final papersByGrade = <String, List<QuestionPaperEntity>>{};
+            for (final paper in subjectPapers) {
+              final grade = (paper.gradeNumber?.toString() ?? 'Unassigned Grade') as String;
+              papersByGrade.putIfAbsent(grade, () => []).add(paper);
+            }
+
+            // Sort grades naturally (numerically if possible)
+            final sortedGrades = papersByGrade.keys.toList()..sort((a, b) {
+              // Try to parse as numbers for natural sorting
+              final aNum = int.tryParse(a);
+              final bNum = int.tryParse(b);
+              if (aNum != null && bNum != null) {
+                return aNum.compareTo(bNum);
+              }
+              return a.compareTo(b);
+            });
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Subject subheader
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    subject,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                  ),
+                ),
+                // Group papers by grade
+                ...sortedGrades.asMap().entries.map((gradeEntry) {
+                  final gradeIndex = gradeEntry.key;
+                  final grade = gradeEntry.value;
+                  final gradePapers = papersByGrade[grade]!;
+                  final isLastGrade = gradeIndex == sortedGrades.length - 1;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Grade sub-header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 8, 16, 6),
+                        child: Text(
+                          'Grade $grade',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                        ),
+                      ),
+                      // Papers for this grade
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: gradePapers.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(height: 1, color: Colors.grey[200], indent: 32, endIndent: 16),
+                        itemBuilder: (context, index) => _buildPaperCard(gradePapers[index]),
+                      ),
+                      // Add divider between grades (except after last)
+                      if (!isLastGrade)
+                        Divider(height: 1, color: Colors.grey[100], indent: 16, endIndent: 16),
+                    ],
+                  );
+                }),
+                // Add divider between subjects (except after last)
+                if (!isLastSubject)
+                  Divider(height: 1, color: Colors.grey[200], indent: 0, endIndent: 0),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaperCard(QuestionPaperEntity paper) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _handleViewDetails(paper.id);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _getStatusColor(paper.status),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(paper.title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        PaperStatusBadge(status: paper.status),
+                        const SizedBox(width: 12),
+                        Text(
+                          'By ${paper.createdByName ?? 'Unknown'}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(PaperStatus status) {
+    switch (status) {
+      case PaperStatus.approved:
+        return Colors.green;
+      case PaperStatus.draft:
+        return Colors.orange;
+      case PaperStatus.rejected:
+        return Colors.red;
+      case PaperStatus.submitted:
+        return Colors.blue;
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[month - 1];
   }
 }

@@ -26,6 +26,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
     super.grade,
     super.gradeLevel,
     super.selectedSections,
+    super.createdByName,
     super.tenantId,
     super.userId,
     super.submittedAt,
@@ -34,6 +35,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
     super.rejectionReason,
     super.examTimetableEntryId,
     super.section,
+    super.examName,
+    super.examTimetableDate,
   });
 
   factory QuestionPaperModel.fromEntity(QuestionPaperEntity entity) {
@@ -56,6 +59,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       grade: entity.grade,
       gradeLevel: entity.gradeLevel,
       selectedSections: entity.selectedSections,
+      createdByName: entity.createdByName,
       tenantId: entity.tenantId,
       userId: entity.userId,
       submittedAt: entity.submittedAt,
@@ -64,6 +68,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       rejectionReason: entity.rejectionReason,
       examTimetableEntryId: entity.examTimetableEntryId,
       section: entity.section,
+      examName: entity.examName,
+      examTimetableDate: entity.examTimetableDate,
     );
   }
 
@@ -121,6 +127,33 @@ class QuestionPaperModel extends QuestionPaperEntity {
         selectedSections = List<String>.from(json['metadata']['selected_sections'] as List);
       }
 
+      // Extract exam name and date from nested exam_timetable_entries relationship for auto-assigned papers
+      String? examName;
+      DateTime? examTimetableDate;
+      if (json['exam_timetable_entries'] is Map) {
+        final examTimetableData = json['exam_timetable_entries'] as Map<String, dynamic>?;
+        if (examTimetableData != null) {
+          // Get exam date from exam_timetable_entries
+          if (examTimetableData['exam_date'] != null) {
+            examTimetableDate = DateTime.parse(examTimetableData['exam_date'] as String);
+          }
+          // Get exam name from exam_timetables
+          if (examTimetableData['exam_timetables'] is Map) {
+            final examTablesData = examTimetableData['exam_timetables'] as Map<String, dynamic>;
+            examName = examTablesData['exam_name'] as String?;
+          }
+        }
+      }
+
+      // Extract user's full name from profiles relationship
+      String? createdByName;
+      if (json['profiles'] is Map) {
+        final profilesData = json['profiles'] as Map<String, dynamic>?;
+        if (profilesData != null) {
+          createdByName = profilesData['full_name'] as String?;
+        }
+      }
+
       return QuestionPaperModel(
         id: json['id'] as String,
         title: json['title'] as String,
@@ -146,6 +179,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
         grade: gradeName,
         gradeLevel: gradeLevel,
         selectedSections: selectedSections,
+        createdByName: createdByName,
         tenantId: json['tenant_id'] as String?,
         userId: json['user_id'] as String?,
         submittedAt: json['submitted_at'] != null
@@ -156,6 +190,10 @@ class QuestionPaperModel extends QuestionPaperEntity {
             : null,
         reviewedBy: json['reviewed_by'] as String?,
         rejectionReason: json['rejection_reason'] as String?,
+        examTimetableEntryId: json['exam_timetable_entry_id'] as String?,
+        section: json['section'] as String?,
+        examName: examName,
+        examTimetableDate: examTimetableDate,
       );
     } catch (e) {
       throw FormatException('Failed to parse QuestionPaperModel from Supabase: $e');
@@ -220,6 +258,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'reviewed_at': reviewedAt?.toIso8601String(),
       'reviewed_by': (reviewedBy != null && reviewedBy!.isNotEmpty) ? reviewedBy : null,
       'rejection_reason': rejectionReason,
+      'exam_timetable_entry_id': examTimetableEntryId,
+      'section': section,
     };
 
     return map;
@@ -351,6 +391,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
     String? grade,
     int? gradeLevel,
     List<String>? selectedSections,
+    String? createdByName,
     String? tenantId,
     String? userId,
     DateTime? submittedAt,
@@ -359,6 +400,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
     String? rejectionReason,
     String? examTimetableEntryId,
     String? section,
+    String? examName,
+    DateTime? examTimetableDate,
   }) {
     return QuestionPaperModel(
       id: id ?? this.id,
@@ -379,6 +422,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       grade: grade ?? this.grade,
       gradeLevel: gradeLevel ?? this.gradeLevel,
       selectedSections: selectedSections ?? this.selectedSections,
+      createdByName: createdByName ?? this.createdByName,
       tenantId: tenantId ?? this.tenantId,
       userId: userId ?? this.userId,
       submittedAt: submittedAt ?? this.submittedAt,
@@ -387,6 +431,8 @@ class QuestionPaperModel extends QuestionPaperEntity {
       rejectionReason: rejectionReason ?? this.rejectionReason,
       examTimetableEntryId: examTimetableEntryId ?? this.examTimetableEntryId,
       section: section ?? this.section,
+      examName: examName ?? this.examName,
+      examTimetableDate: examTimetableDate ?? this.examTimetableDate,
     );
   }
 }

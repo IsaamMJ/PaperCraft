@@ -42,7 +42,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
   void initState() {
     super.initState();
 
-    print('[ExamTimetableDetailPage] initState: Loading timetable ID=${widget.timetableId}');
 
     // Load timetable first, THEN entries after a small delay to ensure proper state ordering
     context.read<ExamTimetableBloc>().add(
@@ -54,7 +53,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (!_entriesLoaded) {
           _entriesLoaded = true;
-          print('[ExamTimetableDetailPage] Loading entries now');
           context.read<ExamTimetableBloc>().add(
                 GetExamTimetableEntriesEvent(timetableId: widget.timetableId),
               );
@@ -101,10 +99,8 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       ),
       body: BlocBuilder<ExamTimetableBloc, ExamTimetableState>(
         builder: (context, state) {
-          print('[ExamTimetableDetailPage] State received: ${state.runtimeType}');
 
           if (state is ExamTimetableLoading) {
-            print('[ExamTimetableDetailPage] Showing loading state');
             return const Center(
               child: CircularProgressIndicator(),
             );
@@ -113,7 +109,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
           if (state is ExamTimetableLoaded) {
             final timetable = state.timetable;
             _cachedTimetable = timetable;
-            print('[ExamTimetableDetailPage] Showing timetable: ${timetable.examName}');
 
             return Column(
               children: [
@@ -348,7 +343,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
     if (_cachedTimetable == null) return;
 
     try {
-      print('[ExamTimetableDetailPage] PDF Export: Starting...');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Generating PDF...')),
       );
@@ -370,9 +364,7 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         }
       }
 
-      print('[ExamTimetableDetailPage] PDF Export: DEBUG - entries.length=${entries.length}, gradeNumbers=$gradeNumbers, entries with grades=${entries.where((e) => e.gradeNumber != null).length}');
       for (int i = 0; i < entries.length; i++) {
-        print('[ExamTimetableDetailPage] Entry $i: gradeNumber=${entries[i].gradeNumber}, gradeSectionId=${entries[i].gradeSectionId}');
       }
 
       // Get school name from tenant data via UserStateService
@@ -380,20 +372,17 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       final schoolName = userStateService.schoolName;
 
       // Generate PDF
-      print('[ExamTimetableDetailPage] PDF Export: Generating PDF with ${entries.length} entries');
       final pdfBytes = await TimetablePdfGenerator.generateTimetablePdf(
         timetable: _cachedTimetable!,
         entries: entries,
         schoolName: schoolName,
         gradeNumbers: gradeNumbers.toList()..sort(),
       );
-      print('[ExamTimetableDetailPage] PDF Export: Generated ${pdfBytes.length} bytes');
 
       // Request permission for Android 11+ (MANAGE_EXTERNAL_STORAGE)
       if (Platform.isAndroid) {
         final status = await Permission.manageExternalStorage.request();
         if (!status.isGranted) {
-          print('[ExamTimetableDetailPage] PDF Export: MANAGE_EXTERNAL_STORAGE permission denied');
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -414,9 +403,7 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       if (!await directory.exists()) {
         try {
           await directory.create(recursive: true);
-          print('[ExamTimetableDetailPage] PDF Export: Created Downloads directory: $downloadsPath');
         } catch (e) {
-          print('[ExamTimetableDetailPage] PDF Export: ERROR - Could not create Downloads directory: $e');
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Cannot create Downloads folder: $e'), backgroundColor: Colors.red),
@@ -425,18 +412,14 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         }
       }
 
-      print('[ExamTimetableDetailPage] PDF Export: Downloads directory: ${directory.path}');
 
       final fileName = '${_cachedTimetable!.examName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = '${directory.path}/$fileName';
       final file = File(filePath);
 
-      print('[ExamTimetableDetailPage] PDF Export: Saving to: $filePath');
       await file.writeAsBytes(pdfBytes);
 
       final fileExists = await file.exists();
-      print('[ExamTimetableDetailPage] PDF Export: File exists after write: $fileExists');
-      print('[ExamTimetableDetailPage] PDF Export: File size: ${await file.length()} bytes');
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -446,8 +429,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         ),
       );
     } catch (e, st) {
-      print('[ExamTimetableDetailPage] PDF Export ERROR: $e');
-      print('[ExamTimetableDetailPage] PDF Export STACKTRACE: $st');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
@@ -460,7 +441,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
     if (_cachedTimetable == null) return;
 
     try {
-      print('[ExamTimetableDetailPage] Print: Starting...');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Generating PDF...')),
       );
@@ -482,9 +462,7 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         }
       }
 
-      print('[ExamTimetableDetailPage] Print: DEBUG - entries.length=${entries.length}, gradeNumbers=$gradeNumbers, entries with grades=${entries.where((e) => e.gradeNumber != null).length}');
       for (int i = 0; i < entries.length; i++) {
-        print('[ExamTimetableDetailPage] Print Entry $i: gradeNumber=${entries[i].gradeNumber}, gradeSectionId=${entries[i].gradeSectionId}');
       }
 
       // Get school name from tenant data via UserStateService
@@ -492,14 +470,12 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
       final schoolName = userStateService.schoolName;
 
       // Generate PDF
-      print('[ExamTimetableDetailPage] Print: Generating PDF with ${entries.length} entries');
       final pdfBytes = await TimetablePdfGenerator.generateTimetablePdf(
         timetable: _cachedTimetable!,
         entries: entries,
         schoolName: schoolName,
         gradeNumbers: gradeNumbers.toList()..sort(),
       );
-      print('[ExamTimetableDetailPage] Print: Generated ${pdfBytes.length} bytes');
 
       if (!context.mounted) return;
 
@@ -514,8 +490,6 @@ class _ExamTimetableDetailPageState extends State<ExamTimetableDetailPage> {
         ),
       );
     } catch (e, st) {
-      print('[ExamTimetableDetailPage] Print ERROR: $e');
-      print('[ExamTimetableDetailPage] Print STACKTRACE: $st');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),

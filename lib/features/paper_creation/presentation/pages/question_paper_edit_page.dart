@@ -94,6 +94,17 @@ class _EditViewState extends State<_EditView> with TickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(covariant _EditView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the paper ID changed, load the new paper
+    if (oldWidget.questionPaperId != widget.questionPaperId) {
+      _isLoaded = false;
+      _currentPaper = null;
+      context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId));
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _animController.dispose();

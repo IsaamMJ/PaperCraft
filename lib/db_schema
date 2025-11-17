@@ -696,6 +696,12 @@
     "is_nullable": "YES"
   },
   {
+    "table_name": "question_papers",
+    "column_name": "exam_timetable_entry_id",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
     "table_name": "subject_catalog",
     "column_name": "id",
     "data_type": "uuid",

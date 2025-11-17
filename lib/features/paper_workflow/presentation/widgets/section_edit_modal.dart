@@ -27,49 +27,38 @@ class _SectionEditModalState extends State<SectionEditModal> {
   @override
   void initState() {
     super.initState();
-    print('🔍 [SectionEditModal] Opened edit modal for section ${widget.sectionNumber}: "${widget.sectionName}"');
     _sectionNameController = TextEditingController(text: widget.sectionName);
   }
 
   @override
   void dispose() {
-    print('🔍 [SectionEditModal] Disposing edit modal for section ${widget.sectionNumber}');
     _sectionNameController.dispose();
     super.dispose();
   }
 
   void _saveChanges() {
-    print('💾 [SectionEditModal] Save button clicked for section ${widget.sectionNumber}');
 
     final updatedName = _sectionNameController.text.trim();
-    print('   - Updated name length: ${updatedName.length}');
-    print('   - Name changed: ${updatedName != widget.sectionName}');
 
     // Validation
     if (updatedName.isEmpty) {
-      print('   ❌ Validation failed: Section name is empty');
       _showErrorSnackBar('Section name cannot be empty');
       return;
     }
 
     if (updatedName == widget.sectionName) {
-      print('   ℹ️  Section name unchanged - closing modal');
       Navigator.pop(context);
       return;
     }
 
-    print('   ✅ Validation passed - proceeding to save');
     setState(() => _isSaving = true);
 
     // Call the save callback
-    print('   📤 Calling onSave callback with:');
-    print('      - Updated name: "$updatedName"');
 
     widget.onSave(updatedName);
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        print('   🔙 Closing edit modal for section ${widget.sectionNumber}');
         Navigator.pop(context);
       }
     });

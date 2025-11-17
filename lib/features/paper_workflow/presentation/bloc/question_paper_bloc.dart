@@ -632,12 +632,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         // Enrich single paper with display names
         final enrichedPaper = await sl<PaperDisplayService>().enrichPaper(paper);
 
-        if (state is QuestionPaperLoaded) {
-          final currentState = state as QuestionPaperLoaded;
-          emit(currentState.copyWith(currentPaper: enrichedPaper));
-        } else {
-          emit(QuestionPaperLoaded(currentPaper: enrichedPaper));
-        }
+        // Always emit a fresh state for the new paper (don't merge with previous state)
+        emit(QuestionPaperLoaded(currentPaper: enrichedPaper));
       },
     );
   }
@@ -801,14 +797,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   }
 
   Future<void> _onUpdateQuestionInline(UpdateQuestionInline event, Emitter<QuestionPaperState> emit) async {
-    print('🎯 [BLoC] UpdateQuestionInline event received');
-    print('   - Section: "${event.sectionName}"');
-    print('   - Question index: ${event.questionIndex}');
-    print('   - Updated text length: ${event.updatedText.length}');
-    print('   - Updated options count: ${event.updatedOptions?.length ?? 0}');
 
     if (state is! QuestionPaperLoaded) {
-      print('   ❌ Error: State is not QuestionPaperLoaded');
       return;
     }
 
@@ -816,39 +806,28 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     final currentPaper = currentState.currentPaper;
 
     if (currentPaper == null) {
-      print('   ❌ Error: No paper loaded');
       emit(const QuestionPaperError('No paper loaded'));
       return;
     }
 
     try {
-      print('   📋 Checking paper structure...');
       // Update the question in the current paper
       final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
 
       if (!updatedQuestions.containsKey(event.sectionName)) {
-        print('   ❌ Error: Section "${event.sectionName}" not found');
-        print('      Available sections: ${updatedQuestions.keys.toList()}');
         emit(QuestionPaperError('Section "${event.sectionName}" not found'));
         return;
       }
 
       final sectionQuestions = List<Question>.from(updatedQuestions[event.sectionName]!);
-      print('   - Section "${event.sectionName}" has ${sectionQuestions.length} questions');
 
       if (event.questionIndex < 0 || event.questionIndex >= sectionQuestions.length) {
-        print('   ❌ Error: Invalid question index ${event.questionIndex} (valid range: 0-${sectionQuestions.length - 1})');
         emit(QuestionPaperError('Invalid question index'));
         return;
       }
 
       // Update the question with new values (only text and options)
       final oldQuestion = sectionQuestions[event.questionIndex];
-      print('   🔄 Updating question ${event.questionIndex}:');
-      print('      - Old text: "${oldQuestion.text.substring(0, oldQuestion.text.length > 50 ? 50 : oldQuestion.text.length)}${oldQuestion.text.length > 50 ? '...' : ''}"');
-      print('      - New text: "${event.updatedText.substring(0, event.updatedText.length > 50 ? 50 : event.updatedText.length)}${event.updatedText.length > 50 ? '...' : ''}"');
-      print('      - Old options: ${oldQuestion.options?.length ?? 0}');
-      print('      - New options: ${event.updatedOptions?.length ?? 0}');
 
       sectionQuestions[event.questionIndex] = oldQuestion.copyWith(
         text: event.updatedText,
@@ -864,9 +843,6 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       final editedQuestionKey = '${event.sectionName}_${event.questionIndex}';
       final updatedEditedQuestions = Set<String>.from(currentState.editedQuestions)..add(editedQuestionKey);
 
-      print('   ✅ Question updated successfully');
-      print('      - Edited questions tracking: $editedQuestionKey');
-      print('      - Total edited questions: ${updatedEditedQuestions.length}');
 
       // Emit success state with updated paper and track edited questions
       emit(currentState.copyWith(
@@ -875,16 +851,13 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       ));
 
       // Now save the updated paper to the database
-      print('   💾 Saving updated paper to database...');
       final result = await _updatePaperUseCase(updatedPaper);
 
       result.fold(
         (failure) {
-          print('   ❌ Database save failed: ${failure.message}');
           emit(QuestionPaperError('Failed to save changes: ${failure.message}'));
         },
         (savedPaper) {
-          print('   ✅ Paper saved to database successfully');
 
           // Emit final loaded state with the saved paper
           emit(currentState.copyWith(
@@ -892,23 +865,16 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
             editedQuestions: updatedEditedQuestions,
           ));
 
-          print('   📢 Question update complete - paper displayed with latest changes');
         },
       );
     } catch (e, stackTrace) {
-      print('   ❌ Exception occurred: $e');
-      print('   Stack trace: $stackTrace');
       emit(QuestionPaperError('Failed to update question: ${e.toString()}'));
     }
   }
 
   Future<void> _onUpdateSectionName(UpdateSectionName event, Emitter<QuestionPaperState> emit) async {
-    print('🎯 [BLoC] UpdateSectionName event received');
-    print('   - Old section name: "${event.oldSectionName}"');
-    print('   - New section name: "${event.newSectionName}"');
 
     if (state is! QuestionPaperLoaded) {
-      print('   ❌ Error: State is not QuestionPaperLoaded');
       return;
     }
 
@@ -916,13 +882,11 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     final currentPaper = currentState.currentPaper;
 
     if (currentPaper == null) {
-      print('   ❌ Error: No paper loaded');
       emit(const QuestionPaperError('No paper loaded'));
       return;
     }
 
     try {
-      print('   📋 Checking paper structure...');
 
       // Update section name in paperSections
       final updatedSections = currentPaper.paperSections != null
@@ -938,16 +902,12 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       }
 
       if (sectionIndex == -1) {
-        print('   ❌ Error: Section "${event.oldSectionName}" not found in paperSections');
         emit(QuestionPaperError('Section not found'));
         return;
       }
 
       // Update the section name
       final oldSection = updatedSections[sectionIndex];
-      print('   🔄 Updating section:');
-      print('      - Old name: "${oldSection.name}"');
-      print('      - New name: "${event.newSectionName}"');
 
       // Create updated section with new name (assuming section has a copyWith method)
       updatedSections[sectionIndex] = oldSection.copyWith(name: event.newSectionName);
@@ -968,32 +928,25 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         questions: updatedQuestions,
       );
 
-      print('   ✅ Section name updated successfully');
 
       // Emit success state with updated paper
       emit(currentState.copyWith(currentPaper: updatedPaper));
 
       // Save the updated paper to the database
-      print('   💾 Saving updated paper to database...');
       final result = await _updatePaperUseCase(updatedPaper);
 
       result.fold(
         (failure) {
-          print('   ❌ Database save failed: ${failure.message}');
           emit(QuestionPaperError('Failed to save changes: ${failure.message}'));
         },
         (savedPaper) {
-          print('   ✅ Paper saved to database successfully');
 
           // Emit final loaded state with the saved paper
           emit(currentState.copyWith(currentPaper: savedPaper));
 
-          print('   📢 Section name update complete');
         },
       );
     } catch (e, stackTrace) {
-      print('   ❌ Exception occurred: $e');
-      print('   Stack trace: $stackTrace');
       emit(QuestionPaperError('Failed to update section: ${e.toString()}'));
     }
   }

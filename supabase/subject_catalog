@@ -1,0 +1,212 @@
+[
+  {
+    "id": "0413d2f5-8ed2-4f92-a295-2cf0b31b1b8a",
+    "subject_name": "Mathematics",
+    "min_grade": 1,
+    "max_grade": 12,
+    "description": "Comprehensive study of numbers, algebra, geometry, trigonometry, and calculus",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "d560c6ec-68b1-4d32-96c0-c40e06ed6be1",
+    "subject_name": "Tamil Grammar",
+    "min_grade": 1,
+    "max_grade": 8,
+    "description": "Comprehensive study of Tamil grammar rules and usage",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "7829f65b-55db-4547-be63-03b7b9529c00",
+    "subject_name": "Social Studies",
+    "min_grade": 1,
+    "max_grade": 12,
+    "description": "Study of society, history, geography, culture, civics, and human development",
+    "is_active": true,
+    "created_at": "2025-11-03 08:04:47.545869+00",
+    "updated_at": "2025-11-03 08:04:47.545869+00"
+  },
+  {
+    "id": "e14f4941-44a5-4d3c-bcfa-f59372dc062f",
+    "subject_name": "Environmental Studies",
+    "min_grade": 1,
+    "max_grade": 2,
+    "description": "Study of environment, ecology, natural resources, and sustainability",
+    "is_active": true,
+    "created_at": "2025-11-03 08:04:47.545869+00",
+    "updated_at": "2025-11-03 08:04:47.545869+00"
+  },
+  {
+    "id": "31224916-9ba2-485c-bf0c-8c86931fe997",
+    "subject_name": "Science",
+    "min_grade": 3,
+    "max_grade": 12,
+    "description": "Integrated study of physical and natural sciences including matter, energy, and living systems",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "64a6b60b-5e6f-43df-9829-d38e0d7b7b97",
+    "subject_name": "Botany",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Branch of biology devoted to the study of plants, their structure, function, and ecology",
+    "is_active": true,
+    "created_at": "2025-11-06 09:49:41.805271+00",
+    "updated_at": "2025-11-06 09:49:41.805271+00"
+  },
+  {
+    "id": "85981d61-ff84-4e32-9c16-e40e45c888d0",
+    "subject_name": "Zoology",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Branch of biology focused on the study of animals, their behavior, classification, and ecology",
+    "is_active": true,
+    "created_at": "2025-11-06 09:50:14.028338+00",
+    "updated_at": "2025-11-06 09:50:14.028338+00"
+  },
+  {
+    "id": "de4c28af-5e45-4732-b71c-0be75afdb23b",
+    "subject_name": "Commerce",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of business practices, trade, economics, and commercial transactions",
+    "is_active": true,
+    "created_at": "2025-11-06 10:14:07.296529+00",
+    "updated_at": "2025-11-06 10:14:07.296529+00"
+  },
+  {
+    "id": "27065f7e-1da0-420a-b03e-046a1cdb2289",
+    "subject_name": "Accountancy",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of financial accounting, bookkeeping, auditing, and financial management",
+    "is_active": true,
+    "created_at": "2025-11-06 10:15:13.363799+00",
+    "updated_at": "2025-11-06 10:15:13.363799+00"
+  },
+  {
+    "id": "59310cd1-7729-4b5e-aaa4-1d5859f9a21b",
+    "subject_name": "Economics",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of economic principles, systems, trade, production, and resource allocation",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "05454abb-15af-4989-bb6b-600abd3c333d",
+    "subject_name": "Hindi",
+    "min_grade": 1,
+    "max_grade": 8,
+    "description": "Study of Hindi language, grammar, and literature",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "0f46925b-c592-4706-a31f-195676329d59",
+    "subject_name": "General Knowledge",
+    "min_grade": 1,
+    "max_grade": 8,
+    "description": "Study of general knowledge covering current affairs, history, geography, and culture",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "4f467456-7ee8-497d-b16b-e00fbe336eee",
+    "subject_name": "Drawing",
+    "min_grade": 1,
+    "max_grade": 5,
+    "description": "Art and drawing techniques including sketching, shading, and creative expression",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "ba955ae0-3618-4c00-8ee9-8caa157325b7",
+    "subject_name": "English Grammar",
+    "min_grade": 1,
+    "max_grade": 8,
+    "description": "Study of English grammar rules, syntax, and language mechanics",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "da2f6936-2bd1-4d81-925e-254385db2e4a",
+    "subject_name": "Islamic / Values Education",
+    "min_grade": 1,
+    "max_grade": 8,
+    "description": "Study of Islamic values, ethics, culture, and moral education",
+    "is_active": true,
+    "created_at": "2025-11-06 14:01:47.948392+00",
+    "updated_at": "2025-11-06 14:01:47.948392+00"
+  },
+  {
+    "id": "9f5035fe-ed2b-45fb-a7cc-064cc8219395",
+    "subject_name": "Biology",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of living organisms, cells, genetics, evolution, and ecology",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "7e66be93-cdef-453d-88b8-44bfc74cd267",
+    "subject_name": "Chemistry",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of chemical substances, reactions, properties, and their applications",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "e15f7c0a-4de4-400b-98d5-c1e6cf50c8fe",
+    "subject_name": "Physics",
+    "min_grade": 11,
+    "max_grade": 12,
+    "description": "Study of matter, energy, motion, forces, and the fundamental laws governing the universe",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "17f1a7b2-0ae7-4478-9708-ddf1b3ad9c83",
+    "subject_name": "English",
+    "min_grade": 1,
+    "max_grade": 12,
+    "description": "Study of English language, grammar, composition, and literature across various genres",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  },
+  {
+    "id": "22dda742-7d56-49b3-91d7-b94d0d685ba9",
+    "subject_name": "Tamil",
+    "min_grade": 1,
+    "max_grade": 12,
+    "description": "Study of Tamil language, grammar, classical and contemporary literature",
+    "is_active": true,
+    "created_at": "2025-11-03 08:04:47.545869+00",
+    "updated_at": "2025-11-03 08:04:47.545869+00"
+  },
+  {
+    "id": "0fc869d6-e110-4bc0-acb4-a27f14931b66",
+    "subject_name": "Computer Science",
+    "min_grade": 1,
+    "max_grade": 12,
+    "description": "Study of computing systems, programming, algorithms, and information technology",
+    "is_active": true,
+    "created_at": "2025-11-03 08:02:36.805829+00",
+    "updated_at": "2025-11-03 08:02:36.805829+00"
+  }
+]

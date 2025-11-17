@@ -69,14 +69,173 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       ),
       body: BlocListener<ExamTimetableBloc, ExamTimetableState>(
         listener: (context, state) {
-          if (state is ExamTimetablePublished) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Timetable published successfully'),
-                backgroundColor: Colors.green,
+          if (state is ExamTimetablePublishing) {
+            // Show loading dialog
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Publishing ${state.timetableName}...',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Assigning question papers to teachers...',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ],
+                ),
               ),
             );
-            _refreshTimetables();
+          } else if (state is ExamTimetablePublished) {
+            // Close loading dialog if shown
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+
+            // Show results dialog
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Publication Complete'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          border: Border.all(color: Colors.green[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green[600]),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${state.papersAssigned} papers assigned',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          color: Colors.green[600],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  Text(
+                                    'Questions papers successfully created for teachers',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (state.failedAssignments.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            border: Border.all(color: Colors.orange[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.warning, color: Colors.orange[600]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Failed to assign ${state.failedAssignments.length} papers',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          color: Colors.orange[600],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...state.failedAssignments.map((failure) => Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '• $failure',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (state.skippedEntries.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            border: Border.all(color: Colors.blue[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.info, color: Colors.blue[600]),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${state.skippedEntries.length} entries skipped - no teachers assigned',
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            color: Colors.blue[600],
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...state.skippedEntries.map((skipped) => Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '• $skipped',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.blue[700],
+                                      ),
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _refreshTimetables();
+                    },
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            );
           } else if (state is ExamTimetableArchived) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -286,12 +445,9 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     ExamTimetableEntity timetable,
   ) {
     try {
-      print('[ExamTimetableListPage] VIEW: Timetable ${timetable.examName} (ID: ${timetable.id}, Status: ${timetable.status})');
-      print('[ExamTimetableListPage] VIEW: Attempting navigation...');
 
       // Get the BLoC from current context before navigating
       final bloc = context.read<ExamTimetableBloc>();
-      print('[ExamTimetableListPage] VIEW: BLoC retrieved: $bloc');
 
       Navigator.push(
         context,
@@ -305,9 +461,7 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
           ),
         ),
       );
-      print('[ExamTimetableListPage] VIEW: Navigation completed');
     } catch (e) {
-      print('[ExamTimetableListPage] VIEW ERROR: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
@@ -341,7 +495,6 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
-    print('[ExamTimetableListPage] EDIT: Timetable ${timetable.examName} (ID: ${timetable.id})');
     // Get the BLoC from current context before navigating
     final bloc = context.read<ExamTimetableBloc>();
 
@@ -378,12 +531,10 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
-    print('[ExamTimetableListPage] PUBLISH: Confirming timetable ${timetable.examName} (ID: ${timetable.id})');
 
     // IMPORTANT: Capture the BLoC BEFORE showing the dialog
     // This is because the dialog's context doesn't include the BLoC provider
     final bloc = context.read<ExamTimetableBloc>();
-    print('[ExamTimetableListPage] PUBLISH: Captured BLoC instance: $bloc');
 
     // Show confirmation dialog
     showDialog(
@@ -402,9 +553,10 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              print('[ExamTimetableListPage] PUBLISH: Current BLoC state: ${bloc.state}');
-              print('[ExamTimetableListPage] PUBLISH: Sending PublishExamTimetableEvent for ${timetable.examName}');
-              bloc.add(PublishExamTimetableEvent(timetableId: timetable.id));
+              bloc.add(PublishExamTimetableEvent(
+                timetableId: timetable.id,
+                timetableName: timetable.examName,
+              ));
             },
             child: const Text('Publish'),
           ),
@@ -473,12 +625,10 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
       return;
     }
 
-    print('[ExamTimetableListPage] DELETE: Confirming deletion of timetable ${timetable.examName} (ID: ${timetable.id})');
 
     // IMPORTANT: Capture the BLoC BEFORE showing the dialog
     // This is because the dialog's context doesn't include the BLoC provider
     final bloc = context.read<ExamTimetableBloc>();
-    print('[ExamTimetableListPage] DELETE: Captured BLoC instance: $bloc');
 
     // Show confirmation dialog
     showDialog(
@@ -497,8 +647,6 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              print('[ExamTimetableListPage] DELETE: Current BLoC state: ${bloc.state}');
-              print('[ExamTimetableListPage] DELETE: Sending DeleteExamTimetableEvent for ${timetable.examName}');
               bloc.add(DeleteExamTimetableEvent(timetableId: timetable.id));
             },
             style: ElevatedButton.styleFrom(

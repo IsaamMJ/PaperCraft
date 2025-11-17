@@ -71,9 +71,6 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
         widget.initialCalendar?.paperSubmissionDeadline;
     _marksConfig = widget.initialCalendar?.marksConfig ?? [];
 
-    print('🔍 EXAM CALENDAR FORM - initState called');
-    print('   Initial marks config: ${_marksConfig.length} items');
-    print('   Available grades: ${_getAllAvailableGrades()}');
   }
 
   @override
@@ -86,9 +83,6 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    print('🎨 ExamCalendarFormDialog.build() called');
-    print('   Marks config items: ${_marksConfig.length}');
-    print('   Available grades count: ${_getAllAvailableGrades().length}');
     return Dialog(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -275,9 +269,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
               // Mark Configuration Section
               Builder(
                 builder: (context) {
-                  print('🏗️ Building MarksConfigurationWidget section');
                   final grades = _getAllAvailableGrades();
-                  print('   Grades for widget: $grades');
                   return Container(
                     color: Colors.blue.shade100,
                     padding: const EdgeInsets.all(12),
@@ -291,7 +283,6 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
                           allGrades: grades,
                           initialConfigs: _marksConfig,
                           onConfigsChanged: (updatedConfigs) {
-                            print('📝 Marks config changed: ${updatedConfigs.length} items');
                             setState(() {
                               _marksConfig = updatedConfigs;
                             });
@@ -389,7 +380,6 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
   /// Get all available grades from 1-12
   List<int> _getAllAvailableGrades() {
     final grades = List.generate(12, (index) => index + 1);
-    print('📚 _getAllAvailableGrades() called - returning: $grades (count: ${grades.length})');
     return grades;
   }
 

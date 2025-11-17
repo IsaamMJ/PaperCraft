@@ -93,7 +93,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _marks1To5Controller.text = ''; // Reset marks
     _marks6To12Controller.text = '';
 
-    print('✅ CREATE EXAM DIALOG OPENED - Fill marks and select grades below');
 
     // IMPORTANT: Capture the BLoC BEFORE showing dialog to avoid provider scope issues
     final bloc = context.read<ExamCalendarBloc>();
@@ -217,7 +216,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                                   _selectedGrades.add(gradeNumber);
                                 }
                               });
-                              print('Grade $gradeNumber - Selected: ${_selectedGrades.contains(gradeNumber)}');
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -336,12 +334,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                 }
 
                 try {
-                  print('📝 Creating Exam Calendar:');
-                  print('   Name: ${_examNameController.text}');
-                  print('   Type: ${_examTypeController.text}');
-                  print('   Grades 1-5 Marks: ${_marks1To5Controller.text}');
-                  print('   Grades 6-12 Marks: ${_marks6To12Controller.text}');
-                  print('   Selected Grades: ${_selectedGrades.toList()..sort()}');
 
                   // Build marks configuration from the input fields
                   Map<String, dynamic>? marksConfig;
@@ -355,7 +347,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                       final marks1To5 = int.tryParse(_marks1To5Controller.text);
                       if (marks1To5 != null) {
                         marksConfig['grades_1_to_5_marks'] = marks1To5;
-                        print('   ✅ Grades 1-5 marks: $marks1To5');
                       }
                     }
 
@@ -364,11 +355,9 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                       final marks6To12 = int.tryParse(_marks6To12Controller.text);
                       if (marks6To12 != null) {
                         marksConfig['grades_6_to_12_marks'] = marks6To12;
-                        print('   ✅ Grades 6-12 marks: $marks6To12');
                       }
                     }
 
-                    print('   📊 Marks config to store: $marksConfig');
                   }
 
                   final event = CreateExamCalendarEvent(
@@ -401,7 +390,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   }
 
   void _showDeleteConfirmation(String calendarId) {
-    print('🗑️ Delete confirmation dialog opened for: $calendarId');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -414,7 +402,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              print('🗑️ Deleting calendar: $calendarId');
               context.read<ExamCalendarBloc>().add(
                     DeleteExamCalendarEvent(calendarId: calendarId),
                   );

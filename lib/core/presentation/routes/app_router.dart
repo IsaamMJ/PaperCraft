@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 // Core dependencies
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
-import '../../../features/admin/presentation/pages/admin_home_dashboard.dart';
 import '../../../features/admin/presentation/pages/admin_setup_wizard_page.dart';
 import '../../../features/admin/presentation/pages/admin_assignments_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
@@ -302,6 +301,7 @@ class AppRouter {
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: QuestionPaperDetailPage(
+              key: ValueKey(id),
               questionPaperId: id,
               isViewOnly: false,
             ),
@@ -320,7 +320,10 @@ class AppRouter {
               BlocProvider(create: (_) => sl<SubjectBloc>()),
               BlocProvider(create: (_) => sl<TeacherPatternBloc>()), // Add TeacherPatternBloc for pattern loading
             ],
-            child: QuestionPaperEditPage(questionPaperId: id),
+            child: QuestionPaperEditPage(
+              key: ValueKey(id),
+              questionPaperId: id,
+            ),
           );
         },
       ),
@@ -384,21 +387,25 @@ class AppRouter {
         ),
       ),
 
-      // Admin routes
       GoRoute(
-        path: AppRoutes.adminHome,
+        path: '${AppRoutes.questionPaperCreate}/:${RouteParams.id}',
         builder: (context, state) {
-          AppLogger.info('Admin accessing home dashboard', category: LogCategory.navigation);
+          final draftId = state.pathParameters[RouteParams.id]!;
           return MultiBlocProvider(
             providers: [
-              BlocProvider(create: (_) => UserManagementBloc(repository: sl())),
+              BlocProvider(create: (_) => _createQuestionPaperBloc()),
               BlocProvider(create: (_) => GradeBloc(repository: sl())),
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
-            child: const AdminHomeDashboard(),
+            child: QuestionPaperCreatePage(
+              key: ValueKey(draftId),
+              draftPaperId: draftId,
+            ),
           );
         },
       ),
+
+      // Admin routes
       GoRoute(
         path: AppRoutes.adminDashboard,
         builder: (context, state) {

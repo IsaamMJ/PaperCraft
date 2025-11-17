@@ -494,10 +494,8 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     ExamTimetableEntity timetable,
   ) async {
     try {
-      print('[DataSource] Creating timetable - ID: ${timetable.id}');
       final model = ExamTimetableModel.fromEntity(timetable);
       final jsonData = model.toJson();
-      print('[DataSource] JSON to insert: ${jsonData['id']}, examName: ${jsonData['exam_name']}');
 
       final response = await _supabaseClient
           .from('exam_timetables')
@@ -506,13 +504,10 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           .single();
 
       final created = ExamTimetableModel.fromJson(response as Map<String, dynamic>);
-      print('[DataSource] Timetable created with ID: ${created.id}');
       return Right(created);
     } on PostgrestException catch (e) {
-      print('[DataSource] PostgrestException creating timetable: ${e.toString()}');
       return Left(_mapPostgrestException(e));
     } catch (e) {
-      print('[DataSource] Error creating timetable: ${e.toString()}');
       return Left(ServerFailure('Failed to create exam timetable: ${e.toString()}'));
     }
   }
@@ -634,7 +629,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     String timetableId,
   ) async {
     try {
-      print('[getExamTimetableEntries] Fetching entries for timetableId=$timetableId');
 
       // Fetch basic entries first
       final response = await _supabaseClient
@@ -648,7 +642,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      print('[getExamTimetableEntries] Got ${entries.length} entries');
 
       if (entries.isEmpty) {
         return Right(entries);
@@ -686,7 +679,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           }
         }
       } catch (e) {
-        print('[getExamTimetableEntries] Failed to fetch grades via grade_sections: $e');
       }
 
       // Step 3: Map grade_section_id -> (gradeNumber, sectionName) by joining through grade_id
@@ -698,15 +690,12 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
             .select('id, grade_id, section_name')
             .inFilter('id', uniqueGradeSectionIds);
 
-        print('[getExamTimetableEntries] gradesMap=$gradesMap');
-        print('[getExamTimetableEntries] uniqueGradeSectionIds=$uniqueGradeSectionIds');
 
         for (var gs in (gradeSectionsResponse as List<dynamic>)) {
           final gradeSectionId = gs['id'] as String;
           final gradeId = gs['grade_id'] as String;
           final sectionName = gs['section_name'] as String?;
           final gradeNumber = gradesMap[gradeId];
-          print('[getExamTimetableEntries] Mapping: gradeSectionId=$gradeSectionId -> gradeId=$gradeId -> gradeNumber=$gradeNumber, section=$sectionName');
           if (gradeNumber != null) {
             gradeSectionToGradeNumber[gradeSectionId] = gradeNumber;
           }
@@ -714,10 +703,7 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
             gradeSectionToSectionName[gradeSectionId] = sectionName;
           }
         }
-        print('[getExamTimetableEntries] Final gradeSectionToGradeNumber mapping: $gradeSectionToGradeNumber');
-        print('[getExamTimetableEntries] Final gradeSectionToSectionName mapping: $gradeSectionToSectionName');
       } catch (e) {
-        print('[getExamTimetableEntries] Failed to map grade_section_id to grade_number and section: $e');
       }
 
       // Batch fetch all unique subjects and their catalog info
@@ -758,7 +744,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
           }
         }
       } catch (e) {
-        print('[getExamTimetableEntries] Failed to fetch subjects: $e');
       }
 
       // Create enriched entries with fetched data
@@ -771,8 +756,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
               ))
           .toList();
 
-      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries with grades: ${enrichedEntries.where((e) => e.gradeNumber != null).length} entries have grade numbers');
-      print('[getExamTimetableEntries] Enriched ${enrichedEntries.length} entries with sections: ${enrichedEntries.where((e) => e.section != null).length} entries have sections');
       return Right(enrichedEntries);
     } on PostgrestException catch (e) {
       return Left(_mapPostgrestException(e));
@@ -894,13 +877,10 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         return const Right([]);
       }
 
-      print('[DataSource] Received ${entries.length} entries to insert');
       final models = entries.map((e) {
-        print('[DataSource] Converting entry - subject: ${e.subjectId}, timetableId: "${e.timetableId}"');
         return ExamTimetableEntryModel.fromEntity(e).toJson();
       }).toList();
 
-      print('[DataSource] Sample entry JSON to insert: ${models.isNotEmpty ? models.first : "no entries"}');
 
       try {
         final response = await _supabaseClient
@@ -912,18 +892,11 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
             .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
             .toList();
 
-        print('[DataSource] Successfully inserted ${created.length} entries');
         return Right(created);
       } on PostgrestException catch (e) {
-        print('[DataSource] Postgrest error inserting entries:');
-        print('[DataSource]   Code: ${e.code}');
-        print('[DataSource]   Message: ${e.message}');
-        print('[DataSource]   Details: ${e.details}');
-        print('[DataSource]   Hint: ${e.hint}');
         return Left(_mapPostgrestException(e));
       }
     } catch (e) {
-      print('[DataSource] General error inserting entries: ${e.toString()}');
       return Left(ServerFailure('Failed to add multiple exam entries: ${e.toString()}'));
     }
   }
@@ -1287,10 +1260,8 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
     List<String> gradeSectionIds,
   ) async {
     try {
-      print('[ExamTimetableRemoteDataSource] addGradesToCalendar: Mapping ${gradeSectionIds.length} sections to calendar $examCalendarId');
 
       final inserts = gradeSectionIds.map((gradeSectionId) {
-        print('[ExamTimetableRemoteDataSource]   - Preparing insert for section: $gradeSectionId');
         return {
           'tenant_id': tenantId,
           'exam_calendar_id': examCalendarId,
@@ -1299,7 +1270,6 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         };
       }).toList();
 
-      print('[ExamTimetableRemoteDataSource] Calling upsert with ${inserts.length} records, onConflict on exam_calendar_id,grade_section_id');
 
       final response = await _supabaseClient
           .from('exam_calendar_grade_mapping')
@@ -1311,13 +1281,10 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
               json as Map<String, dynamic>))
           .toList();
 
-      print('[ExamTimetableRemoteDataSource] Successfully mapped ${mappings.length} grade-sections to calendar');
       return Right(mappings);
     } on PostgrestException catch (e) {
-      print('[ExamTimetableRemoteDataSource] PostgrestException in addGradesToCalendar: ${e.message}');
       return Left(ServerFailure(e.message));
     } catch (e) {
-      print('[ExamTimetableRemoteDataSource] Exception in addGradesToCalendar: $e');
       return Left(ServerFailure(e.toString()));
     }
   }

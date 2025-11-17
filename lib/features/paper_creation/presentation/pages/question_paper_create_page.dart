@@ -24,10 +24,16 @@ import '../../../catalog/presentation/bloc/subject_bloc.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../catalog/presentation/widgets/pattern_selector_widget.dart';
 import '../../../catalog/presentation/widgets/section_builder_widget.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../domain/services/question_input_coordinator.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {
-  const QuestionPaperCreatePage({super.key});
+  final String? draftPaperId; // Optional: for editing existing draft papers
+
+  const QuestionPaperCreatePage({
+    super.key,
+    this.draftPaperId,
+  });
 
   @override
   State<QuestionPaperCreatePage> createState() => _CreatePageState();
@@ -79,6 +85,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
 
     _loadInitialData();
+
+    // If editing a draft paper, load it from BLoC
+    if (widget.draftPaperId != null) {
+      context.read<QuestionPaperBloc>().add(LoadPaperById(widget.draftPaperId!));
+    }
 
     // Set smart default for exam date (7 days from now)
     _selectedExamDate = DateTime.now().add(const Duration(days: 7));

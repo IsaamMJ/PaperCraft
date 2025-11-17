@@ -90,8 +90,6 @@ class ExamTimetableWizardBloc
     SelectExamCalendarEvent event,
     Emitter<ExamTimetableWizardState> emit,
   ) async {
-    print('[WizardBloc] Step 1→2: SelectExamCalendar event received');
-    print('[WizardBloc] Selected calendar: ${event.calendar.examName} (ID: ${event.calendar.id})');
 
     // Get current state for tenant info
     final currentState = state;
@@ -105,7 +103,6 @@ class ExamTimetableWizardBloc
       tenantId = currentState.tenantId;
     }
 
-    print('[WizardBloc] TenantId: $tenantId');
 
     // Emit loading state to show spinner in UI
     emit(WizardStep2State(
@@ -116,20 +113,15 @@ class ExamTimetableWizardBloc
     ));
 
     // Load available grades and check which are already selected
-    print('[WizardBloc] Loading all grades...');
     final gradesResult = await getGrades();
 
-    print('[WizardBloc] Grades result received: ${gradesResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
 
     // Handle grades result
     await gradesResult.fold(
       (failure) async {
-        print('[WizardBloc] FAILURE loading grades: $failure');
         emit(WizardErrorState(message: 'Failed to load grades: $failure'));
       },
       (allGrades) async {
-        print('[WizardBloc] SUCCESS: Loaded ${allGrades.length} grades');
-        print('[WizardBloc] Filtering grades based on calendar marks config...');
 
         // Filter grades based on exam calendar's selected grades
         List<GradeEntity> availableGrades = allGrades;
@@ -138,16 +130,13 @@ class ExamTimetableWizardBloc
         );
 
         if (selectedGradesFromCalendar != null && selectedGradesFromCalendar.isNotEmpty) {
-          print('[WizardBloc] 📚 Filtering grades: selected from calendar = $selectedGradesFromCalendar');
           availableGrades = allGrades.where((grade) {
             return selectedGradesFromCalendar.contains(grade.gradeNumber);
           }).toList();
-          print('[WizardBloc] ✅ Filtered to ${availableGrades.length} grades');
         }
 
         // Automatically select all filtered grades (since they come from calendar)
         final selectedGradeIds = availableGrades.map((g) => g.id).toList();
-        print('[WizardBloc] 🔄 Automatically selecting ${selectedGradeIds.length} filtered grades');
 
         // Process selected grades (expand to sections and move to step 3)
         await _processSelectedGradesAndTransitionToStep3(
@@ -170,7 +159,6 @@ class ExamTimetableWizardBloc
     required List<GradeEntity> availableGrades,
     required Emitter<ExamTimetableWizardState> emit,
   }) async {
-    print('[WizardBloc] Processing ${selectedGradeIds.length} selected grades...');
 
     // Expand selected grades to sections (same logic as _onSelectGrades)
     final List<String> allSectionIds = [];
@@ -179,14 +167,11 @@ class ExamTimetableWizardBloc
     final Map<String, int> gradeIdToGradeNumberMap = {};
 
     // Build the grade ID to grade number mapping from available grades
-    print('[WizardBloc] Building grade ID to grade number mapping from ${availableGrades.length} available grades');
     for (final grade in availableGrades) {
       gradeIdToGradeNumberMap[grade.id] = grade.gradeNumber;
-      print('[WizardBloc] Grade mapping: ${grade.id} → grade_number: ${grade.gradeNumber}');
     }
 
     for (final gradeId in selectedGradeIds) {
-      print('[WizardBloc] Loading sections for grade: $gradeId');
 
       final sectionsResult = await loadGradeSections(
         tenantId: tenantId,
@@ -195,13 +180,10 @@ class ExamTimetableWizardBloc
 
       sectionsResult.fold(
         (failure) {
-          print('[WizardBloc] FAILURE loading sections for grade $gradeId: $failure');
         },
         (sections) {
-          print('[WizardBloc] Grade $gradeId has ${sections.length} sections');
 
           if (sections.isEmpty) {
-            print('[WizardBloc] WARNING: Grade $gradeId has no sections configured');
             return;
           }
 
@@ -213,13 +195,11 @@ class ExamTimetableWizardBloc
               'sectionName': section.sectionName,
             };
             allSectionIds.add(section.id);
-            print('[WizardBloc] Added section: ${section.sectionName} (${section.id})');
           }
         },
       );
     }
 
-    print('[WizardBloc] Expanded to ${allSectionIds.length} section IDs');
 
     if (allSectionIds.isEmpty) {
       emit(WizardErrorState(
@@ -229,25 +209,21 @@ class ExamTimetableWizardBloc
     }
 
     // Check if grades are already mapped for this calendar
-    print('[WizardBloc] Checking if grades are already mapped for this calendar...');
     final alreadyMappedResult = await getGradesForCalendar(
       GetGradesForCalendarParams(examCalendarId: calendar.id),
     );
 
-    print('[WizardBloc] Already mapped check: ${alreadyMappedResult.isRight() ? 'SUCCESS' : 'NOT FOUND'}');
 
     // If grades are already mapped, skip the mapping step and go directly to subjects
     final gradesAlreadyMapped = alreadyMappedResult.fold(
       (failure) => false,
       (alreadyMappedIds) {
-        print('[WizardBloc] Grades already mapped (${alreadyMappedIds.length} found), skipping mapping step');
         return true;
       },
     );
 
     if (gradesAlreadyMapped) {
       // Load subjects for the sections
-      print('[WizardBloc] Loading subjects for ${allSectionIds.length} sections...');
       await _loadSubjectsAndTransitionToStep2(
         tenantId: tenantId,
         calendar: calendar,
@@ -261,7 +237,6 @@ class ExamTimetableWizardBloc
     }
 
     // Map grades to calendar only if not already mapped
-    print('[WizardBloc] Mapping ${allSectionIds.length} section IDs to calendar...');
     final mapResult = await mapGradesToExamCalendar(
       MapGradesToExamCalendarParams(
         tenantId: tenantId,
@@ -270,18 +245,14 @@ class ExamTimetableWizardBloc
       ),
     );
 
-    print('[WizardBloc] Map result: ${mapResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
 
     mapResult.fold(
       (failure) {
-        print('[WizardBloc] FAILURE mapping grades: $failure');
         emit(WizardErrorState(message: 'Failed to map grades: $failure'));
       },
       (mappedResults) async {
-        print('[WizardBloc] Successfully mapped ${mappedResults.length} grades');
 
         // Load subjects for the sections
-        print('[WizardBloc] Loading subjects for ${allSectionIds.length} sections...');
         await _loadSubjectsAndTransitionToStep2(
           tenantId: tenantId,
           calendar: calendar,
@@ -306,7 +277,6 @@ class ExamTimetableWizardBloc
     required Emitter<ExamTimetableWizardState> emit,
   }) async {
     // Load subjects per grade+section (same logic as _onSelectGrades)
-    print('[WizardBloc] Loading subjects for ${gradeSectionMapping.length} grades...');
     final Map<String, SubjectEntity> subjectMap = <String, SubjectEntity>{};
     final Map<String, List<String>> subjectToGradesMap = <String, List<String>>{};
 
@@ -316,7 +286,6 @@ class ExamTimetableWizardBloc
       final sectionName = details?['sectionName'];
 
       if (gradeId != null && sectionName != null) {
-        print('[WizardBloc] Loading subjects for grade=$gradeId, section=$sectionName');
         final subjectsResult = await getSubjectsByGradeAndSection(
           tenantId,
           gradeId,
@@ -325,10 +294,8 @@ class ExamTimetableWizardBloc
 
         await subjectsResult.fold(
           (failure) async {
-            print('[WizardBloc] WARNING: Failed to load subjects for grade $gradeId, section $sectionName: $failure');
           },
           (subjects) {
-            print('[WizardBloc] Loaded ${subjects.length} subjects for grade $gradeId, section $sectionName');
             for (final subject in subjects) {
               subjectMap[subject.id] = subject;
 
@@ -345,8 +312,6 @@ class ExamTimetableWizardBloc
     }
 
     final uniqueSubjects = subjectMap.values.toList();
-    print('[WizardBloc] Loaded ${uniqueSubjects.length} unique subjects');
-    print('[WizardBloc] Emitting WizardStep2State to move to schedule step');
 
     emit(WizardStep2State(
       tenantId: tenantId,
@@ -423,7 +388,6 @@ class ExamTimetableWizardBloc
 
     // Get the grades that have this subject from the mapping
     final gradesWithSubject = step3State.subjectToGradesMap[event.subjectId] ?? [];
-    print('[WizardBloc] Subject ${event.subjectId} is available in ${gradesWithSubject.length} grades: ${gradesWithSubject.join(", ")}');
 
     // Get all grade section IDs, but ONLY for grades that have this subject
     final allGradeSectionIds = <String>{};
@@ -432,7 +396,6 @@ class ExamTimetableWizardBloc
       allGradeSectionIds.addAll(gradeSectionIds.cast<String>());
     }
 
-    print('[WizardBloc] Creating entries for ${allGradeSectionIds.length} grade sections that have this subject');
 
     // Create one entry per grade section with proper gradeId and section name
     for (final gradeSectionId in allGradeSectionIds) {
@@ -460,7 +423,6 @@ class ExamTimetableWizardBloc
       newEntries.add(newEntry);
     }
 
-    print('[WizardBloc] Creating ${newEntries.length} entries (${allGradeSectionIds.length} sections across ${gradesWithSubject.length} grades that have this subject) for subject: ${event.subjectId}');
 
     // Remove existing entries for this subject and add new ones for all grade sections
     final updatedEntries = step3State.entries.where((e) => e.subjectId != event.subjectId).toList();
@@ -508,10 +470,8 @@ class ExamTimetableWizardBloc
     if (state is! WizardStep2State) return;
     final step3State = state as WizardStep2State;
 
-    print('[WizardBloc] Submitting wizard with ${step3State.entries.length} entries');
     for (var i = 0; i < step3State.entries.length; i++) {
       final entry = step3State.entries[i];
-      print('[WizardBloc] Entry $i: subject=${entry.subjectId}, grade=${entry.gradeId}, date=${entry.examDate.toString().split(' ')[0]}, id=${entry.id}');
     }
 
     emit(step3State.copyWith(isLoading: true, error: null));
@@ -531,14 +491,12 @@ class ExamTimetableWizardBloc
 
     result.fold(
       (failure) {
-        print('[WizardBloc] Submit failed: $failure');
         emit(step3State.copyWith(
           isLoading: false,
           error: failure.toString(),
         ));
       },
       (timetable) {
-        print('[WizardBloc] Submit succeeded: timetable=${timetable.id}');
         emit(WizardCompletedState(
           timetableId: timetable.id,
           examName: timetable.examName,

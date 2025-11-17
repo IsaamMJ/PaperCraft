@@ -133,7 +133,6 @@ class PublishTimetableAndAutoAssignPapersUsecase {
       );
 
       if (entries.isEmpty) {
-        print('[PublishTimetableAndAutoAssignPapersUsecase] No exam entries found');
         _logger.info(
           'No exam entries found for auto-assignment',
           context: {'timetableId': timetable.id},
@@ -148,12 +147,17 @@ class PublishTimetableAndAutoAssignPapersUsecase {
 
       // Step 2: For each entry, fetch teachers and build timetableEntries data
       final timetableEntriesForAssignment = <Map<String, dynamic>>[];
-      print('[PublishTimetableAndAutoAssignPapersUsecase] Processing ${entries.length} entries for auto-assignment');
+      _logger.info(
+        'Processing exam entries for teacher assignment',
+        context: {'entriesCount': entries.length, 'timetableId': timetable.id},
+      );
 
       for (final entry in entries) {
-        print('[PublishTimetableAndAutoAssignPapersUsecase] Entry: isActive=${entry.isActive}, gradeId=${entry.gradeId}, gradeNumber=${entry.gradeNumber}, section=${entry.section}, subject=${entry.subjectName}');
         if (!entry.isActive || entry.gradeId == null) {
-          print('[PublishTimetableAndAutoAssignPapersUsecase] Skipping entry: isActive=${entry.isActive}, gradeId=${entry.gradeId}');
+          _logger.info(
+            'Skipping inactive or invalid entry',
+            context: {'entryId': entry.id, 'isActive': entry.isActive, 'gradeId': entry.gradeId},
+          );
           continue;
         }
 
@@ -161,7 +165,6 @@ class PublishTimetableAndAutoAssignPapersUsecase {
         // IMPORTANT: Use the actual section value from the entry (can be null, 'A', 'B', etc.)
         // Do NOT default to 'A' - that would cause mismatches with teacher assignments
         final section = entry.section ?? '';
-        print('[PublishTimetableAndAutoAssignPapersUsecase] Querying teachers: gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section, academicYear=${timetable.academicYear}');
         _logger.info(
           'Querying teachers',
           context: {
@@ -186,7 +189,6 @@ class PublishTimetableAndAutoAssignPapersUsecase {
 
         final teachers = await teachersResult.fold(
           (failure) async {
-            print('[PublishTimetableAndAutoAssignPapersUsecase] FAILURE: No teachers found for gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section: ${failure.toString()}');
             _logger.warning(
               'Failed to fetch teachers for entry',
               context: {
@@ -202,7 +204,6 @@ class PublishTimetableAndAutoAssignPapersUsecase {
             return <Map<String, dynamic>>[];
           },
           (teacherSubjects) async {
-            print('[PublishTimetableAndAutoAssignPapersUsecase] SUCCESS: Found ${teacherSubjects.length} teachers for gradeId=${entry.gradeId}, subjectId=${entry.subjectId}, section=$section');
             _logger.info(
               'Found teachers for entry',
               context: {
@@ -291,17 +292,51 @@ class PublishTimetableAndAutoAssignPapersUsecase {
           );
         },
         (assignedPapers) {
+          // Extract failure and skipped metadata from papers
+          List<String> failedAssignments = [];
+          List<String> skippedEntries = [];
+          var actualPapersCount = assignedPapers.length;
+          var metadataCount = 0;
+
+          // Check for metadata markers in the papers list
+          for (final paper in assignedPapers) {
+            if (paper.id == '__FAILURE_METADATA__') {
+              // Extract failures from the title field (they were joined by '|')
+              final failureString = paper.title;
+              if (failureString.isNotEmpty) {
+                failedAssignments = failureString.split('|');
+              }
+              metadataCount++;
+            } else if (paper.id == '__SKIPPED_ENTRIES_METADATA__') {
+              // Extract skipped entries from the title field (they were joined by '|')
+              final skippedString = paper.title;
+              if (skippedString.isNotEmpty) {
+                skippedEntries = skippedString.split('|');
+              }
+              metadataCount++;
+            }
+          }
+
+          // Don't count metadata papers
+          actualPapersCount = assignedPapers.length - metadataCount;
+
           _logger.info(
             'Successfully auto-assigned papers',
             context: {
               'timetableId': timetable.id,
-              'papersCount': assignedPapers.length,
+              'papersCount': actualPapersCount,
+              'failedCount': failedAssignments.length,
+              'skippedCount': skippedEntries.length,
             },
           );
           return Right(
             PublishTimetableAndAutoAssignPapersResult(
               timetable: timetable,
-              autoAssignedPapersCount: assignedPapers.length,
+              autoAssignedPapersCount: actualPapersCount,
+              failedAssignmentsCount: failedAssignments.length,
+              failedAssignmentDetails: failedAssignments,
+              skippedEntriesCount: skippedEntries.length,
+              skippedEntryDetails: skippedEntries,
             ),
           );
         },
@@ -334,9 +369,17 @@ class PublishTimetableAndAutoAssignPapersParams {
 class PublishTimetableAndAutoAssignPapersResult {
   final ExamTimetableEntity timetable;
   final int autoAssignedPapersCount;
+  final int failedAssignmentsCount;
+  final List<String> failedAssignmentDetails;
+  final int skippedEntriesCount; // Entries with no teachers assigned
+  final List<String> skippedEntryDetails; // Details of entries skipped due to no teachers
 
   PublishTimetableAndAutoAssignPapersResult({
     required this.timetable,
     required this.autoAssignedPapersCount,
+    this.failedAssignmentsCount = 0,
+    this.failedAssignmentDetails = const [],
+    this.skippedEntriesCount = 0,
+    this.skippedEntryDetails = const [],
   });
 }

@@ -128,7 +128,6 @@ class _WizardStep1CalendarState extends State<WizardStep1Calendar> {
                         calendar: calendar,
                         isSelected: isSelected,
                         onTap: () {
-                          print('[Step1Widget] Calendar tapped: ${calendar.examName} (ID: ${calendar.id})');
                           context.read<ExamTimetableWizardBloc>().add(
                                 SelectExamCalendarEvent(calendar: calendar),
                               );

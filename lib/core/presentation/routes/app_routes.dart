@@ -27,7 +27,6 @@ class AppRoutes {
   static const String settingsUsers = '/settings/users';
 
   // Admin routes
-  static const String adminHome = '/admin/home';
   static const String adminDashboard = '/admin/dashboard';
   static const String adminReview = '/admin/review';
   static const String adminSetupWizard = '/admin/setup';
@@ -53,6 +52,7 @@ class AppRoutes {
   // Helper methods for parameterized routes
   static String questionPaperViewWithId(String id) => '$questionPaperView/$id';
   static String questionPaperEditWithId(String id) => '$questionPaperEdit/$id';
+  static String questionPaperCreateWithDraftId(String id) => '$questionPaperCreate/$id';
   static String adminReviewWithId(String id) => '$adminReview/$id';
 }
 

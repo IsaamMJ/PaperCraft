@@ -106,7 +106,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamCalendarsEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetExamCalendars: tenantId=${event.tenantId}');
     emit(const ExamTimetableLoading(message: 'Loading calendars...'));
 
     final result = await _getExamCalendarsUsecase(
@@ -116,11 +115,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] GetExamCalendars ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (calendars) {
-        print('[ExamTimetableBloc] GetExamCalendars SUCCESS: loaded ${calendars.length} calendars');
         emit(ExamCalendarsLoaded(calendars: calendars));
       },
     );
@@ -131,7 +128,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamTimetablesEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetExamTimetables: tenantId=${event.tenantId}, academicYear=${event.academicYear}');
     emit(const ExamTimetableLoading(message: 'Loading timetables...'));
 
     final result = await _getExamTimetablesUsecase(
@@ -144,11 +140,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] GetExamTimetables ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (timetables) {
-        print('[ExamTimetableBloc] GetExamTimetables SUCCESS: loaded ${timetables.length} timetables');
         emit(ExamTimetablesLoaded(timetables: timetables));
       },
     );
@@ -159,7 +153,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamTimetableByIdEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetExamTimetableById: timetableId=${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Loading timetable...'));
 
     final result = await _repository.getExamTimetableById(event.timetableId);
@@ -167,12 +160,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] GetExamTimetableById ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (timetable) {
-        print('[ExamTimetableBloc] GetExamTimetableById SUCCESS: loaded ${timetable.examName} (ID: ${timetable.id})');
-        print('[ExamTimetableBloc] Timetable data: examType=${timetable.examType}, academicYear=${timetable.academicYear}, status=${timetable.status}, createdBy=${timetable.createdBy}');
         emit(ExamTimetableLoaded(timetable: timetable));
       },
     );
@@ -183,7 +173,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamTimetableEntriesEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetExamTimetableEntries: timetableId=${event.timetableId}');
 
     // Don't emit loading state - load entries in the background
     final result = await _repository.getExamTimetableEntries(event.timetableId);
@@ -191,11 +180,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] GetExamTimetableEntries ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (entries) {
-        print('[ExamTimetableBloc] GetExamTimetableEntries SUCCESS: loaded ${entries.length} entries');
         emit(ExamTimetableEntriesLoaded(entries: entries));
       },
     );
@@ -206,8 +193,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     CreateExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] CreateExamTimetable: examName=${event.timetable.examName}, examType="${event.timetable.examType}", tenantId=${event.timetable.tenantId}');
-    print('[ExamTimetableBloc] examType value: "${event.timetable.examType}", length=${event.timetable.examType.length}, is empty=${event.timetable.examType.isEmpty}');
     emit(const ExamTimetableLoading(message: 'Creating timetable...'));
 
     final result = await _createExamTimetableUsecase(
@@ -217,11 +202,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] CreateExamTimetable ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (timetable) {
-        print('[ExamTimetableBloc] CreateExamTimetable SUCCESS: created timetable=${timetable.id}');
         emit(ExamTimetableCreated(timetable: timetable));
       },
     );
@@ -260,8 +243,11 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     PublishExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] Publishing timetable and auto-assigning papers: ${event.timetableId}');
-    emit(const ExamTimetableLoading(message: 'Publishing timetable and assigning papers...'));
+    emit(ExamTimetablePublishing(
+      timetableName: event.timetableName ?? 'Timetable',
+      totalEntries: 0,
+      assignedPapers: 0,
+    ));
 
     final result = await _publishTimetableAndAutoAssignUsecase(
       params: PublishTimetableAndAutoAssignPapersParams(timetableId: event.timetableId),
@@ -269,7 +255,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
 
     result.fold(
       (failure) {
-        print('[ExamTimetableBloc] Publish & Auto-Assign FAILED: ${failure.message}');
         if (failure is ValidationFailure) {
           // ignore: unchecked_use_of_nullable_value
           final errors = failure.message.split('\n');
@@ -280,9 +265,12 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
         }
       },
       (result) {
-        print('[ExamTimetableBloc] Publish & Auto-Assign SUCCESS: ${result.timetable.examName}');
-        print('[ExamTimetableBloc] Auto-assigned ${result.autoAssignedPapersCount} question papers');
-        emit(ExamTimetablePublished(timetable: result.timetable));
+        emit(ExamTimetablePublished(
+          timetable: result.timetable,
+          papersAssigned: result.autoAssignedPapersCount,
+          failedAssignments: result.failedAssignmentDetails,
+          skippedEntries: result.skippedEntryDetails,
+        ));
       },
     );
   }
@@ -308,7 +296,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     DeleteExamTimetableEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] Deleting timetable: ${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Deleting timetable...'));
 
     final result = await _repository.deleteExamTimetable(event.timetableId);
@@ -316,11 +303,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] Delete FAILED: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (_) {
-        print('[ExamTimetableBloc] Delete SUCCESS: ${event.timetableId}');
         emit(ExamTimetableDeleted(timetableId: event.timetableId));
       },
     );
@@ -465,7 +450,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetTimetableGradesAndSectionsEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetTimetableGradesAndSections: tenantId=${event.tenantId}');
     emit(const ExamTimetableLoading(message: 'Loading grades and sections...'));
 
     final result = await _getTimetableGradesAndSectionsUsecase(
@@ -475,11 +459,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] GetTimetableGradesAndSections ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (gradesData) {
-        print('[ExamTimetableBloc] GetTimetableGradesAndSections SUCCESS: loaded ${gradesData.grades.length} grades');
         emit(TimetableGradesAndSectionsLoaded(gradesData: gradesData));
       },
     );
@@ -494,7 +476,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     LoadValidSubjectsEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] LoadValidSubjects: tenantId=${event.tenantId}, selectedGradeSectionIds=${event.selectedGradeSectionIds.join(", ")}');
     emit(const ExamTimetableLoading(message: 'Loading valid subjects...'));
 
     final result = await _getValidSubjectsUsecase(
@@ -507,11 +488,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] LoadValidSubjects ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (validSubjectsMap) {
-        print('[ExamTimetableBloc] LoadValidSubjects SUCCESS: loaded subjects for ${validSubjectsMap.length} grade-sections');
         emit(ValidSubjectsLoaded(validSubjectsPerGradeSection: validSubjectsMap));
       },
     );
@@ -540,7 +519,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     GetExamEntriesEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] GetExamEntries: timetableId=${event.timetableId}');
     emit(const ExamTimetableLoading(message: 'Loading exam entries...'));
 
     // TODO: Wire up the GetExamEntriesUsecase after registering it in DI
@@ -553,7 +531,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     AddExamEntryEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] AddExamEntry: ${event.subjectId} for Grade ${event.gradeId}-${event.section}');
     emit(const ExamTimetableLoading(message: 'Adding exam entry...'));
 
     // Create entry entity for submission
@@ -582,11 +559,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] AddExamEntry ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (addedEntry) {
-        print('[ExamTimetableBloc] AddExamEntry SUCCESS: ${addedEntry.id}');
         emit(ExamEntryAdded(entry: addedEntry));
       },
     );
@@ -597,7 +572,6 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     DeleteExamEntryEvent event,
     Emitter<ExamTimetableState> emit,
   ) async {
-    print('[ExamTimetableBloc] DeleteExamEntry: entryId=${event.entryId}');
     emit(const ExamTimetableLoading(message: 'Deleting exam entry...'));
 
     // Call repository to delete entry
@@ -606,11 +580,9 @@ class ExamTimetableBloc extends Bloc<ExamTimetableEvent, ExamTimetableState> {
     result.fold(
       // ignore: unchecked_use_of_nullable_value
       (failure) {
-        print('[ExamTimetableBloc] DeleteExamEntry ERROR: ${failure.message}');
         emit(ExamTimetableError(message: failure.message));
       },
       (_) {
-        print('[ExamTimetableBloc] DeleteExamEntry SUCCESS: ${event.entryId}');
         emit(ExamEntryDeleted(entryId: event.entryId));
       },
     );

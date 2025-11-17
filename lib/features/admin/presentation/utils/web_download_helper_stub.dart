@@ -5,6 +5,5 @@
 class WebDownloadHelper {
   /// Stub implementation - does nothing on non-web platforms
   static void downloadCsvFile(String csvContent, String filename) {
-    print('Web download helper not available on this platform');
   }
 }

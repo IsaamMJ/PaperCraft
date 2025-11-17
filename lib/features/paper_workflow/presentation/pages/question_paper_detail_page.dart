@@ -80,6 +80,18 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   @override
+  void didUpdateWidget(covariant _DetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the paper ID changed, load the new paper
+    if (oldWidget.questionPaperId != widget.questionPaperId) {
+      // Reset user info cache since it's a different paper
+      _createdByName = null;
+      _loadingUserInfo = false;
+      context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId));
+    }
+  }
+
+  @override
   void dispose() {
     _animController.dispose();
     super.dispose();
@@ -129,33 +141,23 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _handleStateChanges(BuildContext context, QuestionPaperState state) {
-    print('🎯 [DetailPage] State changed: ${state.runtimeType}');
 
     if (state is QuestionPaperSuccess) {
-      print('   ✅ QuestionPaperSuccess received');
-      print('      - Message: "${state.message}"');
-      print('      - Action type: "${state.actionType}"');
       UiHelpers.showSuccessMessage(context, state.message);
       if (state.actionType == 'submit') {
-        print('      → Handling submit action');
         setState(() => _isSubmitting = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       } else if (state.actionType == 'pull') {
-        print('      → Handling pull action');
         setState(() => _isPulling = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       }
     }
     if (state is QuestionPaperError) {
-      print('   ❌ QuestionPaperError received: "${state.message}"');
       setState(() => _isSubmitting = _isPulling = false);
       UiHelpers.showErrorMessage(context, state.message);
     }
 
     if (state is QuestionPaperLoaded) {
-      print('   📚 QuestionPaperLoaded received');
-      print('      - Current paper: ${state.currentPaper?.title}');
-      print('      - Edited questions count: ${state.editedQuestions.length}');
 
       // Load user info when paper is loaded
       if (state.currentPaper != null) {
@@ -210,33 +212,26 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildContent(QuestionPaperState state) {
-    print('🎨 [DetailPage] Building content for state: ${state.runtimeType}');
 
     if (state is QuestionPaperLoading) {
-      print('   → Showing LoadingWidget');
       return const LoadingWidget(message: 'Loading paper details...');
     }
     if (state is QuestionPaperError) {
-      print('   → Showing ErrorStateWidget: ${state.message}');
       return ErrorStateWidget(
         message: state.message,
         onRetry: () => context.read<QuestionPaperBloc>().add(LoadPaperById(widget.questionPaperId)),
       );
     }
     if (state is QuestionPaperLoaded) {
-      print('   → Showing PaperContent');
       if (state.currentPaper == null) {
-        print('   → Paper is null, showing EmptyMessageWidget');
         return const EmptyMessageWidget(
           icon: Icons.description_outlined,
           title: 'Paper Not Found',
           message: 'The requested paper could not be found.',
         );
       }
-      print('   → Paper loaded: ${state.currentPaper!.title}');
       return _buildPaperContent(state.currentPaper!);
     }
-    print('   → Default LoadingWidget');
     return const LoadingWidget(message: 'Loading...');
   }
 
@@ -805,7 +800,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _showEditQuestionModal(Question question, int questionIndex, String sectionName) {
-    print('📝 [DetailPage] Opening edit modal for question $questionIndex in section "$sectionName"');
 
     // Capture the page context to use in callbacks
     final pageContext = context;
@@ -818,13 +812,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         questionIndex: questionIndex,
         sectionName: sectionName,
         onSave: (updatedText, updatedOptions) {
-          print('📝 [DetailPage] onSave callback triggered');
-          print('   - Updated text: "$updatedText"');
-          print('   - Updated options: ${updatedOptions?.length ?? 0} items');
-          print('   - Dispatching UpdateQuestionInline event to BLoC...');
 
           try {
-            print('   📤 Adding UpdateQuestionInline event to bloc');
             bloc.add(
               UpdateQuestionInline(
                 sectionName: sectionName,
@@ -833,18 +822,13 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 updatedOptions: updatedOptions,
               ),
             );
-            print('   ✅ Event added to BLoC successfully');
 
             // Close the modal
             Navigator.pop(dialogContext);
-            print('   🔙 Modal closed');
           } catch (e, stackTrace) {
-            print('   ❌ Error dispatching event: $e');
-            print('   Stack: $stackTrace');
           }
         },
         onCancel: () {
-          print('📝 [DetailPage] onCancel callback triggered');
           Navigator.pop(dialogContext);
         },
       ),
@@ -852,7 +836,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _showEditSectionModal(String sectionName, int sectionNumber) {
-    print('📝 [DetailPage] Opening edit modal for section $sectionNumber: "$sectionName"');
 
     final bloc = context.read<QuestionPaperBloc>();
 
@@ -862,31 +845,21 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         sectionName: sectionName,
         sectionNumber: sectionNumber,
         onSave: (newName) {
-          print('📝 [DetailPage] onSave callback triggered for section');
-          print('   - Old name: "$sectionName"');
-          print('   - New name: "$newName"');
-          print('   - Dispatching UpdateSectionName event to BLoC...');
 
           try {
-            print('   📤 Adding UpdateSectionName event to bloc');
             bloc.add(
               UpdateSectionName(
                 oldSectionName: sectionName,
                 newSectionName: newName,
               ),
             );
-            print('   ✅ Event added to BLoC successfully');
 
             // Close the modal
             Navigator.pop(dialogContext);
-            print('   🔙 Modal closed');
           } catch (e, stackTrace) {
-            print('   ❌ Error dispatching event: $e');
-            print('   Stack: $stackTrace');
           }
         },
         onCancel: () {
-          print('📝 [DetailPage] onCancel callback triggered for section');
           Navigator.pop(dialogContext);
         },
       ),

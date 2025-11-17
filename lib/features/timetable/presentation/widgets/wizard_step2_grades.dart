@@ -23,23 +23,15 @@ class _WizardStep2GradesState extends State<WizardStep2Grades> {
   Widget build(BuildContext context) {
     return BlocBuilder<ExamTimetableWizardBloc, ExamTimetableWizardState>(
       builder: (context, state) {
-        print('[Step2Widget] BlocBuilder called, state: ${state.runtimeType}');
 
         if (state is! WizardStep2State) {
-          print('[Step2Widget] Not WizardStep2State, returning SizedBox.shrink()');
           return const SizedBox.shrink();
         }
 
-        print('[Step2Widget] WizardStep2State received');
-        print('[Step2Widget] isLoading: ${state.isLoading}');
-        print('[Step2Widget] availableGrades count: ${state.availableGrades.length}');
-        print('[Step2Widget] selectedGradeIds count: ${state.selectedGradeIds.length}');
-        print('[Step2Widget] error: ${state.error}');
 
         // Initialize selected grades from state
         if (_selectedGradeIds.isEmpty &&
             state.selectedGradeIds.isNotEmpty) {
-          print('[Step2Widget] Initializing selected grades from state');
           _selectedGradeIds.addAll(state.selectedGradeIds);
         }
 
@@ -148,10 +140,8 @@ class _WizardStep2GradesState extends State<WizardStep2Grades> {
                             setState(() {
                               if (value == true) {
                                 _selectedGradeIds.add(grade.id);
-                                print('[Step2Widget] Grade selected: ${grade.displayName}, total selected: ${_selectedGradeIds.length}');
                               } else {
                                 _selectedGradeIds.remove(grade.id);
-                                print('[Step2Widget] Grade deselected: ${grade.displayName}, total selected: ${_selectedGradeIds.length}');
                               }
 
                               // Notify BLoC of the updated selection

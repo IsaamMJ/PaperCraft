@@ -103,11 +103,15 @@ class UpdateExamTimetableEvent extends ExamTimetableEvent {
 /// Results in ExamTimetablePublished or ExamTimetableError state
 class PublishExamTimetableEvent extends ExamTimetableEvent {
   final String timetableId;
+  final String? timetableName;
 
-  const PublishExamTimetableEvent({required this.timetableId});
+  const PublishExamTimetableEvent({
+    required this.timetableId,
+    this.timetableName,
+  });
 
   @override
-  List<Object?> get props => [timetableId];
+  List<Object?> get props => [timetableId, timetableName];
 }
 
 /// Event: Archive an exam timetable

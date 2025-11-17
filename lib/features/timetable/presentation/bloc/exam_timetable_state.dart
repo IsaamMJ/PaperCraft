@@ -115,14 +115,38 @@ class ExamTimetableUpdated extends ExamTimetableState {
   List<Object?> get props => [timetable];
 }
 
-/// Success state: Timetable published
-class ExamTimetablePublished extends ExamTimetableState {
-  final ExamTimetableEntity timetable;
+/// Loading state: Publishing timetable and assigning papers
+class ExamTimetablePublishing extends ExamTimetableState {
+  final String timetableName;
+  final int totalEntries;
+  final int assignedPapers;
 
-  const ExamTimetablePublished({required this.timetable});
+  const ExamTimetablePublishing({
+    required this.timetableName,
+    required this.totalEntries,
+    required this.assignedPapers,
+  });
 
   @override
-  List<Object?> get props => [timetable];
+  List<Object?> get props => [timetableName, totalEntries, assignedPapers];
+}
+
+/// Success state: Timetable published with assignment results
+class ExamTimetablePublished extends ExamTimetableState {
+  final ExamTimetableEntity timetable;
+  final int papersAssigned;
+  final List<String> failedAssignments;
+  final List<String> skippedEntries;
+
+  const ExamTimetablePublished({
+    required this.timetable,
+    required this.papersAssigned,
+    this.failedAssignments = const [],
+    this.skippedEntries = const [],
+  });
+
+  @override
+  List<Object?> get props => [timetable, papersAssigned, failedAssignments, skippedEntries];
 }
 
 /// Success state: Timetable archived

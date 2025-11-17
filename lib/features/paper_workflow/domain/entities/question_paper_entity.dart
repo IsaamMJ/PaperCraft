@@ -34,6 +34,7 @@ class QuestionPaperEntity extends Equatable {
   final String? grade;    // Resolved from gradeId (e.g., "Grade 10")
   final int? gradeLevel;  // Numeric grade level (e.g., 10)
   final List<String>? selectedSections; // Selected sections (if applicable)
+  final String? createdByName; // User's full name (resolved from createdBy user_id)
 
   // Cloud sync fields
   final String? tenantId;
@@ -46,6 +47,8 @@ class QuestionPaperEntity extends Equatable {
   // Auto-assignment fields
   final String? examTimetableEntryId;  // Links to auto-assigned exam timetable entry
   final String? section;              // Section (e.g., "A", "B") - pre-filled for auto-assigned papers
+  final String? examName;             // Exam name from exam_timetables (e.g., "November Monthly Test")
+  final DateTime? examTimetableDate;  // Exam date from exam_timetable_entries (the actual exam date)
 
   const QuestionPaperEntity({
     required this.id,
@@ -66,6 +69,7 @@ class QuestionPaperEntity extends Equatable {
     this.grade,
     this.gradeLevel,
     this.selectedSections,
+    this.createdByName,
     this.tenantId,
     this.userId,
     this.submittedAt,
@@ -74,10 +78,14 @@ class QuestionPaperEntity extends Equatable {
     this.rejectionReason,
     this.examTimetableEntryId,
     this.section,
+    this.examName,
+    this.examTimetableDate,
   });
 
   // Computed properties
   bool get hasValidQuestions => questions.isNotEmpty;
+
+  bool get isAutoAssigned => examTimetableEntryId != null;
 
   int get totalQuestions {
     return questions.values.fold(0, (sum, list) => sum + list.length);
@@ -255,6 +263,7 @@ class QuestionPaperEntity extends Equatable {
     String? grade,
     int? gradeLevel,
     List<String>? selectedSections,
+    String? createdByName,
     String? tenantId,
     String? userId,
     DateTime? submittedAt,
@@ -263,6 +272,8 @@ class QuestionPaperEntity extends Equatable {
     String? rejectionReason,
     String? examTimetableEntryId,
     String? section,
+    String? examName,
+    DateTime? examTimetableDate,
   }) {
     return QuestionPaperEntity(
       id: id ?? this.id,
@@ -283,6 +294,7 @@ class QuestionPaperEntity extends Equatable {
       grade: grade ?? this.grade,
       gradeLevel: gradeLevel ?? this.gradeLevel,
       selectedSections: selectedSections ?? this.selectedSections,
+      createdByName: createdByName ?? this.createdByName,
       tenantId: tenantId ?? this.tenantId,
       userId: userId ?? this.userId,
       submittedAt: submittedAt ?? this.submittedAt,
@@ -291,6 +303,8 @@ class QuestionPaperEntity extends Equatable {
       rejectionReason: rejectionReason ?? this.rejectionReason,
       examTimetableEntryId: examTimetableEntryId ?? this.examTimetableEntryId,
       section: section ?? this.section,
+      examName: examName ?? this.examName,
+      examTimetableDate: examTimetableDate ?? this.examTimetableDate,
     );
   }
 
@@ -314,6 +328,7 @@ class QuestionPaperEntity extends Equatable {
     grade,
     gradeLevel,
     selectedSections,
+    createdByName,
     tenantId,
     userId,
     submittedAt,
@@ -322,5 +337,7 @@ class QuestionPaperEntity extends Equatable {
     rejectionReason,
     examTimetableEntryId,
     section,
+    examName,
+    examTimetableDate,
   ];
 }

@@ -24,7 +24,6 @@ class WebDownloadHelper {
       link.click();
       link.remove();
     } catch (e) {
-      print('Web download error: $e');
       rethrow;
     }
   }

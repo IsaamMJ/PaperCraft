@@ -1,69 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
-import '../../../../core/presentation/routes/app_routes.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
-import '../../../authentication/presentation/bloc/auth_bloc.dart';
-import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../catalog/domain/repositories/grade_repository.dart';
-import '../../../catalog/domain/repositories/subject_repository.dart';
-import '../../../paper_workflow/presentation/bloc/user_management_bloc.dart';
-import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../../paper_workflow/domain/entities/paper_status.dart';
+import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/presentation/widgets/paper_status_badge.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 
-/// Admin home dashboard showing setup progress and quick actions
-class AdminHomeDashboard extends StatefulWidget {
-  const AdminHomeDashboard({super.key});
+/// Admin Dashboard for viewing all question papers organized by exam and date
+class AdminPapersViewPage extends StatefulWidget {
+  final String tenantId;
+
+  const AdminPapersViewPage({
+    required this.tenantId,
+    super.key,
+  });
 
   @override
-  State<AdminHomeDashboard> createState() => _AdminHomeDashboardState();
+  State<AdminPapersViewPage> createState() => _AdminPapersViewPageState();
 }
 
-class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
+class _AdminPapersViewPageState extends State<AdminPapersViewPage> {
   late final UserStateService _userStateService;
-
-  int? _subjectCount;
-  int? _gradeCount;
-  int? _examTypeCount;
-  int? _teacherCount;
 
   @override
   void initState() {
     super.initState();
     _userStateService = sl<UserStateService>();
-    _loadDashboardData();
-
-    // Load all papers for admin to display
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated) {
-      context.read<QuestionPaperBloc>().add(const LoadAllPapersForAdmin());
-    }
-  }
-
-  Future<void> _loadDashboardData() async {
-    try {
-      final results = await Future.wait([
-        sl<SubjectRepository>().getSubjects(),
-        sl<GradeRepository>().getGrades(),
-      ]);
-
-      if (mounted) {
-        setState(() {
-          _subjectCount = results[0].fold((_) => 0, (list) => list.length);
-          _gradeCount = results[1].fold((_) => 0, (list) => list.length);
-          _examTypeCount = 0;
-        });
-
-        context.read<UserManagementBloc>().add(const LoadUsers());
-      }
-    } catch (e) {
-      // Error loading dashboard data
-    }
+    // Load all papers for the tenant
+    context.read<QuestionPaperBloc>().add(
+          const LoadAllPapersForAdmin(),
+        );
   }
 
   @override
@@ -71,7 +40,11 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
-        onRefresh: _loadDashboardData,
+        onRefresh: () async {
+          context.read<QuestionPaperBloc>().add(
+                const LoadAllPapersForAdmin(),
+              );
+        },
         backgroundColor: AppColors.surface,
         color: AppColors.primary,
         child: CustomScrollView(
@@ -104,46 +77,22 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Admin Console',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeMedium,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: UIConstants.spacing4),
-                      Text(
-                        _userStateService.currentTenantName,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
-                    onPressed: () => context.push(AppRoutes.settings),
-                  ),
-                ),
-              ],
+            Text(
+              'Question Papers',
+              style: TextStyle(
+                fontSize: UIConstants.fontSizeMedium,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing4),
+            Text(
+              _userStateService.currentTenantName,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -215,9 +164,27 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red[400],
+            ),
             const SizedBox(height: 16),
-            Text('Error loading papers', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Error loading papers',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ],
         ),
       ),
@@ -231,13 +198,22 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.description_outlined, size: 64, color: Colors.grey[400]),
+            Icon(
+              Icons.description_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
-            Text('No question papers', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'No question papers',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               'Papers will appear once teachers submit them',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -247,6 +223,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
   }
 
   Widget _buildPapersView(List<QuestionPaperEntity> allPapers) {
+    // Group papers by exam name
     final Map<String, List<QuestionPaperEntity>> papersByExam = {};
 
     for (var paper in allPapers) {
@@ -254,6 +231,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       papersByExam.putIfAbsent(examName, () => []).add(paper);
     }
 
+    // Sort each exam's papers by date
     papersByExam.forEach((_, papers) {
       papers.sort((a, b) {
         final dateA = a.examTimetableDate ?? a.examDate ?? DateTime(2999);
@@ -262,6 +240,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       });
     });
 
+    // Sort exams by earliest date
     final sortedExams = papersByExam.keys.toList()
       ..sort((examA, examB) {
         final firstDateA = papersByExam[examA]?.first.examTimetableDate ??
@@ -277,6 +256,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section header
           Padding(
             padding: const EdgeInsets.only(bottom: 16, top: 8),
             child: Text(
@@ -289,10 +269,13 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
                   ),
             ),
           ),
+
+          // Papers organized by exam
           ...sortedExams.map((examName) {
             final papers = papersByExam[examName]!;
             return _buildExamSection(examName, papers);
           }),
+
           const SizedBox(height: 24),
         ],
       ),
@@ -316,6 +299,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Exam header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -323,7 +307,10 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppColors.primary10, AppColors.secondary10],
+                colors: [
+                  AppColors.primary10,
+                  AppColors.secondary10,
+                ],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
@@ -333,24 +320,40 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(examName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        )),
+                Text(
+                  examName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 6),
-                Text(formattedDate,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                Text(
+                  formattedDate,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ],
             ),
           ),
+
+          // Paper list
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: papers.length,
-            separatorBuilder: (_, __) =>
-                Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
-            itemBuilder: (context, index) => _buildPaperCard(papers[index]),
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              color: Colors.grey[200],
+              indent: 16,
+              endIndent: 16,
+            ),
+            itemBuilder: (context, index) {
+              final paper = papers[index];
+              return _buildPaperCard(paper);
+            },
           ),
         ],
       ),
@@ -362,6 +365,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
+          // Status indicator dot
           Container(
             width: 3,
             height: 60,
@@ -371,14 +375,20 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
             ),
           ),
           const SizedBox(width: 12),
+
+          // Paper info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(paper.title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  paper.title,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -386,7 +396,10 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
                     const SizedBox(width: 12),
                     Text(
                       'By ${paper.createdBy ?? 'Unknown'}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -395,7 +408,13 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> {
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+
+          // View icon
+          Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: Colors.grey[400],
+          ),
         ],
       ),
     );

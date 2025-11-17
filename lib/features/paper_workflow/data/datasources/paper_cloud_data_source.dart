@@ -1,5 +1,7 @@
 // features/question_papers/data/datasources/paper_cloud_data_source.dart
+import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/domain/models/paginated_result.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
@@ -43,6 +45,14 @@ abstract class PaperCloudDataSource {
     required DateTime rejectedAt,
   });
   Future<List<Map<String, dynamic>>> getRejectionHistory(String paperId);
+  Future<Either<Failure, bool>> checkPaperExists({
+    required String tenantId,
+    required String subjectId,
+    required String gradeId,
+    required String academicYear,
+    required String title,
+    required String section,
+  });
 }
 
 class PaperCloudDataSourceImpl implements PaperCloudDataSource {
@@ -109,10 +119,10 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           category: LogCategory.storage,
           context: {'tenantId': tenantId});
 
-      // Use direct Supabase query to include subject name joins
+      // Use direct Supabase query to include subject name joins, exam timetable relationships, and user profile
       var queryBuilder = Supabase.instance.client
           .from(_tableName)
-          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,exam_timetable_entry_id,section,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number),exam_timetable_entries(exam_date,exam_timetables(exam_name)),profiles!question_papers_user_id_fkey(full_name)')
           .eq('tenant_id', tenantId)
           .order('submitted_at', ascending: false);
 
@@ -269,10 +279,10 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
   @override
   Future<List<QuestionPaperModel>> getUserSubmissions(String tenantId, String userId) async {
     try {
-      // Use direct Supabase query to include subject name joins
+      // Use direct Supabase query to include subject name joins and exam details for auto-assigned papers
       var queryBuilder = Supabase.instance.client
           .from(_tableName)
-          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,exam_timetable_entry_id,section,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number),exam_timetable_entries!exam_timetable_entry_id(exam_date,exam_timetables(exam_name))')
           .eq('tenant_id', tenantId)
           .eq('user_id', userId)
           .order('submitted_at', ascending: false);
@@ -627,6 +637,47 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           error: e,
           stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> checkPaperExists({
+    required String tenantId,
+    required String subjectId,
+    required String gradeId,
+    required String academicYear,
+    required String title,
+    required String section,
+  }) async {
+    try {
+      final response = await _apiClient.select<QuestionPaperModel>(
+        table: _tableName,
+        fromJson: QuestionPaperModel.fromSupabase,
+        filters: {
+          'tenant_id': tenantId,
+          'subject_id': subjectId,
+          'grade_id': gradeId,
+          'academic_year': academicYear,
+          'title': title,
+          'section': section,
+        },
+      );
+
+      if (response.isSuccess) {
+        final exists = response.data != null && response.data!.isNotEmpty;
+        return Right(exists);
+      } else {
+        // On error, return false to allow creation attempt
+        return Right(false);
+      }
+    } catch (e, stackTrace) {
+      _logger.error(
+        'Error checking if paper exists',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // On exception, return false to allow creation attempt
+      return Right(false);
     }
   }
 

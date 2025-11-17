@@ -1,0 +1,27 @@
+[
+  {
+    "id": "94b58ef6-75a9-40d7-9d24-84e1e9224aae",
+    "tenant_id": "36b43800-2625-4d26-935e-24a7703a334d",
+    "exam_name": "November Monthly Test",
+    "exam_type": "monthlyTest",
+    "month_number": 11,
+    "planned_start_date": "2025-11-24",
+    "planned_end_date": "2025-11-28",
+    "paper_submission_deadline": null,
+    "display_order": 1,
+    "metadata": null,
+    "is_active": true,
+    "created_at": "2025-11-17 06:18:16.61002+00",
+    "updated_at": "2025-11-17 06:18:16.610024+00",
+    "marks_config": {
+      "selected_grades": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "grades_1_to_5_marks": 25
+    }
+  }
+]

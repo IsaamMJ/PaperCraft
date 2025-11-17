@@ -50,19 +50,11 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
     _columnAControllers = columnA.map((opt) => TextEditingController(text: opt)).toList();
     _columnBControllers = columnB.map((opt) => TextEditingController(text: opt)).toList();
 
-    print('🔍 [MatchFollowing] Parsed ${columnA.length} pairs');
-    print('   - Column A items: ${columnA.length}');
-    print('   - Column B items: ${columnB.length}');
   }
 
   @override
   void initState() {
     super.initState();
-    print('🔍 [InlineEditModal] Opened edit modal for question ${widget.questionIndex + 1} in section "${widget.sectionName}"');
-    print('   - Original text: "${widget.question.text}"');
-    print('   - Question type: "${widget.question.type}"');
-    print('   - Has options: ${widget.question.options?.isNotEmpty ?? false}');
-    print('   - Options count: ${widget.question.options?.length ?? 0}');
 
     _questionTextController = TextEditingController(text: widget.question.text);
 
@@ -85,7 +77,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
   @override
   void dispose() {
-    print('🔍 [InlineEditModal] Disposing edit modal for question ${widget.questionIndex + 1}');
     _questionTextController.dispose();
     for (var controller in _optionControllers) {
       controller.dispose();
@@ -101,13 +92,11 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
   void _addOption() {
     if (_isMatchFollowing()) {
-      print('➕ [MatchFollowing] Added new pair (total: ${_columnAControllers.length + 1})');
       setState(() {
         _columnAControllers.add(TextEditingController());
         _columnBControllers.add(TextEditingController());
       });
     } else {
-      print('➕ [InlineEditModal] Added new option (total: ${_optionControllers.length + 1})');
       setState(() {
         _optionControllers.add(TextEditingController());
       });
@@ -116,7 +105,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
   void _removeOption(int index) {
     if (_isMatchFollowing()) {
-      print('➖ [MatchFollowing] Removed pair at index $index (total before: ${_columnAControllers.length})');
       setState(() {
         _columnAControllers[index].dispose();
         _columnBControllers[index].dispose();
@@ -124,7 +112,6 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
         _columnBControllers.removeAt(index);
       });
     } else {
-      print('➖ [InlineEditModal] Removed option at index $index (total before: ${_optionControllers.length})');
       setState(() {
         _optionControllers[index].dispose();
         _optionControllers.removeAt(index);
@@ -133,15 +120,11 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   }
 
   void _saveChanges() {
-    print('💾 [InlineEditModal] Save button clicked for question ${widget.questionIndex + 1}');
 
     final updatedText = _questionTextController.text.trim();
-    print('   - Updated text length: ${updatedText.length}');
-    print('   - Text changed: ${updatedText != widget.question.text}');
 
     // Validation
     if (updatedText.isEmpty) {
-      print('   ❌ Validation failed: Question text is empty');
       _showErrorSnackBar('Question text cannot be empty');
       return;
     }
@@ -162,57 +145,44 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
           .toList();
 
       if (columnA.isEmpty || columnB.isEmpty) {
-        print('   ❌ Validation failed: Both columns must have at least one item');
         _showErrorSnackBar('Both columns must have at least one item');
         return;
       }
 
       // Ensure equal number of items
       if (columnA.length != columnB.length) {
-        print('   ❌ Validation failed: Column A (${columnA.length}) and Column B (${columnB.length}) must have equal items');
         _showErrorSnackBar('Both columns must have the same number of items');
         return;
       }
 
       // Combine with separator
       updatedOptions = [...columnA, '---SEPARATOR---', ...columnB];
-      print('   ✅ MatchFollowing options validated:');
-      print('      - Column A: ${columnA.length} items');
-      print('      - Column B: ${columnB.length} items');
     } else if (_optionControllers.isNotEmpty) {
       updatedOptions = _optionControllers
           .map((ctrl) => ctrl.text.trim())
           .where((text) => text.isNotEmpty)
           .toList();
 
-      print('   - Options count: ${updatedOptions.length}');
       if (updatedOptions.isNotEmpty) {
         updatedOptions.asMap().forEach((index, option) {
-          print('     Option ${String.fromCharCode(65 + index)}: "$option"');
         });
       }
 
       if (updatedOptions.isEmpty && widget.question.options != null && widget.question.options!.isNotEmpty) {
         // If options existed before, at least one must remain
-        print('   ❌ Validation failed: At least one option is required');
         _showErrorSnackBar('At least one option is required');
         return;
       }
     }
 
-    print('   ✅ Validation passed - proceeding to save');
     setState(() => _isSaving = true);
 
     // Call the save callback
-    print('   📤 Calling onSave callback with:');
-    print('      - Updated text: "${updatedText.substring(0, updatedText.length > 50 ? 50 : updatedText.length)}${updatedText.length > 50 ? '...' : ''}"');
-    print('      - Updated options: ${updatedOptions?.length ?? 0} items');
 
     widget.onSave(updatedText, updatedOptions);
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        print('   🔙 Closing edit modal for question ${widget.questionIndex + 1}');
         Navigator.pop(context);
       }
     });

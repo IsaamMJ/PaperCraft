@@ -22,9 +22,7 @@ class _WizardStep3ScheduleState extends State<WizardStep3Schedule> {
   Widget build(BuildContext context) {
     return BlocListener<ExamTimetableWizardBloc, ExamTimetableWizardState>(
       listener: (context, state) {
-        print('[Step3Schedule] BlocListener: state type = ${state.runtimeType}');
         if (state is WizardValidationErrorState) {
-          print('[Step3Schedule] Validation error: ${state.errors}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.errors.join(', ')),
@@ -35,22 +33,10 @@ class _WizardStep3ScheduleState extends State<WizardStep3Schedule> {
       },
       child: BlocBuilder<ExamTimetableWizardBloc, ExamTimetableWizardState>(
         builder: (context, state) {
-          print('[Step3Schedule] BlocBuilder: state type = ${state.runtimeType}');
           if (state is! WizardStep2State) {
-            print('[Step3Schedule] Not WizardStep2State, returning SizedBox.shrink()');
             return const SizedBox.shrink();
           }
 
-          print('[Step3Schedule] ========== STEP 3 STATE DEBUG ==========');
-          print('[Step3Schedule] selectedGradeIds: ${state.selectedGradeIds.length}');
-          print('[Step3Schedule] subjects available: ${state.subjects.length}');
-          print('[Step3Schedule] entries assigned: ${state.entries.length}');
-          print('[Step3Schedule] gradeSectionMapping keys: ${state.gradeSectionMapping.keys.length}');
-          print('[Step3Schedule] sectionDetailsMap keys: ${state.sectionDetailsMap.keys.length}');
-          print('[Step3Schedule] isLoading: ${state.isLoading}');
-          print('[Step3Schedule] error: ${state.error}');
-          print('[Step3Schedule] calendar: ${state.selectedCalendar.examName}');
-          print('[Step3Schedule] ========================================');
 
           return SingleChildScrollView(
             child: Padding(
@@ -234,17 +220,13 @@ class _WizardStep3ScheduleState extends State<WizardStep3Schedule> {
                         ),
                         const SizedBox(height: 12),
                         ...state.subjects.map((subject) {
-                          print('[Step3Schedule] Processing subject: ${subject.name} (ID: ${subject.id})');
                           final entry = state.getEntryForSubject(subject.id);
                           final isAssigned = entry != null;
-                          print('[Step3Schedule]   → isAssigned: $isAssigned');
                           if (isAssigned) {
-                            print('[Step3Schedule]   → assigned date: ${entry.examDate}');
                           }
 
                           // Find which grades have this subject using the subject-to-grades mapping
                           final gradesWithSubject = state.subjectToGradesMap[subject.id] ?? [];
-                          print('[Step3Schedule]   → available in ${gradesWithSubject.length} grades: ${gradesWithSubject.join(', ')}');
 
                           return SubjectAssignmentCard(
                             subject: subject,
@@ -348,7 +330,6 @@ class SubjectAssignmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('[SubjectCard] Building card for: ${subject.name} (${gradesWithSubject.length} grades)');
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -477,7 +458,6 @@ class SubjectAssignmentCard extends StatelessWidget {
                       IconButton(
                         icon: Icon(Icons.edit, size: 18, color: Colors.blue.shade700),
                         onPressed: () {
-                          print('[SubjectCard] [UI] Edit button clicked for ${subject.name}');
                           _showDatePicker(context);
                         },
                         padding: const EdgeInsets.all(6),
@@ -487,7 +467,6 @@ class SubjectAssignmentCard extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.close, size: 18, color: Colors.red),
                         onPressed: () {
-                          print('[SubjectCard] [UI] Remove button clicked for ${subject.name}');
                           onRemove();
                         },
                         padding: const EdgeInsets.all(6),
@@ -499,7 +478,6 @@ class SubjectAssignmentCard extends StatelessWidget {
                 else
                   ElevatedButton.icon(
                     onPressed: () {
-                      print('[SubjectCard] [UI] Select Date button clicked for ${subject.name}');
                       _showDatePicker(context);
                     },
                     icon: const Icon(Icons.calendar_today, size: 16),
@@ -517,8 +495,6 @@ class SubjectAssignmentCard extends StatelessWidget {
   }
 
   Future<void> _showDatePicker(BuildContext context) async {
-    print('[SubjectCard] Opening date picker for ${subject.name}');
-    print('[SubjectCard]   → min date: $minDate, max date: $maxDate');
 
     final picked = await showDatePicker(
       context: context,
@@ -528,11 +504,8 @@ class SubjectAssignmentCard extends StatelessWidget {
     );
 
     if (picked != null) {
-      print('[SubjectCard] Date selected: $picked for subject ${subject.name}');
-      print('[SubjectCard]   → will create entries for ${gradesWithSubject.length} grades');
       onDateSelected(picked);
     } else {
-      print('[SubjectCard] Date picker cancelled for ${subject.name}');
     }
   }
 }

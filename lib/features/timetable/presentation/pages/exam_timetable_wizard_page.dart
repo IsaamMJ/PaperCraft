@@ -94,13 +94,10 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
         ),
         body: BlocListener<ExamTimetableWizardBloc, ExamTimetableWizardState>(
           listener: (context, state) {
-            print('[WizardPage] BlocListener: state type = ${state.runtimeType}');
             // Update step based on state
             if (state is WizardStep1State) {
-              print('[WizardPage] Navigating to Step 0 (Calendar)');
               _goToStep(0);
             } else if (state is WizardStep2State) {
-              print('[WizardPage] Navigating to Step 1 (Schedule)');
               _goToStep(1);
             } else if (state is WizardCompletedState) {
               _showSuccessDialog(context, state);

@@ -420,7 +420,6 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     try {
       // First, create the timetable
       final timetableId = _generateId('timetable');
-      print('[Repository] Creating timetable with ID: $timetableId');
 
       final timetableEntity = ExamTimetableEntity(
         id: timetableId,
@@ -440,11 +439,9 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
       );
 
       // Create timetable via data source
-      print('[Repository] Calling data source to create timetable...');
       final timetableResult =
           await _remoteDataSource.createExamTimetable(timetableEntity);
 
-      print('[Repository] Timetable creation result: ${timetableResult.isRight() ? 'SUCCESS' : 'FAILURE'}');
 
       if (timetableResult.isLeft()) {
         return timetableResult;
@@ -453,17 +450,12 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
       final createdTimetable = timetableResult.getOrElse(() => timetableEntity);
 
       // Add all entries to the timetable
-      print('[Repository] Updating entries with timetable ID: ${createdTimetable.id}');
-      print('[Repository] Number of entries to update: ${entries.length}');
 
       final entriesWithTimetableId = entries.map((entry) {
-        print('[Repository] Before copyWith - Entry subject ${entry.subjectId}: timetableId="${entry.timetableId}"');
         final updated = entry.copyWith(timetableId: createdTimetable.id);
-        print('[Repository] After copyWith - Entry subject ${entry.subjectId}: timetableId="${updated.timetableId}"');
         return updated;
       }).toList();
 
-      print('[Repository] Sending ${entriesWithTimetableId.length} entries to data source');
 
       final entriesResult =
           await _remoteDataSource.addMultipleExamTimetableEntries(

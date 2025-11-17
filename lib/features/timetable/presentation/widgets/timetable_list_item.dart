@@ -33,11 +33,9 @@ class _TimetableListItemState extends State<TimetableListItem> {
 
   void _handleButtonPress(VoidCallback callback, String actionName) {
     if (_isProcessing) {
-      print('[TimetableListItem] $actionName already processing, ignoring duplicate click');
       return;
     }
 
-    print('[TimetableListItem] $actionName action executing (debounced)');
     _isProcessing = true;
 
     try {
@@ -47,7 +45,6 @@ class _TimetableListItemState extends State<TimetableListItem> {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
           _isProcessing = false;
-          print('[TimetableListItem] Ready for next action');
         }
       });
     }

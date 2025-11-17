@@ -20,15 +20,12 @@ class TimetableDetailEntriesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ExamTimetableBloc, ExamTimetableState>(
       builder: (context, state) {
-        print('[TimetableDetailEntriesTab] State: ${state.runtimeType}');
 
         // CHECK ENTRIES LOADED FIRST (most specific state)
         if (state is ExamTimetableEntriesLoaded) {
-          print('[TimetableDetailEntriesTab] ✅ Entries loaded state received: ${state.entries.length} entries');
           final entries = state.entries;
 
           if (entries.isEmpty) {
-            print('[TimetableDetailEntriesTab] ✅ Showing empty state');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -55,13 +52,11 @@ class TimetableDetailEntriesTab extends StatelessWidget {
             );
           }
 
-          print('[TimetableDetailEntriesTab] ✅ Showing table with ${entries.length} entries');
           return _buildEntriesTable(context, entries);
         }
 
         // If timetable is loaded but entries are still loading, show loading indicator
         if (state is ExamTimetableLoaded) {
-          print('[TimetableDetailEntriesTab] Timetable loaded, waiting for entries...');
           return const Center(
             child: CircularProgressIndicator(),
           );

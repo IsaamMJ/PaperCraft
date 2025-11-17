@@ -1,5 +1,6 @@
 // features/question_papers/data/repositories/question_paper_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/domain/models/paginated_result.dart';
@@ -546,7 +547,13 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   }) async {
     try {
       final createdPapers = <QuestionPaperEntity>[];
-      print('[autoAssignPapersForTimetable] Processing ${timetableEntries.length} timetable entries');
+      final failedAssignments = <String>[];
+      final skippedEntries = <String>[];
+      _logger.info(
+        'Starting auto-assignment of papers for timetable',
+        category: LogCategory.paper,
+        context: {'entriesCount': timetableEntries.length},
+      );
 
       for (final entry in timetableEntries) {
         final entryId = entry['id'] as String;
@@ -561,19 +568,49 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
 
         // Get teachers assigned to this entry
         final teachers = entry['teachers'] as List<dynamic>? ?? [];
-        print('[autoAssignPapersForTimetable] Entry: id=$entryId, gradeId=$gradeId, subjectId=$subjectId, section=$section, teacherCount=${teachers.length}');
+        final gradeNumber = entry['grade_number'] as int?;
+        final subjectName = entry['subject_name'] as String? ?? 'Subject';
+
+        _logger.info(
+          'Processing timetable entry',
+          category: LogCategory.paper,
+          context: {
+            'entryId': entryId,
+            'gradeId': gradeId,
+            'subjectId': subjectId,
+            'section': section,
+            'teacherCount': teachers.length,
+          },
+        );
+
+        // Check if no teachers assigned to this subject
+        if (teachers.isEmpty) {
+          final skipMsg = 'Grade $gradeNumber $subjectName (Section ${section ?? 'N/A'}) - No teachers assigned to this subject';
+          skippedEntries.add(skipMsg);
+          _logger.warning(
+            'Skipping paper creation - no teachers assigned',
+            category: LogCategory.paper,
+            context: {
+              'entryId': entryId,
+              'gradeNumber': gradeNumber,
+              'subjectName': subjectName,
+              'section': section ?? 'N/A',
+            },
+          );
+          continue;
+        }
 
         // Create a paper for each teacher
         for (final teacherData in teachers) {
           final teacherId = teacherData['teacher_id'] as String;
           final teacherName = teacherData['teacher_name'] as String?;
 
-          // Generate title: "Grade 2 Mathematics - 21 Nov 2025"
+          // Generate title: "Grade 2 Mathematics - 21 Nov 2025 (Section A)"
           final dateStr = examDate != null
               ? '${examDate.day} ${_monthName(examDate.month)} ${examDate.year}'
               : 'TBD';
-          final subjectName = entry['subject_name'] as String? ?? 'Subject';
-          final title = 'Grade ${entry['grade_number'] ?? '?'} $subjectName - $dateStr';
+          final sectionStr = section != null && section.isNotEmpty ? ' (Section $section)' : '';
+          final title = 'Grade ${gradeNumber ?? '?'} $subjectName - $dateStr$sectionStr';
 
           final paper = QuestionPaperEntity(
             id: _generateId(),
@@ -596,13 +633,14 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
             section: section,
           );
 
+          // Note: Titles now include section (e.g., "Grade 5 English - 23 Dec 2025 (Section A)")
+          // so duplicate constraint violations should be less likely. Each teacher gets unique paper.
+
           // Save the auto-assigned paper (use submitPaper which handles creation)
           try {
             final model = QuestionPaperModel.fromEntity(paper);
-            print('[autoAssignPapersForTimetable] Creating paper: id=${paper.id}, teacherId=$teacherId, title=${paper.title}');
             final savedModel = await _cloudDataSource.submitPaper(model);
             createdPapers.add(savedModel.toEntity());
-            print('[autoAssignPapersForTimetable] Paper created successfully: ${paper.id}');
 
             _logger.info(
               'Paper auto-assigned to teacher',
@@ -615,17 +653,82 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
                 'timetableEntryId': entryId,
               },
             );
-          } catch (e) {
-            print('[autoAssignPapersForTimetable] ERROR creating paper: $e');
-            rethrow;
+          } catch (e, stackTrace) {
+            final errorStr = e.toString();
+
+            // Log the failure with detailed error information
+            final failureMsg = 'Grade $gradeNumber $subjectName (Section ${section ?? 'N/A'}) - Teacher: ${teacherName ?? 'Unknown'} - Error: $errorStr';
+            failedAssignments.add(failureMsg);
+
+            _logger.error(
+              'Failed to create auto-assigned paper, continuing with next teacher',
+              category: LogCategory.paper,
+              error: e,
+              stackTrace: stackTrace,
+              context: {
+                'paperId': paper.id,
+                'teacherId': teacherId,
+                'title': paper.title,
+                'failureMessage': failureMsg,
+                'exceptionMessage': errorStr,
+              },
+            );
+            // Don't rethrow - continue with next teacher
+            // Other teachers' papers can still be created
+            continue;
           }
         }
       }
 
-      print('[autoAssignPapersForTimetable] COMPLETED: Created ${createdPapers.length} papers');
+      _logger.info(
+        'Auto-assignment completed',
+        category: LogCategory.paper,
+        context: {
+          'papersCreated': createdPapers.length,
+          'failedCount': failedAssignments.length,
+        },
+      );
+
+      // Store failure details in the created papers for later retrieval
+      // We'll attach metadata to the result
+      if (failedAssignments.isNotEmpty) {
+        createdPapers.add(QuestionPaperEntity(
+          id: '__FAILURE_METADATA__',
+          title: failedAssignments.join('|'),
+          subjectId: '',
+          gradeId: '',
+          academicYear: '',
+          createdBy: '',
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          status: PaperStatus.draft,
+          examType: ExamType.monthlyTest,
+          paperSections: [],
+          questions: {},
+        ));
+      }
+
+      // Add metadata about skipped entries (entries with no teachers assigned)
+      if (skippedEntries.isNotEmpty) {
+        final skippedMetadata = QuestionPaperEntity(
+          id: '__SKIPPED_ENTRIES_METADATA__',
+          title: skippedEntries.join('|'),
+          subjectId: 'metadata',
+          gradeId: 'metadata',
+          academicYear: '',
+          createdBy: '',
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          status: PaperStatus.draft,
+          examType: ExamType.monthlyTest,
+          paperSections: [],
+          questions: {},
+        );
+        createdPapers.add(skippedMetadata);
+      }
+
       return Right(createdPapers);
     } catch (e, stackTrace) {
-      print('[autoAssignPapersForTimetable] EXCEPTION: $e\n$stackTrace');
       _logger.error(
         'Failed to auto-assign papers for timetable',
         category: LogCategory.paper,
@@ -636,10 +739,9 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
     }
   }
 
-  /// Generate a unique ID for new papers
+  /// Generate a unique ID for new papers using UUID v4
   String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString() +
-           (DateTime.now().microsecond % 1000).toString();
+    return const Uuid().v4();
   }
 
   /// Convert month number to month name
