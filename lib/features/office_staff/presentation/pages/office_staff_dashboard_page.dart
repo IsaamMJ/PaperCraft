@@ -21,20 +21,27 @@ class OfficeStaffDashboardPage extends StatefulWidget {
 }
 
 class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
-  String _searchQuery = '';
-  String _selectedGrade = '';
-  String _selectedSubject = '';
   bool _isRefreshing = false;
 
-  final _grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5',
-                   'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
-  final _subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
-                     'History', 'Geography'];
+  // Track collapsed subjects: Map<subject, isCollapsed>
+  final Map<String, bool> _collapsedSubjects = {};
 
   @override
   void initState() {
     super.initState();
     _checkAccessAndLoad();
+  }
+
+  @override
+  void didUpdateWidget(covariant OfficeStaffDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload papers if they appear to be empty (came back from navigation)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<QuestionPaperBloc>().state;
+      if (state is QuestionPaperLoaded && state.approvedPapers.isEmpty && mounted) {
+        _loadInitialData();
+      }
+    });
   }
 
   void _checkAccessAndLoad() {
@@ -93,33 +100,44 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
   }
 
   void _handleViewDetails(String paperId) {
-    context.push(AppRoutes.questionPaperViewWithId(paperId));
+    // Navigate directly to PDF preview page (skipping paper details)
+    // This provides a faster, more streamlined experience for office staff
+    context.push(AppRoutes.officeStaffPdfPreviewWithId(paperId));
   }
 
-  List<QuestionPaperEntity> _filterPapers(List<QuestionPaperEntity> papers) {
-    if (_searchQuery.isEmpty && _selectedGrade.isEmpty && _selectedSubject.isEmpty) {
-      return papers;
+
+  // Group papers by subject only, with papers sorted by grade within each subject
+  Map<String, List<QuestionPaperEntity>> _groupPapersBySubject(
+    List<QuestionPaperEntity> papers,
+  ) {
+    final grouped = <String, List<QuestionPaperEntity>>{};
+
+    for (final paper in papers) {
+      final subject = paper.subject ?? 'Unknown';
+      grouped.putIfAbsent(subject, () => []);
+      grouped[subject]!.add(paper);
     }
 
-    final searchLower = _searchQuery.toLowerCase();
+    // Sort subjects alphabetically
+    final sortedGroups = <String, List<QuestionPaperEntity>>{};
+    final sortedSubjects = grouped.keys.toList()..sort();
+    for (final subject in sortedSubjects) {
+      // Sort papers within each subject by grade in ascending order
+      final papersList = grouped[subject]!;
+      papersList.sort((a, b) {
+        final gradeA = a.grade ?? '';
+        final gradeB = b.grade ?? '';
 
-    return papers.where((paper) {
-      // Check grade filter
-      if (_selectedGrade.isNotEmpty && paper.grade != _selectedGrade) {
-        return false;
-      }
+        // Extract numeric part from grade string (e.g., "Grade 5" -> 5)
+        final gradeANum = int.tryParse(gradeA.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        final gradeBNum = int.tryParse(gradeB.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
-      // Check subject filter
-      if (_selectedSubject.isNotEmpty && paper.subject != _selectedSubject) {
-        return false;
-      }
+        return gradeANum.compareTo(gradeBNum);
+      });
+      sortedGroups[subject] = papersList;
+    }
 
-      // Early return if no search query
-      if (_searchQuery.isEmpty) return true;
-
-      // Search in title
-      return paper.title.toLowerCase().contains(searchLower);
-    }).toList();
+    return sortedGroups;
   }
 
   @override
@@ -134,21 +152,6 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
         },
         child: Column(
           children: [
-            _buildSearchAndFilters(),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: UIConstants.paddingMedium,
-                vertical: UIConstants.spacing12,
-              ),
-              child: const Text(
-                'Upcoming Exams (Next 7 Days)',
-                style: TextStyle(
-                  fontSize: UIConstants.fontSizeXXLarge,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
             Expanded(child: _buildPapersList()),
           ],
         ),
@@ -156,161 +159,6 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     );
   }
 
-  Widget _buildSearchAndFilters() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        UIConstants.paddingMedium,
-        MediaQuery.of(context).padding.top + UIConstants.paddingMedium,
-        UIConstants.paddingMedium,
-        UIConstants.paddingMedium,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black04,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search papers...',
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: AppColors.textSecondary,
-                  size: UIConstants.iconMedium,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: () => setState(() => _searchQuery = ''),
-                        icon: const Icon(Icons.clear, size: UIConstants.iconSmall),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: UIConstants.paddingMedium,
-                  vertical: UIConstants.spacing12,
-                ),
-              ),
-              onChanged: (value) => setState(() => _searchQuery = value),
-            ),
-          ),
-          const SizedBox(height: UIConstants.spacing12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterChip(
-                  'Grade',
-                  _selectedGrade,
-                  _grades,
-                  (v) => setState(() => _selectedGrade = v ?? ''),
-                ),
-              ),
-              const SizedBox(width: UIConstants.spacing8),
-              Expanded(
-                child: _buildFilterChip(
-                  'Subject',
-                  _selectedSubject,
-                  _subjects,
-                  (v) => setState(() => _selectedSubject = v ?? ''),
-                ),
-              ),
-              if (_selectedGrade.isNotEmpty || _selectedSubject.isNotEmpty || _searchQuery.isNotEmpty) ...[
-                const SizedBox(width: UIConstants.spacing8),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedGrade = '';
-                    _selectedSubject = '';
-                    _searchQuery = '';
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: UIConstants.spacing12,
-                      vertical: UIConstants.spacing8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.error10,
-                      borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.clear,
-                          size: UIConstants.iconSmall,
-                          color: AppColors.error,
-                        ),
-                        SizedBox(width: UIConstants.spacing4),
-                        Text(
-                          'Clear',
-                          style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: UIConstants.fontSizeSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(
-    String label,
-    String value,
-    List<String> options,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: value.isNotEmpty ? AppColors.primary10 : AppColors.background,
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(
-          color: value.isNotEmpty ? AppColors.primary : AppColors.border,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value.isEmpty ? null : value,
-          hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: UIConstants.spacing12),
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
-            ),
-          ),
-          items: [
-            DropdownMenuItem(value: '', child: Text('All ${label}s')),
-            ...options.map((option) =>
-                DropdownMenuItem(value: option, child: Text(option))),
-          ],
-          onChanged: onChanged,
-          icon: const Icon(Icons.keyboard_arrow_down, size: UIConstants.iconSmall),
-          isExpanded: true,
-          style: const TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildPapersList() {
     return BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
@@ -320,18 +168,18 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
         }
 
         if (state is ApprovedPapersByExamDateLoaded) {
-          final filteredPapers = _filterPapers(state.papers);
+          final groupedPapers = _groupPapersBySubject(state.papers);
 
           return RefreshIndicator(
             onRefresh: _onRefresh,
             color: AppColors.primary,
-            child: filteredPapers.isEmpty
+            child: state.papers.isEmpty
                 ? _buildEmptyState()
                 : CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(
-                        child: _buildStatsHeader('Upcoming Exams', filteredPapers.length),
+                        child: _buildStatsHeader('Upcoming Exams', state.papers.length),
                       ),
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
@@ -339,8 +187,14 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                         ),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildPaperCard(filteredPapers[index]),
-                            childCount: filteredPapers.length,
+                            (context, index) {
+                              final subjects = groupedPapers.keys.toList();
+                              final subject = subjects[index];
+                              final papers = groupedPapers[subject]!;
+
+                              return _buildSubjectSection(subject, papers);
+                            },
+                            childCount: groupedPapers.length,
                             addAutomaticKeepAlives: true,
                             addRepaintBoundaries: true,
                           ),
@@ -366,6 +220,112 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
           child: _buildEmptyState(),
         );
       },
+    );
+  }
+
+  // Build a subject section with collapsible papers
+  Widget _buildSubjectSection(String subject, List<QuestionPaperEntity> papers) {
+    final isCollapsed = _collapsedSubjects[subject] ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subject header with collapse/expand button
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _collapsedSubjects[subject] = !isCollapsed;
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: UIConstants.spacing8, top: UIConstants.spacing8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: UIConstants.paddingMedium,
+              vertical: UIConstants.spacing12,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: isCollapsed ? 0 : 0.25,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: UIConstants.spacing12),
+                Container(
+                  padding: const EdgeInsets.all(UIConstants.spacing8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary10,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                  ),
+                  child: const Icon(
+                    Icons.library_books,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: UIConstants.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        subject,
+                        style: const TextStyle(
+                          fontSize: UIConstants.fontSizeMedium,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '${papers.length} ${papers.length == 1 ? 'paper' : 'papers'}',
+                        style: const TextStyle(
+                          fontSize: UIConstants.fontSizeSmall,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: UIConstants.spacing8,
+                    vertical: UIConstants.spacing4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary10,
+                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                  ),
+                  child: Text(
+                    papers.length.toString(),
+                    style: const TextStyle(
+                      fontSize: UIConstants.fontSizeSmall,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Papers list (collapsed/expanded)
+        if (!isCollapsed)
+          Column(
+            children: [
+              ...papers.map((paper) => _buildPaperCard(paper)),
+            ],
+          ),
+      ],
     );
   }
 
@@ -425,9 +385,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     final isSmallScreen = screenWidth < 600;
 
     // Calculate days until exam
-    final daysUntilExam = paper.examDate != null
-        ? paper.examDate!.difference(DateTime.now()).inDays
-        : null;
+    final daysUntilExam = paper.examDate?.difference(DateTime.now()).inDays;
 
     return Container(
       key: ValueKey(paper.id),
@@ -635,12 +593,10 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
       physics: const AlwaysScrollableScrollPhysics(),
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
-        child: EmptyMessageWidget(
+        child: const EmptyMessageWidget(
           icon: Icons.event_busy,
           title: 'No Upcoming Exams',
-          message: (_searchQuery.isNotEmpty || _selectedGrade.isNotEmpty || _selectedSubject.isNotEmpty)
-              ? 'No papers match your current filters'
-              : 'No exams scheduled in the next 7 days\nPull down to refresh',
+          message: 'No exams scheduled in the next 7 days\nPull down to refresh',
         ),
       ),
     );

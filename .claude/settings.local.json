@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(set GRADLE_OPTS=-Dkotlin.incremental=false:*)"
+      "Bash(set GRADLE_OPTS=-Dkotlin.incremental=false:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter clean:*)"
     ],
     "deny": [],
     "ask": []

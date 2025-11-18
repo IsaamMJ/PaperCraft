@@ -587,6 +587,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         return Colors.red;
       case PaperStatus.submitted:
         return Colors.blue;
+      case PaperStatus.spare:
+        return Colors.orange;
     }
   }
 

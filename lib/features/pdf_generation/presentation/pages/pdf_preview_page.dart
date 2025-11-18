@@ -34,13 +34,14 @@ class PdfPreviewPage extends StatefulWidget {
 
 class _PdfPreviewPageState extends State<PdfPreviewPage> {
   late Uint8List _currentPdfBytes;
-  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.standard;
+  PdfLayoutDensity _selectedDensity = PdfLayoutDensity.spacious;
   bool _isRegenerating = false;
   bool _showAdvancedSettings = false;
   bool _isPrinting = false;
 
-  double _customFontMultiplier = 1.0;
-  double _customSpacingMultiplier = 1.5;
+  // Standard is now spacious: 1.1 font multiplier and 2.0 spacing multiplier
+  double _customFontMultiplier = 1.1;
+  double _customSpacingMultiplier = 2.0;
 
   Timer? _debounceTimer;
 
@@ -54,51 +55,6 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   void dispose() {
     _debounceTimer?.cancel();
     super.dispose();
-  }
-
-  (double, double) _getMultipliersForDensity(PdfLayoutDensity density) {
-    switch (density) {
-      case PdfLayoutDensity.compact:
-        return (1.0, 1.0);
-      case PdfLayoutDensity.standard:
-        return (1.0, 1.5);
-      case PdfLayoutDensity.spacious:
-        return (1.1, 2.0);
-    }
-  }
-
-  Future<void> _handleDensityChange(PdfLayoutDensity density) async {
-    if (_isRegenerating || widget.onRegeneratePdf == null || density == _selectedDensity) return;
-
-    final (fontMultiplier, spacingMultiplier) = _getMultipliersForDensity(density);
-
-    setState(() {
-      _isRegenerating = true;
-      _selectedDensity = density;
-      _customFontMultiplier = fontMultiplier;
-      _customSpacingMultiplier = spacingMultiplier;
-    });
-
-    try {
-      final newPdfBytes = await widget.onRegeneratePdf!(fontMultiplier, spacingMultiplier);
-
-      if (mounted) {
-        setState(() {
-          _currentPdfBytes = newPdfBytes;
-          _isRegenerating = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isRegenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to regenerate PDF. Please try again.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
   }
 
   void _handleCustomSliderChange(double fontMultiplier, double spacingMultiplier) {
@@ -231,63 +187,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
       ),
       body: Column(
         children: [
-          _buildPaperInfoHeader(),
           if (widget.onRegeneratePdf != null) _buildLayoutControls(),
           _buildPdfViewer(),
           _buildBottomActionBar(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaperInfoHeader() {
-    final layoutName = widget.layoutType == 'single' ? 'Single Page Layout' : 'Side-by-Side Layout';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(UIConstants.paddingMedium),
-      color: AppColors.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.paperTitle,
-                  style: TextStyle(
-                    fontSize: UIConstants.fontSizeLarge,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary10,
-                  borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                  border: Border.all(color: AppColors.primary30),
-                ),
-                child: Text(
-                  layoutName,
-                  style: TextStyle(
-                    fontSize: UIConstants.fontSizeSmall,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: UIConstants.spacing4),
-          Text(
-            'Preview how your paper will look when printed',
-            style: TextStyle(
-              fontSize: UIConstants.fontSizeMedium,
-              color: AppColors.textSecondary,
-            ),
-          ),
         ],
       ),
     );
@@ -304,41 +206,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Layout Density',
-            style: TextStyle(
-              fontSize: UIConstants.fontSizeMedium,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          SizedBox(height: UIConstants.spacing8),
-          Row(
-            children: [
-              _buildDensityOption(
-                PdfLayoutDensity.compact,
-                'Compact',
-                'Max questions per page',
-                Icons.compress_rounded,
-              ),
-              SizedBox(width: 8),
-              _buildDensityOption(
-                PdfLayoutDensity.standard,
-                'Standard',
-                'Balanced (Recommended)',
-                Icons.view_agenda_rounded,
-              ),
-              SizedBox(width: 8),
-              _buildDensityOption(
-                PdfLayoutDensity.spacious,
-                'Spacious',
-                'Extra breathing room',
-                Icons.open_in_full_rounded,
-              ),
-            ],
-          ),
           if (_isRegenerating) ...[
-            SizedBox(height: UIConstants.spacing8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -360,70 +228,19 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                 ),
               ],
             ),
+            SizedBox(height: UIConstants.spacing12),
           ],
-          SizedBox(height: UIConstants.spacing12),
           _buildAdvancedSettings(),
         ],
       ),
     );
   }
 
-  Widget _buildDensityOption(
-      PdfLayoutDensity density,
-      String label,
-      String description,
-      IconData icon,
-      ) {
-    final isSelected = _selectedDensity == density;
-    final isDisabled = _isRegenerating;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: isDisabled ? null : () => _handleDensityChange(density),
-        child: Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary10 : AppColors.background,
-            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                size: 20,
-              ),
-              SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildAdvancedSettings() {
+    // Calculate actual font size (base 12pt * multiplier)
+    final baseFontSize = 12.0;
+    final actualFontSize = (baseFontSize * _customFontMultiplier).toStringAsFixed(1);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -445,7 +262,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             size: 20,
           ),
           title: Text(
-            'Advanced Settings',
+            'Display Settings',
             style: TextStyle(
               fontSize: UIConstants.fontSizeSmall,
               fontWeight: FontWeight.w600,
@@ -481,7 +298,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '${(_customFontMultiplier * 100).toInt()}%',
+                        '${actualFontSize} pt',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -572,7 +389,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               onPressed: _isRegenerating
                   ? null
                   : () {
-                _handleCustomSliderChange(1.0, 1.5);
+                _handleCustomSliderChange(1.1, 2.0);
               },
               icon: Icon(Icons.restart_alt_rounded, size: 16),
               label: Text('Reset to Standard'),

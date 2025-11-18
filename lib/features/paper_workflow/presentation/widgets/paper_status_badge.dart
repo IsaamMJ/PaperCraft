@@ -49,6 +49,8 @@ class PaperStatusBadge extends StatelessWidget {
         return Colors.green.shade50;
       case PaperStatus.rejected:
         return Colors.red.shade50;
+      case PaperStatus.spare:
+        return Colors.orange.shade50;
     }
   }
 
@@ -62,6 +64,8 @@ class PaperStatusBadge extends StatelessWidget {
         return Colors.green.shade300;
       case PaperStatus.rejected:
         return Colors.red.shade300;
+      case PaperStatus.spare:
+        return Colors.orange.shade300;
     }
   }
 
@@ -75,6 +79,8 @@ class PaperStatusBadge extends StatelessWidget {
         return Colors.green.shade700;
       case PaperStatus.rejected:
         return Colors.red.shade700;
+      case PaperStatus.spare:
+        return Colors.orange.shade700;
     }
   }
 }

@@ -387,8 +387,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
         // Separate auto-assigned and manual papers
+        // Auto-assigned papers come from exam timetables (created by office staff)
+        // Manual papers are created by teachers
         final autoAssignedPapers = papers.where((p) => p.isAutoAssigned).toList();
         final manualPapers = papers.where((p) => !p.isAutoAssigned).toList();
+
+        // DEBUG: Print all papers and their classification
+        for (final paper in papers) {
+          print('[DEBUG PAPERS] Paper ID: ${paper.id}, Status: ${paper.status}, isAutoAssigned: ${paper.isAutoAssigned}');
+        }
 
         // Build list items: Assigned section + Assigned papers (grouped by exam) + Manual section + Manual papers
         final listItems = <_PaperListItem>[];
@@ -587,7 +594,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.push(AppRoutes.questionPaperViewWithId(paper.id)),
+          onTap: () {
+            // Draft papers open CREATE page to add questions
+            // Non-draft papers open VIEW page (read-only)
+            if (paper.status == PaperStatus.draft) {
+              final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
+              print('[DEBUG] Auto-assigned draft paper tapped - Route: $route');
+              context.push(route);
+            } else {
+              final route = AppRoutes.questionPaperViewWithId(paper.id);
+              print('[DEBUG] Auto-assigned non-draft paper tapped - Route: $route');
+              context.push(route);
+            }
+          },
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
           child: Padding(
             padding: const EdgeInsets.all(UIConstants.paddingMedium),
@@ -646,10 +665,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           onTap: () {
             // Open create page for draft papers, view page for others
             // Draft papers are incomplete and need questions to be added
+            print('[DEBUG] Paper Card Tap - Paper ID: ${paper.id}');
+            print('[DEBUG] Paper Status: ${paper.status}');
+            print('[DEBUG] Total Questions: ${paper.totalQuestions}');
+            print('[DEBUG] Is Draft: ${paper.status == PaperStatus.draft}');
+            print('[DEBUG] Has Zero Questions: ${(paper.totalQuestions ?? 0) == 0}');
+
             if (paper.status == PaperStatus.draft || (paper.totalQuestions ?? 0) == 0) {
-              context.push(AppRoutes.questionPaperCreateWithDraftId(paper.id));
+              final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
+              print('[DEBUG] Opening DRAFT route: $route');
+              context.push(route);
             } else {
-              context.push(AppRoutes.questionPaperViewWithId(paper.id));
+              final route = AppRoutes.questionPaperViewWithId(paper.id);
+              print('[DEBUG] Opening VIEW route: $route');
+              context.push(route);
             }
           },
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
@@ -727,12 +756,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildActionButton(QuestionPaperEntity paper) {
     // For draft papers, show Edit button
+    print('[DEBUG] _buildActionButton called - Paper ID: ${paper.id}, Status: ${paper.status}');
     if (paper.status == PaperStatus.draft) {
+      print('[DEBUG] Draft paper detected, showing Edit button');
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           InkWell(
-            onTap: () => context.push(AppRoutes.questionPaperEditWithId(paper.id)),
+            onTap: () {
+              final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
+              print('[DEBUG] Edit button tapped - Route: $route');
+              context.push(route);
+            },
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

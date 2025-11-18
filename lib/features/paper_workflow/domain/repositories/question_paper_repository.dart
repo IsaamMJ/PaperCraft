@@ -41,6 +41,8 @@ abstract class QuestionPaperRepository {
   // =============== APPROVAL OPERATIONS (Admin Only) ===============
   Future<Either<Failure, QuestionPaperEntity>> approvePaper(String id);
   Future<Either<Failure, QuestionPaperEntity>> rejectPaper(String id, String reason);
+  Future<Either<Failure, QuestionPaperEntity>> restoreSparePaper(String id);
+  Future<Either<Failure, QuestionPaperEntity>> markPaperAsSpare(String id);
 
   // =============== EDITING OPERATIONS ===============
   Future<Either<Failure, QuestionPaperEntity>> pullForEditing(String id);

@@ -135,6 +135,7 @@ import '../../../features/paper_workflow/domain/repositories/question_paper_repo
 import '../../../features/paper_workflow/domain/usecases/delete_draft_usecase.dart';
 import '../../../features/paper_workflow/domain/usecases/update_paper_usecase.dart';
 import '../../../features/paper_review/domain/usecases/reject_paper_usecase.dart';
+import '../../../features/paper_review/domain/usecases/restore_spare_paper_usecase.dart';
 
 // Grade feature
 import '../../../features/catalog/data/repositories/grade_repository_impl.dart';
@@ -166,6 +167,7 @@ import '../../../features/notifications/domain/usecases/get_unread_count_usecase
 
 // PDF generation feature
 import '../../../features/pdf_generation/domain/usecases/download_pdf_usecase.dart';
+import '../../../features/pdf_generation/domain/services/pdf_generation_service.dart';
 
 // Admin setup feature
 import '../../../features/admin/data/datasources/admin_setup_remote_datasource.dart';
@@ -528,6 +530,7 @@ class _QuestionPapersModule {
       _setupTeacherPatterns();
       _setupSubjects();
       _setupUserInfoService();
+      _setupPdfService();
       _setupPaperDisplayService();
 
       sl<ILogger>().info(
@@ -581,6 +584,16 @@ class _QuestionPapersModule {
     );
 
     sl<ILogger>().debug('UserInfoService registered successfully', category: LogCategory.paper);
+  }
+
+  static void _setupPdfService() {
+    sl<ILogger>().debug('Setting up PDF generation service', category: LogCategory.paper);
+
+    sl.registerLazySingleton<IPdfGenerationService>(
+          () => SimplePdfService(),
+    );
+
+    sl<ILogger>().debug('PDF generation service registered successfully', category: LogCategory.paper);
   }
 
   static void _setupSubjects() {
@@ -698,6 +711,10 @@ class _QuestionPapersModule {
     sl.registerLazySingleton(() => RejectPaperUseCase(
           repository,
           sl<CreateNotificationUseCase>(),
+          sl<ILogger>(),
+        ));
+    sl.registerLazySingleton(() => RestoreSparePaperUseCase(
+          repository,
           sl<ILogger>(),
         ));
     sl.registerLazySingleton(() => GetPaperByIdUseCase(repository));

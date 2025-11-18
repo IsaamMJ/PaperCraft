@@ -57,6 +57,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   bool _isSubmitting = false, _isPulling = false;
   bool _isGeneratingPdf = false;
   bool _cancelPdfGeneration = false;
+  bool _isApproving = false, _isRejecting = false;
 
   // Add user info service
   late final UserInfoService _userInfoService;
@@ -150,10 +151,16 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       } else if (state.actionType == 'pull') {
         setState(() => _isPulling = false);
         Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
+      } else if (state.actionType == 'approve') {
+        setState(() => _isApproving = false);
+        Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
+      } else if (state.actionType == 'reject') {
+        setState(() => _isRejecting = false);
+        Future.delayed(const Duration(seconds: 1), () => mounted ? context.go(AppRoutes.home) : null);
       }
     }
     if (state is QuestionPaperError) {
-      setState(() => _isSubmitting = _isPulling = false);
+      setState(() => _isSubmitting = _isPulling = _isApproving = _isRejecting = false);
       UiHelpers.showErrorMessage(context, state.message);
     }
 
@@ -338,6 +345,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       PaperStatus.submitted: AppColors.primary,
       PaperStatus.approved: AppColors.success,
       PaperStatus.rejected: AppColors.error,
+      PaperStatus.spare: AppColors.warning,
     };
     final color = colors[status]!;
     return Container(
@@ -354,10 +362,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   Widget _buildActions(QuestionPaperEntity paper) {
     final actions = <Widget>[];
 
-    // Print PDF button (visible for draft, submitted, AND approved papers)
+    // Print PDF button (visible for draft, submitted, approved, AND spare papers)
     if (paper.status == PaperStatus.draft ||
         paper.status == PaperStatus.submitted ||
-        paper.status == PaperStatus.approved) {
+        paper.status == PaperStatus.approved ||
+        paper.status == PaperStatus.spare) {
       actions.add(_buildActionBtn(
           Icons.print_rounded,
           'Print PDF',
@@ -392,6 +401,52 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               () => _pullForEditing(paper),
           _isPulling
       ));
+    }
+
+    // Approve and Reject buttons for submitted papers (admin/reviewer only)
+    if (paper.status == PaperStatus.submitted && !widget.isViewOnly) {
+      actions.add(
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionBtn(
+                Icons.check_circle_rounded,
+                'Approve Paper',
+                AppColors.success,
+                () => _approvePaper(paper),
+                _isApproving,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionBtn(
+                Icons.cancel_rounded,
+                'Reject Paper',
+                AppColors.error,
+                () => _showRejectDialog(paper),
+                _isRejecting,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mark as Spare button for approved papers (admin/reviewer only, NOT for office staff)
+    if (paper.status == PaperStatus.approved && !widget.isViewOnly) {
+      final userStateService = sl<UserStateService>();
+      final isOfficeStaff = userStateService.isOfficeStaff;
+
+      if (!isOfficeStaff) {
+        actions.add(
+          _buildActionBtn(
+            Icons.bookmark_outline,
+            'Mark as Spare',
+            AppColors.warning,
+            () => _markPaperAsSpare(paper),
+          ),
+        );
+      }
     }
 
     return actions.isEmpty ? const SizedBox.shrink() : Column(children: actions);
@@ -1073,6 +1128,101 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       context.read<QuestionPaperBloc>().add(PullForEditing(paper.id));
     },
   );
+
+  void _approvePaper(QuestionPaperEntity paper) => _showDialog(
+    'Approve Paper',
+    'Are you sure you want to approve this paper?\n\n• This paper will be marked as approved\n• It can be used for exams',
+    Icons.check_circle_rounded,
+    AppColors.success,
+    'Approve',
+        () {
+      setState(() => _isApproving = true);
+      context.read<QuestionPaperBloc>().add(ApprovePaper(paper.id));
+    },
+  );
+
+  void _markPaperAsSpare(QuestionPaperEntity paper) => _showDialog(
+    'Mark as Spare',
+    'Are you sure you want to mark this paper as spare?\n\n• This paper will be archived as a backup\n• It can be restored later if needed',
+    Icons.bookmark_outline,
+    AppColors.warning,
+    'Mark as Spare',
+        () {
+      print('DEBUG: Mark as Spare clicked for paper: ${paper.id}');
+      print('DEBUG: Paper status: ${paper.status}');
+      print('DEBUG: Paper title: ${paper.title}');
+      print('DEBUG: Paper grade: ${paper.gradeId}');
+      print('DEBUG: Paper subject: ${paper.subjectId}');
+      context.read<QuestionPaperBloc>().add(MarkPaperAsSpare(paper.id));
+    },
+  );
+
+  void _showRejectDialog(QuestionPaperEntity paper) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusXLarge)),
+        title: Row(
+          children: [
+            Icon(Icons.cancel_rounded, color: AppColors.error, size: 24),
+            const SizedBox(width: 12),
+            Text('Reject Paper'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please provide a reason for rejection:',
+              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+            ),
+            SizedBox(height: UIConstants.spacing12),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              minLines: 2,
+              decoration: InputDecoration(
+                hintText: 'e.g., Question formatting needs improvement, Math calculation error...',
+                hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+                contentPadding: const EdgeInsets.all(12),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (reasonController.text.trim().isEmpty) {
+                UiHelpers.showErrorMessage(context, 'Please provide a rejection reason');
+                return;
+              }
+              Navigator.pop(ctx);
+              setState(() => _isRejecting = true);
+              context.read<QuestionPaperBloc>().add(
+                RejectPaper(paper.id, reasonController.text.trim()),
+              );
+            },
+            icon: Icon(Icons.cancel_rounded, size: 18),
+            label: const Text('Reject'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showDialog(String title, String content, IconData icon, Color color, String actionText, VoidCallback action) {
     showDialog(

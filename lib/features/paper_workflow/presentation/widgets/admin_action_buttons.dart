@@ -9,6 +9,8 @@ class AdminActionButtons extends StatelessWidget {
   final VoidCallback? onReject;
   final VoidCallback? onViewDetails;
   final VoidCallback? onEdit;  // ADDED: Edit button callback
+  final VoidCallback? onRestore;  // ADDED: Restore spare paper callback
+  final VoidCallback? onMarkSpare;  // ADDED: Mark as spare button callback
   final bool isCompact;
   final bool isLoading;
 
@@ -19,15 +21,22 @@ class AdminActionButtons extends StatelessWidget {
     this.onReject,
     this.onViewDetails,
     this.onEdit,  // ADDED: Edit parameter
+    this.onRestore,  // ADDED: Restore parameter
+    this.onMarkSpare,  // ADDED: Mark as spare parameter
     this.isCompact = false,
     this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Only show action buttons for submitted papers
-    if (!paper.status.isSubmitted) {
+    // Only show action buttons for submitted or spare papers
+    if (!paper.status.isSubmitted && !paper.status.isSpare) {
       return _buildViewButton(context);
+    }
+
+    // Show restore button for spare papers
+    if (paper.status.isSpare) {
+      return _buildSpareActions(context);
     }
 
     if (isCompact) {
@@ -35,6 +44,70 @@ class AdminActionButtons extends StatelessWidget {
     }
 
     return _buildFullActions(context);
+  }
+
+  Widget _buildSpareActions(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            border: Border.all(color: Colors.orange.shade300),
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'This is a spare paper (backup)',
+                  style: TextStyle(
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 12),
+        ElevatedButton.icon(
+          onPressed: isLoading ? null : onRestore,
+          icon: isLoading
+              ? SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
+              : Icon(Icons.restore),
+          label: Text('Restore to Submitted'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange.shade600,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+            ),
+          ),
+        ),
+        SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onViewDetails,
+          icon: Icon(Icons.visibility_outlined),
+          label: Text('View Full Details'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue.shade600,
+            padding: EdgeInsets.symmetric(vertical: 8),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildCompactActions(BuildContext context) {
@@ -142,6 +215,22 @@ class AdminActionButtons extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.amber.shade600,
               foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
+          ),
+        SizedBox(height: 8),
+        // ADDED: Mark as spare button
+        if (onMarkSpare != null)
+          OutlinedButton.icon(
+            onPressed: isLoading ? null : onMarkSpare,
+            icon: Icon(Icons.bookmark_outline),
+            label: Text('Mark as Spare'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange.shade600,
+              side: BorderSide(color: Colors.orange.shade600),
               padding: EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(UIConstants.radiusMedium),

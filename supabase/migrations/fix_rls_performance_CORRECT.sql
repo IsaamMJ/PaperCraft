@@ -22,18 +22,24 @@ CREATE POLICY "profiles_select_consolidated" ON profiles
     tenant_id = (select auth.jwt()->>'tenant_id')::uuid  -- Users can view tenant members
   );
 
--- Create consolidated UPDATE policy (update own + admins update any)
+-- Create consolidated UPDATE policy (update own + admins/directors update in tenant)
 CREATE POLICY "profiles_update_consolidated" ON profiles
   FOR UPDATE
   USING (
     (select auth.uid()) = id  -- Users can update their own profile
     OR
     (select auth.jwt()->>'role')::text = 'admin'  -- Admins can update any
+    OR
+    ((select auth.jwt()->>'role')::text IN ('director', 'office_staff')
+     AND tenant_id = (select auth.jwt()->>'tenant_id')::uuid)  -- Directors/office staff can update users in their tenant
   )
   WITH CHECK (
     (select auth.uid()) = id
     OR
     (select auth.jwt()->>'role')::text = 'admin'
+    OR
+    ((select auth.jwt()->>'role')::text IN ('director', 'office_staff')
+     AND tenant_id = (select auth.jwt()->>'tenant_id')::uuid)
   );
 
 -- ============================================================================

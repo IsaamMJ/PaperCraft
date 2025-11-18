@@ -6,6 +6,7 @@ import '../../admin/presentation/pages/exams_dashboard_page.dart';
 import '../../admin/presentation/pages/settings_screen.dart';
 import '../../authentication/domain/services/user_state_service.dart';
 import '../../home/presentation/pages/home_page.dart';
+import '../../office_staff/presentation/pages/office_staff_dashboard_page.dart';
 import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_bank/presentation/pages/question_bank_page.dart';
 import '../../timetable/presentation/bloc/exam_timetable_bloc.dart';
@@ -32,14 +33,17 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
     final userStateService = GetIt.instance<UserStateService>();
     final tenantId = userStateService.currentTenantId ?? '';
     final isReviewer = userStateService.isReviewer;
+    final isOfficeStaff = userStateService.isOfficeStaff;
 
-    print('[DEBUG SCAFFOLD WRAPPER] Building scaffold - isReviewer: $isReviewer');
+    print('[DEBUG SCAFFOLD WRAPPER] Building scaffold - isReviewer: $isReviewer, isOfficeStaff: $isOfficeStaff');
 
-    // Reviewers only see papers for review (admin dashboard)
+    // Reviewers see papers for review and exam management
     // Admins see full admin pages
+    // Office staff see approved papers
     final adminPages = isReviewer
         ? [
             SharedBlocProvider(child: const AdminDashboardPage()),
+            ExamsDashboardPage(tenantId: tenantId),
           ]
         : [
             SharedBlocProvider(child: const AdminDashboardPage()),
@@ -53,11 +57,17 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
       SharedBlocProvider(child: const QuestionBankPage()),
     ];
 
+    final officeStaffPages = [
+      SharedBlocProvider(child: const OfficeStaffDashboardPage()),
+    ];
+
     return MainScaffoldPage(
       userStateService: userStateService,
       adminPages: adminPages,
       teacherPages: teacherPages,
+      officeStaffPages: officeStaffPages,
       isReviewer: isReviewer,
+      isOfficeStaff: isOfficeStaff,
     );
   }
 }

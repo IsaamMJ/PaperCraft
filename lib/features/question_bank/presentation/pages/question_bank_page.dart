@@ -622,11 +622,13 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   Widget _buildModernPaperCard(QuestionPaperEntity paper) {
     final isGenerating = _isGeneratingPdf && _generatingPdfFor == paper.id;
     final creatorName = _userNamesCache[paper.createdBy] ?? 'Loading...';
+    final isLocked = _isPaperLocked(paper);
 
     return ApprovedPaperCard(
       paper: paper,
       creatorName: creatorName,
       isGeneratingPdf: isGenerating,
+      isLocked: isLocked,
       onPreview: () => _showPreviewOptions(paper),
     );
   }
@@ -804,8 +806,139 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   void _showPreviewOptions(QuestionPaperEntity paper) {
+    // Check if paper is locked based on exam date
+    if (_isPaperLocked(paper)) {
+      _showPaperLockedDialog(paper);
+      return;
+    }
+
     // Generate single layout PDF and show preview
     _generateAndHandlePdf(paper, 'single', true);  // true = show preview
+  }
+
+  /// Check if paper should be locked (before exam day + 1)
+  bool _isPaperLocked(QuestionPaperEntity paper) {
+    if (paper.examDate == null) return false;
+
+    final now = DateTime.now();
+    final examDate = paper.examDate!;
+    // Paper is locked if current date is before exam date + 1 day
+    final unlockedDate = examDate.add(const Duration(days: 1));
+    return now.isBefore(unlockedDate);
+  }
+
+  /// Calculate days remaining until paper unlocks
+  int _getDaysUntilUnlock(QuestionPaperEntity paper) {
+    if (paper.examDate == null) return 0;
+
+    final now = DateTime.now();
+    final examDate = paper.examDate!;
+    final unlockedDate = examDate.add(const Duration(days: 1));
+    final daysRemaining = unlockedDate.difference(now).inDays;
+    return daysRemaining > 0 ? daysRemaining : 0;
+  }
+
+  /// Show friendly lock dialog
+  void _showPaperLockedDialog(QuestionPaperEntity paper) {
+    final daysRemaining = _getDaysUntilUnlock(paper);
+    final examDateFormatted = _formatExamDate(paper.examDate!);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('📚 Paper Locked'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                  height: 1.6,
+                ),
+                children: [
+                  const TextSpan(text: 'Hold on! This exam is on '),
+                  TextSpan(
+                    text: examDateFormatted,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const TextSpan(text: '. You can review the paper after the exam ends. '),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.access_time, size: 20, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available in',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '$daysRemaining day${daysRemaining != 1 ? 's' : ''}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Got it',
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format exam date for display
+  String _formatExamDate(DateTime date) {
+    final months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return '${months[date.month]} ${date.day}, ${date.year}';
   }
 
   Future<void> _generateAndHandlePdf(

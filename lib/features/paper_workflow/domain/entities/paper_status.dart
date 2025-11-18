@@ -3,7 +3,8 @@ enum PaperStatus {
   draft('draft'),
   submitted('submitted'),
   approved('approved'),
-  rejected('rejected');
+  rejected('rejected'),
+  spare('spare');
 
   const PaperStatus(this.value);
 
@@ -19,6 +20,8 @@ enum PaperStatus {
         return PaperStatus.approved;
       case 'rejected':
         return PaperStatus.rejected;
+      case 'spare':
+        return PaperStatus.spare;
       default:
         throw ArgumentError('Invalid paper status: $status');
     }
@@ -28,6 +31,7 @@ enum PaperStatus {
   bool get isSubmitted => this == PaperStatus.submitted;
   bool get isApproved => this == PaperStatus.approved;
   bool get isRejected => this == PaperStatus.rejected;
+  bool get isSpare => this == PaperStatus.spare;
 
   // Status transition validation
   bool canTransitionTo(PaperStatus newStatus) {
@@ -35,11 +39,13 @@ enum PaperStatus {
       case PaperStatus.draft:
         return newStatus == PaperStatus.submitted;
       case PaperStatus.submitted:
-        return newStatus == PaperStatus.approved || newStatus == PaperStatus.rejected;
+        return newStatus == PaperStatus.approved || newStatus == PaperStatus.rejected || newStatus == PaperStatus.spare;
       case PaperStatus.rejected:
         return newStatus == PaperStatus.submitted; // Can resubmit
       case PaperStatus.approved:
         return false; // Final state
+      case PaperStatus.spare:
+        return newStatus == PaperStatus.submitted; // Can restore from spare
     }
   }
 
@@ -53,6 +59,8 @@ enum PaperStatus {
         return 'Approved';
       case PaperStatus.rejected:
         return 'Rejected';
+      case PaperStatus.spare:
+        return 'Spare';
     }
   }
 }

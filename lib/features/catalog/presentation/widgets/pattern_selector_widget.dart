@@ -12,12 +12,14 @@ class PatternSelectorWidget extends StatefulWidget {
   final String teacherId;
   final String subjectId;
   final ValueChanged<List<PaperSectionEntity>> onPatternSelected;
+  final VoidCallback? onCreateNewPattern; // Callback when "Create new pattern" is selected
 
   const PatternSelectorWidget({
     Key? key,
     required this.teacherId,
     required this.subjectId,
     required this.onPatternSelected,
+    this.onCreateNewPattern,
   }) : super(key: key);
 
   @override
@@ -194,6 +196,8 @@ class _PatternSelectorWidgetState extends State<PatternSelectorWidget> {
                         context.read<TeacherPatternBloc>().add(
                               const SelectPattern(null),
                             );
+                        // Notify parent that "Create new pattern" was selected
+                        widget.onCreateNewPattern?.call();
                         // Show feedback for clearing pattern
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

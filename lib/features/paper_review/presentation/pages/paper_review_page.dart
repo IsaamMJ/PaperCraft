@@ -95,6 +95,36 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
     context.push(AppRoutes.questionPaperEditWithId(paper.id));
   }
 
+  // ADDED: Handle restore spare paper
+  void _handleRestore(QuestionPaperEntity paper) async {
+    final confirm = await _showConfirmDialog(
+      title: 'Restore Spare Paper',
+      content: 'Are you sure you want to restore "${paper.title}" from spare?\n\nIt will be marked as submitted for review.',
+      confirmText: 'Restore',
+      confirmColor: Colors.orange.shade600,
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isLoading = true);
+      context.read<QuestionPaperBloc>().add(RestoreSparePaper(paper.id));
+    }
+  }
+
+  // ADDED: Handle mark paper as spare
+  void _handleMarkSpare(QuestionPaperEntity paper) async {
+    final confirm = await _showConfirmDialog(
+      title: 'Mark as Spare',
+      content: 'Are you sure you want to mark "${paper.title}" as spare?\n\nIt will be archived as a backup paper.',
+      confirmText: 'Mark as Spare',
+      confirmColor: Colors.orange.shade600,
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isLoading = true);
+      context.read<QuestionPaperBloc>().add(MarkPaperAsSpare(paper.id));
+    }
+  }
+
   Future<bool?> _showConfirmDialog({
     required String title,
     required String content,
@@ -774,6 +804,8 @@ class _PaperReviewPageState extends State<PaperReviewPage> {
         onApprove: () => _handleApprove(paper),
         onReject: () => _handleReject(paper),
         onEdit: () => _handleEdit(paper),  // ADDED: Edit callback
+        onRestore: () => _handleRestore(paper),  // ADDED: Restore callback
+        onMarkSpare: (paper.status.isSubmitted || paper.status.isApproved) ? () => _handleMarkSpare(paper) : null,  // ADDED: Mark spare callback
         onViewDetails: null,
       ),
     );

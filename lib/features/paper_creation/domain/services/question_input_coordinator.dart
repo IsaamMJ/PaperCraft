@@ -58,6 +58,7 @@ class QuestionInputCoordinator extends StatefulWidget {
   final String? existingPaperId;
   final String? existingTenantId;
   final String? existingUserId;
+  final String? examTimetableEntryId; // For auto-assigned draft papers
 
   const QuestionInputCoordinator({
     super.key,
@@ -78,6 +79,7 @@ class QuestionInputCoordinator extends StatefulWidget {
     this.existingTenantId,
     this.existingUserId,
     this.examDate,
+    this.examTimetableEntryId,
   });
 
   @override
@@ -1340,6 +1342,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
         tenantId: widget.isEditing ? (widget.existingTenantId ?? tenantId) : tenantId,
+        examTimetableEntryId: widget.examTimetableEntryId, // Preserve for auto-assigned draft papers
       );
 
       // Show submission feedback dialog IMMEDIATELY before sending to BLoC

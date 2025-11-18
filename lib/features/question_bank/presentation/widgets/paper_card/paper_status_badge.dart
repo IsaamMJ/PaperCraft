@@ -43,6 +43,8 @@ class PaperStatusBadge extends StatelessWidget {
         return _StatusConfig('APPROVED', AppColors.success);
       case PaperStatus.rejected:
         return _StatusConfig('REJECTED', AppColors.error);
+      case PaperStatus.spare:
+        return _StatusConfig('SPARE', AppColors.warning);
     }
   }
 }

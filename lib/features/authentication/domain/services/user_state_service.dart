@@ -88,6 +88,9 @@ class UserStateService extends ChangeNotifier {
       currentRole == UserRole.primary_reviewer ||
       currentRole == UserRole.secondary_reviewer;
 
+  /// Quick office staff check
+  bool get isOfficeStaff => currentRole == UserRole.office_staff;
+
   /// Check if user is admin or reviewer (can access admin features)
   bool get isAdminOrReviewer => isAdmin || isReviewer;
 

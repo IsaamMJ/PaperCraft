@@ -10,6 +10,7 @@ import '../../../features/admin/presentation/pages/admin_setup_wizard_page.dart'
 import '../../../features/admin/presentation/pages/admin_assignments_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/office_staff/presentation/pages/office_staff_dashboard_page.dart';
+import '../../../features/office_staff/presentation/pages/office_staff_pdf_preview_page.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_bloc.dart';
 import '../../../features/assignments/presentation/bloc/teacher_assignment_event.dart';
 import '../../../features/assignments/presentation/pages/teacher_assignments_dashboard_page.dart';
@@ -152,14 +153,26 @@ class AppRouter {
       }
 
       // LEVEL 1.5: Reviewer-only access (high priority)
-      // Primary and secondary reviewers ONLY have access to admin dashboard
-      // Redirect them there from any other route
+      // Primary and secondary reviewers have access to:
+      // - Admin dashboard (papers for review)
+      // - Exams dashboard
+      // - Paper view pages
       final userRole = authState.user.role.value;
-      if ((userRole == 'primary_reviewer' || userRole == 'secondary_reviewer') &&
-          currentLocation != AppRoutes.adminDashboard &&
-          currentLocation != AppRoutes.settings) {
-        print('[DEBUG ROUTER] Reviewer user detected - redirecting to admin dashboard');
-        return AppRoutes.adminDashboard;
+      if (userRole == 'primary_reviewer' || userRole == 'secondary_reviewer') {
+        // Allow access to these routes for reviewers
+        final allowedRoutes = [
+          AppRoutes.home, // Main scaffold wrapper route
+          AppRoutes.adminDashboard,
+          AppRoutes.examsHome,
+          '/papers/view', // Allow paper viewing
+        ];
+
+        final isAllowedRoute = allowedRoutes.any((route) => currentLocation.startsWith(route));
+
+        if (!isAllowedRoute) {
+          print('[DEBUG ROUTER] Reviewer trying to access unauthorized route: $currentLocation - redirecting to home with scaffold');
+          return AppRoutes.home; // Redirect to home which uses MainScaffoldWrapper
+        }
       }
 
       // LEVEL 2: User onboarding (only for non-admins)
@@ -241,6 +254,8 @@ class AppRouter {
       getUserSubmissionsUseCase: sl(),
       approvePaperUseCase: sl(),
       rejectPaperUseCase: sl(),
+      restoreSparePaperUseCase: sl(),
+      questionPaperRepository: sl(),
       getPapersForReviewUseCase: sl(),
       deleteDraftUseCase: sl(),
       pullForEditingUseCase: sl(),
@@ -487,6 +502,21 @@ class AppRouter {
           );
         },
       ),
+
+      GoRoute(
+        path: '${AppRoutes.officeStaffPdfPreview}/:${RouteParams.id}',
+        builder: (context, state) {
+          final id = state.pathParameters[RouteParams.id]!;
+          AppLogger.info('Office staff viewing PDF for paper: $id', category: LogCategory.navigation);
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => _createQuestionPaperBloc()),
+            ],
+            child: OfficeStaffPdfPreviewPage(paperId: id),
+          );
+        },
+      ),
+
       // Removed: Old TeacherAssignmentMatrixPage route - replaced by TeacherAssignmentsDashboardPage
       // GoRoute(
       //   path: AppRoutes.assignmentMatrix,

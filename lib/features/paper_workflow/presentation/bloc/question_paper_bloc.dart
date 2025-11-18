@@ -8,6 +8,8 @@ import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../../paper_review/domain/usecases/reject_paper_usecase.dart';
+import '../../../paper_review/domain/usecases/restore_spare_paper_usecase.dart';
+import '../../domain/repositories/question_paper_repository.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/update_paper_usecase.dart';
 import '../../domain/usecases/get_all_papers_for_admin_usecase.dart';
@@ -133,6 +135,24 @@ class RejectPaper extends QuestionPaperEvent {
 
   @override
   List<Object> get props => [paperId, reason];
+}
+
+class RestoreSparePaper extends QuestionPaperEvent {
+  final String paperId;
+
+  const RestoreSparePaper(this.paperId);
+
+  @override
+  List<Object> get props => [paperId];
+}
+
+class MarkPaperAsSpare extends QuestionPaperEvent {
+  final String paperId;
+
+  const MarkPaperAsSpare(this.paperId);
+
+  @override
+  List<Object> get props => [paperId];
 }
 
 class DeleteDraft extends QuestionPaperEvent {
@@ -369,6 +389,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   final GetUserSubmissionsUseCase _getUserSubmissionsUseCase;
   final ApprovePaperUseCase _approvePaperUseCase;
   final RejectPaperUseCase _rejectPaperUseCase;
+  final RestoreSparePaperUseCase _restoreSparePaperUseCase;
+  final QuestionPaperRepository _questionPaperRepository;
   final GetPapersForReviewUseCase _getPapersForReviewUseCase;
   final DeleteDraftUseCase _deleteDraftUseCase;
   final PullForEditingUseCase _pullForEditingUseCase;
@@ -386,6 +408,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     required GetUserSubmissionsUseCase getUserSubmissionsUseCase,
     required ApprovePaperUseCase approvePaperUseCase,
     required RejectPaperUseCase rejectPaperUseCase,
+    required RestoreSparePaperUseCase restoreSparePaperUseCase,
+    required QuestionPaperRepository questionPaperRepository,
     required GetPapersForReviewUseCase getPapersForReviewUseCase,
     required DeleteDraftUseCase deleteDraftUseCase,
     required PullForEditingUseCase pullForEditingUseCase,
@@ -401,6 +425,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         _getUserSubmissionsUseCase = getUserSubmissionsUseCase,
         _approvePaperUseCase = approvePaperUseCase,
         _rejectPaperUseCase = rejectPaperUseCase,
+        _restoreSparePaperUseCase = restoreSparePaperUseCase,
+        _questionPaperRepository = questionPaperRepository,
         _getPapersForReviewUseCase = getPapersForReviewUseCase,
         _deleteDraftUseCase = deleteDraftUseCase,
         _pullForEditingUseCase = pullForEditingUseCase,
@@ -424,6 +450,8 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<SubmitPaper>(_onSubmitPaper);
     on<ApprovePaper>(_onApprovePaper);
     on<RejectPaper>(_onRejectPaper);
+    on<RestoreSparePaper>(_onRestoreSparePaper);
+    on<MarkPaperAsSpare>(_onMarkPaperAsSpare);
     on<DeleteDraft>(_onDeleteDraft);
     on<PullForEditing>(_onPullForEditing);
     on<RefreshAll>(_onRefreshAll);
@@ -699,6 +727,44 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         add(const LoadUserSubmissions());
         add(const LoadAllPapersForAdmin());
       },
+    );
+  }
+
+  Future<void> _onRestoreSparePaper(RestoreSparePaper event, Emitter<QuestionPaperState> emit) async {
+    emit(const QuestionPaperLoading(message: 'Restoring paper...'));
+
+    final result = await _restoreSparePaperUseCase(event.paperId);
+
+    result.fold(
+          (failure) => emit(QuestionPaperError(failure.message)),
+          (restoredPaper) {
+        emit(const QuestionPaperSuccess('Spare paper restored to submitted', actionType: 'restore'));
+        add(const LoadPapersForReview());
+        add(const LoadUserSubmissions());
+        add(const LoadAllPapersForAdmin());
+      },
+    );
+  }
+
+  Future<void> _onMarkPaperAsSpare(MarkPaperAsSpare event, Emitter<QuestionPaperState> emit) async {
+    print('DEBUG BLoC: _onMarkPaperAsSpare called with paperId: ${event.paperId}');
+    emit(const QuestionPaperLoading(message: 'Marking paper as spare...'));
+
+    final result = await _questionPaperRepository.markPaperAsSpare(event.paperId);
+    print('DEBUG BLoC: markPaperAsSpare result received');
+
+    result.fold(
+          (failure) {
+            print('DEBUG BLoC: Error marking paper as spare: ${failure.message}');
+            emit(QuestionPaperError(failure.message));
+          },
+          (sparePaper) {
+            print('DEBUG BLoC: Paper marked as spare successfully: ${sparePaper.id}');
+            emit(const QuestionPaperSuccess('Paper marked as spare', actionType: 'mark_spare'));
+            add(const LoadPapersForReview());
+            add(const LoadUserSubmissions());
+            add(const LoadAllPapersForAdmin());
+          },
     );
   }
 

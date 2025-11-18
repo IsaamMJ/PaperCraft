@@ -25,6 +25,7 @@ import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../catalog/presentation/widgets/pattern_selector_widget.dart';
 import '../../../catalog/presentation/widgets/section_builder_widget.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
+import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../domain/services/question_input_coordinator.dart';
 
 class QuestionPaperCreatePage extends StatefulWidget {
@@ -71,6 +72,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
   bool _showPatternSelector = false; // Manual toggle for pattern selector
 
+  // Loaded paper from draft (auto-assigned)
+  QuestionPaperEntity? _loadedPaper; // Paper loaded from draft (for auto-assigned papers)
+  int? _targetMarks; // Target marks from exam_calendar marks_config
+
   @override
   void initState() {
     super.initState();
@@ -84,15 +89,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
 
-    _loadInitialData();
-
     // If editing a draft paper, load it from BLoC
     if (widget.draftPaperId != null) {
       context.read<QuestionPaperBloc>().add(LoadPaperById(widget.draftPaperId!));
+    } else {
+      // Only load initial data for new papers (non-draft)
+      _loadInitialData();
+      // Set smart default for exam date (7 days from now)
+      _selectedExamDate = DateTime.now().add(const Duration(days: 7));
     }
-
-    // Set smart default for exam date (7 days from now)
-    _selectedExamDate = DateTime.now().add(const Duration(days: 7));
 
     Future.delayed(
       const Duration(milliseconds: 200),
@@ -117,6 +122,79 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     } else {
       // Admins can see all grades
       context.read<GradeBloc>().add(const LoadGrades());
+    }
+  }
+
+  /// Populate form state from a loaded draft paper (auto-assigned)
+  void _populateFromLoadedPaper(QuestionPaperEntity paper) {
+    print('[DEBUG] Populating form from loaded paper: ${paper.id}');
+    setState(() {
+      _loadedPaper = paper;
+      // Use the paper's existing sections as the pattern
+      _paperSections = paper.paperSections;
+    });
+    // Fetch target marks from exam calendar
+    _fetchTargetMarksFromExamCalendar(paper);
+  }
+
+  /// Fetch target marks from exam_calendar based on paper's exam timetable entry
+  Future<void> _fetchTargetMarksFromExamCalendar(QuestionPaperEntity paper) async {
+    try {
+      if (paper.examTimetableEntryId == null) return;
+
+      final supabase = Supabase.instance.client;
+
+      // Step 1: Get exam timetable entry to find timetable ID
+      final entryData = await supabase
+          .from('exam_timetable_entries')
+          .select('timetable_id')
+          .eq('id', paper.examTimetableEntryId!)
+          .single();
+
+      final timetableId = entryData['timetable_id'] as String;
+
+      // Step 2: Get exam timetable to find exam_calendar_id
+      final timetableData = await supabase
+          .from('exam_timetables')
+          .select('exam_calendar_id')
+          .eq('id', timetableId)
+          .single();
+
+      final examCalendarId = timetableData['exam_calendar_id'] as String?;
+      if (examCalendarId == null) return;
+
+      // Step 3: Get exam_calendar to find marks_config
+      final calendarData = await supabase
+          .from('exam_calendar')
+          .select('marks_config')
+          .eq('id', examCalendarId)
+          .single();
+
+      final marksConfig = calendarData['marks_config'] as Map<String, dynamic>?;
+      if (marksConfig == null) return;
+
+      // Step 4: Extract target marks for this paper's grade level
+      final gradeLevel = paper.gradeLevel;
+      if (gradeLevel == null) return;
+
+      int? targetMarks;
+
+      // Check for specific grade marks (e.g., "grades_1_to_5_marks", "grades_6_to_8_marks")
+      if (gradeLevel >= 1 && gradeLevel <= 5) {
+        targetMarks = marksConfig['grades_1_to_5_marks'] as int?;
+      } else if (gradeLevel >= 6 && gradeLevel <= 8) {
+        targetMarks = marksConfig['grades_6_to_8_marks'] as int?;
+      } else if (gradeLevel >= 9 && gradeLevel <= 10) {
+        targetMarks = marksConfig['grades_9_to_10_marks'] as int?;
+      }
+
+      if (targetMarks != null && mounted) {
+        setState(() => _targetMarks = targetMarks);
+        print('[DEBUG] Target marks fetched: $_targetMarks for grade $gradeLevel');
+      }
+    } catch (e) {
+      print('[DEBUG] Error fetching target marks: $e');
+      // Silently fail - target marks is optional
     }
   }
 
@@ -205,10 +283,35 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     return marks.toString();
   }
 
+  /// Check if pattern total marks matches target marks
+  bool _marksMatchTarget() {
+    if (_targetMarks == null || _paperSections.isEmpty) return true;
+    final patternTotal = _getTotalMarks().toInt();
+    return patternTotal == _targetMarks;
+  }
+
+  /// Get validation message for marks mismatch
+  String? _getMarksValidationMessage() {
+    if (_targetMarks == null || _paperSections.isEmpty) return null;
+    final patternTotal = _getTotalMarks().toInt();
+    if (patternTotal != _targetMarks) {
+      return 'Pattern total ($patternTotal marks) should be $_targetMarks marks';
+    }
+    return null;
+  }
+
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
-        // All metadata must be filled: Grade, Subject, Exam Type, Paper Sections, Date, Class Sections
+        // If editing a draft paper (auto-assigned), pattern must be complete + marks must match target
+        if (_loadedPaper != null) {
+          final hasPattern = _paperSections.isNotEmpty;
+          // If target marks are defined, must match; otherwise any pattern is fine
+          final marksValid = _targetMarks == null || _marksMatchTarget();
+          return hasPattern && marksValid;
+        }
+
+        // For new papers, all metadata must be filled
         return _selectedGradeLevel != null &&
             _selectedSubject != null &&
             _selectedSubjectId != null &&
@@ -531,6 +634,24 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       onWillPop: _handleBackNavigation,
       child: MultiBlocListener(
         listeners: [
+          // Listen for paper loading (for auto-assigned draft papers)
+          BlocListener<QuestionPaperBloc, QuestionPaperState>(
+            listener: (context, state) {
+              if (state is QuestionPaperLoaded && state.currentPaper != null) {
+                if (!mounted) return;
+                _populateFromLoadedPaper(state.currentPaper!);
+              }
+              if (state is QuestionPaperError) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error loading paper: ${state.message}'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+          ),
           BlocListener<GradeBloc, GradeState>(
             listener: (context, state) {
               if (state is GradesLoaded) {
@@ -635,6 +756,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   Widget _buildQuickSetupStep() {
+    // If editing a draft paper (auto-assigned), show read-only details + pattern only
+    if (_loadedPaper != null) {
+      return _buildQuickSetupForDraftPaper();
+    }
+
+    // Otherwise, show the full form for creating new papers
     return _buildStepCard(
       'Quick Setup',
       'Configure your question paper details',
@@ -1092,6 +1219,308 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     );
   }
 
+  Widget _buildQuickSetupForDraftPaper() {
+    if (_loadedPaper == null) {
+      return Container(); // Should not reach here
+    }
+
+    final paper = _loadedPaper!;
+
+    return _buildStepCard(
+      'Quick Setup',
+      'Review paper details and set question pattern',
+      SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Read-only Paper Details Section
+            _buildReadOnlyDetailsCard(paper),
+            SizedBox(height: UIConstants.spacing24),
+
+            // Question Pattern Section (Only Editable Part)
+            Text(
+              'Question Pattern',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing12),
+            Text(
+              'Define the sections and question structure for this paper',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing16),
+
+            // Load Previous Pattern Option
+            if (!_showPatternSelector && _paperSections.isEmpty)
+              Card(
+                child: InkWell(
+                  onTap: () {
+                    setState(() => _showPatternSelector = true);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.history, color: AppColors.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Load Previous Pattern',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap to load a previously used pattern',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (_showPatternSelector && _paperSections.isEmpty)
+              // Pattern Selector
+              BlocProvider(
+                create: (context) => sl<TeacherPatternBloc>(),
+                child: Builder(
+                  builder: (context) {
+                    final currentUser = sl<UserStateService>().currentUser;
+                    if (currentUser == null) {
+                      return Center(
+                        child: Text(
+                          'User not logged in. Please restart the app.',
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                      );
+                    }
+                    return PatternSelectorWidget(
+                      key: ValueKey('draft_pattern_${paper.id}'),
+                      teacherId: currentUser.id,
+                      subjectId: paper.subjectId ?? '',
+                      onPatternSelected: (sections) {
+                        setState(() => _paperSections = sections);
+                      },
+                      onCreateNewPattern: () {
+                        // Hide pattern selector and show section builder
+                        setState(() => _showPatternSelector = false);
+                      },
+                    );
+                  },
+                ),
+              ),
+
+            // Section Builder (if user closed pattern selector or has sections)
+            if (!_showPatternSelector) ...[
+              SizedBox(height: UIConstants.spacing16),
+              // Only show header and edit button if sections exist
+              if (_paperSections.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text(
+                      'Question Pattern',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Edit Question Pattern?'),
+                            content: const Text(
+                              'This will clear your current pattern. '
+                              'You can then rebuild it from scratch or load a saved pattern.\n\n'
+                              'Are you sure you want to continue?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.warning,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Clear & Edit'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmed == true) {
+                          setState(() {
+                            _paperSections = [];
+                            _showPatternSelector = true;
+                          });
+                        }
+                      },
+                      icon: Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit Pattern'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: UIConstants.spacing12),
+              ] else ...[
+                Text(
+                  'Define Question Sections',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: UIConstants.spacing12),
+              ],
+              // Show marks validation warning if target marks mismatch
+              if (_targetMarks != null && _paperSections.isNotEmpty && !_marksMatchTarget()) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.warning, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_rounded, color: AppColors.warning, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _getMarksValidationMessage() ?? 'Marks mismatch',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              SectionBuilderWidget(
+                initialSections: _paperSections,
+                onSectionsChanged: (sections) {
+                  // Validate for duplicate section names
+                  final sectionNames = sections.map((s) => s.name.toLowerCase()).toList();
+                  final uniqueNames = sectionNames.toSet();
+
+                  if (sectionNames.length != uniqueNames.length) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Duplicate section names are not allowed. Each section must have a unique name.'),
+                        backgroundColor: AppColors.error,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() => _paperSections = sections);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyDetailsCard(QuestionPaperEntity paper) {
+    return Card(
+      elevation: 0,
+      color: AppColors.primary05,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lock, size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  'Paper Details (Locked)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: UIConstants.spacing16),
+            _buildReadOnlyField('Grade', paper.grade ?? 'N/A'),
+            _buildReadOnlyField('Subject', paper.subject ?? 'N/A'),
+            _buildReadOnlyField('Exam Type', paper.examType.displayName),
+            _buildReadOnlyField('Exam Date', paper.examDate != null ? _formatExamDate(paper.examDate!) : 'N/A'),
+            _buildReadOnlyField('Class Sections', paper.section ?? 'All Sections'),
+            if (paper.examNumber != null) _buildReadOnlyField('Exam Number', paper.examNumber.toString()),
+            if (_targetMarks != null) _buildReadOnlyField('Total Marks', _targetMarks.toString()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildValidationSummary() {
     // REMOVED: Validation warning dialog has been completely removed as per user request
     // Previously showed: "Please complete the following: Grade level is required, Subject is required, etc."
@@ -1144,6 +1573,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
 
   Widget _buildQuestionsStep() {
+    // For draft papers (auto-assigned)
+    if (_loadedPaper != null) {
+      return _buildQuestionsStepForDraftPaper();
+    }
+
+    // For new papers
     if (_selectedSubject == null || _selectedExamDate == null || _selectedGrade == null || _paperSections.isEmpty) {
       return Container();
     }
@@ -1186,6 +1621,58 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         onPaperCreated: (paper) {
           _showSuccess();
         },
+      ),
+    );
+  }
+
+  Widget _buildQuestionsStepForDraftPaper() {
+    final paper = _loadedPaper!;
+
+    if (_paperSections.isEmpty) {
+      return Container();
+    }
+
+    final userStateService = sl<UserStateService>();
+    final tenantId = userStateService.currentUser?.tenantId;
+    if (tenantId == null) {
+      return Container(); // Safety check
+    }
+
+    final selectedSubjectEntity = SubjectEntity(
+      id: paper.subjectId,
+      name: paper.subject ?? 'Unknown Subject',
+      tenantId: tenantId,
+      catalogSubjectId: paper.subjectId,
+      isActive: true,
+      minGrade: paper.gradeLevel,
+      maxGrade: paper.gradeLevel,
+      createdAt: DateTime.now(),
+    );
+
+    return BlocProvider(
+      create: (context) => sl<TeacherPatternBloc>(),
+      child: QuestionInputCoordinator(
+        paperSections: _paperSections,
+        selectedSubjects: [selectedSubjectEntity],
+        paperTitle: paper.title,
+        gradeLevel: paper.gradeLevel ?? 0,
+        gradeId: paper.gradeId,
+        academicYear: _getAcademicYear(paper.examDate ?? DateTime.now()),
+        selectedSections: paper.selectedSections?.isNotEmpty == true ? paper.selectedSections! : ['All'],
+        examType: paper.examType,
+        examNumber: paper.examNumber,
+        examDate: paper.examDate,
+        isAdmin: userStateService.isAdmin,
+        onPaperCreated: (paper) {
+          _showSuccess();
+        },
+        // Edit mode parameters for updating existing draft
+        isEditing: true,
+        existingPaperId: paper.id,
+        existingQuestions: paper.questions,
+        existingTenantId: tenantId,
+        existingUserId: userStateService.currentUser?.id,
+        examTimetableEntryId: paper.examTimetableEntryId, // Preserve exam timetable link
       ),
     );
   }

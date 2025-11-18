@@ -12,6 +12,7 @@ class ApprovedPaperCard extends StatelessWidget {
   final String creatorName;
   final bool isGeneratingPdf;
   final VoidCallback onPreview;
+  final bool isLocked; // True if paper is locked before exam date
 
   const ApprovedPaperCard({
     super.key,
@@ -19,6 +20,7 @@ class ApprovedPaperCard extends StatelessWidget {
     required this.creatorName,
     required this.isGeneratingPdf,
     required this.onPreview,
+    this.isLocked = false,
   });
 
   /// Format paper title for UI display
@@ -181,10 +183,11 @@ class ApprovedPaperCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildActionButton(
-          icon: isGeneratingPdf ? null : Icons.visibility_outlined,
-          color: AppColors.primary,
-          isLoading: isGeneratingPdf,
-          onPressed: isGeneratingPdf ? null : onPreview,
+          icon: isLocked ? Icons.lock_outlined : (isGeneratingPdf ? null : Icons.visibility_outlined),
+          color: isLocked ? AppColors.textSecondary : AppColors.primary,
+          isLoading: isGeneratingPdf && !isLocked,
+          isDisabled: isLocked,
+          onPressed: isLocked || isGeneratingPdf ? null : onPreview,
         ),
       ],
     );
@@ -195,18 +198,19 @@ class ApprovedPaperCard extends StatelessWidget {
     required Color color,
     VoidCallback? onPressed,
     bool isLoading = false,
+    bool isDisabled = false,
   }) {
     return Container(
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: isDisabled ? 0.05 : 0.1),
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
+          onTap: isDisabled ? null : onPressed,
           borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
           child: Center(
             child: isLoading
@@ -218,7 +222,11 @@ class ApprovedPaperCard extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation(color),
                     ),
                   )
-                : Icon(icon, size: 16, color: color),
+                : Icon(
+                    icon,
+                    size: 16,
+                    color: color.withValues(alpha: isDisabled ? 0.5 : 1.0),
+                  ),
           ),
         ),
       ),

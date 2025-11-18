@@ -242,11 +242,49 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
         return Left(PermissionFailure('Admin privileges required'));
       }
 
+      // First, get the paper being approved to get its details
+      final paperToApprove = await _cloudDataSource.getPaperById(id);
+      if (paperToApprove == null) {
+        return Left(NotFoundFailure('Paper not found'));
+      }
+
+      // Approve the paper
       final model = await _cloudDataSource.updatePaperStatus(
         id,
         PaperStatus.approved.value,
         reviewerId: userId,
       );
+
+      // Auto-mark duplicate papers as spare
+      // Duplicates are papers with same tenant, subject, grade, and academic_year
+      try {
+        final tenantId = await _getTenantId();
+        if (tenantId != null) {
+          final duplicates = await _cloudDataSource.getDuplicatePapers(
+            tenantId: tenantId,
+            subjectId: paperToApprove.subjectId,
+            gradeId: paperToApprove.gradeId,
+            academicYear: paperToApprove.academicYear,
+            excludePaperId: id,
+          );
+
+          if (duplicates.isNotEmpty) {
+            final duplicateIds = duplicates.map((p) => p.id).toList();
+            await _cloudDataSource.markPapersAsSpare(duplicateIds);
+            _logger.info('Auto-marked ${duplicateIds.length} duplicate papers as spare',
+                category: LogCategory.paper,
+                context: {
+                  'approvedPaperId': id,
+                  'duplicateCount': duplicateIds.length,
+                });
+          }
+        }
+      } catch (e) {
+        // Log but don't fail the approval if spare marking fails
+        _logger.warning('Failed to mark duplicates as spare',
+            category: LogCategory.paper,
+            context: {'error': e.toString()});
+      }
 
       return Right(model.toEntity());
     } catch (e, stackTrace) {
@@ -279,6 +317,90 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
     } catch (e, stackTrace) {
       _logger.error('Failed to reject paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to reject paper: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, QuestionPaperEntity>> restoreSparePaper(String id) async {
+    try {
+      final userId = await _getUserId();
+
+      if (!_canApprovePapers() || userId == null) {
+        return Left(PermissionFailure('Admin privileges required'));
+      }
+
+      final paperModel = await _cloudDataSource.getPaperById(id);
+      if (paperModel == null) {
+        return Left(NotFoundFailure('Paper not found'));
+      }
+
+      if (paperModel.status != PaperStatus.spare.value) {
+        return Left(ValidationFailure('Only spare papers can be restored'));
+      }
+
+      final model = await _cloudDataSource.updatePaperStatus(
+        id,
+        PaperStatus.submitted.value,
+        reviewerId: userId,
+        clearRejectionData: true,
+      );
+
+      _logger.info('Restored spare paper to submitted', category: LogCategory.paper, context: {
+        'paperId': id,
+        'title': model.title,
+      });
+
+      return Right(model.toEntity());
+    } catch (e, stackTrace) {
+      _logger.error('Failed to restore spare paper', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to restore spare paper: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, QuestionPaperEntity>> markPaperAsSpare(String id) async {
+    try {
+      print('DEBUG Repo: markPaperAsSpare called with id: $id');
+      final userId = await _getUserId();
+      print('DEBUG Repo: userId: $userId');
+      print('DEBUG Repo: canApprovePapers: ${_canApprovePapers()}');
+
+      if (!_canApprovePapers() || userId == null) {
+        print('DEBUG Repo: Permission check failed');
+        return Left(PermissionFailure('Admin privileges required'));
+      }
+
+      final paperModel = await _cloudDataSource.getPaperById(id);
+      print('DEBUG Repo: paperModel status: ${paperModel?.status}');
+      if (paperModel == null) {
+        print('DEBUG Repo: Paper not found');
+        return Left(NotFoundFailure('Paper not found'));
+      }
+
+      if (!paperModel.status.isSubmitted && !paperModel.status.isApproved) {
+        print('DEBUG Repo: Paper status validation failed');
+        return Left(ValidationFailure('Only submitted or approved papers can be marked as spare'));
+      }
+
+      print('DEBUG Repo: Calling updatePaperStatus with status: ${PaperStatus.spare.value}');
+      final model = await _cloudDataSource.updatePaperStatus(
+        id,
+        PaperStatus.spare.value,
+        reviewerId: userId,
+      );
+
+      print('DEBUG Repo: Paper updated successfully, new status: ${model.status}');
+      _logger.info('Paper marked as spare', category: LogCategory.paper, context: {
+        'paperId': id,
+        'title': model.title,
+      });
+
+      return Right(model.toEntity());
+    } catch (e, stackTrace) {
+      print('DEBUG Repo: Exception caught: $e');
+      print('DEBUG Repo: StackTrace: $stackTrace');
+      _logger.error('Failed to mark paper as spare', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      return Left(ServerFailure('Failed to mark paper as spare: ${e.toString()}'));
     }
   }
 

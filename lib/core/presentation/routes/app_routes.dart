@@ -34,6 +34,7 @@ class AppRoutes {
 
   // Office staff routes
   static const String officeStaffDashboard = '/office/dashboard';
+  static const String officeStaffPdfPreview = '/office/pdf-preview';
 
   // Teacher Assignment routes
   static const String teacherAssignments = '/settings/teacher-assignments';
@@ -54,6 +55,7 @@ class AppRoutes {
   static String questionPaperEditWithId(String id) => '$questionPaperEdit/$id';
   static String questionPaperCreateWithDraftId(String id) => '$questionPaperCreate/$id';
   static String adminReviewWithId(String id) => '$adminReview/$id';
+  static String officeStaffPdfPreviewWithId(String id) => '$officeStaffPdfPreview/$id';
 }
 
 /// Route parameters used in dynamic routes

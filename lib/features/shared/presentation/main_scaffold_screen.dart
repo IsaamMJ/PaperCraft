@@ -20,14 +20,18 @@ class MainScaffoldPage extends StatefulWidget {
   final UserStateService userStateService;
   final List<Widget> adminPages;
   final List<Widget> teacherPages;
+  final List<Widget> officeStaffPages;
   final bool isReviewer;
+  final bool isOfficeStaff;
 
   const MainScaffoldPage({
     super.key,
     required this.userStateService,
     required this.adminPages,
     required this.teacherPages,
+    required this.officeStaffPages,
     this.isReviewer = false,
+    this.isOfficeStaff = false,
   });
 
   @override
@@ -90,9 +94,12 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
     _userStateSubscription = widget.userStateService.addListener(() {
       if (mounted) {
         final newAdminStatus = widget.userStateService.isAdmin;
-        if (_isAdmin != newAdminStatus) {
+        final isReviewer = _isReviewerRole();
+        final effectiveAdminStatus = newAdminStatus || isReviewer;
+
+        if (_isAdmin != effectiveAdminStatus) {
           setState(() {
-            _isAdmin = newAdminStatus;
+            _isAdmin = effectiveAdminStatus;
             _selectedIndex = _getDefaultScreenIndex();
           });
         }
@@ -309,22 +316,41 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   List<Widget> _getPages() {
+    if (widget.isOfficeStaff) {
+      return widget.officeStaffPages;
+    }
     return _isAdmin ? widget.adminPages : widget.teacherPages;
   }
 
   List<_NavItem> _getNavigationItems() {
-    if (_isAdmin) {
+    if (widget.isOfficeStaff) {
+      // Office staff navigation: Only office dashboard (single page)
+      return [
+        _NavItem(
+          icon: Icons.folder_open_outlined,
+          activeIcon: Icons.folder_open,
+          label: 'Papers',
+          semanticLabel: 'Approved papers dashboard',
+        ),
+      ];
+    } else if (_isAdmin) {
       // Check if this is a reviewer user
       final isReviewer = widget.isReviewer;
 
       if (isReviewer) {
-        // Reviewer navigation: Only Papers for Review (Admin Dashboard)
+        // Reviewer navigation: Papers for Review + Exams Management
         return [
           _NavItem(
             icon: Icons.checklist_outlined,
             activeIcon: Icons.checklist,
-            label: 'Review',
+            label: 'Papers',
             semanticLabel: 'Papers for review',
+          ),
+          _NavItem(
+            icon: Icons.calendar_today_outlined,
+            activeIcon: Icons.calendar_today,
+            label: 'Exams',
+            semanticLabel: 'Exam timetables',
           ),
         ];
       } else {
@@ -902,9 +928,19 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   String _getPageTitle(int index) {
-    if (widget.isReviewer) {
-      // Reviewer dashboard title
-      return 'Papers for Review';
+    if (widget.isOfficeStaff) {
+      // Office staff dashboard
+      switch (index) {
+        case 0: return 'Approved Papers';
+        default: return 'Papercraft';
+      }
+    } else if (widget.isReviewer) {
+      // Reviewer dashboard: Papers and Exams tabs
+      switch (index) {
+        case 0: return 'Papers to Review';
+        case 1: return 'Exam Timetables';
+        default: return 'Papercraft';
+      }
     } else if (_isAdmin) {
       switch (index) {
         case 0: return 'Admin Dashboard';
@@ -924,9 +960,19 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   // Add this helper method to get subtitles
   String _getPageSubtitle(int index) {
-    if (widget.isReviewer) {
-      // Reviewer subtitle
-      return 'Review and approve question papers';
+    if (widget.isOfficeStaff) {
+      // Office staff subtitles
+      switch (index) {
+        case 0: return 'View approved papers for upcoming exams';
+        default: return '';
+      }
+    } else if (widget.isReviewer) {
+      // Reviewer subtitles: Papers and Exams tabs
+      switch (index) {
+        case 0: return 'Review and approve question papers';
+        case 1: return 'View exam schedules';
+        default: return '';
+      }
     } else if (_isAdmin) {
       switch (index) {
         case 0: return 'Manage papers and users';

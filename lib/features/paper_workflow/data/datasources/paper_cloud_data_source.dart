@@ -53,6 +53,14 @@ abstract class PaperCloudDataSource {
     required String title,
     required String section,
   });
+  Future<List<QuestionPaperModel>> getDuplicatePapers({
+    required String tenantId,
+    required String subjectId,
+    required String gradeId,
+    required String academicYear,
+    required String excludePaperId,
+  });
+  Future<void> markPapersAsSpare(List<String> paperIds);
 }
 
 class PaperCloudDataSourceImpl implements PaperCloudDataSource {
@@ -163,7 +171,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       // Use direct Supabase query to include subject name joins
       var queryBuilder = Supabase.instance.client
           .from(_tableName)
-          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
           .eq('tenant_id', tenantId)
           .eq('status', 'approved')
           .order('reviewed_at', ascending: false);
@@ -206,7 +214,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
 
       // Build query builder with all filters and subject joins
       var queryBuilder = Supabase.instance.client.from(_tableName).select(
-          'id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)');
+          'id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)');
 
       queryBuilder = queryBuilder
           .eq('tenant_id', tenantId)
@@ -394,7 +402,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       // Build query with subject joins
       var queryBuilder = Supabase.instance.client
           .from(_tableName)
-          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
+          .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
           .eq('tenant_id', tenantId);
 
       if (status != null && status.isNotEmpty) {
@@ -698,6 +706,74 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
       }
     } catch (e, _) {
       _logger.paperError('delete_paper', id, e);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<QuestionPaperModel>> getDuplicatePapers({
+    required String tenantId,
+    required String subjectId,
+    required String gradeId,
+    required String academicYear,
+    required String excludePaperId,
+  }) async {
+    try {
+      _logger.info('Getting duplicate papers', category: LogCategory.paper, context: {
+        'tenantId': tenantId,
+        'subjectId': subjectId,
+        'gradeId': gradeId,
+        'academicYear': academicYear,
+        'excludePaperId': excludePaperId,
+      });
+
+      final response = await Supabase.instance.client
+          .from(_tableName)
+          .select()
+          .eq('tenant_id', tenantId)
+          .eq('subject_id', subjectId)
+          .eq('grade_id', gradeId)
+          .eq('academic_year', academicYear)
+          .eq('status', 'submitted')
+          .neq('id', excludePaperId);
+
+      final papers = (response as List)
+          .map((json) => QuestionPaperModel.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+
+      _logger.info('Found ${papers.length} duplicate papers', category: LogCategory.paper);
+      return papers;
+    } catch (e, stackTrace) {
+      _logger.error('Failed to get duplicate papers', category: LogCategory.paper, error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> markPapersAsSpare(List<String> paperIds) async {
+    try {
+      if (paperIds.isEmpty) {
+        return;
+      }
+
+      _logger.info('Marking papers as spare', category: LogCategory.paper, context: {
+        'paperCount': paperIds.length,
+        'paperIds': paperIds,
+      });
+
+      for (final paperId in paperIds) {
+        await Supabase.instance.client
+            .from(_tableName)
+            .update({
+              'status': 'spare',
+              'reviewed_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', paperId);
+      }
+
+      _logger.info('Successfully marked papers as spare', category: LogCategory.paper);
+    } catch (e, stackTrace) {
+      _logger.error('Failed to mark papers as spare', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       rethrow;
     }
   }

@@ -28,6 +28,8 @@ class SharedBlocProvider extends StatelessWidget {
       getUserSubmissionsUseCase: sl(),
       approvePaperUseCase: sl(),
       rejectPaperUseCase: sl(),
+      restoreSparePaperUseCase: sl(),
+      questionPaperRepository: sl(),
       getPapersForReviewUseCase: sl(),
       deleteDraftUseCase: sl(),
       pullForEditingUseCase: sl(),
