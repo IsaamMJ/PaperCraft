@@ -490,14 +490,22 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   }
 
   Future<void> _onLoadAllPapersForAdmin(LoadAllPapersForAdmin event, Emitter<QuestionPaperState> emit) async {
+    print('[DEBUG BLOC] _onLoadAllPapersForAdmin started');
+    emit(const QuestionPaperLoading(message: 'Loading papers...'));
+
     final result = await _getAllPapersForAdminUseCase();
 
     await result.fold(
-          (failure) async => emit(QuestionPaperError(failure.message)),
+          (failure) async {
+        print('[DEBUG BLOC] Error loading papers: ${failure.message}');
+        emit(QuestionPaperError(failure.message));
+      },
           (allPapers) async {
+        print('[DEBUG BLOC] Got ${allPapers.length} papers, enriching...');
         // Enrich papers with display names
         final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(allPapers);
 
+        print('[DEBUG BLOC] Emitting loaded state with ${enrichedPapers.length} papers');
         if (state is QuestionPaperLoaded) {
           final currentState = state as QuestionPaperLoaded;
           emit(currentState.copyWith(allPapersForAdmin: enrichedPapers));
