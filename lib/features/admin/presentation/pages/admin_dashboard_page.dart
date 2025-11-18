@@ -236,11 +236,25 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildPapersView(List<QuestionPaperEntity> allPapers) {
+    var papers = allPapers;
+
+    // Filter papers by reviewer's assigned grades if user is a reviewer
+    final userStateService = sl<UserStateService>();
+    if (userStateService.isReviewer) {
+      final currentUser = userStateService.currentUser;
+      if (currentUser != null) {
+        print('[DEBUG ADMIN] Filtering papers for reviewer ${currentUser.displayName}');
+        // TODO: Implement grade filtering once reviewer_grade_assignments repository is integrated
+        // For now, show all papers to reviewers - they'll see all papers to review
+        // Future: Fetch reviewer assignment and filter by grade range
+      }
+    }
+
     // Separate assigned and unassigned papers
     final assignedPapers = <String, List<QuestionPaperEntity>>{};
     final unassignedPapers = <QuestionPaperEntity>[];
 
-    for (var paper in allPapers) {
+    for (var paper in papers) {
       if (paper.examName != null && paper.examName!.isNotEmpty) {
         assignedPapers.putIfAbsent(paper.examName!, () => []).add(paper);
       } else {
