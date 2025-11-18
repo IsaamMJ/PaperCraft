@@ -4,6 +4,7 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../authentication/domain/entities/user_entity.dart';
 import '../../../authentication/domain/entities/user_role.dart';
+import '../../../authentication/domain/entities/reviewer_assignment_entity.dart';
 import '../../../paper_workflow/presentation/bloc/reviewer_assignment_bloc.dart';
 
 class ReviewerGradeAssignmentWidget extends StatefulWidget {
@@ -111,12 +112,14 @@ class _ReviewerGradeAssignmentWidgetState
                       itemCount: reviewers.length,
                       itemBuilder: (context, index) {
                         final reviewer = reviewers[index];
-                        final assignment = state.assignments.isNotEmpty
-                            ? state.assignments.firstWhere(
-                              (a) => a.reviewerId == reviewer.id,
-                              orElse: () => null,
-                            ) as ReviewerAssignmentEntity?
-                            : null;
+                        ReviewerAssignmentEntity? assignment;
+                        try {
+                          assignment = state.assignments.firstWhere(
+                            (a) => a.reviewerId == reviewer.id,
+                          );
+                        } catch (e) {
+                          assignment = null;
+                        }
 
                         return _buildReviewerCard(reviewer, assignment);
                       },

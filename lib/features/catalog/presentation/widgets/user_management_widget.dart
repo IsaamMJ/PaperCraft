@@ -387,7 +387,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
       case UserRole.primary_reviewer:
         return Icons.verified_user;
       case UserRole.secondary_reviewer:
-        return Icons.person_check;
+        return Icons.assignment_ind;
       case UserRole.student:
         return Icons.person;
       case UserRole.user:
