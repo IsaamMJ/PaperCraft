@@ -31,13 +31,22 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
   Widget build(BuildContext context) {
     final userStateService = GetIt.instance<UserStateService>();
     final tenantId = userStateService.currentTenantId ?? '';
+    final isReviewer = userStateService.isReviewer;
 
-    final adminPages = [
-      SharedBlocProvider(child: const AdminDashboardPage()),
-      SharedBlocProvider(child: const QuestionBankPage()),
-      ExamsDashboardPage(tenantId: tenantId),
-      SharedBlocProvider(child: const SettingsPage()),
-    ];
+    print('[DEBUG SCAFFOLD WRAPPER] Building scaffold - isReviewer: $isReviewer');
+
+    // Reviewers only see papers for review (admin dashboard)
+    // Admins see full admin pages
+    final adminPages = isReviewer
+        ? [
+            SharedBlocProvider(child: const AdminDashboardPage()),
+          ]
+        : [
+            SharedBlocProvider(child: const AdminDashboardPage()),
+            SharedBlocProvider(child: const QuestionBankPage()),
+            ExamsDashboardPage(tenantId: tenantId),
+            SharedBlocProvider(child: const SettingsPage()),
+          ];
 
     final teacherPages = [
       SharedBlocProvider(child: const HomePage()),
@@ -48,6 +57,7 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
       userStateService: userStateService,
       adminPages: adminPages,
       teacherPages: teacherPages,
+      isReviewer: isReviewer,
     );
   }
 }

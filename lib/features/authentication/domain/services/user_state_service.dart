@@ -83,6 +83,14 @@ class UserStateService extends ChangeNotifier {
   /// Quick teacher check
   bool get isTeacher => currentRole == UserRole.teacher;
 
+  /// Quick reviewer check (primary or secondary)
+  bool get isReviewer =>
+      currentRole == UserRole.primary_reviewer ||
+      currentRole == UserRole.secondary_reviewer;
+
+  /// Check if user is admin or reviewer (can access admin features)
+  bool get isAdminOrReviewer => isAdmin || isReviewer;
+
   // =============== TENANT STATE GETTERS ===============
 
   /// Current tenant information

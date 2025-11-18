@@ -31,8 +31,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   void _checkAdminAndLoad() {
-    final isAdmin = sl<UserStateService>().isAdmin;
-    if (!isAdmin) {
+    final userStateService = sl<UserStateService>();
+    final isAdminOrReviewer = userStateService.isAdminOrReviewer;
+
+    print('[DEBUG ADMIN DASHBOARD] Checking access - isAdmin: ${userStateService.isAdmin}, isReviewer: ${userStateService.isReviewer}');
+
+    if (!isAdminOrReviewer) {
+      print('[DEBUG ADMIN DASHBOARD] Access denied - not admin or reviewer');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.go('/home');
@@ -40,11 +45,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         }
       });
     } else {
+      print('[DEBUG ADMIN DASHBOARD] Access granted - loading papers');
       _loadInitialData();
     }
   }
 
   void _loadInitialData() {
+    print('[DEBUG ADMIN DASHBOARD] Loading all papers for admin/reviewer');
     context.read<QuestionPaperBloc>().add(const LoadAllPapersForAdmin());
   }
 

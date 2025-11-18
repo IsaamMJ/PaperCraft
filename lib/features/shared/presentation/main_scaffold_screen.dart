@@ -20,12 +20,14 @@ class MainScaffoldPage extends StatefulWidget {
   final UserStateService userStateService;
   final List<Widget> adminPages;
   final List<Widget> teacherPages;
+  final bool isReviewer;
 
   const MainScaffoldPage({
     super.key,
     required this.userStateService,
     required this.adminPages,
     required this.teacherPages,
+    this.isReviewer = false,
   });
 
   @override
@@ -312,33 +314,48 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<_NavItem> _getNavigationItems() {
     if (_isAdmin) {
-      // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings
-      return [
-        _NavItem(
-          icon: Icons.admin_panel_settings_outlined,
-          activeIcon: Icons.admin_panel_settings,
-          label: 'Admin',
-          semanticLabel: 'Admin dashboard',
-        ),
-        _NavItem(
-          icon: Icons.library_books_outlined,
-          activeIcon: Icons.library_books,
-          label: 'Bank',
-          semanticLabel: 'Question bank',
-        ),
-        _NavItem(
-          icon: Icons.calendar_today_outlined,
-          activeIcon: Icons.calendar_today,
-          label: 'Exams',
-          semanticLabel: 'Exam timetables',
-        ),
-        _NavItem(
-          icon: Icons.settings_outlined,
-          activeIcon: Icons.settings,
-          label: 'Settings',
-          semanticLabel: 'Settings and preferences',
-        ),
-      ];
+      // Check if this is a reviewer user
+      final isReviewer = widget.isReviewer;
+
+      if (isReviewer) {
+        // Reviewer navigation: Only Papers for Review (Admin Dashboard)
+        return [
+          _NavItem(
+            icon: Icons.checklist_outlined,
+            activeIcon: Icons.checklist,
+            label: 'Review',
+            semanticLabel: 'Papers for review',
+          ),
+        ];
+      } else {
+        // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings
+        return [
+          _NavItem(
+            icon: Icons.admin_panel_settings_outlined,
+            activeIcon: Icons.admin_panel_settings,
+            label: 'Admin',
+            semanticLabel: 'Admin dashboard',
+          ),
+          _NavItem(
+            icon: Icons.library_books_outlined,
+            activeIcon: Icons.library_books,
+            label: 'Bank',
+            semanticLabel: 'Question bank',
+          ),
+          _NavItem(
+            icon: Icons.calendar_today_outlined,
+            activeIcon: Icons.calendar_today,
+            label: 'Exams',
+            semanticLabel: 'Exam timetables',
+          ),
+          _NavItem(
+            icon: Icons.settings_outlined,
+            activeIcon: Icons.settings,
+            label: 'Settings',
+            semanticLabel: 'Settings and preferences',
+          ),
+        ];
+      }
     } else {
       // Teacher navigation: Home, Question Bank ONLY (no Settings)
       return [
