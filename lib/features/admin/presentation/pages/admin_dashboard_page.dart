@@ -147,19 +147,25 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         },
         child: BlocBuilder<QuestionPaperBloc, QuestionPaperState>(
           builder: (context, state) {
+            print('[DEBUG ADMIN DASHBOARD] Current state: ${state.runtimeType}');
+
             if (state is QuestionPaperLoading && !_isRefreshing) {
+              print('[DEBUG ADMIN DASHBOARD] State: Loading');
               return _buildLoading();
             }
             if (state is QuestionPaperError) {
+              print('[DEBUG ADMIN DASHBOARD] State: Error - ${state.message}');
               return _buildError(state.message);
             }
             if (state is QuestionPaperLoaded) {
               final papers = state.allPapersForAdmin;
+              print('[DEBUG ADMIN DASHBOARD] State: Loaded - ${papers.length} papers');
               if (papers.isEmpty) {
                 return _buildEmptyState();
               }
               return _buildPapersView(papers);
             }
+            print('[DEBUG ADMIN DASHBOARD] State: Default (empty state)');
             return _buildEmptyState();
           },
         ),
