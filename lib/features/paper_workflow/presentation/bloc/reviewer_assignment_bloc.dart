@@ -153,7 +153,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     CreateReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Creating reviewer assignment');
+    print('[DEBUG BLOC] Creating reviewer assignment: reviewerId=${event.reviewerId}, grades=${event.gradeMin}-${event.gradeMax}');
     emit(const ReviewerAssignmentLoading(message: 'Creating assignment...'));
 
     final result = await _repository.createReviewerAssignment(
@@ -169,7 +169,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
         emit(ReviewerAssignmentError(failure.message));
       },
       (_) {
-        print('[DEBUG BLOC] Assignment created successfully');
+        print('[DEBUG BLOC] Assignment created successfully, reloading...');
         emit(const ReviewerAssignmentSuccess('Assignment created successfully'));
         add(LoadReviewerAssignments(event.tenantId));
       },
@@ -180,7 +180,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     UpdateReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Updating reviewer assignment');
+    print('[DEBUG BLOC] Updating reviewer assignment: assignmentId=${event.assignmentId}, grades=${event.gradeMin}-${event.gradeMax}');
     emit(const ReviewerAssignmentLoading(message: 'Updating assignment...'));
 
     final result = await _repository.updateReviewerAssignment(
@@ -205,7 +205,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     DeleteReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Deleting reviewer assignment');
+    print('[DEBUG BLOC] Deleting reviewer assignment: assignmentId=${event.assignmentId}');
     emit(const ReviewerAssignmentLoading(message: 'Deleting assignment...'));
 
     final result = await _repository.deleteReviewerAssignment(event.assignmentId);

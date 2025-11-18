@@ -27,6 +27,7 @@ class _ReviewerGradeAssignmentWidgetState
   @override
   void initState() {
     super.initState();
+    print('[DEBUG WIDGET] ReviewerGradeAssignmentWidget initialized for tenant: ${widget.tenantId}');
     context.read<ReviewerAssignmentBloc>().add(LoadReviewerAssignments(widget.tenantId));
   }
 
@@ -267,7 +268,10 @@ class _ReviewerGradeAssignmentWidgetState
               final gradeMin = int.tryParse(minController.text) ?? 1;
               final gradeMax = int.tryParse(maxController.text) ?? 12;
 
+              print('[DEBUG WIDGET] Dialog save clicked: reviewer=${reviewer.displayName}, grades=$gradeMin-$gradeMax, isCreate=${assignment == null}');
+
               if (gradeMin < 1 || gradeMax > 12 || gradeMin > gradeMax) {
+                print('[DEBUG WIDGET] Invalid grade range: $gradeMin-$gradeMax');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Invalid grade range'),
@@ -280,6 +284,7 @@ class _ReviewerGradeAssignmentWidgetState
               Navigator.pop(context);
 
               if (assignment == null) {
+                print('[DEBUG WIDGET] Creating assignment for reviewer: ${reviewer.id}');
                 context.read<ReviewerAssignmentBloc>().add(
                       CreateReviewerAssignment(
                         tenantId: widget.tenantId,
@@ -289,6 +294,7 @@ class _ReviewerGradeAssignmentWidgetState
                       ),
                     );
               } else {
+                print('[DEBUG WIDGET] Updating assignment: ${assignment.id}');
                 context.read<ReviewerAssignmentBloc>().add(
                       UpdateReviewerAssignment(
                         assignmentId: assignment.id,
@@ -310,13 +316,19 @@ class _ReviewerGradeAssignmentWidgetState
   }
 
   void _handleStateChanges(BuildContext context, ReviewerAssignmentState state) {
+    print('[DEBUG WIDGET] State changed: ${state.runtimeType}');
     if (state is ReviewerAssignmentSuccess) {
+      print('[DEBUG WIDGET] Success: ${state.message}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(state.message),
           backgroundColor: AppColors.success,
         ),
       );
+    } else if (state is ReviewerAssignmentError) {
+      print('[DEBUG WIDGET] Error: ${state.message}');
+    } else if (state is ReviewerAssignmentLoading) {
+      print('[DEBUG WIDGET] Loading: ${state.message}');
     }
   }
 
