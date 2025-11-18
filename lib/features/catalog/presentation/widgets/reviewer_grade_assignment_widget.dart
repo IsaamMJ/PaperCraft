@@ -210,7 +210,10 @@ class _ReviewerGradeAssignmentWidgetState
           ],
         ),
         trailing: ElevatedButton.icon(
-          onPressed: () => _showGradeAssignmentDialog(reviewer, assignment),
+          onPressed: () {
+            final bloc = context.read<ReviewerAssignmentBloc>();
+            _showGradeAssignmentDialog(reviewer, assignment, bloc);
+          },
           icon: const Icon(Icons.edit, size: 16),
           label: Text(assignment == null ? 'Assign' : 'Edit'),
           style: ElevatedButton.styleFrom(
@@ -224,7 +227,7 @@ class _ReviewerGradeAssignmentWidgetState
     );
   }
 
-  void _showGradeAssignmentDialog(UserEntity reviewer, dynamic assignment) {
+  void _showGradeAssignmentDialog(UserEntity reviewer, dynamic assignment, ReviewerAssignmentBloc bloc) {
     final minController = TextEditingController(
       text: assignment?.gradeMin.toString() ?? '1',
     );
@@ -285,23 +288,23 @@ class _ReviewerGradeAssignmentWidgetState
 
               if (assignment == null) {
                 print('[DEBUG WIDGET] Creating assignment for reviewer: ${reviewer.id}');
-                context.read<ReviewerAssignmentBloc>().add(
-                      CreateReviewerAssignment(
-                        tenantId: widget.tenantId,
-                        reviewerId: reviewer.id,
-                        gradeMin: gradeMin,
-                        gradeMax: gradeMax,
-                      ),
-                    );
+                bloc.add(
+                  CreateReviewerAssignment(
+                    tenantId: widget.tenantId,
+                    reviewerId: reviewer.id,
+                    gradeMin: gradeMin,
+                    gradeMax: gradeMax,
+                  ),
+                );
               } else {
                 print('[DEBUG WIDGET] Updating assignment: ${assignment.id}');
-                context.read<ReviewerAssignmentBloc>().add(
-                      UpdateReviewerAssignment(
-                        assignmentId: assignment.id,
-                        gradeMin: gradeMin,
-                        gradeMax: gradeMax,
-                      ),
-                    );
+                bloc.add(
+                  UpdateReviewerAssignment(
+                    assignmentId: assignment.id,
+                    gradeMin: gradeMin,
+                    gradeMax: gradeMax,
+                  ),
+                );
               }
             },
             style: ElevatedButton.styleFrom(
