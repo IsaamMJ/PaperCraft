@@ -119,6 +119,7 @@ class AppRouter {
     final authState = authBloc.state;
     final currentLocation = state.matchedLocation;
     final uri = state.uri;
+    print('[DEBUG ROUTER] _handleRedirection - currentLocation: $currentLocation, uri: $uri');
 
 
     // ✅ FIRST: Check if we're ALREADY on the auth callback page
@@ -148,6 +149,17 @@ class AppRouter {
       // Only admins should see the admin setup wizard
       if (!authState.tenantInitialized && authState.user.role.value == 'admin') {
         return AppRoutes.adminSetupWizard;
+      }
+
+      // LEVEL 1.5: Reviewer-only access (high priority)
+      // Primary and secondary reviewers ONLY have access to admin dashboard
+      // Redirect them there from any other route
+      final userRole = authState.user.role.value;
+      if ((userRole == 'primary_reviewer' || userRole == 'secondary_reviewer') &&
+          currentLocation != AppRoutes.adminDashboard &&
+          currentLocation != AppRoutes.settings) {
+        print('[DEBUG ROUTER] Reviewer user detected - redirecting to admin dashboard');
+        return AppRoutes.adminDashboard;
       }
 
       // LEVEL 2: User onboarding (only for non-admins)
@@ -294,6 +306,7 @@ class AppRouter {
         path: '${AppRoutes.questionPaperView}/:${RouteParams.id}',
         builder: (context, state) {
           final id = state.pathParameters[RouteParams.id]!;
+          print('[DEBUG ROUTER] Opening QuestionPaperDetailPage (View) with id: $id');
           return MultiBlocProvider(
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
@@ -391,6 +404,7 @@ class AppRouter {
         path: '${AppRoutes.questionPaperCreate}/:${RouteParams.id}',
         builder: (context, state) {
           final draftId = state.pathParameters[RouteParams.id]!;
+          print('[DEBUG ROUTER] Opening QuestionPaperCreatePage with draftId: $draftId');
           return MultiBlocProvider(
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),

@@ -100,18 +100,37 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   void _checkUserRole() {
     final isAdmin = widget.userStateService.isAdmin;
-    if (mounted && _isAdmin != isAdmin) {
+    // Check if user is a reviewer (primary or secondary)
+    final isReviewer = _isReviewerRole();
+
+    // Treat reviewers as admins for dashboard purposes
+    final effectiveIsAdmin = isAdmin || isReviewer;
+
+    if (mounted && _isAdmin != effectiveIsAdmin) {
       setState(() {
-        _isAdmin = isAdmin;
+        _isAdmin = effectiveIsAdmin;
         _selectedIndex = _getDefaultScreenIndex();
       });
     }
   }
 
+  bool _isReviewerRole() {
+    try {
+      final currentUser = widget.userStateService.currentUser;
+      if (currentUser != null) {
+        final role = currentUser.role.value;
+        return role == 'primary_reviewer' || role == 'secondary_reviewer';
+      }
+    } catch (e) {
+      print('[DEBUG SCAFFOLD] Error checking reviewer role: $e');
+    }
+    return false;
+  }
+
   // NEW METHOD: Get default screen index based on user role
   int _getDefaultScreenIndex() {
     if (_isAdmin) {
-      return 0; // Admin Dashboard (index 0) for admin users - now first position
+      return 0; // Admin Dashboard (index 0) for admin and reviewer users - now first position
     } else {
       return 0; // Home Page (index 0) for teacher users
     }
