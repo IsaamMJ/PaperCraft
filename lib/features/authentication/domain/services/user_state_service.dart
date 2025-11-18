@@ -351,7 +351,8 @@ class UserStateService extends ChangeNotifier {
 
   bool canApprovePapers() {
     if (!isAuthenticated) return false;
-    return currentRole == UserRole.admin;
+    // Both admins and reviewers can approve papers
+    return isAdminOrReviewer;
   }
 
   bool canEditPaper(String paperOwnerId) {
