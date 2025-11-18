@@ -361,6 +361,10 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
         return AppColors.primary;
       case UserRole.office_staff:
         return AppColors.warning;
+      case UserRole.primary_reviewer:
+        return AppColors.primary;
+      case UserRole.secondary_reviewer:
+        return AppColors.warning;
       case UserRole.student:
         return AppColors.success;
       case UserRole.user:
@@ -380,6 +384,10 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
         return Icons.school;
       case UserRole.office_staff:
         return Icons.print;
+      case UserRole.primary_reviewer:
+        return Icons.verified_user;
+      case UserRole.secondary_reviewer:
+        return Icons.person_check;
       case UserRole.student:
         return Icons.person;
       case UserRole.user:

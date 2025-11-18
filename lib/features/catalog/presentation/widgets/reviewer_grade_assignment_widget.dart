@@ -111,11 +111,12 @@ class _ReviewerGradeAssignmentWidgetState
                       itemCount: reviewers.length,
                       itemBuilder: (context, index) {
                         final reviewer = reviewers[index];
-                        final assignment = state.assignments
-                            .firstWhere(
+                        final assignment = state.assignments.isNotEmpty
+                            ? state.assignments.firstWhere(
                               (a) => a.reviewerId == reviewer.id,
                               orElse: () => null,
-                            );
+                            ) as ReviewerAssignmentEntity?
+                            : null;
 
                         return _buildReviewerCard(reviewer, assignment);
                       },
