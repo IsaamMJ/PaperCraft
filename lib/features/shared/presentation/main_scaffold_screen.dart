@@ -403,6 +403,9 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           return LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 768;
+              final hasMultiplePages = navigationItems.length > 1;
+
+              print('[DEBUG SCAFFOLD] Building - isMobile: $isMobile, pages: ${navigationItems.length}, showNav: $hasMultiplePages');
 
               return Scaffold(
                 backgroundColor: AppColors.background,
@@ -425,8 +428,9 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
                     );
                   },
                 ),
-                bottomNavigationBar: isMobile ? _buildBottomNav(navigationItems) : null,
-                drawer: !isMobile ? _buildDrawer(context, user, navigationItems) : null,
+                // Only show bottom nav or drawer if there are multiple pages
+                bottomNavigationBar: (isMobile && hasMultiplePages) ? _buildBottomNav(navigationItems) : null,
+                drawer: (!isMobile && hasMultiplePages) ? _buildDrawer(context, user, navigationItems) : null,
               );
             },
           );
@@ -898,7 +902,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
   }
 
   String _getPageTitle(int index) {
-    if (_isAdmin) {
+    if (widget.isReviewer) {
+      // Reviewer dashboard title
+      return 'Papers for Review';
+    } else if (_isAdmin) {
       switch (index) {
         case 0: return 'Admin Dashboard';
         case 1: return 'Question Bank';
@@ -917,7 +924,10 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   // Add this helper method to get subtitles
   String _getPageSubtitle(int index) {
-    if (_isAdmin) {
+    if (widget.isReviewer) {
+      // Reviewer subtitle
+      return 'Review and approve question papers';
+    } else if (_isAdmin) {
       switch (index) {
         case 0: return 'Manage papers and users';
         case 1: return 'Approved question papers';
