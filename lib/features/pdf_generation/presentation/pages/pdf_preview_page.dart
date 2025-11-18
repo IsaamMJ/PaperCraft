@@ -185,12 +185,17 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (widget.onRegeneratePdf != null) _buildLayoutControls(),
-          _buildPdfViewer(),
-          _buildBottomActionBar(context),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Column(
+            children: [
+              if (widget.onRegeneratePdf != null) _buildLayoutControls(),
+              _buildPdfViewer(),
+              _buildBottomActionBar(context),
+            ],
+          ),
+        ),
       ),
     );
   }
