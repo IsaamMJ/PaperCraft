@@ -3,6 +3,8 @@ enum UserRole {
   director,
   teacher,
   office_staff,
+  primary_reviewer,
+  secondary_reviewer,
   student,
   user,
   blocked;
@@ -17,6 +19,10 @@ enum UserRole {
         return UserRole.teacher;
       case 'office_staff':
         return UserRole.office_staff;
+      case 'primary_reviewer':
+        return UserRole.primary_reviewer;
+      case 'secondary_reviewer':
+        return UserRole.secondary_reviewer;
       case 'student':
         return UserRole.student;
       case 'user':
@@ -38,6 +44,10 @@ enum UserRole {
         return 'teacher';
       case UserRole.office_staff:
         return 'office_staff';
+      case UserRole.primary_reviewer:
+        return 'primary_reviewer';
+      case UserRole.secondary_reviewer:
+        return 'secondary_reviewer';
       case UserRole.student:
         return 'student';
       case UserRole.user:
@@ -57,6 +67,10 @@ enum UserRole {
         return 'Teacher';
       case UserRole.office_staff:
         return 'Office Staff';
+      case UserRole.primary_reviewer:
+        return 'Primary Reviewer';
+      case UserRole.secondary_reviewer:
+        return 'Secondary Reviewer';
       case UserRole.student:
         return 'Student';
       case UserRole.user:

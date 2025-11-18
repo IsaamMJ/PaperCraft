@@ -64,6 +64,13 @@ import '../../../features/assignments/presentation/bloc/teacher_preferences_bloc
 import '../../../features/assignments/data/datasources/teacher_subject_remote_datasource.dart';
 import '../../../features/assignments/data/repositories/teacher_subject_repository_impl.dart';
 import '../../../features/assignments/domain/repositories/teacher_subject_repository.dart';
+
+// Reviewer assignment feature imports
+import '../../../features/authentication/data/datasources/reviewer_assignment_data_source.dart';
+import '../../../features/authentication/data/repositories/reviewer_assignment_repository_impl.dart';
+import '../../../features/authentication/domain/repositories/reviewer_assignment_repository.dart';
+import '../../../features/paper_workflow/presentation/bloc/reviewer_assignment_bloc.dart';
+
 import '../../../features/timetable/presentation/bloc/exam_timetable_bloc.dart';
 import '../../../features/timetable/presentation/bloc/exam_timetable_wizard_bloc.dart';
 import '../../../features/timetable/data/datasources/exam_timetable_remote_data_source.dart';
@@ -219,6 +226,7 @@ Future<void> setupDependencies() async {
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
     await _AssignmentModule.setup();
+    await _ReviewerManagementModule.setup();
     await _NotificationModule.setup();
     await _AdminModule.setup();
 
@@ -944,6 +952,76 @@ class _AssignmentModule {
     );
 
     sl<ILogger>().debug('TeacherAssignmentBloc registered successfully', category: LogCategory.system);
+  }
+}
+
+/// Reviewer management feature dependencies
+class _ReviewerManagementModule {
+  static Future<void> setup() async {
+    try {
+      sl<ILogger>().debug('Initializing reviewer management module', category: LogCategory.system);
+
+      _setupDataSources();
+      _setupRepositories();
+      _setupBlocs();
+
+      sl<ILogger>().info(
+        'Reviewer management module initialized successfully',
+        category: LogCategory.system,
+        context: {
+          'features': ['reviewer_grade_assignments'],
+          'blocsRegistered': 1,
+          'repositoriesRegistered': 1,
+          'dataSourcesRegistered': 1,
+          'platform': PlatformUtils.platformName,
+        },
+      );
+    } catch (e, stackTrace) {
+      sl<ILogger>().error(
+        'Reviewer management module initialization failed',
+        error: e,
+        stackTrace: stackTrace,
+        category: LogCategory.system,
+        context: {
+          'step': 'reviewer_management_setup',
+          'platform': PlatformUtils.platformName,
+        },
+      );
+      rethrow;
+    }
+  }
+
+  static void _setupDataSources() {
+    sl<ILogger>().debug('Setting up reviewer management data sources', category: LogCategory.system);
+
+    sl.registerLazySingleton<ReviewerAssignmentDataSource>(
+      () => ReviewerAssignmentDataSourceImpl(
+        sl<ApiClient>(),
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupRepositories() {
+    sl<ILogger>().debug('Setting up reviewer management repositories', category: LogCategory.system);
+
+    sl.registerLazySingleton<ReviewerAssignmentRepository>(
+      () => ReviewerAssignmentRepositoryImpl(
+        sl<ReviewerAssignmentDataSource>(),
+        sl<ILogger>(),
+      ),
+    );
+  }
+
+  static void _setupBlocs() {
+    sl<ILogger>().debug('Setting up reviewer management BLoCs', category: LogCategory.system);
+
+    // Register as factory so each page gets its own instance
+    sl.registerFactory<ReviewerAssignmentBloc>(
+      () => ReviewerAssignmentBloc(),
+    );
+
+    sl<ILogger>().debug('ReviewerAssignmentBloc registered successfully', category: LogCategory.system);
   }
 }
 

@@ -161,7 +161,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
                 ),
                 SizedBox(height: UIConstants.spacing4),
                 Text(
-                  'Manage users within your tenant. You can change roles, activate/deactivate accounts, and remove users.',
+                  'Manage users within your tenant. You can change roles for different access levels.',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -260,47 +260,29 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
           ),
         ],
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-      PopupMenuButton<UserRole>(
-      icon: Icon(
-        Icons.admin_panel_settings,
-        color: AppColors.primary,
-      ),
-      tooltip: 'Change role',
-      onSelected: (newRole) => _showRoleChangeDialog(user, newRole),
-      itemBuilder: (context) => UserRole.values
-          .where((role) => role != user.role && role != UserRole.blocked)
-          .map((role) => PopupMenuItem(
-        value: role,
-        child: Row(
-          children: [
-            Icon(_getRoleIcon(role), size: 18),
-            const SizedBox(width: 8),
-            Text(role.displayName),
-          ],
+      trailing: PopupMenuButton<UserRole>(
+        icon: Icon(
+          Icons.admin_panel_settings,
+          color: AppColors.primary,
         ),
-      ))
-          .toList(),
-    ),
-    IconButton(
-            onPressed: () => _showStatusToggleDialog(user),
-            icon: Icon(
-              user.isActive ? Icons.toggle_on : Icons.toggle_off,
-              color: user.isActive ? AppColors.success : AppColors.textTertiary,
-            ),
-            tooltip: user.isActive ? 'Deactivate user' : 'Activate user',
-          ),
-
-          // Delete button (only for non-admin users)
-          if (user.role != UserRole.admin)
-            IconButton(
-              onPressed: () => _showDeleteDialog(user),
-              icon: Icon(Icons.delete, color: AppColors.error),
-              tooltip: 'Delete user',
-            ),
-        ],
+        tooltip: 'Change role',
+        onSelected: (newRole) {
+          final bloc = context.read<UserManagementBloc>();
+          _showRoleChangeDialog(user, newRole, bloc);
+        },
+        itemBuilder: (context) => UserRole.values
+            .where((role) => role != user.role && role != UserRole.blocked)
+            .map((role) => PopupMenuItem(
+              value: role,
+              child: Row(
+                children: [
+                  Icon(_getRoleIcon(role), size: 18),
+                  const SizedBox(width: 8),
+                  Text(role.displayName),
+                ],
+              ),
+            ))
+            .toList(),
       ),
       isThreeLine: true,
     );
@@ -339,7 +321,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     }
   }
 
-  void _showRoleChangeDialog(UserEntity user, UserRole newRole) {
+  void _showRoleChangeDialog(UserEntity user, UserRole newRole, UserManagementBloc bloc) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -354,7 +336,7 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                context.read<UserManagementBloc>().add(UpdateUserRole(user.id, newRole));
+                bloc.add(UpdateUserRole(user.id, newRole));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -368,75 +350,6 @@ class _UserManagementWidgetState extends State<UserManagementWidget> {
     );
   }
 
-  void _showStatusToggleDialog(UserEntity user) {
-    final action = user.isActive ? 'deactivate' : 'activate';
-    final actionCapitalized = user.isActive ? 'Deactivate' : 'Activate';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('$actionCapitalized User'),
-          content: Text('Are you sure you want to $action ${user.displayName}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.read<UserManagementBloc>().add(ToggleUserStatus(user.id, !user.isActive));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: user.isActive ? AppColors.error : AppColors.success,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(actionCapitalized),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showDeleteDialog(UserEntity user) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete User'),
-          content: Text(
-            'Are you sure you want to delete ${user.displayName}?\n\nThis action cannot be undone and will remove all their data.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Note: DeleteUser event doesn't exist in the updated bloc
-                // You'll need to implement it or remove this functionality
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('User deletion not implemented yet'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Color _getRoleColor(UserRole role) {
     switch (role) {

@@ -1,5 +1,7 @@
 // features/authentication/data/datasources/user_data_source.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/infrastructure/di/injection_container.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/user_role.dart';
@@ -40,12 +42,6 @@ class UserDataSourceImpl implements UserDataSource {
       }
 
       List<UserEntity> users = response.data?.map((model) => model.toEntity()).toList() ?? [];
-
-      // Filter to only return teachers and admins (active or inactive)
-      // This ensures all teachers in the tenant are visible for assignment management
-      users = users.where((user) {
-        return user.role.value == 'teacher' || user.role.value == 'admin';
-      }).toList();
 
       _logger.info('Users fetched successfully',
           category: LogCategory.auth,
@@ -106,15 +102,25 @@ class UserDataSourceImpl implements UserDataSource {
             'newRole': role.value,
           });
 
-      final response = await _apiClient.update(
-        table: _tableName,
-        data: {'role': role.value},
-        filters: {'id': userId},
-        fromJson: (json) => json,
-      );
+      final supabase = Supabase.instance.client;
 
-      if (!response.isSuccess) {
-        throw Exception(response.message ?? 'Failed to update user role');
+      // Use RPC function to bypass RLS
+      await supabase.rpc('update_user_role_admin', params: {
+        'user_id': userId,
+        'new_role': role.value,
+      });
+
+      // Verify it actually updated by checking after
+      final verifyResponse = await supabase
+          .from(_tableName)
+          .select()
+          .eq('id', userId)
+          .single();
+
+      final updatedRole = verifyResponse['role'];
+
+      if (updatedRole != role.value) {
+        throw Exception('Update verification failed - role in DB is $updatedRole, expected ${role.value}');
       }
 
       _logger.info('User role updated successfully',

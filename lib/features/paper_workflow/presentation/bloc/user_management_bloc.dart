@@ -112,8 +112,12 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
       final result = await _repository.getTenantUsers(tenantId);
 
       result.fold(
-            (failure) => emit(UserManagementError(failure.message)),
-            (users) => emit(UserManagementLoaded(users)),
+            (failure) {
+          emit(UserManagementError(failure.message));
+        },
+            (users) {
+          emit(UserManagementLoaded(users));
+        },
       );
     } catch (e) {
       emit(UserManagementError('Failed to load users: ${e.toString()}'));
@@ -126,7 +130,9 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     final result = await _repository.updateUserRole(event.userId, event.newRole);
 
     result.fold(
-          (failure) => emit(UserManagementError(failure.message)),
+          (failure) {
+        emit(UserManagementError(failure.message));
+      },
           (_) {
         emit(const UserManagementSuccess('User role updated successfully'));
         add(const LoadUsers()); // Reload users
