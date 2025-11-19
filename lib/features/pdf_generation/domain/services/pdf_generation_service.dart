@@ -141,24 +141,6 @@ class SimplePdfService implements IPdfGenerationService {
             allQuestionWidgets.addAll(_buildSharedWordBankWidgetForSinglePage(questions, fontSizeMultiplier, spacingMultiplier));
           }
 
-          final commonInstruction = _getCommonInstruction(questions.first.type);
-          if (commonInstruction.isNotEmpty) {
-            allQuestionWidgets.add(
-              pw.Container(
-                padding: const pw.EdgeInsets.all(2),
-                margin: pw.EdgeInsets.only(bottom: 6 * spacingMultiplier),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: pw.BorderRadius.circular(3),
-                ),
-                child: pw.Text(
-                  commonInstruction,
-                  style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, font: _regularFont),
-                ),
-              ),
-            );
-          }
-
           if (questions.isNotEmpty && questions.first.type == 'word_forms') {
             final itemsText = questions.asMap().entries.map((entry) {
               final index = entry.key;
@@ -188,7 +170,7 @@ class SimplePdfService implements IPdfGenerationService {
                 allQuestionWidgets.add(_buildSinglePageQuestion(
                   question: question,
                   questionNumber: questionNumber,
-                  showCommonText: commonInstruction.isEmpty,
+                  showCommonText: true,
                   fontSizeMultiplier: fontSizeMultiplier,
                   hideOptions: isFillBlanksSection,
                 ));
@@ -242,7 +224,7 @@ class SimplePdfService implements IPdfGenerationService {
             margin: const pw.EdgeInsets.all(15),
             build: (context) {
               return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   if (isFirstPage)
                     pw.Column(
@@ -279,7 +261,7 @@ class SimplePdfService implements IPdfGenerationService {
             margin: const pw.EdgeInsets.all(15),
             build: (context) {
               return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   _buildCompactHeaderForSinglePage(
                     schoolName: schoolName,
@@ -331,49 +313,60 @@ class SimplePdfService implements IPdfGenerationService {
     double fontSizeMultiplier = 1.0,
   }) {
     return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        pw.Center(
-          child: pw.Text(
-            schoolName,
-            style: pw.TextStyle(
-              fontSize: 16 * fontSizeMultiplier,
-              fontWeight: pw.FontWeight.bold,
-              font: _boldFont,
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          children: [
+            pw.Text(
+              schoolName,
+              style: pw.TextStyle(
+                fontSize: 16 * fontSizeMultiplier,
+                fontWeight: pw.FontWeight.bold,
+                font: _boldFont,
+              ),
+              textAlign: pw.TextAlign.center,
             ),
-          ),
-        ),
-        pw.SizedBox(height: 2),
-
-        pw.Center(
-          child: pw.Text(
-            paper.pdfTitle,
-            style: pw.TextStyle(
-              fontSize: UIConstants.fontSizeMedium * fontSizeMultiplier,
-              fontWeight: pw.FontWeight.bold,
-              font: _boldFont,
-            ),
-          ),
+          ],
         ),
         pw.SizedBox(height: 2),
 
         pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: pw.MainAxisAlignment.center,
           children: [
-            pw.Text('Subject: ${paper.subject}',
-                style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
-            if (paper.gradeNumber != null)
-              pw.Text('Class: ${paper.gradeNumber}',
-                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont))
-            else if (paper.gradeDisplayName != null)
-              pw.Text('Class: ${paper.gradeDisplayName.replaceAll('Grade ', '')}',
-                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
-            if (paper.examDate != null)
-              pw.Text('Date: ${_formatExamDate(paper.examDate!)}',
-                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
-            pw.Text('Total Marks: ${paper.totalMarks % 1 == 0 ? paper.totalMarks.toInt() : paper.totalMarks}',
-                style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+            pw.Text(
+              paper.pdfTitle,
+              style: pw.TextStyle(
+                fontSize: UIConstants.fontSizeMedium * fontSizeMultiplier,
+                fontWeight: pw.FontWeight.bold,
+                font: _boldFont,
+              ),
+              textAlign: pw.TextAlign.center,
+            ),
           ],
+        ),
+        pw.SizedBox(height: 2),
+
+        pw.Container(
+          width: double.infinity,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Subject: ${paper.subject}',
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+              if (paper.gradeNumber != null)
+                pw.Text('Class: ${paper.gradeNumber}',
+                    style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont))
+              else if (paper.gradeDisplayName != null)
+                pw.Text('Class: ${paper.gradeDisplayName.replaceAll('Grade ', '')}',
+                    style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+              if (paper.examDate != null)
+                pw.Text('Date: ${_formatExamDate(paper.examDate!)}',
+                    style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+              pw.Text('Total Marks: ${paper.totalMarks % 1 == 0 ? paper.totalMarks.toInt() : paper.totalMarks}',
+                  style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont)),
+            ],
+          ),
         ),
 
         pw.SizedBox(height: 2),
@@ -428,17 +421,18 @@ class SimplePdfService implements IPdfGenerationService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(
-          showCommonText
-              ? '$questionNumber. ${question.text}'
-              : '$questionNumber. ${_extractSpecificText(question.text, question.type)}',
-          style: pw.TextStyle(
-            fontSize: 11 * fontSizeMultiplier,
-            fontWeight: pw.FontWeight.normal,
-            font: _regularFont,
+        if (question.type != 'match_following')
+          pw.Text(
+            showCommonText
+                ? '$questionNumber. ${question.text}'
+                : '$questionNumber. ${_extractSpecificText(question.text, question.type)}',
+            style: pw.TextStyle(
+              fontSize: 11 * fontSizeMultiplier,
+              fontWeight: pw.FontWeight.normal,
+              font: _regularFont,
+            ),
           ),
-        ),
-        pw.SizedBox(height: 1),
+        if (question.type != 'match_following') pw.SizedBox(height: 1),
         if (question.type == 'match_following' && question.options != null)
           _buildMatchingPairs(question.options!, fontSizeMultiplier)
         else if (question.options != null && question.options!.isNotEmpty && !hideOptions)
@@ -522,49 +516,47 @@ class SimplePdfService implements IPdfGenerationService {
 
       List<String> leftColumn = options.sublist(0, separatorIndex);
       List<String> rightColumn = options.sublist(separatorIndex + 1);
+      int itemCount = leftColumn.length.compareTo(rightColumn.length) <= 0 ? leftColumn.length : rightColumn.length;
 
       return pw.Column(
         children: [
-          pw.Row(
-            children: [
-              pw.Expanded(
-                child: pw.Text(
-                  'Column A',
-                  style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier,
-                      fontWeight: pw.FontWeight.bold,
-                      font: _boldFont),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.SizedBox(width: 20),
-              pw.Expanded(
-                child: pw.Text(
-                  'Column B',
-                  style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier,
-                      fontWeight: pw.FontWeight.bold,
-                      font: _boldFont),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-            ],
-          ),
-          pw.SizedBox(height: 2),
           ...List.generate(
-            leftColumn.length.compareTo(rightColumn.length) <= 0 ? leftColumn.length : rightColumn.length,
-                (i) => pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 1),
+            itemCount,
+            (i) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
               child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Expanded(
+                  // Left side: Numbers and items
+                  pw.SizedBox(
+                    width: 25,
                     child: pw.Text(
-                      i < leftColumn.length ? leftColumn[i] : '',
+                      '${i + 1}.',
                       style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
                     ),
                   ),
-                  pw.SizedBox(width: 20),
+                  pw.SizedBox(width: 5),
                   pw.Expanded(
+                    flex: 1,
                     child: pw.Text(
-                      i < rightColumn.length ? rightColumn[i] : '',
+                      leftColumn[i],
+                      style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
+                    ),
+                  ),
+                  pw.SizedBox(width: 30),
+                  // Right side: Letters and options
+                  pw.SizedBox(
+                    width: 25,
+                    child: pw.Text(
+                      '${String.fromCharCode(97 + i)}.',
+                      style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
+                    ),
+                  ),
+                  pw.SizedBox(width: 5),
+                  pw.Expanded(
+                    flex: 1,
+                    child: pw.Text(
+                      rightColumn[i],
                       style: pw.TextStyle(fontSize: 11 * fontSizeMultiplier, font: _regularFont),
                     ),
                   ),
@@ -656,7 +648,7 @@ class SimplePdfService implements IPdfGenerationService {
         return pw.Text(
           '$optionLabel) $option',
           style: pw.TextStyle(
-            fontSize: 9 * fontSizeMultiplier,
+            fontSize: 10 * fontSizeMultiplier,
             font: _regularFont,
           ),
         );
@@ -699,7 +691,7 @@ class SimplePdfService implements IPdfGenerationService {
           margin: const pw.EdgeInsets.only(left: 8, bottom: 0.5),
           child: pw.Text(
             '$subLabel) ${subQuestion.text}',
-            style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, font: _regularFont),
+            style: pw.TextStyle(fontSize: 10 * fontSizeMultiplier, font: _regularFont),
           ),
         ),
       );

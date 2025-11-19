@@ -39,9 +39,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   bool _showAdvancedSettings = false;
   bool _isPrinting = false;
 
-  // Standard is now spacious: 1.1 font multiplier and 2.0 spacing multiplier
-  double _customFontMultiplier = 1.1;
-  double _customSpacingMultiplier = 2.0;
+  // Standard: 15.6pt font (1.3x multiplier) and 1.0x spacing multiplier
+  double _customFontMultiplier = 1.3;
+  double _customSpacingMultiplier = 1.0;
 
   Timer? _debounceTimer;
 
@@ -315,8 +315,8 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
                 ),
                 Slider(
                   value: _customFontMultiplier,
-                  min: 0.8,
-                  max: 1.3,
+                  min: 1.1,
+                  max: 1.5,
                   divisions: 10,
                   activeColor: AppColors.primary,
                   inactiveColor: AppColors.border,
@@ -394,7 +394,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               onPressed: _isRegenerating
                   ? null
                   : () {
-                _handleCustomSliderChange(1.1, 2.0);
+                _handleCustomSliderChange(1.3, 1.0);
               },
               icon: Icon(Icons.restart_alt_rounded, size: 16),
               label: Text('Reset to Standard'),

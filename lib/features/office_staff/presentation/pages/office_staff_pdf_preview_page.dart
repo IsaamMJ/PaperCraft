@@ -66,6 +66,8 @@ class _OfficeStaffPdfPreviewPageState extends State<OfficeStaffPdfPreviewPage> {
       final pdfBytes = await pdfService.generateStudentPdf(
         paper: state,
         schoolName: schoolName,
+        fontSizeMultiplier: 1.3,
+        spacingMultiplier: 1.0,
       );
 
       // Check if cancelled

@@ -989,6 +989,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       final pdfBytes = await pdfService.generateStudentPdf(
         paper: paper,
         schoolName: schoolName,
+        fontSizeMultiplier: 1.3,
+        spacingMultiplier: 1.0,
       );
 
       // Check if cancelled
