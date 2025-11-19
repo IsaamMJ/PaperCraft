@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
@@ -12,6 +13,7 @@ import 'package:papercraft/features/authentication/domain/usecases/auth_usecase.
 import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
 import 'package:papercraft/features/authentication/domain/entities/user_entity.dart';
 import 'package:papercraft/features/authentication/domain/entities/user_role.dart';
+import 'package:papercraft/features/authentication/domain/failures/auth_failures.dart';
 import 'package:get_it/get_it.dart';
 
 // ============================================================================
@@ -85,7 +87,7 @@ void main() {
     test('Sign in fails gracefully when network is unavailable', () async {
       // Arrange - Network error
       when(() => mockAuthUseCase.signInWithGoogle())
-          .thenAnswer((_) async => const Left(NetworkFailure('Network error')));
+          .thenAnswer((_) async => const Left(AuthFailure('Network error')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,
@@ -107,7 +109,7 @@ void main() {
     test('Session restoration fails offline with appropriate error', () async {
       // Arrange - Network unavailable during init
       when(() => mockAuthUseCase.initialize())
-          .thenAnswer((_) async => const Left(NetworkFailure('No internet')));
+          .thenAnswer((_) async => const Left(AuthFailure('No internet')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,
@@ -128,7 +130,7 @@ void main() {
     test('Sign out retry mechanism handles offline scenarios', () async {
       // Arrange
       when(() => mockAuthUseCase.signOut())
-          .thenAnswer((_) async => const Left(NetworkFailure('Offline')));
+          .thenAnswer((_) async => const Left(AuthFailure('Offline')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,
@@ -305,7 +307,7 @@ void main() {
     test('Cold start with network error still starts app', () async {
       // Arrange - Network error on cold start
       when(() => mockAuthUseCase.initialize())
-          .thenAnswer((_) async => const Left(NetworkFailure('Offline')));
+          .thenAnswer((_) async => const Left(AuthFailure('Offline')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,
@@ -327,7 +329,7 @@ void main() {
     test('User state service cleared on offline initialization failure', () async {
       // Arrange
       when(() => mockAuthUseCase.initialize())
-          .thenAnswer((_) async => const Left(NetworkFailure('No network')));
+          .thenAnswer((_) async => const Left(AuthFailure('No network')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,

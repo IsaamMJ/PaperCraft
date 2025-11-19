@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
@@ -13,6 +14,7 @@ import 'package:papercraft/features/authentication/domain/services/user_state_se
 import 'package:papercraft/features/authentication/domain/entities/user_entity.dart';
 import 'package:papercraft/features/authentication/domain/entities/auth_result_entity.dart';
 import 'package:papercraft/features/authentication/domain/entities/user_role.dart';
+import 'package:papercraft/features/authentication/domain/failures/auth_failures.dart';
 import 'package:get_it/get_it.dart';
 
 // ============================================================================
