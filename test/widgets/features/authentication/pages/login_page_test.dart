@@ -172,7 +172,8 @@ void main() {
       await tester.pumpWidget(createTestableWidget(authBloc: mockAuthBloc));
       await tester.pumpAndSettle();
 
-      expect(find.text('Papercraft'), findsOneWidget);
+      // Desktop layout has 2-column design with different hero text
+      expect(find.text('Manage Question Papers\nwith Ease'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);
       addTearDown(tester.view.reset);
     });
@@ -270,7 +271,7 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.text(AppMessages.authFailedGeneric), findsOneWidget);
       expect(find.text(errorMessage), findsOneWidget);
-      expect(find.text(AppMessages.goBack), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
 
       await stateController.close();
     });
