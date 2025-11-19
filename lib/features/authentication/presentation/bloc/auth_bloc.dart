@@ -411,6 +411,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'triggeredAt': DateTime.now().toIso8601String(),
     });
 
+    emit(const AuthLoading());
+
     try {
       // Use the new method to get user WITH initialization status
       final result = await _authUseCase.getCurrentUserWithInitStatus();

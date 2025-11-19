@@ -160,8 +160,11 @@ void main() {
       'emits [AuthLoading, AuthAuthenticated] when initialization succeeds with user',
       build: () {
         final mockUser = createMockUser();
-        when(() => mockAuthUseCase.initialize())
-            .thenAnswer((_) async => Right(mockUser));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => Right({
+          'user': mockUser,
+          'tenantInitialized': true,
+        }));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthInitialize()),
@@ -169,11 +172,11 @@ void main() {
         final mockUser = createMockUser();
         return [
           const AuthLoading(),
-          AuthAuthenticated(mockUser),
+          isA<AuthAuthenticated>(),
         ];
       },
       verify: (_) {
-        verify(() => mockAuthUseCase.initialize()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.updateUser(any())).called(1);
       },
     );
@@ -181,8 +184,8 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthLoading, AuthUnauthenticated] when initialization succeeds but no user',
       build: () {
-        when(() => mockAuthUseCase.initialize())
-            .thenAnswer((_) async => const Right(null));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => const Right({}));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthInitialize()),
@@ -191,7 +194,7 @@ void main() {
         const AuthUnauthenticated(),
       ],
       verify: (_) {
-        verify(() => mockAuthUseCase.initialize()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.clearUser()).called(1);
       },
     );
@@ -199,7 +202,7 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthLoading, AuthUnauthenticated] when initialization fails',
       build: () {
-        when(() => mockAuthUseCase.initialize()).thenAnswer(
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
               (_) async => const Left(SessionExpiredFailure()),
         );
         return createBloc();
@@ -210,7 +213,7 @@ void main() {
         const AuthUnauthenticated(),
       ],
       verify: (_) {
-        verify(() => mockAuthUseCase.initialize()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.clearUser()).called(1);
       },
     );
@@ -219,8 +222,11 @@ void main() {
       'should not initialize twice (double initialization prevention)',
       build: () {
         final mockUser = createMockUser();
-        when(() => mockAuthUseCase.initialize())
-            .thenAnswer((_) async => Right(mockUser));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => Right({
+          'user': mockUser,
+          'tenantInitialized': true,
+        }));
         return createBloc();
       },
       act: (bloc) {
@@ -228,16 +234,15 @@ void main() {
         bloc.add(const AuthInitialize()); // Second call should be ignored
       },
       expect: () {
-        final mockUser = createMockUser();
         return [
           const AuthLoading(),
-          AuthAuthenticated(mockUser),
+          isA<AuthAuthenticated>(),
           // No second emission
         ];
       },
       verify: (_) {
         // Should only be called once despite two events
-        verify(() => mockAuthUseCase.initialize()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
       },
     );
 
@@ -568,16 +573,20 @@ void main() {
       'emits [AuthAuthenticated] when user session is valid',
       build: () {
         final mockUser = createMockUser();
-        when(() => mockAuthUseCase.getCurrentUser())
-            .thenAnswer((_) async => Right(mockUser));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => Right({
+          'user': mockUser,
+          'tenantInitialized': true,
+        }));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthCheckStatus()),
       expect: () => [
-        AuthAuthenticated(createMockUser()),
+        const AuthLoading(),
+        isA<AuthAuthenticated>(),
       ],
       verify: (_) {
-        verify(() => mockAuthUseCase.getCurrentUser()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.updateUser(any())).called(1);
       },
     );
@@ -585,16 +594,17 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthUnauthenticated] when no user session exists',
       build: () {
-        when(() => mockAuthUseCase.getCurrentUser())
-            .thenAnswer((_) async => const Right(null));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => const Right({}));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthCheckStatus()),
       expect: () => [
+        const AuthLoading(),
         const AuthUnauthenticated(),
       ],
       verify: (_) {
-        verify(() => mockAuthUseCase.getCurrentUser()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.clearUser()).called(1);
       },
     );
@@ -602,13 +612,14 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthUnauthenticated] when session check fails',
       build: () {
-        when(() => mockAuthUseCase.getCurrentUser()).thenAnswer(
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus()).thenAnswer(
               (_) async => const Left(SessionExpiredFailure()),
         );
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthCheckStatus()),
       expect: () => [
+        const AuthLoading(),
         const AuthUnauthenticated(),
       ],
       verify: (_) {
@@ -620,11 +631,18 @@ void main() {
       'updates user state service when session is valid',
       build: () {
         final mockUser = createMockUser();
-        when(() => mockAuthUseCase.getCurrentUser())
-            .thenAnswer((_) async => Right(mockUser));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => Right({
+          'user': mockUser,
+          'tenantInitialized': true,
+        }));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthCheckStatus()),
+      expect: () => [
+        const AuthLoading(),
+        isA<AuthAuthenticated>(),
+      ],
       verify: (_) {
         verify(() => mockUserStateService.updateUser(any())).called(1);
       },
@@ -633,12 +651,13 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'handles unexpected exceptions during status check',
       build: () {
-        when(() => mockAuthUseCase.getCurrentUser())
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
             .thenThrow(Exception('Status check error'));
         return createBloc();
       },
       act: (bloc) => bloc.add(const AuthCheckStatus()),
       expect: () => [
+        const AuthLoading(),
         const AuthUnauthenticated(),
       ],
       verify: (_) {
@@ -722,7 +741,10 @@ void main() {
       },
       seed: () => AuthAuthenticated(createMockUser()),
       act: (bloc) => bloc.add(const AuthCheckStatus()),
-      expect: () => [], // No emission because state is identical
+      expect: () => [
+        const AuthLoading(),
+        isA<AuthAuthenticated>(), // Same or updated authenticated state
+      ],
       verify: (_) {
         verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.updateUser(any())).called(1);

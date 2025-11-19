@@ -14,7 +14,8 @@
       "Bash(timeout 180 flutter run -d 8715908c --flavor dev --dart-define=ENV=dev --dart-define=SUPABASE_URL=https://hzjfibmuqzirokziewii.supabase.co --dart-define=SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6amZpYm11cXppcm9remlld2lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3NTAxMzgsImV4cCI6MjA3NTMyNjEzOH0.nW1j_zqX-KAE8hbsenbkr1YzDyU-Zb-_DAkCrdjC7wA --dart-define=API_BASE_URL=https://dev-api.papercraft.app)",
       "Bash(dart analyze:*)",
       "Bash(flutter test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(timeout 120 flutter test:*)"
     ],
     "deny": [],
     "ask": []
