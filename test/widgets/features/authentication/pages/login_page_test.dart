@@ -95,8 +95,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Papercraft'), findsOneWidget);
+      // Text wrapping is now handled by softWrap: true, so check substring
       expect(
-        find.text('Create, organize, and manage\nyour question papers easily'),
+        find.text('Create, organize, and manage your question papers easily'),
         findsOneWidget,
       );
       expect(find.text('Continue with Google'), findsOneWidget);
@@ -346,7 +347,7 @@ void main() {
       await controller.close();
     });
 
-    testWidgets('should close error dialog when Go Back button tapped', (tester) async {
+    testWidgets('should close error dialog when Try Again button tapped', (tester) async {
       const errorMessage = 'Network error';
       when(() => mockAuthBloc.state).thenReturn(const AuthInitial());
 
@@ -362,7 +363,7 @@ void main() {
 
       expect(find.byType(AlertDialog), findsOneWidget);
 
-      await tester.tap(find.text(AppMessages.goBack));
+      await tester.tap(find.text('Try Again'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
@@ -999,8 +1000,8 @@ void main() {
 
       expect(find.byType(AlertDialog), findsOneWidget);
 
-      // 4. Dismiss error
-      await tester.tap(find.text(AppMessages.goBack));
+      // 4. Dismiss error by tapping Try Again button
+      await tester.tap(find.text('Try Again'));
       await tester.pumpAndSettle();
 
       // 5. Back to initial state
@@ -1182,7 +1183,10 @@ void main() {
       await tester.pumpWidget(createTestableWidget(authBloc: mockAuthBloc));
       await tester.pumpAndSettle();
 
-      expect(find.text('Papercraft'), findsOneWidget);
+      // Desktop layout has different hero text on the left
+      expect(find.text('Manage Question Papers\nwith Ease'), findsOneWidget);
+      // Sign In header on the right
+      expect(find.text('Sign In'), findsOneWidget);
     });
 
     testWidgets('should handle transition between breakpoints', (tester) async {
@@ -1193,15 +1197,21 @@ void main() {
       await tester.pumpWidget(createTestableWidget(authBloc: mockAuthBloc));
       await tester.pumpAndSettle();
 
-      // Transition to tablet
+      expect(find.text('Papercraft'), findsOneWidget);
+
+      // Transition to tablet (still mobile layout)
       tester.view.physicalSize = const Size(800, 1024);
       await tester.pumpAndSettle();
 
-      // Transition to desktop
+      expect(find.text('Papercraft'), findsOneWidget);
+
+      // Transition to desktop (2-column layout)
       tester.view.physicalSize = const Size(1440, 900);
       await tester.pumpAndSettle();
 
-      expect(find.text('Papercraft'), findsOneWidget);
+      // Desktop layout has different hero text
+      expect(find.text('Manage Question Papers\nwith Ease'), findsOneWidget);
+      expect(find.text('Sign In'), findsOneWidget);
 
       addTearDown(tester.view.reset);
     });
