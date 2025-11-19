@@ -1,0 +1,228 @@
+import 'package:papercraft/features/student_management/data/models/student_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Abstract interface for remote student data operations
+abstract class StudentRemoteDataSource {
+  /// Add a new student
+  Future<StudentModel> addStudent(StudentModel student);
+
+  /// Get all active students for a grade section
+  Future<List<StudentModel>> getStudentsByGradeSection(String gradeSectionId);
+
+  /// Get a single student by ID
+  Future<StudentModel?> getStudentById(String studentId);
+
+  /// Get all active students for the current tenant
+  Future<List<StudentModel>> getAllActiveStudents();
+
+  /// Update student information
+  Future<StudentModel> updateStudent(StudentModel student);
+
+  /// Soft delete a student
+  Future<void> deleteStudent(String studentId);
+
+  /// Bulk insert students
+  Future<List<StudentModel>> bulkInsertStudents(List<StudentModel> students);
+
+  /// Check if student exists with roll number in grade section
+  Future<bool> studentExists({
+    required String gradeSectionId,
+    required String rollNumber,
+  });
+
+  /// Get student count for a grade section
+  Future<int> getStudentCountByGradeSection(String gradeSectionId);
+
+  /// Get students with pagination
+  Future<List<StudentModel>> getStudentsWithPagination({
+    required int offset,
+    required int limit,
+    String? gradeSectionId,
+  });
+}
+
+/// Implementation using Supabase
+class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
+  final SupabaseClient supabaseClient;
+
+  StudentRemoteDataSourceImpl({required this.supabaseClient});
+
+  static const String _tableName = 'students';
+
+  @override
+  Future<StudentModel> addStudent(StudentModel student) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .insert(student.toJsonRequest())
+          .select()
+          .single();
+
+      return StudentModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<StudentModel>> getStudentsByGradeSection(
+    String gradeSectionId,
+  ) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .select()
+          .eq('grade_section_id', gradeSectionId)
+          .eq('is_active', true)
+          .order('roll_number', ascending: true);
+
+      return (response as List<dynamic>)
+          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<StudentModel?> getStudentById(String studentId) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .select()
+          .eq('id', studentId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return StudentModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<StudentModel>> getAllActiveStudents() async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .select()
+          .eq('is_active', true)
+          .order('roll_number', ascending: true);
+
+      return (response as List<dynamic>)
+          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<StudentModel> updateStudent(StudentModel student) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .update(student.toJsonRequest())
+          .eq('id', student.id)
+          .select()
+          .single();
+
+      return StudentModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteStudent(String studentId) async {
+    try {
+      await supabaseClient
+          .from(_tableName)
+          .update({'is_active': false})
+          .eq('id', studentId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<StudentModel>> bulkInsertStudents(List<StudentModel> students) async {
+    try {
+      if (students.isEmpty) return [];
+
+      final jsonList = students.map((s) => s.toJsonRequest()).toList();
+
+      final response = await supabaseClient
+          .from(_tableName)
+          .insert(jsonList)
+          .select();
+
+      return (response as List<dynamic>)
+          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<bool> studentExists({
+    required String gradeSectionId,
+    required String rollNumber,
+  }) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .select('id')
+          .eq('grade_section_id', gradeSectionId)
+          .eq('roll_number', rollNumber)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<int> getStudentCountByGradeSection(String gradeSectionId) async {
+    try {
+      final response = await supabaseClient
+          .from(_tableName)
+          .select('id', const FetchOptions(count: CountOption.exact))
+          .eq('grade_section_id', gradeSectionId)
+          .eq('is_active', true);
+
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<StudentModel>> getStudentsWithPagination({
+    required int offset,
+    required int limit,
+    String? gradeSectionId,
+  }) async {
+    try {
+      var query = supabaseClient.from(_tableName).select().eq('is_active', true);
+
+      if (gradeSectionId != null) {
+        query = query.eq('grade_section_id', gradeSectionId);
+      }
+
+      final response = await query
+          .order('roll_number', ascending: true)
+          .range(offset, offset + limit - 1);
+
+      return (response as List<dynamic>)
+          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
