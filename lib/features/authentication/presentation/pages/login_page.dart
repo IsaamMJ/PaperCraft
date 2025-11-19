@@ -143,9 +143,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           try {
             _handleAuthState(context, state);
           } catch (e) {
+            // GoRouter/navigation errors are handled silently
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(
+          // Only rebuild if loading state changes (reduces unnecessary rebuilds)
+          buildWhen: (previous, current) {
+            final wasLoading = previous is AuthLoading;
+            final isLoading = current is AuthLoading;
+            return wasLoading != isLoading;
+          },
           builder: (context, state) {
             return LayoutBuilder(
               builder: (context, constraints) {
@@ -178,6 +185,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
     required this.slideAnimation,
     required this.isLoading,
     required this.onSignIn,
+    super.key,
   });
 
   // Responsive breakpoints using UiHelpers
@@ -568,7 +576,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
 }
 
 class _LoadingIndicator extends StatelessWidget {
-  const _LoadingIndicator();
+  const _LoadingIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -603,6 +611,7 @@ class _SignInButton extends StatefulWidget {
   const _SignInButton({
     required this.onPressed,
     required this.height,
+    super.key,
   });
 
   @override
@@ -611,6 +620,29 @@ class _SignInButton extends StatefulWidget {
 
 class _SignInButtonState extends State<_SignInButton> {
   bool _isPressed = false;
+  bool _isClickDisabled = false; // Debounce flag
+  Timer? _debounceTimer;
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    // Debounce: ignore taps within 1 second of previous tap
+    if (_isClickDisabled) return;
+
+    _isClickDisabled = true;
+    widget.onPressed();
+
+    // Re-enable after 1 second
+    _debounceTimer = Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _isClickDisabled = false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -618,12 +650,24 @@ class _SignInButtonState extends State<_SignInButton> {
     final borderRadius = isDesktop ? UIConstants.radiusXXLarge : UIConstants.radiusLarge;
 
     return AnimatedScale(
-      scale: _isPressed ? 0.96 : 1.0,
+      scale: (_isPressed && !_isClickDisabled) ? 0.96 : 1.0,
       duration: Duration(milliseconds: UIConstants.durationVeryFast),
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
+        onTapDown: (_) {
+          if (!_isClickDisabled) {
+            setState(() => _isPressed = true);
+          }
+        },
+        onTapUp: (_) {
+          if (!_isClickDisabled) {
+            setState(() => _isPressed = false);
+          }
+        },
+        onTapCancel: () {
+          if (!_isClickDisabled) {
+            setState(() => _isPressed = false);
+          }
+        },
         child: Container(
           width: double.infinity,
           height: widget.height,
@@ -642,7 +686,7 @@ class _SignInButtonState extends State<_SignInButton> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: widget.onPressed,
+              onTap: _handleTap, // Use debounced handler
               borderRadius: BorderRadius.circular(borderRadius),
               child: Padding(
                 padding: EdgeInsets.symmetric(
@@ -702,6 +746,7 @@ class _SkeletonLoading extends StatefulWidget {
     required this.width,
     required this.height,
     required this.borderRadius,
+    super.key,
   });
 
   @override
