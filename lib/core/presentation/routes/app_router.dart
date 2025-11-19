@@ -74,6 +74,11 @@ import '../widgets/app_error_widget.dart';
 import '../constants/app_messages.dart';
 import 'app_routes.dart';
 
+// Student Management
+import '../../../features/student_management/presentation/bloc/marks_entry_bloc.dart';
+import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
+import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
+
 class AppRouter {
   /// Helper function to extract tenantId from AuthBloc state
   /// This is more reliable than UserStateService which is async
@@ -775,6 +780,58 @@ class AppRouter {
               userId: userId,
               academicYear: academicYear,
             ),
+          );
+        },
+      ),
+
+      // Student Management routes
+      GoRoute(
+        path: '/students/:gradeSectionId',
+        name: 'students_list',
+        builder: (context, state) {
+          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          return BlocProvider(
+            create: (_) => sl<StudentManagementBloc>()
+              ..add(LoadStudentsForGradeSection(gradeSectionId: gradeSectionId)),
+            child: const StudentListPage(), // You'll create this page
+          );
+        },
+      ),
+      GoRoute(
+        path: '/students/add/:gradeSectionId',
+        name: 'add_student',
+        builder: (context, state) {
+          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          return BlocProvider(
+            create: (_) => sl<StudentEnrollmentBloc>(),
+            child: AddStudentPage(gradeSectionId: gradeSectionId), // You'll create this page
+          );
+        },
+      ),
+      GoRoute(
+        path: '/students/bulk-upload/:gradeSectionId',
+        name: 'bulk_upload_students',
+        builder: (context, state) {
+          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          return BlocProvider(
+            create: (_) => sl<StudentEnrollmentBloc>(),
+            child: BulkUploadStudentsPage(gradeSectionId: gradeSectionId), // You'll create this page
+          );
+        },
+      ),
+      GoRoute(
+        path: '/marks/:examTimetableEntryId/:gradeSectionId',
+        name: 'marks_entry',
+        builder: (context, state) {
+          final examTimetableEntryId = state.pathParameters['examTimetableEntryId']!;
+          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          return BlocProvider(
+            create: (_) => sl<MarksEntryBloc>()
+              ..add(InitializeMarksEntry(
+                examTimetableEntryId: examTimetableEntryId,
+                gradeSectionId: gradeSectionId,
+              )),
+            child: const MarksEntryPage(), // You'll create this page
           );
         },
       ),
