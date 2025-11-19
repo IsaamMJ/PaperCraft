@@ -18,6 +18,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final UserStateService _userStateService;
   final Stream<AuthStateChangeEvent> _authStateStream;
   final IClock _clock;
+  final bool _autoInitialize;
   late StreamSubscription _authSubscription;
 
   // FIXED: Prevent multiple OAuth attempts and resource leaks
@@ -32,8 +33,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     this._authUseCase,
     this._userStateService,
     this._authStateStream,
-    this._clock,
-  ) : super(const AuthInitial()) {
+    this._clock, {
+    bool autoInitialize = true, // Disable in tests
+  }) : _autoInitialize = autoInitialize,
+       super(const AuthInitial()) {
     on<AuthInitialize>(_onInitialize);
     on<AuthSignInGoogle>(_onSignInGoogle);
     on<AuthSignOut>(_onSignOut);
@@ -44,6 +47,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     // SECURITY FIX: Start auth state synchronization
     _startAuthStateSyncTimer();
+
+    // CRITICAL FIX: Trigger auth initialization to restore session on app startup
+    // This must happen AFTER event handlers are registered and listeners are set up
+    // Use microtask to allow bloc to be fully initialized first
+    if (_autoInitialize) {
+      Future.microtask(() {
+        if (!isClosed && !_isInitialized) {
+          add(const AuthInitialize());
+        }
+      });
+    }
   }
 
   void _listenToAuthChanges() {

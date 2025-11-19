@@ -134,12 +134,14 @@ void main() {
   });
 
   /// Helper to create AuthBloc instance
-  AuthBloc createBloc() {
+  /// Set autoInitialize to false in tests to prevent auto-triggering AuthInitialize event
+  AuthBloc createBloc({bool autoInitialize = false}) {
     return AuthBloc(
       mockAuthUseCase,
       mockUserStateService,
       authStateController.stream,
       mockClock,
+      autoInitialize: autoInitialize,
     );
   }
 
@@ -711,15 +713,18 @@ void main() {
       'can check status while already authenticated',
       build: () {
         final mockUser = createMockUser();
-        when(() => mockAuthUseCase.getCurrentUser())
-            .thenAnswer((_) async => Right(mockUser));
+        when(() => mockAuthUseCase.getCurrentUserWithInitStatus())
+            .thenAnswer((_) async => Right({
+          'user': mockUser,
+          'tenantInitialized': true,
+        }));
         return createBloc();
       },
       seed: () => AuthAuthenticated(createMockUser()),
       act: (bloc) => bloc.add(const AuthCheckStatus()),
       expect: () => [], // No emission because state is identical
       verify: (_) {
-        verify(() => mockAuthUseCase.getCurrentUser()).called(1);
+        verify(() => mockAuthUseCase.getCurrentUserWithInitStatus()).called(1);
         verify(() => mockUserStateService.updateUser(any())).called(1);
       },
     );
