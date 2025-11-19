@@ -81,6 +81,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         ),
+        icon: Container(
+          padding: EdgeInsets.all(UIConstants.spacing16),
+          decoration: BoxDecoration(
+            color: Color(0xFFFF3B30).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          ),
+          child: Icon(
+            Icons.error_outline,
+            color: Color(0xFFFF3B30),
+            size: 32,
+          ),
+        ),
         title: const Text(
           AppMessages.authFailedGeneric,
           style: TextStyle(fontWeight: FontWeight.w600),
@@ -90,16 +102,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: UIConstants.fontSizeMedium,
+            height: 1.5,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              AppMessages.goBack,
+              'Try Again',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: UIConstants.fontSizeMedium,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -178,7 +192,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
   double get maxContentWidth {
     if (isMobile) return double.infinity;
     if (isTablet) return 480;
-    if (isDesktop) return 420;
+    if (isDesktop) return double.infinity; // Full width for 2-column layout
     return 400;
   }
 
@@ -190,7 +204,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
       );
     }
     if (isTablet) return EdgeInsets.all(UIConstants.paddingLarge * 2);
-    return EdgeInsets.all(UIConstants.paddingLarge * 2.67); // 64
+    return EdgeInsets.zero; // No padding for desktop 2-column layout
   }
 
   double get logoSize {
@@ -215,11 +229,15 @@ class _ResponsiveLoginLayout extends StatelessWidget {
     if (isMobile) return 56;
     if (isTablet) return 60;
     if (isDesktop) return 64;
-    return 56; // Default fallback
+    return 56;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktop) {
+      return _build2ColumnLayout();
+    }
+
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -232,6 +250,163 @@ class _ResponsiveLoginLayout extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// New 2-Column Desktop Layout (Professional)
+  Widget _build2ColumnLayout() {
+    return Row(
+      children: [
+        // LEFT: Hero Section with Gradient Background
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withOpacity(0.8),
+                  Color(0xFF5856D6),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(UIConstants.spacing24 * 3),
+                child: FadeTransition(
+                  opacity: fadeAnimation,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.asset(
+                            AppAssets.logoRounded,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: UIConstants.spacing32),
+                      Text(
+                        'Manage Question Papers\nwith Ease',
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.3,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      SizedBox(height: UIConstants.spacing20),
+                      Text(
+                        'Create, organize, and distribute question papers in minutes. Trusted by educational institutions.',
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeXLarge,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.6,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      SizedBox(height: UIConstants.spacing32),
+                      // Security/Trust Badges
+                      Row(
+                        children: [
+                          Icon(Icons.lock, color: Colors.white, size: 20),
+                          SizedBox(width: UIConstants.spacing12),
+                          Expanded(
+                            child: Text(
+                              'Secure & GDPR Compliant',
+                              style: TextStyle(
+                                fontSize: UIConstants.fontSizeMedium,
+                                color: Colors.white.withOpacity(0.85),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: UIConstants.spacing16),
+                      Row(
+                        children: [
+                          Icon(Icons.verified_user, color: Colors.white, size: 20),
+                          SizedBox(width: UIConstants.spacing12),
+                          Expanded(
+                            child: Text(
+                              'OAuth 2.0 Authentication',
+                              style: TextStyle(
+                                fontSize: UIConstants.fontSizeMedium,
+                                color: Colors.white.withOpacity(0.85),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        // RIGHT: Login Form
+        Expanded(
+          flex: 1,
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: UIConstants.spacing24 * 2),
+                  child: isLoading
+                      ? _buildSkeletonScreen()
+                      : SlideTransition(
+                          position: slideAnimation,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: UIConstants.spacing12),
+                              Text(
+                                'Enter with your Google account',
+                                style: TextStyle(
+                                  fontSize: UIConstants.fontSizeMedium,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              SizedBox(height: UIConstants.spacing32),
+                              _SignInButton(
+                                onPressed: onSignIn,
+                                height: buttonHeight,
+                              ),
+                              SizedBox(height: UIConstants.spacing32),
+                              _buildFooter(),
+                            ],
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -337,7 +512,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
         else ...[
           _SignInButton(
             onPressed: onSignIn,
-            height: isShortScreen ? 52 : buttonHeight, // Reduce button height on small screens
+            height: isShortScreen ? 52 : buttonHeight,
           ),
           SizedBox(height: isShortScreen ? UIConstants.spacing8 : UIConstants.spacing16),
           Flexible(
@@ -352,6 +527,29 @@ class _ResponsiveLoginLayout extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  /// Skeleton Screen for Desktop Loading State
+  Widget _buildSkeletonScreen() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _SkeletonLoading(width: 250, height: 28, borderRadius: 8),
+        SizedBox(height: UIConstants.spacing12),
+        _SkeletonLoading(width: 350, height: 16, borderRadius: 6),
+        SizedBox(height: UIConstants.spacing32),
+        _SkeletonLoading(width: double.infinity, height: 64, borderRadius: 12),
+        SizedBox(height: UIConstants.spacing16),
+        Text(
+          'Signing you in...',
+          style: TextStyle(
+            fontSize: UIConstants.fontSizeMedium,
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -488,6 +686,67 @@ class _SignInButtonState extends State<_SignInButton> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton Loading Widget for Desktop
+class _SkeletonLoading extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  const _SkeletonLoading({
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+  });
+
+  @override
+  State<_SkeletonLoading> createState() => _SkeletonLoadingState();
+}
+
+class _SkeletonLoadingState extends State<_SkeletonLoading>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.border,
+            AppColors.border.withOpacity(0.5),
+            AppColors.border,
+          ],
+          stops: [
+            _shimmerController.value - 0.3,
+            _shimmerController.value,
+            _shimmerController.value + 0.3,
+          ],
         ),
       ),
     );
