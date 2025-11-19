@@ -438,6 +438,7 @@ class _AuthModule {
             () => AuthRepositoryImpl(
           sl<AuthDataSource>(),
           sl<ILogger>(),
+          sl<IClock>(),
         ),
       );
 

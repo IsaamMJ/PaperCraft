@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
+import '../../../../core/domain/interfaces/i_clock.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/auth_result_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -10,11 +11,12 @@ import '../models/user_model.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final AuthDataSource _dataSource;
   final ILogger _logger;
+  final IClock _clock;
 
-  AuthRepositoryImpl(this._dataSource, this._logger) {
+  AuthRepositoryImpl(this._dataSource, this._logger, this._clock) {
     _logger.info('AuthRepository initialized', category: LogCategory.auth, context: {
       'hasDataSource': true,
-      'timestamp': DateTime.now().toIso8601String(),
+      'timestamp': _clock.now().toIso8601String(),
       'repositoryLayer': true,
     });
   }
@@ -86,7 +88,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<AuthFailure, AuthResultEntity>> signInWithGoogle() async {
-    final operationId = DateTime.now().millisecondsSinceEpoch.toString();
+    final operationId = _clock.now().millisecondsSinceEpoch.toString();
 
     _logger.authEvent('google_signin_repository_started', 'pending', context: {
       'operationId': operationId,
@@ -106,7 +108,7 @@ class AuthRepositoryImpl implements AuthRepository {
       },
           (userModel) {
         final isFirstLogin = userModel.lastLoginAt == null ||
-            DateTime.now().difference(userModel.createdAt).inMinutes < 5;
+            _clock.now().difference(userModel.createdAt).inMinutes < 5;
 
         final userEntity = userModel.toEntity();
         final authResult = AuthResultEntity(

@@ -232,7 +232,7 @@ class AuthDataSource {
     );
 
     return const Left(AuthFailure(
-      'Profile creation timed out. The database trigger may have failed. Please contact support.',
+      'Setup is taking longer than expected. Please try signing in again, or contact support if the problem persists.',
     ));
   }
 
@@ -394,15 +394,27 @@ class AuthDataSource {
       return currentSession;
     }
 
-    subscription = _authProvider.onAuthStateChange.listen((event) {
-      if (event.session?.user != null && !completer.isCompleted) {
-        completer.complete(event.session);
-        subscription.cancel();
-      } else if (event.event == AuthChangeEvent.signedOut && !completer.isCompleted) {
-        completer.complete(null);
-        subscription.cancel();
-      }
-    });
+    subscription = _authProvider.onAuthStateChange.listen(
+      (event) {
+        // Guard against race condition: check isCompleted before completing
+        if (completer.isCompleted) return;
+
+        if (event.session?.user != null) {
+          completer.complete(event.session);
+          subscription.cancel();
+        } else if (event.event == AuthChangeEvent.signedOut) {
+          completer.complete(null);
+          subscription.cancel();
+        }
+      },
+      onError: (error) {
+        // Handle stream errors
+        if (!completer.isCompleted) {
+          subscription.cancel();
+          completer.complete(null);
+        }
+      },
+    );
 
     _clock.timer(const Duration(seconds: 45), () {
       if (!completer.isCompleted) {
