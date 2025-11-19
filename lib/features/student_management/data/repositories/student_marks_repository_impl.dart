@@ -1,7 +1,8 @@
 import 'package:dartz/dartz.dart';
+import 'package:postgrest/postgrest.dart';
 import 'package:papercraft/core/domain/errors/failures.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
-import 'package:papercraft/core/domain/services/user_state_service.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
+import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
 import 'package:papercraft/features/student_management/data/datasources/student_marks_remote_datasource.dart';
 import 'package:papercraft/features/student_management/data/models/student_exam_marks_model.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_exam_marks_entity.dart';
@@ -30,6 +31,14 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       final tenantId = userStateService.currentTenantId;
       final userId = userStateService.currentUserId;
 
+      if (tenantId == null || tenantId.isEmpty) {
+        return Left(PermissionFailure('Tenant ID not available'));
+      }
+
+      if (userId == null || userId.isEmpty) {
+        return Left(PermissionFailure('User ID not available'));
+      }
+
       final marks = StudentExamMarksModel(
         id: '',
         tenantId: tenantId,
@@ -46,15 +55,16 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       );
 
       final result = await remoteDataSource.addExamMarks(marks);
-      logger.info('Marks added for student: $studentId', category: 'MarksRepository');
+      logger.info('Marks added for student: $studentId', category: LogCategory.system);
       return Right(result);
     } on PostgrestException catch (e) {
       if (e.message.contains('unique_student_exam_marks')) {
         return Left(ValidationFailure('Marks already exist for this student-exam combination'));
       }
+      logger.error('Postgres error adding marks: ${e.message}', category: LogCategory.system);
       return Left(ServerFailure(e.message, code: e.code));
     } catch (e) {
-      logger.error('Error adding marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error adding marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to add marks: ${e.toString()}'));
     }
   }
@@ -67,7 +77,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       final marks = await remoteDataSource.getExamMarks(examTimetableEntryId);
       return Right(marks.cast<StudentExamMarksEntity>());
     } catch (e) {
-      logger.error('Error fetching exam marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching exam marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch marks: ${e.toString()}'));
     }
   }
@@ -87,7 +97,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       }
       return Right(marks);
     } catch (e) {
-      logger.error('Error fetching student marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching student marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch marks: ${e.toString()}'));
     }
   }
@@ -100,13 +110,13 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       final marks = await remoteDataSource.getDraftMarks(examTimetableEntryId);
       return Right(marks.cast<StudentExamMarksEntity>());
     } catch (e) {
-      logger.error('Error fetching draft marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching draft marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch draft marks: ${e.toString()}'));
     }
   }
 
   @override
-  Future<Either<Failure, MarksSubmissionSummary>>> submitExamMarks(
+  Future<Either<Failure, MarksSubmissionSummary>> submitExamMarks(
     String examTimetableEntryId,
   ) async {
     try {
@@ -125,7 +135,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
         lowestMarks: (stats['lowest'] as num?)?.toDouble() ?? 0.0,
       ));
     } catch (e) {
-      logger.error('Error submitting marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error submitting marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to submit marks: ${e.toString()}'));
     }
   }
@@ -159,7 +169,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       );
       return Right(result);
     } catch (e) {
-      logger.error('Error updating marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error updating marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to update marks: ${e.toString()}'));
     }
   }
@@ -173,7 +183,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       // TODO: Implement CSV validation and bulk upload logic
       return Left(ServerFailure('Not yet implemented'));
     } catch (e) {
-      logger.error('Error bulk uploading marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error bulk uploading marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to bulk upload marks: ${e.toString()}'));
     }
   }
@@ -190,13 +200,13 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       );
       return const Right(null);
     } catch (e) {
-      logger.error('Error deleting marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error deleting marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to delete marks: ${e.toString()}'));
     }
   }
 
   @override
-  Future<Either<Failure, MarksSubmissionSummary>>> getMarksStatistics(
+  Future<Either<Failure, MarksSubmissionSummary>> getMarksStatistics(
     String examTimetableEntryId,
   ) async {
     try {
@@ -213,7 +223,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
         lowestMarks: (stats['lowest'] as num?)?.toDouble() ?? 0.0,
       ));
     } catch (e) {
-      logger.error('Error fetching statistics: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching statistics: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch statistics: ${e.toString()}'));
     }
   }
@@ -226,7 +236,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       final submitted = await remoteDataSource.areMarksSubmitted(examTimetableEntryId);
       return Right(submitted);
     } catch (e) {
-      logger.error('Error checking submission status: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error checking submission status: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to check submission status: ${e.toString()}'));
     }
   }
@@ -237,7 +247,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       final marks = await remoteDataSource.getMarksByTeacher(teacherId);
       return Right(marks.cast<StudentExamMarksEntity>());
     } catch (e) {
-      logger.error('Error fetching teacher marks: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching teacher marks: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch marks: ${e.toString()}'));
     }
   }
@@ -254,7 +264,7 @@ class StudentMarksRepositoryImpl implements StudentMarksRepository {
       );
       return Right(marks.cast<StudentExamMarksEntity>());
     } catch (e) {
-      logger.error('Error fetching marks by status: ${e.toString()}', category: 'MarksRepository');
+      logger.error('Error fetching marks by status: ${e.toString()}', category: LogCategory.system);
       return Left(ServerFailure('Failed to fetch marks: ${e.toString()}'));
     }
   }

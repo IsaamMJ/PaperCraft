@@ -1,6 +1,6 @@
 import 'package:get_it/get_it.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
-import 'package:papercraft/core/domain/services/user_state_service.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
+import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
 import 'package:papercraft/core/infrastructure/di/injection_container.dart';
 import 'package:papercraft/features/student_management/data/datasources/student_marks_remote_datasource.dart';
 import 'package:papercraft/features/student_management/data/datasources/student_remote_datasource.dart';
@@ -20,12 +20,12 @@ import 'package:papercraft/features/student_management/presentation/bloc/student
 import 'package:papercraft/features/timetable/domain/repositories/exam_timetable_repository.dart';
 
 /// Module for setting up Student Management feature dependencies
-class _StudentManagementModule {
+class StudentManagementModule {
   static Future<void> setup() async {
     final logger = sl<ILogger>();
 
     try {
-      logger.info('Setting up Student Management module', category: 'DI');
+      logger.info('Setting up Student Management module', category: LogCategory.system);
 
       // Domain Services
       sl.registerLazySingleton<StudentValidationService>(
@@ -137,11 +137,11 @@ class _StudentManagementModule {
         ),
       );
 
-      logger.info('Student Management module setup completed', category: 'DI');
+      logger.info('Student Management module setup completed', category: LogCategory.system);
     } catch (e) {
       logger.error(
         'Failed to setup Student Management module: ${e.toString()}',
-        category: 'DI',
+        category: LogCategory.system,
       );
       rethrow;
     }

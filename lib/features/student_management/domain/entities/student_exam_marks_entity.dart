@@ -10,7 +10,7 @@ enum StudentMarkStatus {
 
 /// Extension to convert enum to string
 extension StudentMarkStatusString on StudentMarkStatus {
-  String toString() {
+  String toDbString() {
     switch (this) {
       case StudentMarkStatus.present:
         return 'present';

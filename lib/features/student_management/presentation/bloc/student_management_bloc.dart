@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_entity.dart';
 import 'package:papercraft/features/student_management/domain/usecases/get_students_by_grade_section_usecase.dart';
 
@@ -35,14 +35,14 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
         (failure) {
           logger.error(
             'Failed to load students: ${failure.message}',
-            category: 'StudentManagementBloc',
+            category: LogCategory.system,
           );
           emit(StudentManagementError(failure.message));
         },
         (students) {
           logger.info(
             'Loaded ${students.length} students',
-            category: 'StudentManagementBloc',
+            category: LogCategory.system,
           );
           emit(StudentsLoaded(
             students: students,
@@ -54,7 +54,7 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
     } catch (e) {
       logger.error(
         'Error loading students: ${e.toString()}',
-        category: 'StudentManagementBloc',
+        category: LogCategory.system,
       );
       emit(StudentManagementError('Failed to load students: ${e.toString()}'));
     }
@@ -77,14 +77,14 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
           (failure) {
             logger.error(
               'Failed to refresh students: ${failure.message}',
-              category: 'StudentManagementBloc',
+              category: LogCategory.system,
             );
             emit(StudentManagementError(failure.message));
           },
           (students) {
             logger.info(
               'Refreshed ${students.length} students',
-              category: 'StudentManagementBloc',
+              category: LogCategory.system,
             );
             emit(StudentsLoaded(
               students: students,
@@ -96,7 +96,7 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
       } catch (e) {
         logger.error(
           'Error refreshing students: ${e.toString()}',
-          category: 'StudentManagementBloc',
+          category: LogCategory.system,
         );
         emit(StudentManagementError('Failed to refresh students: ${e.toString()}'));
       }

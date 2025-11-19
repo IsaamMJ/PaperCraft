@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_entity.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_exam_marks_entity.dart';
 import 'package:papercraft/features/student_management/domain/services/marks_validation_service.dart';
@@ -95,12 +95,12 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
 
       logger.info(
         'Marks entry initialized with ${students.length} students',
-        category: 'MarksEntryBloc',
+        category: LogCategory.system,
       );
     } catch (e) {
       logger.error(
         'Error initializing marks entry: ${e.toString()}',
-        category: 'MarksEntryBloc',
+        category: LogCategory.system,
       );
       emit(MarksEntryError(
         'Failed to initialize: ${e.toString()}',
@@ -209,14 +209,14 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
         (failure) {
           logger.error(
             'Failed to submit marks: ${failure.message}',
-            category: 'MarksEntryBloc',
+            category: LogCategory.system,
           );
           emit(MarksEntryError(failure.message));
         },
         (summary) {
           logger.info(
             'Marks submitted successfully. Total: ${summary.totalStudents}, Present: ${summary.markedPresent}',
-            category: 'MarksEntryBloc',
+            category: LogCategory.system,
           );
           emit(MarksSubmitted(summary));
         },
@@ -224,7 +224,7 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
     } catch (e) {
       logger.error(
         'Error submitting marks: ${e.toString()}',
-        category: 'MarksEntryBloc',
+        category: LogCategory.system,
       );
       emit(MarksEntryError('Failed to submit marks: ${e.toString()}'));
     }
@@ -252,7 +252,7 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
         (failure) {
           logger.error(
             'Failed to bulk upload marks: ${failure.message}',
-            category: 'MarksEntryBloc',
+            category: LogCategory.system,
           );
           emit(BulkUploadFailed(failure.message));
           // Return to ready state
@@ -261,7 +261,7 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
         (uploadedMarks) {
           logger.info(
             'Bulk uploaded ${uploadedMarks.length} marks',
-            category: 'MarksEntryBloc',
+            category: LogCategory.system,
           );
 
           // Reload from draft
@@ -271,7 +271,7 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
     } catch (e) {
       logger.error(
         'Error bulk uploading marks: ${e.toString()}',
-        category: 'MarksEntryBloc',
+        category: LogCategory.system,
       );
       emit(BulkUploadFailed('Failed to bulk upload: ${e.toString()}'));
     }
@@ -316,7 +316,7 @@ class MarksEntryBloc extends Bloc<MarksEntryEvent, MarksEntryState> {
     } catch (e) {
       logger.error(
         'Error reloading draft marks: ${e.toString()}',
-        category: 'MarksEntryBloc',
+        category: LogCategory.system,
       );
       // Continue with current state on error
     }

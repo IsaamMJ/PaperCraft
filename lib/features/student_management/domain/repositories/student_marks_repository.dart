@@ -31,7 +31,7 @@ abstract class StudentMarksRepository {
 
   /// Submit marks for an exam (set is_draft = false)
   /// This locks the marks from further editing
-  Future<Either<Failure, MarksSubmissionSummary>>> submitExamMarks(
+  Future<Either<Failure, MarksSubmissionSummary>> submitExamMarks(
     String examTimetableEntryId,
   );
 
@@ -58,7 +58,7 @@ abstract class StudentMarksRepository {
   });
 
   /// Get marks statistics for an exam
-  Future<Either<Failure, MarksSubmissionSummary>>> getMarksStatistics(
+  Future<Either<Failure, MarksSubmissionSummary>> getMarksStatistics(
     String examTimetableEntryId,
   );
 

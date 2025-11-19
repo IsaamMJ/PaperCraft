@@ -1,4 +1,4 @@
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 
 /// Service to validate student data
 class StudentValidationService {

@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_entity.dart';
 import 'package:papercraft/features/student_management/domain/services/student_validation_service.dart';
 import 'package:papercraft/features/student_management/domain/usecases/add_student_usecase.dart';
@@ -62,14 +62,14 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
         (failure) {
           logger.error(
             'Failed to add student: ${failure.message}',
-            category: 'StudentEnrollmentBloc',
+            category: LogCategory.system,
           );
           emit(StudentEnrollmentError(failure.message));
         },
         (student) {
           logger.info(
             'Student added: ${student.rollNumber} - ${student.fullName}',
-            category: 'StudentEnrollmentBloc',
+            category: LogCategory.system,
           );
           emit(StudentAdded(student));
         },
@@ -77,7 +77,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
     } catch (e) {
       logger.error(
         'Error adding student: ${e.toString()}',
-        category: 'StudentEnrollmentBloc',
+        category: LogCategory.system,
       );
       emit(StudentEnrollmentError('Failed to add student: ${e.toString()}'));
     }
@@ -119,7 +119,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
     } catch (e) {
       logger.error(
         'Error validating bulk data: ${e.toString()}',
-        category: 'StudentEnrollmentBloc',
+        category: LogCategory.system,
       );
       emit(StudentEnrollmentError('Validation failed: ${e.toString()}'));
     }
@@ -144,14 +144,14 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
         (failure) {
           logger.error(
             'Failed to bulk upload: ${failure.message}',
-            category: 'StudentEnrollmentBloc',
+            category: LogCategory.system,
           );
           emit(StudentEnrollmentError(failure.message));
         },
         (students) {
           logger.info(
             'Bulk uploaded ${students.length} students',
-            category: 'StudentEnrollmentBloc',
+            category: LogCategory.system,
           );
           emit(StudentsBulkUploaded(students));
         },
@@ -159,7 +159,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
     } catch (e) {
       logger.error(
         'Error bulk uploading students: ${e.toString()}',
-        category: 'StudentEnrollmentBloc',
+        category: LogCategory.system,
       );
       emit(StudentEnrollmentError('Upload failed: ${e.toString()}'));
     }

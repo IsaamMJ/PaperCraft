@@ -245,7 +245,7 @@ Future<void> setupDependencies() async {
     await _AuthModule.setup();
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
-    await _StudentManagementModule.setup();
+    await StudentManagementModule.setup();
     await _AssignmentModule.setup();
     await _ReviewerManagementModule.setup();
     await _NotificationModule.setup();

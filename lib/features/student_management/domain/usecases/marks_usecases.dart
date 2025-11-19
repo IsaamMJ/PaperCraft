@@ -67,7 +67,7 @@ class SubmitMarksUseCase {
 
   SubmitMarksUseCase(this.repository);
 
-  Future<Either<Failure, MarksSubmissionSummary>>> call(
+  Future<Either<Failure, MarksSubmissionSummary>> call(
     String examTimetableEntryId,
   ) async {
     return await repository.submitExamMarks(examTimetableEntryId);
@@ -153,7 +153,7 @@ class GetMarksStatisticsUseCase {
 
   GetMarksStatisticsUseCase(this.repository);
 
-  Future<Either<Failure, MarksSubmissionSummary>>> call(
+  Future<Either<Failure, MarksSubmissionSummary>> call(
     String examTimetableEntryId,
   ) async {
     return await repository.getMarksStatistics(examTimetableEntryId);

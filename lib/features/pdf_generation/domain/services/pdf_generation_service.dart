@@ -211,8 +211,9 @@ class SimplePdfService implements IPdfGenerationService {
         spacingMultiplier,
       );
 
-      // Check if single page and duplicate if needed
+      // Check if single page or two pages for duplication logic
       final isSinglePage = pages.length == 1;
+      final isTwoPages = pages.length == 2;
 
       for (int pageIndex = 0; pageIndex < pages.length; pageIndex++) {
         final isFirstPage = pageIndex == 0;
@@ -251,6 +252,43 @@ class SimplePdfService implements IPdfGenerationService {
             },
           ),
         );
+
+        // For two-page PDFs, duplicate each page immediately after adding it
+        if (isTwoPages) {
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(15),
+              build: (context) {
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    if (isFirstPage)
+                      pw.Column(
+                        children: [
+                          _buildCompactHeaderForSinglePage(
+                            schoolName: schoolName,
+                            paper: paper,
+                            studentName: studentName,
+                            rollNumber: rollNumber,
+                            fontSizeMultiplier: fontSizeMultiplier,
+                          ),
+                          pw.SizedBox(height: 12 * spacingMultiplier),
+                        ],
+                      )
+                    else
+                      pw.SizedBox(height: 4),
+
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: pageContent,
+                    ),
+                  ],
+                );
+              },
+            ),
+          );
+        }
       }
 
       // For single-page PDFs, add the same page again for 2 copies

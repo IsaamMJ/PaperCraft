@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:papercraft/core/domain/errors/failures.dart';
-import 'package:papercraft/core/domain/interfaces/ilogger.dart';
+import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/student_management/domain/entities/student_exam_marks_entity.dart';
 import 'package:papercraft/features/timetable/domain/repositories/exam_timetable_repository.dart';
 
@@ -47,7 +47,7 @@ class MarksValidationService {
         (failure) {
           logger.error(
             'Failed to fetch exam for validation: ${failure.message}',
-            category: 'MarksValidationService',
+            category: LogCategory.system,
           );
           return Left(failure);
         },
@@ -69,7 +69,7 @@ class MarksValidationService {
     } catch (e) {
       logger.error(
         'Error validating marks: ${e.toString()}',
-        category: 'MarksValidationService',
+        category: LogCategory.system,
       );
       return Left(ServerFailure('Validation error: ${e.toString()}'));
     }
@@ -101,7 +101,7 @@ class MarksValidationService {
     } catch (e) {
       logger.error(
         'Error validating all marks: ${e.toString()}',
-        category: 'MarksValidationService',
+        category: LogCategory.system,
       );
       return Left(ServerFailure('Validation error: ${e.toString()}'));
     }

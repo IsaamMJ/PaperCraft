@@ -191,9 +191,10 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     try {
       final response = await supabaseClient
           .from(_tableName)
-          .select('id', const FetchOptions(count: CountOption.exact))
+          .select('id')
           .eq('grade_section_id', gradeSectionId)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .count();
 
       return response.count;
     } catch (e) {

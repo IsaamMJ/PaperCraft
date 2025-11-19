@@ -78,6 +78,10 @@ import 'app_routes.dart';
 import '../../../features/student_management/presentation/bloc/marks_entry_bloc.dart';
 import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
 import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
+import '../../../features/student_management/presentation/pages/student_list_page.dart';
+import '../../../features/student_management/presentation/pages/add_student_page.dart';
+import '../../../features/student_management/presentation/pages/bulk_upload_students_page.dart';
+import '../../../features/student_management/presentation/pages/marks_entry_page.dart';
 
 class AppRouter {
   /// Helper function to extract tenantId from AuthBloc state
