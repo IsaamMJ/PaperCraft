@@ -25,8 +25,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   Timer? _animationTimer; // Track timer to prevent memory leak
-  Timer? _leadCaptureTimer; // Timer for lead capture modal
-  bool _leadCaptureModalShown = false; // Prevent showing modal twice
 
   @override
   void initState() {
@@ -56,37 +54,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         _slideController.forward();
       }
     });
-
-    // Show lead capture modal after 10 seconds on login page
-    // (for users who haven't signed in yet)
-    _leadCaptureTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted && !_leadCaptureModalShown) {
-        _leadCaptureModalShown = true;
-        _showLeadCaptureModal(context);
-      }
-    });
   }
 
   @override
   void dispose() {
     _animationTimer?.cancel();
-    _leadCaptureTimer?.cancel(); // Cancel lead capture timer
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
-  }
-
-  void _showLeadCaptureModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(UIConstants.radiusXLarge),
-        ),
-      ),
-      builder: (context) => _LeadCaptureSheet(),
-    );
   }
 
   void _handleAuthState(BuildContext context, AuthState state) {
@@ -156,8 +131,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   void _triggerSignIn(BuildContext context) {
-    // Cancel lead capture modal timer when user starts signing in
-    _leadCaptureTimer?.cancel();
     context.read<AuthBloc>().add(const AuthSignInGoogle());
   }
 
@@ -832,232 +805,6 @@ class _SkeletonLoadingState extends State<_SkeletonLoading>
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Lead Capture Sheet for Inactive Users
-class _LeadCaptureSheet extends StatefulWidget {
-  const _LeadCaptureSheet({super.key});
-
-  @override
-  State<_LeadCaptureSheet> createState() => _LeadCaptureSheetState();
-}
-
-class _LeadCaptureSheetState extends State<_LeadCaptureSheet> {
-  late TextEditingController _emailController;
-  late TextEditingController _schoolNameController;
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController = TextEditingController();
-    _schoolNameController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _schoolNameController.dispose();
-    super.dispose();
-  }
-
-  void _handleSubmit() async {
-    if (_emailController.text.isEmpty || _schoolNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please fill in all fields'),
-          backgroundColor: Color(0xFFFF3B30),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      // TODO: Send lead data to backend/webhook
-      // For now, just close the modal after a short delay
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Thanks! We\'ll be in touch soon.'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to submit. Please try again.'),
-            backgroundColor: Color(0xFFFF3B30),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          UIConstants.spacing24,
-          UIConstants.spacing24,
-          UIConstants.spacing24,
-          UIConstants.spacing24 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Get Early Access',
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeXXLarge,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing12),
-            Text(
-              'Set up your school\'s question paper system in minutes. Our team will help you get started.',
-              style: TextStyle(
-                fontSize: UIConstants.fontSizeMedium,
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing32),
-            // Email Input
-            _buildTextField(
-              controller: _emailController,
-              label: 'Email Address',
-              hint: 'your.email@school.com',
-              keyboardType: TextInputType.emailAddress,
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            // School Name Input
-            _buildTextField(
-              controller: _schoolNameController,
-              label: 'School / Organization Name',
-              hint: 'e.g., Lincoln High School',
-            ),
-            SizedBox(height: UIConstants.spacing32),
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _handleSubmit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                  ),
-                ),
-                child: _isSubmitting
-                    ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(
-                        'Send Me Details',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeMedium,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ),
-            SizedBox(height: UIConstants.spacing16),
-            // Maybe Later Button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Maybe Later',
-                  style: TextStyle(
-                    fontSize: UIConstants.fontSizeMedium,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeSmall,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: UIConstants.spacing8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          enabled: !_isSubmitting,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: AppColors.textTertiary),
-            // Add semantic label for accessibility
-            semanticCounterText: label,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: UIConstants.spacing16,
-              vertical: UIConstants.spacing12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-              borderSide: BorderSide(color: AppColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-              borderSide: BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-              borderSide: BorderSide(color: AppColors.primary, width: 2),
-            ),
-          ),
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
     );
   }
 }
