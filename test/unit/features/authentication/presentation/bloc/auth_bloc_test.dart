@@ -113,7 +113,15 @@ void main() {
     when(() => mockUserStateService.updateUser(any())).thenAnswer((_) async {});
     when(() => mockUserStateService.clearUser()).thenReturn(null);
     when(() => mockClock.now()).thenReturn(DateTime(2024, 1, 1, 12, 0, 0));
-    when(() => mockClock.periodic(any(), any())).thenReturn(Timer(Duration.zero, () {}));
+
+    // Mock periodic timer to never fire (return a timer that doesn't execute during test)
+    when(() => mockClock.periodic(any(), any())).thenAnswer((_) {
+      // Return a Timer that never fires - prevents unwanted state changes from sync timer
+      return Timer(const Duration(days: 1), () {});
+    });
+
+    // Mock delay method
+    when(() => mockClock.delay(any())).thenAnswer((_) async {});
 
     // Default mock for initialize - prevents unwanted state changes from constructor's microtask
     when(() => mockAuthUseCase.initialize())

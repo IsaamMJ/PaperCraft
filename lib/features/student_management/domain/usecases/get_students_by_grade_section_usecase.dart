@@ -12,6 +12,11 @@ class GetStudentsByGradeSectionUseCase {
   Future<Either<Failure, List<StudentEntity>>> call(
     GetStudentsParams params,
   ) async {
+    // If gradeSectionId is empty, load all active students
+    // Otherwise, load students for the specific grade section
+    if (params.gradeSectionId.isEmpty) {
+      return await repository.getActiveStudents();
+    }
     return await repository.getStudentsByGradeSection(params.gradeSectionId);
   }
 }

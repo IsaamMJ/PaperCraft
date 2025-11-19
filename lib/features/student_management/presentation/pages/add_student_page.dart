@@ -43,6 +43,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   @override
   Widget build(BuildContext context) {
+    print('[DEBUG ADD STUDENT] Page build - gradeSectionId: ${widget.gradeSectionId}');
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -53,7 +54,9 @@ class _AddStudentPageState extends State<AddStudentPage> {
       ),
       body: BlocListener<StudentEnrollmentBloc, StudentEnrollmentState>(
         listener: (context, state) {
+          print('[DEBUG ADD STUDENT] BlocListener state changed: ${state.runtimeType}');
           if (state is StudentAdded) {
+            print('[DEBUG ADD STUDENT] Student added successfully!');
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Student added successfully'),
@@ -64,6 +67,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
             // Navigate back to student list
             context.pop();
           } else if (state is StudentEnrollmentError) {
+            print('[DEBUG ADD STUDENT] Student enrollment error: ${state.message}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -88,6 +92,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
   }
 
   Widget _buildHeader() {
+    print('[DEBUG ADD STUDENT] Building header');
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
@@ -132,6 +137,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
   }
 
   Widget _buildForm(BuildContext context) {
+    print('[DEBUG ADD STUDENT] Building form');
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
@@ -278,6 +284,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
     return BlocBuilder<StudentEnrollmentBloc, StudentEnrollmentState>(
       builder: (context, state) {
         final isLoading = state is AddingStudent;
+        print('[DEBUG ADD STUDENT] Building submit button - isLoading: $isLoading');
 
         return SizedBox(
           width: double.infinity,
@@ -305,20 +312,33 @@ class _AddStudentPageState extends State<AddStudentPage> {
   }
 
   void _submitForm(BuildContext context) {
+    print('[DEBUG ADD STUDENT] Submit button clicked');
+    print('[DEBUG ADD STUDENT] gradeSectionId: "${widget.gradeSectionId}"');
     if (_formKey.currentState?.validate() ?? false) {
+      print('[DEBUG ADD STUDENT] Form validation passed');
+      final rollNumber = _rollNumberController.text.trim();
+      final fullName = _fullNameController.text.trim();
+      final email = _emailController.text.trim().isEmpty
+          ? null
+          : _emailController.text.trim();
+      final phone = _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim();
+
+      print('[DEBUG ADD STUDENT] Adding student: rollNumber=$rollNumber, fullName=$fullName, email=$email, phone=$phone, gradeSectionId="${widget.gradeSectionId}"');
+
       context.read<StudentEnrollmentBloc>().add(
             AddSingleStudent(
               gradeSectionId: widget.gradeSectionId,
-              rollNumber: _rollNumberController.text.trim(),
-              fullName: _fullNameController.text.trim(),
-              email: _emailController.text.trim().isEmpty
-                  ? null
-                  : _emailController.text.trim(),
-              phone: _phoneController.text.trim().isEmpty
-                  ? null
-                  : _phoneController.text.trim(),
+              rollNumber: rollNumber,
+              fullName: fullName,
+              email: email,
+              phone: phone,
             ),
           );
+      print('[DEBUG ADD STUDENT] AddSingleStudent event added to BLoC');
+    } else {
+      print('[DEBUG ADD STUDENT] Form validation failed');
     }
   }
 }

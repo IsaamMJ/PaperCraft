@@ -23,6 +23,14 @@ class _StudentListPageState extends State<StudentListPage> {
   final _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Don't auto-load on init - let user click refresh button
+    // This prevents infinite loading issues
+    print('[DEBUG STUDENT LIST] initState called');
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -41,6 +49,7 @@ class _StudentListPageState extends State<StudentListPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
+              print('[DEBUG STUDENT LIST] Refresh button clicked');
               context.read<StudentManagementBloc>().add(
                     const RefreshStudentList(),
                   );
@@ -51,13 +60,17 @@ class _StudentListPageState extends State<StudentListPage> {
       floatingActionButton: _buildFAB(context),
       body: BlocBuilder<StudentManagementBloc, StudentManagementState>(
         builder: (context, state) {
+          print('[DEBUG STUDENT LIST] BlocBuilder state: ${state.runtimeType}');
+
           if (state is StudentManagementLoading) {
+            print('[DEBUG STUDENT LIST] Loading students...');
             return const Center(
               child: CircularProgressIndicator(),
             );
           }
 
           if (state is StudentManagementError) {
+            print('[DEBUG STUDENT LIST] Error loading students: ${state.message}');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -83,6 +96,7 @@ class _StudentListPageState extends State<StudentListPage> {
           }
 
           if (state is StudentsLoaded) {
+            print('[DEBUG STUDENT LIST] Students loaded: ${state.students.length} total, ${state.filteredStudents.length} filtered');
             return SingleChildScrollView(
               padding: EdgeInsets.all(UIConstants.paddingMedium),
               child: Column(
@@ -104,6 +118,7 @@ class _StudentListPageState extends State<StudentListPage> {
             );
           }
 
+          print('[DEBUG STUDENT LIST] Unknown state type: ${state.runtimeType}');
           return const Center(
             child: Text('Unknown state'),
           );
@@ -113,6 +128,7 @@ class _StudentListPageState extends State<StudentListPage> {
   }
 
   Widget _buildHeader(StudentsLoaded state) {
+    print('[DEBUG STUDENT LIST] Building header with ${state.students.length} total students');
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
@@ -157,6 +173,7 @@ class _StudentListPageState extends State<StudentListPage> {
   }
 
   Widget _buildSearchBar(BuildContext context, StudentsLoaded state) {
+    print('[DEBUG STUDENT LIST] Building search bar');
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
@@ -166,6 +183,7 @@ class _StudentListPageState extends State<StudentListPage> {
             ? IconButton(
                 icon: const Icon(Icons.clear),
                 onPressed: () {
+                  print('[DEBUG STUDENT LIST] Clear search button clicked');
                   _searchController.clear();
                   context.read<StudentManagementBloc>().add(
                         const SearchStudents(searchTerm: ''),
@@ -182,6 +200,7 @@ class _StudentListPageState extends State<StudentListPage> {
         ),
       ),
       onChanged: (value) {
+        print('[DEBUG STUDENT LIST] Search term changed: "$value"');
         setState(() {}); // Update suffix icon
         context.read<StudentManagementBloc>().add(
               SearchStudents(searchTerm: value),
@@ -192,8 +211,10 @@ class _StudentListPageState extends State<StudentListPage> {
 
   Widget _buildStudentsList(StudentsLoaded state) {
     final students = state.filteredStudents;
+    print('[DEBUG STUDENT LIST] Building students list with ${students.length} students');
 
     if (students.isEmpty) {
+      print('[DEBUG STUDENT LIST] No students to display');
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -213,6 +234,7 @@ class _StudentListPageState extends State<StudentListPage> {
               icon: const Icon(Icons.add),
               label: const Text('Add First Student'),
               onPressed: () {
+                print('[DEBUG STUDENT LIST] Add First Student button clicked - no students in list');
                 context.pushNamed(
                   'add_student',
                   pathParameters: {'gradeSectionId': state.gradeSectionId},
@@ -285,17 +307,21 @@ class _StudentListPageState extends State<StudentListPage> {
                 ),
               ],
               onSelected: (value) {
+                print('[DEBUG STUDENT LIST] Menu selected: $value for student ${student.id}');
                 if (value == 'edit') {
                   // TODO: Implement edit functionality
+                  print('[DEBUG STUDENT LIST] Edit clicked for student: ${student.fullName}');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Edit not yet implemented')),
                   );
                 } else if (value == 'delete') {
+                  print('[DEBUG STUDENT LIST] Delete clicked for student: ${student.fullName}');
                   _confirmDelete(context, student.id, student.fullName);
                 }
               },
             ),
             onTap: () {
+              print('[DEBUG STUDENT LIST] Student tapped: ${student.fullName}');
               // Show student details or allow editing
             },
           );
@@ -305,6 +331,7 @@ class _StudentListPageState extends State<StudentListPage> {
   }
 
   void _confirmDelete(BuildContext context, String studentId, String studentName) {
+    print('[DEBUG STUDENT LIST] Showing delete confirmation dialog for student: $studentName (ID: $studentId)');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -312,11 +339,15 @@ class _StudentListPageState extends State<StudentListPage> {
         content: Text('Are you sure you want to delete $studentName?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              print('[DEBUG STUDENT LIST] Delete dialog cancelled');
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
+              print('[DEBUG STUDENT LIST] Delete confirmed for student: $studentName (ID: $studentId)');
               Navigator.pop(context);
               // TODO: Implement delete functionality
               ScaffoldMessenger.of(context).showSnackBar(
@@ -334,8 +365,10 @@ class _StudentListPageState extends State<StudentListPage> {
     return BlocBuilder<StudentManagementBloc, StudentManagementState>(
       builder: (context, state) {
         if (state is StudentsLoaded) {
+          print('[DEBUG STUDENT LIST] Building FAB');
           return FloatingActionButton(
             onPressed: () {
+              print('[DEBUG STUDENT LIST] FAB clicked - showing menu');
               showMenu(
                 context: context,
                 position: RelativeRect.fromLTRB(
@@ -368,21 +401,30 @@ class _StudentListPageState extends State<StudentListPage> {
                 ],
               ).then((value) {
                 if (value == 'single') {
-                  context.pushNamed(
-                    'add_student',
-                    pathParameters: {'gradeSectionId': state.gradeSectionId},
-                  );
+                  print('[DEBUG STUDENT LIST] FAB menu: Add Student selected');
+                  if (mounted) {
+                    context.pushNamed(
+                      'add_student',
+                      pathParameters: {'gradeSectionId': state.gradeSectionId},
+                    );
+                  }
                 } else if (value == 'bulk') {
-                  context.pushNamed(
-                    'bulk_upload_students',
-                    pathParameters: {'gradeSectionId': state.gradeSectionId},
-                  );
+                  print('[DEBUG STUDENT LIST] FAB menu: Bulk Upload selected');
+                  if (mounted) {
+                    context.pushNamed(
+                      'bulk_upload_students',
+                      pathParameters: {'gradeSectionId': state.gradeSectionId},
+                    );
+                  }
+                } else {
+                  print('[DEBUG STUDENT LIST] FAB menu closed without selection');
                 }
               });
             },
             child: const Icon(Icons.add),
           );
         }
+        print('[DEBUG STUDENT LIST] FAB not visible - state is not StudentsLoaded');
         return const SizedBox.shrink();
       },
     );

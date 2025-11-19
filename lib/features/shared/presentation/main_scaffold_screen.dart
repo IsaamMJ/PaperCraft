@@ -324,13 +324,19 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
 
   List<_NavItem> _getNavigationItems() {
     if (widget.isOfficeStaff) {
-      // Office staff navigation: Only office dashboard (single page)
+      // Office staff navigation: Approved papers + Students
       return [
         _NavItem(
           icon: Icons.folder_open_outlined,
           activeIcon: Icons.folder_open,
           label: 'Papers',
           semanticLabel: 'Approved papers dashboard',
+        ),
+        _NavItem(
+          icon: Icons.people_outline_rounded,
+          activeIcon: Icons.people_rounded,
+          label: 'Students',
+          semanticLabel: 'Student management',
         ),
       ];
     } else if (_isAdmin) {
@@ -354,7 +360,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           ),
         ];
       } else {
-        // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings
+        // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings, Students
         return [
           _NavItem(
             icon: Icons.admin_panel_settings_outlined,
@@ -380,10 +386,16 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
             label: 'Settings',
             semanticLabel: 'Settings and preferences',
           ),
+          _NavItem(
+            icon: Icons.people_outline_rounded,
+            activeIcon: Icons.people_rounded,
+            label: 'Students',
+            semanticLabel: 'Student management',
+          ),
         ];
       }
     } else {
-      // Teacher navigation: Home, Question Bank ONLY (no Settings)
+      // Teacher navigation: Home, Question Bank
       return [
         _NavItem(
           icon: Icons.home_rounded,
@@ -932,6 +944,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       // Office staff dashboard
       switch (index) {
         case 0: return 'Approved Papers';
+        case 1: return 'Students';
         default: return 'Papercraft';
       }
     } else if (widget.isReviewer) {
@@ -947,6 +960,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         case 1: return 'Question Bank';
         case 2: return 'Exam Timetables';
         case 3: return 'Settings';
+        case 4: return 'Students';
         default: return 'Papercraft';
       }
     } else {
@@ -964,6 +978,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
       // Office staff subtitles
       switch (index) {
         case 0: return 'View approved papers for upcoming exams';
+        case 1: return 'Add and manage students';
         default: return '';
       }
     } else if (widget.isReviewer) {
@@ -979,6 +994,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         case 1: return 'Approved question papers';
         case 2: return 'Create and manage exam schedules';
         case 3: return 'Preferences and account';
+        case 4: return 'Add and manage students';
         default: return '';
       }
     } else {

@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:papercraft/core/domain/interfaces/i_logger.dart';
 import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
 import 'package:papercraft/core/infrastructure/di/injection_container.dart';
@@ -42,13 +43,13 @@ class StudentManagementModule {
       // Remote DataSources
       sl.registerLazySingleton<StudentRemoteDataSource>(
         () => StudentRemoteDataSourceImpl(
-          supabaseClient: sl.call(),
+          supabaseClient: Supabase.instance.client,
         ),
       );
 
       sl.registerLazySingleton<StudentMarksRemoteDataSource>(
         () => StudentMarksRemoteDataSourceImpl(
-          supabaseClient: sl.call(),
+          supabaseClient: Supabase.instance.client,
         ),
       );
 
@@ -106,7 +107,7 @@ class StudentManagementModule {
         () => GetMarksStatisticsUseCase(sl<StudentMarksRepository>()),
       );
 
-      // BLoCs (Factories for per-screen instances)
+      // BLoCs (Factories for page-specific instances)
       sl.registerFactory<StudentManagementBloc>(
         () => StudentManagementBloc(
           getStudentsUseCase: sl<GetStudentsByGradeSectionUseCase>(),

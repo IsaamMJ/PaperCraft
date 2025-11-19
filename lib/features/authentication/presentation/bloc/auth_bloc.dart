@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../../../core/domain/interfaces/i_auth_provider.dart';
@@ -22,6 +23,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   // FIXED: Prevent multiple OAuth attempts and resource leaks
   bool _isOAuthInProgress = false;
   bool _isInitialized = false;
+  bool _isSigningOut = false; // Prevent duplicate sign-out events
 
   // SECURITY FIX: Auth state synchronization
   Timer? _syncTimer;
@@ -42,14 +44,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     // SECURITY FIX: Start auth state synchronization
     _startAuthStateSyncTimer();
-
-    // CRITICAL FIX: Trigger auth initialization to restore session on app startup
-    // This must happen AFTER event handlers are registered and listeners are set up
-    Future.microtask(() {
-      if (!isClosed) {
-        add(const AuthInitialize());
-      }
-    });
   }
 
   void _listenToAuthChanges() {
@@ -63,26 +57,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'timestamp': _clock.now().toIso8601String(),
           });
 
-          // ✅ Handle OAuth response for web
-          if (event.event == AuthChangeEvent.signedIn && event.session?.user != null) {
-
-            // ✅ Always trigger AuthCheckStatus when OAuth completes
-            // This handles both web and native platforms
-
-            // Use Future.microtask to ensure the BLoC is ready
+          // ✅ Handle OAuth response for web ONLY
+          // For native: _onSignInGoogle already handles authentication
+          if (event.event == AuthChangeEvent.signedIn && event.session?.user != null && kIsWeb) {
+            // Web platform received OAuth response
             Future.microtask(() {
               if (!isClosed) {
                 try {
                   add(const AuthCheckStatus());
                 } catch (e) {
+                  // Event already processed or bloc closed
                 }
-              } else {
               }
             });
           }
 
-          // Handle session expiry
-          if (event.event == AuthChangeEvent.signedOut && state is AuthAuthenticated) {
+          // Handle session expiry (but NOT during explicit sign-out)
+          if (event.event == AuthChangeEvent.signedOut && state is AuthAuthenticated && !_isSigningOut) {
             AppLogger.warning('Session expired, redirecting to login',
                 category: LogCategory.auth,
                 context: {
@@ -321,23 +312,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'completedAt': DateTime.now().toIso8601String(),
           });
 
-          // For now, assume tenant is initialized on login (will be checked by router)
-          // and user may or may not have completed onboarding
+          // For native platforms: emit authenticated state with user data
+          // Tenant initialization status will be verified on app startup via router
           emit(AuthAuthenticated(
             authResult.user,
             isFirstLogin: authResult.isFirstLogin,
-            tenantInitialized: false, // Will be refreshed by AuthCheckStatus below
+            tenantInitialized: false, // Router will verify this on next screen
             userOnboarded: authResult.user.hasCompletedOnboarding,
           ));
-
-          // CRITICAL FIX: Immediately refresh auth state to get correct tenant initialization status
-          // Don't rely on the async listener - trigger it explicitly here
-          // This ensures the router evaluates the CORRECT status, not the hardcoded false
-          Future.microtask(() {
-            if (!isClosed) {
-              add(const AuthCheckStatus());
-            }
-          });
         },
       );
     } catch (e) {
@@ -364,9 +346,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'initiatedAt': DateTime.now().toIso8601String(),
     });
 
-    emit(const AuthLoading());
+    _isSigningOut = true; // Prevent duplicate sign-out from auth listener
 
     try {
+      emit(const AuthLoading());
+
       final result = await _authUseCase.signOut();
 
       // ALWAYS clear user state, regardless of result
@@ -400,6 +384,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       });
 
       emit(const AuthUnauthenticated());
+    } finally {
+      _isSigningOut = false; // Allow auth listener to process events again
     }
 
   }

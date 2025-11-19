@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:csv/csv.dart';
 import 'package:papercraft/core/presentation/constants/app_colors.dart';
 import 'package:papercraft/core/presentation/constants/ui_constants.dart';
 import 'package:papercraft/features/student_management/presentation/bloc/student_enrollment_bloc.dart';
@@ -234,17 +237,102 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
                 ),
           ),
           SizedBox(height: UIConstants.spacing12),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.attach_file),
-            label: const Text('Choose File'),
+          // Download Template Button
+          OutlinedButton.icon(
+            icon: const Icon(Icons.download),
+            label: const Text('Download Template'),
             onPressed: () {
-              // TODO: Implement file picker
+              _downloadCsvTemplate();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('File picker not yet implemented'),
+                  content: Text('CSV template copied to clipboard'),
+                  duration: Duration(seconds: 2),
                 ),
               );
             },
+          ),
+          SizedBox(height: UIConstants.spacing12),
+          // Upload File Button
+          ElevatedButton.icon(
+            icon: const Icon(Icons.attach_file),
+            label: const Text('Choose File'),
+            onPressed: () => _pickAndParseCSVFile(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Generate CSV template with headers and sample data
+  String _generateCsvTemplate() {
+    final List<List<String>> rows = [
+      // Header row
+      ['roll_number', 'full_name', 'email', 'phone'],
+      // Sample data rows
+      ['001', 'John Doe', 'john.doe@example.com', '9876543210'],
+      ['002', 'Jane Smith', 'jane.smith@example.com', '9876543211'],
+      ['003', 'Alice Johnson', 'alice.johnson@example.com', '9876543212'],
+    ];
+
+    // Convert to CSV format
+    return rows.map((row) => row.map((cell) {
+      // Quote cells that contain commas or quotes
+      if (cell.contains(',') || cell.contains('"')) {
+        return '"${cell.replaceAll('"', '""')}"';
+      }
+      return cell;
+    }).join(',')).join('\n');
+  }
+
+  /// Download CSV template (shows dialog with template content)
+  void _downloadCsvTemplate() {
+    final csv = _generateCsvTemplate();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('CSV Template'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Copy the template below and save as students.csv',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              SizedBox(height: UIConstants.spacing12),
+              Container(
+                padding: EdgeInsets.all(UIConstants.paddingSmall),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: SelectableText(
+                  csv,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              SizedBox(height: UIConstants.spacing12),
+              Text(
+                'Instructions:\n'
+                '1. Copy the text above\n'
+                '2. Open a text editor or Excel\n'
+                '3. Paste the content\n'
+                '4. Fill in your student data\n'
+                '5. Save as CSV file',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -464,6 +552,152 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Pick a CSV file and parse it
+  Future<void> _pickAndParseCSVFile(BuildContext context) async {
+    try {
+      // Open file picker - allow only CSV files
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        // User cancelled the picker
+        return;
+      }
+
+      final file = result.files.first;
+
+      // Read file content as string
+      final content = await file.xFile.readAsString();
+
+      // Parse CSV content
+      final List<List<dynamic>> csvData = const CsvToListConverter().convert(content);
+
+      if (csvData.isEmpty) {
+        _showError(context, 'CSV file is empty');
+        return;
+      }
+
+      // Parse and validate students
+      final studentData = _parseCSVData(csvData);
+
+      if (studentData.isEmpty) {
+        _showError(context, 'No valid students found in CSV file');
+        return;
+      }
+
+      // Show preview with the parsed student data
+      if (mounted) {
+        // Trigger preview by adding the BulkUploadStudents event
+        // The BLoC will show the preview screen based on the state
+        // First convert to List<Map<String, String>>
+        final stringStudentData = studentData
+            .map((e) => Map<String, String>.from(
+              e.map((key, value) => MapEntry(key, value?.toString() ?? '')),
+            ))
+            .toList();
+
+        // Trigger validation/preview
+        context.read<StudentEnrollmentBloc>().add(
+          BulkUploadStudents(studentData: stringStudentData),
+        );
+      }
+    } catch (e) {
+      _showError(context, 'Error reading file: ${e.toString()}');
+    }
+  }
+
+  /// Parse CSV data and convert to student map format
+  List<Map<String, dynamic>> _parseCSVData(List<List<dynamic>> csvData) {
+    final List<Map<String, dynamic>> students = [];
+
+    // Skip header row (index 0)
+    for (int i = 1; i < csvData.length; i++) {
+      final row = csvData[i];
+
+      // Skip empty rows
+      if (row.isEmpty || row.every((cell) => cell == null || cell.toString().trim().isEmpty)) {
+        continue;
+      }
+
+      try {
+        // Extract fields from CSV row
+        final rollNumber = row.isNotEmpty ? row[0]?.toString().trim() ?? '' : '';
+        final fullName = row.length > 1 ? row[1]?.toString().trim() ?? '' : '';
+        final email = row.length > 2 ? row[2]?.toString().trim() ?? '' : '';
+        final phone = row.length > 3 ? row[3]?.toString().trim() ?? '' : '';
+
+        // Skip if required fields are missing
+        if (rollNumber.isEmpty || fullName.isEmpty) {
+          continue;
+        }
+
+        // Validate roll number (max 50 chars)
+        if (rollNumber.length > 50) {
+          continue;
+        }
+
+        // Validate full name (2-100 characters)
+        if (fullName.length < 2 || fullName.length > 100) {
+          continue;
+        }
+
+        // Validate email format if provided
+        if (email.isNotEmpty && !_isValidEmail(email)) {
+          continue;
+        }
+
+        // Validate phone (10-15 digits only if provided)
+        if (phone.isNotEmpty && !_isValidPhone(phone)) {
+          continue;
+        }
+
+        // Add to list
+        students.add({
+          'roll_number': rollNumber,
+          'full_name': fullName,
+          'email': email.isEmpty ? null : email,
+          'phone': phone.isEmpty ? null : phone,
+        });
+      } catch (e) {
+        // Skip invalid rows
+        continue;
+      }
+    }
+
+    return students;
+  }
+
+  /// Validate email format
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
+  /// Validate phone format (10-15 digits)
+  bool _isValidPhone(String phone) {
+    final phoneRegex = RegExp(r'^\d{10,15}$');
+    return phoneRegex.hasMatch(phone.replaceAll(RegExp(r'[^\d]'), ''));
+  }
+
+  /// Show error dialog
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+        ),
       ),
     );
   }

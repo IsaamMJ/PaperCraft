@@ -27,6 +27,7 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
     emit(const StudentManagementLoading());
 
     try {
+      // Load students (all if gradeSectionId is empty, or for specific section)
       final result = await getStudentsUseCase(
         GetStudentsParams(gradeSectionId: event.gradeSectionId),
       );
@@ -46,7 +47,7 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
           );
           emit(StudentsLoaded(
             students: students,
-            gradeSectionId: event.gradeSectionId,
+            gradeSectionId: event.gradeSectionId.isEmpty ? 'all' : event.gradeSectionId,
             filteredStudents: students,
           ));
         },
