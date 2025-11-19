@@ -538,16 +538,16 @@ void main() {
 
       final buttonFinder = find.text('Continue with Google');
 
-      // Rapid taps
+      // Rapid taps - only first tap goes through due to 1-second debounce
       await tester.tap(buttonFinder);
       await tester.pump(const Duration(milliseconds: 10));
-      await tester.tap(buttonFinder);
+      await tester.tap(buttonFinder); // Blocked by debounce
       await tester.pump(const Duration(milliseconds: 10));
-      await tester.tap(buttonFinder);
+      await tester.tap(buttonFinder); // Blocked by debounce
       await tester.pump(const Duration(milliseconds: 10));
 
-      // All taps get through to the widget, but bloc should handle deduplication
-      verify(() => mockAuthBloc.add(const AuthSignInGoogle())).called(3);
+      // Only 1 event sent due to UI-level debouncing (1s cooldown prevents duplicate events)
+      verify(() => mockAuthBloc.add(const AuthSignInGoogle())).called(1);
     });
 
     testWidgets('should show button press animation on tap', (tester) async {
