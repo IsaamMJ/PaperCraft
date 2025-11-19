@@ -101,6 +101,24 @@ import '../../../features/exams/domain/usecases/load_exam_calendars_usecase.dart
 import '../../../features/exams/domain/usecases/create_exam_calendar_usecase.dart';
 import '../../../features/exams/domain/usecases/delete_exam_calendar_usecase.dart';
 
+// Student Management feature imports
+import '../../../features/student_management/data/datasources/student_marks_remote_datasource.dart';
+import '../../../features/student_management/data/datasources/student_remote_datasource.dart';
+import '../../../features/student_management/data/repositories/student_marks_repository_impl.dart';
+import '../../../features/student_management/data/repositories/student_repository_impl.dart';
+import '../../../features/student_management/domain/repositories/student_marks_repository.dart';
+import '../../../features/student_management/domain/repositories/student_repository.dart';
+import '../../../features/student_management/domain/services/marks_validation_service.dart';
+import '../../../features/student_management/domain/services/student_validation_service.dart';
+import '../../../features/student_management/domain/usecases/add_student_usecase.dart';
+import '../../../features/student_management/domain/usecases/bulk_upload_students_usecase.dart';
+import '../../../features/student_management/domain/usecases/get_students_by_grade_section_usecase.dart';
+import '../../../features/student_management/domain/usecases/marks_usecases.dart';
+import '../../../features/student_management/presentation/bloc/marks_entry_bloc.dart';
+import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
+import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
+import 'modules/student_management_module.dart';
+
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
 import '../../domain/interfaces/i_feature_flags.dart';
@@ -227,6 +245,7 @@ Future<void> setupDependencies() async {
     await _AuthModule.setup();
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
+    await _StudentManagementModule.setup();
     await _AssignmentModule.setup();
     await _ReviewerManagementModule.setup();
     await _NotificationModule.setup();

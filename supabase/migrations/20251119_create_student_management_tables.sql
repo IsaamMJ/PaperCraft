@@ -96,9 +96,13 @@ CREATE TABLE IF NOT EXISTS public.student_exam_marks (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
 
   -- Constraints
-  CONSTRAINT unique_student_exam_marks UNIQUE(student_id, exam_timetable_entry_id) WHERE is_active = true,
   CONSTRAINT valid_marks CHECK (total_marks >= 0)
 );
+
+-- Create partial unique index (only counts active records)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_student_exam_marks_active
+  ON public.student_exam_marks(student_id, exam_timetable_entry_id)
+  WHERE is_active = true;
 
 -- Create indexes for student_exam_marks
 CREATE INDEX IF NOT EXISTS idx_marks_tenant_id
