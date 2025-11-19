@@ -156,6 +156,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   void _triggerSignIn(BuildContext context) {
+    // Cancel lead capture modal timer when user starts signing in
+    _leadCaptureTimer?.cancel();
     context.read<AuthBloc>().add(const AuthSignInGoogle());
   }
 
@@ -460,6 +462,9 @@ class _ResponsiveLoginLayout extends StatelessWidget {
   }
 
   Widget _buildCompactLayout() {
+    // Ensure minimum bottom padding of 16px on very short screens
+    final bottomPadding = (constraints.maxHeight * 0.06).clamp(16.0, double.infinity);
+
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -470,7 +475,7 @@ class _ResponsiveLoginLayout extends StatelessWidget {
           _buildActionSection(),
           SizedBox(height: constraints.maxHeight * 0.06),
           _buildFooter(),
-          SizedBox(height: constraints.maxHeight * 0.04),
+          SizedBox(height: bottomPadding),
         ],
       ),
     );
@@ -494,8 +499,10 @@ class _ResponsiveLoginLayout extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primary30,
-                    blurRadius: logoSize * 0.25,
-                    offset: Offset(0, logoSize * 0.125),
+                    // Reduce shadow harshness on small screens (min 8, max 15)
+                    blurRadius: (logoSize * 0.2).clamp(8.0, 15.0),
+                    // Reduce offset on small screens (min 4, max 8)
+                    offset: Offset(0, (logoSize * 0.1).clamp(4.0, 8.0)),
                   ),
                 ],
               ),
@@ -520,8 +527,9 @@ class _ResponsiveLoginLayout extends StatelessWidget {
             SizedBox(height: isShortScreen ? UIConstants.spacing4 : UIConstants.spacing8),
             Flexible(
               child: Text(
-                'Create, organize, and manage\nyour question papers easily',
+                'Create, organize, and manage your question papers easily',
                 textAlign: TextAlign.center,
+                softWrap: true,
                 style: TextStyle(
                   fontSize: subtitleFontSize,
                   color: AppColors.textSecondary,
@@ -708,49 +716,54 @@ class _SignInButtonState extends State<_SignInButton> {
               ),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _handleTap, // Use debounced handler
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? UIConstants.spacing24 : UIConstants.spacing20,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: UIConstants.iconLarge,
-                      height: UIConstants.iconLarge,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(UIConstants.radiusSmall - 2),
-                        color: AppColors.surface,
-                      ),
-                      child: Image.network(
-                        AppAssets.googleIcon,
-                        width: UIConstants.iconMedium,
-                        height: UIConstants.iconMedium,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.g_mobiledata,
-                          color: AppColors.primary,
-                          size: UIConstants.iconMedium,
+          child: Semantics(
+            label: 'Sign in with Google account',
+            button: true,
+            enabled: !_isClickDisabled,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _handleTap, // Use debounced handler
+                borderRadius: BorderRadius.circular(borderRadius),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? UIConstants.spacing24 : UIConstants.spacing20,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: UIConstants.iconLarge,
+                        height: UIConstants.iconLarge,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall - 2),
+                          color: AppColors.surface,
+                        ),
+                        child: Image.network(
+                          AppAssets.googleIcon,
+                          width: UIConstants.iconMedium,
+                          height: UIConstants.iconMedium,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.g_mobiledata,
+                            color: AppColors.primary,
+                            size: UIConstants.iconMedium,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: UIConstants.spacing16),
-                    Flexible(
-                      child: Text(
-                        'Continue with Google',
-                        style: TextStyle(
-                          // Slightly larger font size to ensure button meets accessibility requirements
-                          fontSize: isDesktop ? UIConstants.fontSizeXLarge : UIConstants.fontSizeXLarge,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                      SizedBox(width: UIConstants.spacing16),
+                      Flexible(
+                        child: Text(
+                          'Continue with Google',
+                          style: TextStyle(
+                            // Slightly larger font size to ensure button meets accessibility requirements
+                            fontSize: isDesktop ? UIConstants.fontSizeXLarge : UIConstants.fontSizeXLarge,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1020,6 +1033,8 @@ class _LeadCaptureSheetState extends State<_LeadCaptureSheet> {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: AppColors.textTertiary),
+            // Add semantic label for accessibility
+            semanticCounterText: label,
             contentPadding: EdgeInsets.symmetric(
               horizontal: UIConstants.spacing16,
               vertical: UIConstants.spacing12,
