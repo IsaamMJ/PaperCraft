@@ -146,12 +146,15 @@ class StudentRepositoryImpl implements StudentRepository {
     required List<Map<String, String>> studentData,
   }) async {
     try {
+      print('[DEBUG REPO] bulkUploadStudents called with ${studentData.length} students');
       final tenantId = userStateService.currentTenantId;
       final academicYear = userStateService.currentAcademicYear;
 
       if (tenantId == null || tenantId.isEmpty) {
+        print('[DEBUG REPO] Tenant ID not available');
         return Left(PermissionFailure('Tenant ID not available'));
       }
+      print('[DEBUG REPO] Tenant ID: $tenantId, Academic Year: $academicYear');
 
       final students = <StudentModel>[];
       final duplicates = <String>[];
@@ -161,8 +164,12 @@ class StudentRepositoryImpl implements StudentRepository {
         final rollNumber = data['roll_number'] ?? '';
         if (rollNumber.isEmpty) continue;
 
+        // Get the grade_section_id from the student data (each student has their own now)
+        final studentGradeSectionId = data['grade_section_id'] ?? gradeSectionId;
+        if (studentGradeSectionId.isEmpty) continue;
+
         final exists = await remoteDataSource.studentExists(
-          gradeSectionId: gradeSectionId,
+          gradeSectionId: studentGradeSectionId,
           rollNumber: rollNumber,
         );
 
@@ -172,7 +179,7 @@ class StudentRepositoryImpl implements StudentRepository {
           students.add(StudentModel(
             id: '', // Backend generated
             tenantId: tenantId as String,
-            gradeSectionId: gradeSectionId,
+            gradeSectionId: studentGradeSectionId,
             rollNumber: rollNumber,
             fullName: data['full_name'] ?? '',
             email: data['email'],
@@ -186,10 +193,13 @@ class StudentRepositoryImpl implements StudentRepository {
       }
 
       if (students.isEmpty) {
+        print('[DEBUG REPO] All students are duplicates or invalid');
         return Left(ValidationFailure('No new students to add. All records already exist.'));
       }
 
+      print('[DEBUG REPO] Inserting ${students.length} students, ${duplicates.length} duplicates');
       final result = await remoteDataSource.bulkInsertStudents(students);
+      print('[DEBUG REPO] Bulk insert completed: ${result.length} students inserted');
       logger.info('Bulk uploaded ${result.length} students, ${duplicates.length} duplicates skipped',
           category: LogCategory.system);
 

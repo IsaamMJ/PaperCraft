@@ -4,24 +4,32 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:papercraft/core/presentation/constants/app_colors.dart';
 import 'package:papercraft/core/presentation/constants/ui_constants.dart';
+import 'package:papercraft/core/infrastructure/di/injection_container.dart';
 import 'package:papercraft/features/student_management/presentation/bloc/student_enrollment_bloc.dart';
+import 'package:papercraft/features/authentication/presentation/bloc/auth_bloc.dart';
+import 'package:papercraft/features/authentication/presentation/bloc/auth_state.dart';
+import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
+import 'package:papercraft/features/catalog/domain/entities/grade_entity.dart';
+import 'package:papercraft/features/catalog/domain/entities/grade_section.dart';
 
 /// Bulk Upload Students Page
 ///
 /// Allows administrators to upload multiple students via CSV file.
 /// Features:
+/// - Grade and section selection
 /// - CSV file selection
 /// - Preview of parsed students before upload
 /// - Validation error display
 /// - Confirmation dialog before final upload
 /// - Success summary with new/skipped/error counts
 class BulkUploadStudentsPage extends StatefulWidget {
-  final String gradeSectionId;
+  final String? gradeSectionId;
 
   const BulkUploadStudentsPage({
-    required this.gradeSectionId,
+    this.gradeSectionId,
     super.key,
   });
 
@@ -30,6 +38,11 @@ class BulkUploadStudentsPage extends StatefulWidget {
 }
 
 class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,23 +55,29 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
       ),
       body: BlocListener<StudentEnrollmentBloc, StudentEnrollmentState>(
         listener: (context, state) {
+          print('[DEBUG UPLOAD] BLoC state changed: ${state.runtimeType}');
+
           if (state is StudentsBulkUploaded) {
             _showUploadSummary(context, state);
           } else if (state is BulkUploadValidationFailed) {
             final errorMessage = state.errors.isEmpty
               ? 'Validation failed'
               : state.errors.entries.first.value.join(', ');
+            print('[DEBUG UPLOAD] Validation failed: $errorMessage');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(errorMessage),
                 backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
               ),
             );
           } else if (state is StudentEnrollmentError) {
+            print('[DEBUG UPLOAD] Upload error: ${state.message}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
               ),
             );
           }
@@ -94,6 +113,7 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
       ),
     );
   }
+
 
   Widget _buildHeader() {
     return Container(
@@ -158,15 +178,23 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
           ),
           SizedBox(height: UIConstants.spacing12),
           _buildInstructionPoint(
-            'Header Row: roll_number,full_name,email,phone',
+            'Header Row: roll_number,full_name,grade,section,email,phone',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
-            'Roll Number: Required, max 50 characters, must be unique',
+            'Roll Number: Required, max 50 characters, must be unique within grade/section',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
             'Full Name: Required, 2-100 characters',
+          ),
+          SizedBox(height: UIConstants.spacing8),
+          _buildInstructionPoint(
+            'Grade: Required, numeric (e.g., 9, 10, 11)',
+          ),
+          SizedBox(height: UIConstants.spacing8),
+          _buildInstructionPoint(
+            'Section: Required, letter (e.g., A, B, C)',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
@@ -184,7 +212,7 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
               borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Text(
-              'Example: 001,John Doe,john@example.com,9876543210',
+              'Example: 001,John Doe,10,A,john@example.com,9876543210',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                   ),
@@ -267,11 +295,11 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
   String _generateCsvTemplate() {
     final List<List<String>> rows = [
       // Header row
-      ['roll_number', 'full_name', 'email', 'phone'],
+      ['roll_number', 'full_name', 'grade', 'section', 'email', 'phone'],
       // Sample data rows
-      ['001', 'John Doe', 'john.doe@example.com', '9876543210'],
-      ['002', 'Jane Smith', 'jane.smith@example.com', '9876543211'],
-      ['003', 'Alice Johnson', 'alice.johnson@example.com', '9876543212'],
+      ['001', 'John Doe', '10', 'A', 'john.doe@example.com', '9876543210'],
+      ['002', 'Jane Smith', '10', 'A', 'jane.smith@example.com', '9876543211'],
+      ['003', 'Alice Johnson', '10', 'B', 'alice.johnson@example.com', '9876543212'],
     ];
 
     // Convert to CSV format
@@ -424,26 +452,128 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
   }
 
   Widget _buildPreviewList(BulkUploadPreview state) {
+    // Group students by grade and section
+    final groupedStudents = <String, List<Map<String, String>>>{};
+
+    for (final student in state.studentData) {
+      final grade = student['grade'] ?? 'Unknown';
+      final section = student['section'] ?? 'Unknown';
+      final key = 'Grade $grade - Section $section';
+
+      groupedStudents.putIfAbsent(key, () => []);
+      groupedStudents[key]!.add(student);
+    }
+
+    // Sort keys
+    final sortedKeys = groupedStudents.keys.toList()..sort();
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(color: AppColors.border),
       ),
-      child: ListView.separated(
+      child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: state.studentData.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemCount: sortedKeys.length,
         itemBuilder: (context, index) {
-          final student = state.studentData[index];
-          return ListTile(
-            leading: const Icon(Icons.check_circle, color: Colors.green),
-            title: Text(student['full_name'] ?? ''),
-            subtitle: Text('Roll: ${student['roll_number'] ?? ''}'),
-            trailing: const Icon(Icons.done, color: Colors.green),
-          );
+          final key = sortedKeys[index];
+          final students = groupedStudents[key]!;
+
+          return _buildGradeSectionGroup(key, students);
         },
+      ),
+    );
+  }
+
+  Widget _buildGradeSectionGroup(String title, List<Map<String, String>> students) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.folder_open, color: AppColors.primary, size: 20),
+            SizedBox(width: UIConstants.spacing12),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: UIConstants.spacing8,
+                vertical: UIConstants.spacing4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary10,
+                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+              ),
+              child: Text(
+                '${students.length} students',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        initiallyExpanded: true,
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: students.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final student = students[index];
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: UIConstants.spacing8),
+                child: ListTile(
+                  leading: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                    ),
+                    child: const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 18,
+                    ),
+                  ),
+                  title: Text(
+                    student['full_name'] ?? '',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Roll: ${student['roll_number'] ?? ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  trailing: student['email'] != null && student['email']!.isNotEmpty
+                      ? Tooltip(
+                          message: student['email']!,
+                          child: Icon(
+                            Icons.email,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : null,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -468,7 +598,10 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
             ),
             onPressed: state.studentData.isEmpty
                 ? null
-                : () => _confirmUpload(context, state),
+                : () {
+                    print('[DEBUG UPLOAD] Upload button clicked in preview');
+                    _confirmUpload(context, state);
+                  },
             child: const Text('Upload'),
           ),
         ),
@@ -477,37 +610,54 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
   }
 
   void _confirmUpload(BuildContext context, BulkUploadPreview state) {
+    print('[DEBUG UPLOAD] _confirmUpload called');
+    // Capture the BLoC reference before showing the dialog to avoid context issues
+    final bloc = context.read<StudentEnrollmentBloc>();
+    print('[DEBUG UPLOAD] BLoC instance captured: $bloc');
+
+    print('[DEBUG UPLOAD] About to show dialog...');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Upload'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This will add ${state.studentData.length} student(s) to this grade section.',
+      builder: (dialogContext) {
+        print('[DEBUG UPLOAD] Dialog builder called');
+        return AlertDialog(
+          title: const Text('Confirm Upload'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will add ${state.studentData.length} student(s) across their respective grades and sections.',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                print('[DEBUG UPLOAD] Confirm button pressed');
+                print('[DEBUG UPLOAD] Event will have ${state.studentData.length} students');
+
+                final event = ValidateStudentData(
+                  gradeSectionId: '', // Not used, each student has their own gradeSectionId
+                  studentData: state.studentData,
+                );
+                print('[DEBUG UPLOAD] Event created: ${event.runtimeType}');
+                print('[DEBUG UPLOAD] BLoC instance: $bloc');
+                bloc.add(event);
+                print('[DEBUG UPLOAD] Event added to BLoC');
+
+                // Close dialog AFTER adding event
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Confirm Upload'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<StudentEnrollmentBloc>().add(
-                    BulkUploadStudents(
-                      studentData: state.studentData,
-                    ),
-                  );
-            },
-            child: const Text('Confirm Upload'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -592,21 +742,100 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
         return;
       }
 
-      // Show preview with the parsed student data
-      if (mounted) {
-        // Trigger preview by adding the BulkUploadStudents event
-        // The BLoC will show the preview screen based on the state
-        // First convert to List<Map<String, String>>
-        final stringStudentData = studentData
-            .map((e) => Map<String, String>.from(
-              e.map((key, value) => MapEntry(key, value?.toString() ?? '')),
-            ))
-            .toList();
+      // Get tenant ID for grade/section lookup
+      final authBloc = context.read<AuthBloc>();
+      String? tenantId;
+      if (authBloc.state is AuthAuthenticated) {
+        final user = (authBloc.state as AuthAuthenticated).user;
+        tenantId = user.tenantId;
+      }
 
-        // Trigger validation/preview
-        context.read<StudentEnrollmentBloc>().add(
-          BulkUploadStudents(studentData: stringStudentData),
-        );
+      if (tenantId == null) {
+        _showError(context, 'Error: Could not get tenant information');
+        return;
+      }
+
+      // Fetch grades and sections to build a lookup map
+      try {
+        final supabase = Supabase.instance.client;
+
+        // Fetch all grades and sections for this tenant
+        final gradesData = await supabase
+            .from('grades')
+            .select()
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true);
+
+        final sectionsData = await supabase
+            .from('grade_sections')
+            .select()
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true);
+
+        // Build maps for quick lookup
+        final gradeMap = <String, String>{}; // grade_number -> grade_id
+        final sectionMap = <String, String>{}; // "${grade_id}|${section_name}" -> section_id
+
+        for (final grade in gradesData) {
+          gradeMap[grade['grade_number'].toString()] = grade['id'];
+        }
+
+        for (final section in sectionsData) {
+          final key = "${section['grade_id']}|${section['section_name']}";
+          sectionMap[key] = section['id'];
+        }
+
+        // Enrich student data with grade_section_id
+        final enrichedData = <Map<String, String>>[];
+        for (final student in studentData) {
+          final gradeStr = student['grade'] as String?;
+          final sectionStr = student['section'] as String?;
+
+          if (gradeStr == null || sectionStr == null) {
+            continue;
+          }
+
+          final gradeId = gradeMap[gradeStr];
+          if (gradeId == null) {
+            _showError(context, 'Grade "$gradeStr" not found in system');
+            return;
+          }
+
+          final sectionKey = "$gradeId|$sectionStr";
+          final gradeSectionId = sectionMap[sectionKey];
+          if (gradeSectionId == null) {
+            _showError(context, 'Section "$sectionStr" not found for Grade "$gradeStr"');
+            return;
+          }
+
+          // Create the enriched student data with grade/section for preview display
+          enrichedData.add({
+            'roll_number': student['roll_number'].toString(),
+            'full_name': student['full_name'].toString(),
+            'email': student['email']?.toString() ?? '',
+            'phone': student['phone']?.toString() ?? '',
+            'grade': gradeStr,
+            'section': sectionStr,
+            'grade_section_id': gradeSectionId,
+          });
+        }
+
+        if (enrichedData.isEmpty) {
+          _showError(context, 'No valid students found after processing');
+          return;
+        }
+
+        // Show preview with the enriched student data
+        if (mounted) {
+          context.read<StudentEnrollmentBloc>().add(
+            BulkUploadStudents(
+              studentData: enrichedData,
+              gradeSectionId: '', // Not used anymore, but required by event
+            ),
+          );
+        }
+      } catch (e) {
+        _showError(context, 'Error processing students: ${e.toString()}');
       }
     } catch (e) {
       _showError(context, 'Error reading file: ${e.toString()}');
@@ -617,56 +846,72 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
   List<Map<String, dynamic>> _parseCSVData(List<List<dynamic>> csvData) {
     final List<Map<String, dynamic>> students = [];
 
+    print('[DEBUG CSV PARSE] Total rows in CSV: ${csvData.length}');
+
     // Skip header row (index 0)
     for (int i = 1; i < csvData.length; i++) {
       final row = csvData[i];
 
       // Skip empty rows
       if (row.isEmpty || row.every((cell) => cell == null || cell.toString().trim().isEmpty)) {
+        print('[DEBUG CSV PARSE] Row $i is empty, skipping');
         continue;
       }
 
       try {
-        // Extract fields from CSV row
+        // Extract fields from CSV row (roll_number, full_name, grade, section, email, phone)
         final rollNumber = row.isNotEmpty ? row[0]?.toString().trim() ?? '' : '';
         final fullName = row.length > 1 ? row[1]?.toString().trim() ?? '' : '';
-        final email = row.length > 2 ? row[2]?.toString().trim() ?? '' : '';
-        final phone = row.length > 3 ? row[3]?.toString().trim() ?? '' : '';
+        final grade = row.length > 2 ? row[2]?.toString().trim() ?? '' : '';
+        final section = row.length > 3 ? row[3]?.toString().trim() ?? '' : '';
+        final email = row.length > 4 ? row[4]?.toString().trim() ?? '' : '';
+        final phone = row.length > 5 ? row[5]?.toString().trim() ?? '' : '';
+
+        print('[DEBUG CSV PARSE] Row $i: rollNumber=$rollNumber, fullName=$fullName, grade=$grade, section=$section, email=$email, phone=$phone');
 
         // Skip if required fields are missing
-        if (rollNumber.isEmpty || fullName.isEmpty) {
+        if (rollNumber.isEmpty || fullName.isEmpty || grade.isEmpty || section.isEmpty) {
+          print('[DEBUG CSV PARSE] Row $i has empty required fields, skipping');
           continue;
         }
 
         // Validate roll number (max 50 chars)
         if (rollNumber.length > 50) {
+          print('[DEBUG CSV PARSE] Row $i: rollNumber too long (${rollNumber.length} > 50), skipping');
           continue;
         }
 
         // Validate full name (2-100 characters)
         if (fullName.length < 2 || fullName.length > 100) {
+          print('[DEBUG CSV PARSE] Row $i: fullName invalid length (${fullName.length}), skipping');
           continue;
         }
 
         // Validate email format if provided
         if (email.isNotEmpty && !_isValidEmail(email)) {
+          print('[DEBUG CSV PARSE] Row $i: email invalid format ($email), skipping');
           continue;
         }
 
         // Validate phone (10-15 digits only if provided)
         if (phone.isNotEmpty && !_isValidPhone(phone)) {
+          print('[DEBUG CSV PARSE] Row $i: phone invalid format ($phone), skipping');
           continue;
         }
 
-        // Add to list
+        // Add to list (grade and section will be used to look up grade_section_id later)
         students.add({
           'roll_number': rollNumber,
           'full_name': fullName,
+          'grade': grade,
+          'section': section,
           'email': email.isEmpty ? null : email,
           'phone': phone.isEmpty ? null : phone,
         });
+        print('[DEBUG CSV PARSE] Row $i: added successfully');
       } catch (e) {
         // Skip invalid rows
+        print('[DEBUG CSV PARSE] Row $i: exception caught - $e');
         continue;
       }
     }

@@ -71,12 +71,14 @@ class StudentModel extends StudentEntity {
   /// Convert to JSON request format (for creating/updating students)
   Map<String, dynamic> toJsonRequest() {
     return {
+      'tenant_id': tenantId,
       'grade_section_id': gradeSectionId,
       'roll_number': rollNumber,
       'full_name': fullName,
       'email': email,
       'phone': phone,
       'academic_year': academicYear,
+      'is_active': isActive,
     };
   }
 

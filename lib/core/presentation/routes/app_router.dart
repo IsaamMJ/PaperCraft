@@ -791,24 +791,33 @@ class AppRouter {
       // Student Management routes
       // NOTE: More specific routes (with fixed path segments) MUST come before generic routes with parameters
       GoRoute(
-        path: '/students/add/:gradeSectionId',
+        path: '/students/add',
         name: 'add_student',
         builder: (context, state) {
-          final gradeSectionId = state.pathParameters['gradeSectionId']!;
           return BlocProvider(
             create: (_) => sl<StudentEnrollmentBloc>(),
-            child: AddStudentPage(gradeSectionId: gradeSectionId),
+            child: const AddStudentPage(),
           );
         },
       ),
       GoRoute(
-        path: '/students/bulk-upload/:gradeSectionId',
+        path: '/students/all',
+        name: 'students_all',
+        builder: (context, state) {
+          return BlocProvider(
+            create: (_) => sl<StudentManagementBloc>()
+              ..add(const LoadStudentsForGradeSection(gradeSectionId: '')),
+            child: const StudentListPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/students/bulk-upload',
         name: 'bulk_upload_students',
         builder: (context, state) {
-          final gradeSectionId = state.pathParameters['gradeSectionId']!;
           return BlocProvider(
             create: (_) => sl<StudentEnrollmentBloc>(),
-            child: BulkUploadStudentsPage(gradeSectionId: gradeSectionId),
+            child: const BulkUploadStudentsPage(),
           );
         },
       ),

@@ -115,6 +115,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
       emit(BulkUploadPreview(
         totalRows: event.studentData.length,
         studentData: event.studentData,
+        gradeSectionId: event.gradeSectionId,
       ));
     } catch (e) {
       logger.error(
@@ -129,9 +130,12 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
     ValidateStudentData event,
     Emitter<StudentEnrollmentState> emit,
   ) async {
+    print('[DEBUG BLoC] _onValidateData called with ${event.studentData.length} students');
     emit(const UploadingStudents());
+    print('[DEBUG BLoC] Emitted UploadingStudents state');
 
     try {
+      print('[DEBUG BLoC] Calling bulkUploadUseCase...');
       // Call usecase for bulk upload
       final result = await bulkUploadUseCase(
         BulkUploadStudentsParams(
@@ -139,9 +143,11 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
           studentData: event.studentData,
         ),
       );
+      print('[DEBUG BLoC] bulkUploadUseCase returned: ${result.isRight()}');
 
       result.fold(
         (failure) {
+          print('[DEBUG BLoC] Bulk upload failed: ${failure.message}');
           logger.error(
             'Failed to bulk upload: ${failure.message}',
             category: LogCategory.system,
@@ -149,6 +155,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
           emit(StudentEnrollmentError(failure.message));
         },
         (students) {
+          print('[DEBUG BLoC] Bulk upload successful: ${students.length} students');
           logger.info(
             'Bulk uploaded ${students.length} students',
             category: LogCategory.system,
@@ -157,6 +164,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
         },
       );
     } catch (e) {
+      print('[DEBUG BLoC] Exception in _onValidateData: ${e.toString()}');
       logger.error(
         'Error bulk uploading students: ${e.toString()}',
         category: LogCategory.system,

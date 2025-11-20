@@ -15,7 +15,8 @@
       "Bash(dart analyze:*)",
       "Bash(flutter test:*)",
       "Bash(cat:*)",
-      "Bash(timeout 120 flutter test:*)"
+      "Bash(timeout 120 flutter test:*)",
+      "Bash(timeout 180 flutter test:*)"
     ],
     "deny": [],
     "ask": []

@@ -37,14 +37,16 @@ class ValidatingBulkData extends StudentEnrollmentState {
 class BulkUploadPreview extends StudentEnrollmentState {
   final int totalRows;
   final List<Map<String, String>> studentData;
+  final String gradeSectionId;
 
   const BulkUploadPreview({
     required this.totalRows,
     required this.studentData,
+    required this.gradeSectionId,
   });
 
   @override
-  List<Object?> get props => [totalRows, studentData];
+  List<Object?> get props => [totalRows, studentData, gradeSectionId];
 }
 
 class BulkUploadValidationFailed extends StudentEnrollmentState {

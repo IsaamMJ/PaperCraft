@@ -70,8 +70,10 @@ class StudentManagementBloc extends Bloc<StudentManagementEvent, StudentManageme
       emit(const StudentManagementLoading());
 
       try {
+        // Convert 'all' back to empty string for the use case
+        final gradeSectionId = currentState.gradeSectionId == 'all' ? '' : currentState.gradeSectionId;
         final result = await getStudentsUseCase(
-          GetStudentsParams(gradeSectionId: currentState.gradeSectionId),
+          GetStudentsParams(gradeSectionId: gradeSectionId),
         );
 
         result.fold(

@@ -149,19 +149,26 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   @override
   Future<List<StudentModel>> bulkInsertStudents(List<StudentModel> students) async {
     try {
-      if (students.isEmpty) return [];
+      print('[DEBUG DS] bulkInsertStudents called with ${students.length} students');
+      if (students.isEmpty) {
+        print('[DEBUG DS] No students to insert');
+        return [];
+      }
 
       final jsonList = students.map((s) => s.toJsonRequest()).toList();
+      print('[DEBUG DS] Converted to JSON, first student: ${jsonList.first}');
 
       final response = await supabaseClient
           .from(_tableName)
           .insert(jsonList)
           .select();
 
+      print('[DEBUG DS] Insert response received: ${(response as List).length} items');
       return (response as List<dynamic>)
           .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
+      print('[DEBUG DS] Exception in bulkInsertStudents: ${e.toString()}');
       rethrow;
     }
   }

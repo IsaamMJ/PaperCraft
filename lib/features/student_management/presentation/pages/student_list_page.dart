@@ -235,10 +235,7 @@ class _StudentListPageState extends State<StudentListPage> {
               label: const Text('Add First Student'),
               onPressed: () {
                 print('[DEBUG STUDENT LIST] Add First Student button clicked - no students in list');
-                context.pushNamed(
-                  'add_student',
-                  pathParameters: {'gradeSectionId': state.gradeSectionId},
-                );
+                context.pushNamed('add_student');
               },
             ),
           ],
@@ -246,86 +243,171 @@ class _StudentListPageState extends State<StudentListPage> {
       );
     }
 
+    // Group students by grade section ID
+    final groupedStudents = <String, List<dynamic>>{};
+    for (final student in students) {
+      final key = student.gradeSectionId;
+      groupedStudents.putIfAbsent(key, () => []);
+      groupedStudents[key]!.add(student);
+    }
+
+    // Sort keys
+    final sortedKeys = groupedStudents.keys.toList()..sort();
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         border: Border.all(color: AppColors.border),
       ),
-      child: ListView.separated(
+      child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: students.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemCount: sortedKeys.length,
         itemBuilder: (context, index) {
-          final student = students[index];
-          return ListTile(
-            leading: CircleAvatar(
-              child: Text(student.rollNumber),
-            ),
-            title: Text(student.fullName),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: UIConstants.spacing4),
-                Text(
-                  'Roll No: ${student.rollNumber}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (student.email != null) ...[
-                  SizedBox(height: UIConstants.spacing4),
-                  Text(
-                    student.email!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-            trailing: PopupMenuButton(
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Edit'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-              onSelected: (value) {
-                print('[DEBUG STUDENT LIST] Menu selected: $value for student ${student.id}');
-                if (value == 'edit') {
-                  // TODO: Implement edit functionality
-                  print('[DEBUG STUDENT LIST] Edit clicked for student: ${student.fullName}');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Edit not yet implemented')),
-                  );
-                } else if (value == 'delete') {
-                  print('[DEBUG STUDENT LIST] Delete clicked for student: ${student.fullName}');
-                  _confirmDelete(context, student.id, student.fullName);
-                }
-              },
-            ),
-            onTap: () {
-              print('[DEBUG STUDENT LIST] Student tapped: ${student.fullName}');
-              // Show student details or allow editing
-            },
-          );
+          final key = sortedKeys[index];
+          final groupStudents = groupedStudents[key]!;
+
+          return _buildGradeSectionGroup(groupStudents);
         },
+      ),
+    );
+  }
+
+  Widget _buildGradeSectionGroup(List<dynamic> students) {
+    if (students.isEmpty) return const SizedBox.shrink();
+
+    // Use first student's grade section for the group title
+    final firstStudent = students.first;
+    final gradeSectionId = firstStudent.gradeSectionId;
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.folder_open, color: AppColors.primary, size: 20),
+            SizedBox(width: UIConstants.spacing12),
+            Expanded(
+              child: Text(
+                gradeSectionId,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: UIConstants.spacing8,
+                vertical: UIConstants.spacing4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary10,
+                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+              ),
+              child: Text(
+                '${students.length} students',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        initiallyExpanded: true,
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: students.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final student = students[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.primary.withOpacity(0.2),
+                  child: Text(
+                    student.rollNumber.isNotEmpty
+                      ? student.rollNumber[0].toUpperCase()
+                      : 'S',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  student.fullName,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: UIConstants.spacing4),
+                    Text(
+                      'Roll No: ${student.rollNumber}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (student.email != null && student.email!.isNotEmpty) ...[
+                      SizedBox(height: UIConstants.spacing4),
+                      Text(
+                        student.email!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+                trailing: PopupMenuButton(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onSelected: (value) {
+                    print('[DEBUG STUDENT LIST] Menu selected: $value for student ${student.id}');
+                    if (value == 'edit') {
+                      print('[DEBUG STUDENT LIST] Edit clicked for student: ${student.fullName}');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Edit not yet implemented')),
+                      );
+                    } else if (value == 'delete') {
+                      print('[DEBUG STUDENT LIST] Delete clicked for student: ${student.fullName}');
+                      _confirmDelete(context, student.id, student.fullName);
+                    }
+                  },
+                ),
+                onTap: () {
+                  print('[DEBUG STUDENT LIST] Student tapped: ${student.fullName}');
+                  // Show student details or allow editing
+                },
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -403,18 +485,12 @@ class _StudentListPageState extends State<StudentListPage> {
                 if (value == 'single') {
                   print('[DEBUG STUDENT LIST] FAB menu: Add Student selected');
                   if (mounted) {
-                    context.pushNamed(
-                      'add_student',
-                      pathParameters: {'gradeSectionId': state.gradeSectionId},
-                    );
+                    context.pushNamed('add_student');
                   }
                 } else if (value == 'bulk') {
                   print('[DEBUG STUDENT LIST] FAB menu: Bulk Upload selected');
                   if (mounted) {
-                    context.pushNamed(
-                      'bulk_upload_students',
-                      pathParameters: {'gradeSectionId': state.gradeSectionId},
-                    );
+                    context.pushNamed('bulk_upload_students');
                   }
                 } else {
                   print('[DEBUG STUDENT LIST] FAB menu closed without selection');

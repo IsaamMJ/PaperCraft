@@ -31,11 +31,15 @@ class AddSingleStudent extends StudentEnrollmentEvent {
 
 class BulkUploadStudents extends StudentEnrollmentEvent {
   final List<Map<String, String>> studentData;
+  final String gradeSectionId; // Legacy, not used anymore (each student has their own grade_section_id)
 
-  const BulkUploadStudents({required this.studentData});
+  const BulkUploadStudents({
+    required this.studentData,
+    required this.gradeSectionId,
+  });
 
   @override
-  List<Object?> get props => [studentData];
+  List<Object?> get props => [studentData, gradeSectionId];
 }
 
 class ValidateStudentData extends StudentEnrollmentEvent {

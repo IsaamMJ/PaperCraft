@@ -4,25 +4,28 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:papercraft/core/presentation/constants/app_colors.dart';
 import 'package:papercraft/core/presentation/constants/ui_constants.dart';
+import 'package:papercraft/core/infrastructure/di/injection_container.dart';
 import 'package:papercraft/features/student_management/presentation/bloc/student_enrollment_bloc.dart';
 import 'package:papercraft/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:papercraft/features/authentication/presentation/bloc/auth_state.dart';
+import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
+import 'package:papercraft/features/catalog/domain/entities/grade_entity.dart';
+import 'package:papercraft/features/catalog/domain/entities/grade_section.dart';
 
 /// Add Student Page
 ///
-/// Allows users (typically admins) to add a single student to a grade/section.
+/// Allows admins to add a single student to the system.
 /// Features:
-/// - Display selected grade/section prominently
+/// - Grade dropdown (all available grades)
+/// - Section dropdown (filtered by selected grade)
 /// - Form validation for roll number, name, email, phone
-/// - Auto-association with grade_section_id
 /// - Async submission with loading state
-/// - Error display with field-level feedback
-/// - Success navigation back to student list
+/// - Success navigation back to previous screen
 class AddStudentPage extends StatefulWidget {
-  final String gradeSectionId;
+  final String? gradeSectionId;
 
   const AddStudentPage({
-    required this.gradeSectionId,
+    this.gradeSectionId,
     super.key,
   });
 
@@ -37,19 +40,25 @@ class _AddStudentPageState extends State<AddStudentPage> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
 
-  String? _gradeNumber;
-  String? _sectionName;
-  bool _loadingGradeSection = true;
+  List<GradeEntity> _grades = [];
+  List<GradeSection> _allSections = [];
+  List<GradeSection> _filteredSections = [];
+
+  GradeEntity? _selectedGrade;
+  GradeSection? _selectedSection;
+
+  bool _loadingData = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _loadGradeSectionDetails();
+    _loadGradesAndSections();
   }
 
-  Future<void> _loadGradeSectionDetails() async {
+  Future<void> _loadGradesAndSections() async {
     try {
-      print('[DEBUG ADD STUDENT] Loading grade section details for: ${widget.gradeSectionId}');
+      print('[DEBUG ADD STUDENT] Loading grades and sections');
 
       final authBloc = context.read<AuthBloc>();
       String? tenantId;
@@ -66,30 +75,77 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
       final supabase = Supabase.instance.client;
 
-      // Fetch grade section with related grade info
-      final gradeSection = await supabase
-          .from('grade_sections')
-          .select('*, grades(grade_number)')
-          .eq('id', widget.gradeSectionId)
+      // Fetch all grades
+      final gradesData = await supabase
+          .from('grades')
+          .select()
           .eq('tenant_id', tenantId)
-          .single();
+          .eq('is_active', true)
+          .order('grade_number');
+
+      // Fetch all grade sections
+      final sectionsData = await supabase
+          .from('grade_sections')
+          .select()
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .order('display_order');
 
       if (mounted) {
         setState(() {
-          _gradeNumber = gradeSection['grades']['grade_number'].toString();
-          _sectionName = gradeSection['section_name'] as String;
-          _loadingGradeSection = false;
-          print('[DEBUG ADD STUDENT] Loaded: Grade $_gradeNumber Section $_sectionName');
+          _grades = List<GradeEntity>.from(
+            (gradesData as List).map((g) => GradeEntity(
+              id: g['id'] as String,
+              tenantId: g['tenant_id'] as String,
+              gradeNumber: g['grade_number'] as int,
+              isActive: g['is_active'] as bool,
+              createdAt: DateTime.parse(g['created_at'] as String),
+            )),
+          );
+
+          _allSections = List<GradeSection>.from(
+            (sectionsData as List).map((s) => GradeSection(
+              id: s['id'] as String,
+              tenantId: s['tenant_id'] as String,
+              gradeId: s['grade_id'] as String,
+              sectionName: s['section_name'] as String,
+              displayOrder: s['display_order'] as int,
+              isActive: s['is_active'] as bool,
+              createdAt: DateTime.parse(s['created_at'] as String),
+              updatedAt: DateTime.parse(s['updated_at'] as String),
+            )),
+          );
+
+          _loadingData = false;
+          print('[DEBUG ADD STUDENT] Loaded ${_grades.length} grades and ${_allSections.length} sections');
         });
       }
     } catch (e) {
-      print('[DEBUG ADD STUDENT] Error loading grade section: $e');
+      print('[DEBUG ADD STUDENT] Error loading data: $e');
       if (mounted) {
         setState(() {
-          _loadingGradeSection = false;
+          _loadingData = false;
+          _loadError = 'Failed to load grades and sections';
         });
       }
     }
+  }
+
+  void _onGradeChanged(GradeEntity? grade) {
+    setState(() {
+      _selectedGrade = grade;
+      _selectedSection = null; // Reset section when grade changes
+
+      // Filter sections by selected grade
+      if (grade != null) {
+        _filteredSections = _allSections
+            .where((section) => section.gradeId == grade.id)
+            .toList();
+        print('[DEBUG ADD STUDENT] Filtered ${_filteredSections.length} sections for grade ${grade.gradeNumber}');
+      } else {
+        _filteredSections = [];
+      }
+    });
   }
 
   @override
@@ -103,7 +159,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   @override
   Widget build(BuildContext context) {
-    print('[DEBUG ADD STUDENT] Page build - gradeSectionId: ${widget.gradeSectionId}');
+    print('[DEBUG ADD STUDENT] Page build');
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -124,8 +180,12 @@ class _AddStudentPageState extends State<AddStudentPage> {
                 duration: Duration(seconds: 2),
               ),
             );
-            // Navigate back to student list
-            context.pop();
+            // Navigate back to previous screen
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (context.mounted) {
+                context.pop();
+              }
+            });
           } else if (state is StudentEnrollmentError) {
             print('[DEBUG ADD STUDENT] Student enrollment error: ${state.message}');
             ScaffoldMessenger.of(context).showSnackBar(
@@ -154,99 +214,35 @@ class _AddStudentPageState extends State<AddStudentPage> {
   Widget _buildHeader() {
     print('[DEBUG ADD STUDENT] Building header');
 
-    if (_loadingGradeSection) {
-      return Container(
-        padding: EdgeInsets.all(UIConstants.paddingLarge),
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        ),
-      );
-    }
-
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.person_add,
-                color: Colors.white,
-                size: UIConstants.iconLarge,
-              ),
-              SizedBox(width: UIConstants.spacing12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Add New Student',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    SizedBox(height: UIConstants.spacing4),
-                    Text(
-                      'Enter student details below',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Icon(
+            Icons.person_add,
+            color: Colors.white,
+            size: UIConstants.iconLarge,
           ),
-          SizedBox(height: UIConstants.spacing16),
-          // Grade Section Allocation Card
-          Container(
-            padding: EdgeInsets.all(UIConstants.paddingMedium),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: Row(
+          SizedBox(width: UIConstants.spacing12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.class_,
-                  color: Colors.white,
-                  size: UIConstants.iconMedium,
+                Text(
+                  'Add New Student',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                SizedBox(width: UIConstants.spacing12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Grade & Section Allocation',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: UIConstants.spacing4),
-                      Text(
-                        'Grade $_gradeNumber • Section $_sectionName',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+                SizedBox(height: UIConstants.spacing4),
+                Text(
+                  'Select grade & section to allocate student',
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
             ),
@@ -258,6 +254,39 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   Widget _buildForm(BuildContext context) {
     print('[DEBUG ADD STUDENT] Building form');
+
+    if (_loadingData) {
+      return Container(
+        padding: EdgeInsets.all(UIConstants.paddingLarge),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_loadError != null) {
+      return Container(
+        padding: EdgeInsets.all(UIConstants.paddingLarge),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Center(
+          child: Text(
+            _loadError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
@@ -270,34 +299,71 @@ class _AddStudentPageState extends State<AddStudentPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Info Note
-            Container(
-              padding: EdgeInsets.all(UIConstants.paddingMedium),
-              decoration: BoxDecoration(
-                color: AppColors.primary10,
-                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                border: Border.all(color: AppColors.primary30),
+            // Grade & Section Selection
+            _buildLabel('Grade *'),
+            DropdownButtonFormField<GradeEntity>(
+              value: _selectedGrade,
+              items: _grades
+                  .map((grade) => DropdownMenuItem(
+                        value: grade,
+                        child: Text('Grade ${grade.gradeNumber}'),
+                      ))
+                  .toList(),
+              onChanged: _onGradeChanged,
+              decoration: InputDecoration(
+                hintText: 'Select a grade',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.paddingMedium,
+                  vertical: UIConstants.paddingSmall,
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: AppColors.primary,
-                    size: UIConstants.iconMedium,
-                  ),
-                  SizedBox(width: UIConstants.spacing12),
-                  Expanded(
-                    child: Text(
-                      'Grade & section are automatically set to Grade $_gradeNumber Section $_sectionName',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: UIConstants.fontSizeSmall,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+              validator: (value) {
+                if (value == null) {
+                  return 'Grade is required';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: UIConstants.spacing16),
+
+            // Section Dropdown
+            _buildLabel('Section *'),
+            DropdownButtonFormField<GradeSection>(
+              value: _selectedSection,
+              items: _filteredSections
+                  .map((section) => DropdownMenuItem(
+                        value: section,
+                        child: Text(section.sectionName),
+                      ))
+                  .toList(),
+              onChanged: (section) {
+                setState(() {
+                  _selectedSection = section;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Select a section',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.paddingMedium,
+                  vertical: UIConstants.paddingSmall,
+                ),
               ),
+              validator: (value) {
+                if (value == null) {
+                  return 'Section is required';
+                }
+                return null;
+              },
+              disabledHint: Text(
+                _selectedGrade == null ? 'Select a grade first' : 'No sections available',
+              ),
+              isExpanded: true,
             ),
             SizedBox(height: UIConstants.spacing24),
 
@@ -464,8 +530,17 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   void _submitForm(BuildContext context) {
     print('[DEBUG ADD STUDENT] Submit button clicked');
-    print('[DEBUG ADD STUDENT] gradeSectionId: "${widget.gradeSectionId}"');
     if (_formKey.currentState?.validate() ?? false) {
+      if (_selectedSection == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a grade and section'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       print('[DEBUG ADD STUDENT] Form validation passed');
       final rollNumber = _rollNumberController.text.trim();
       final fullName = _fullNameController.text.trim();
@@ -476,11 +551,15 @@ class _AddStudentPageState extends State<AddStudentPage> {
           ? null
           : _phoneController.text.trim();
 
-      print('[DEBUG ADD STUDENT] Adding student: rollNumber=$rollNumber, fullName=$fullName, email=$email, phone=$phone, gradeSectionId="${widget.gradeSectionId}"');
+      // Get tenant info for debugging
+      final userStateService = sl<UserStateService>();
+      print('[DEBUG ADD STUDENT] User state - tenantId: ${userStateService.currentTenantId}, academicYear: ${userStateService.currentAcademicYear}');
+
+      print('[DEBUG ADD STUDENT] Adding student: rollNumber=$rollNumber, fullName=$fullName, email=$email, phone=$phone, gradeSectionId="${_selectedSection!.id}"');
 
       context.read<StudentEnrollmentBloc>().add(
             AddSingleStudent(
-              gradeSectionId: widget.gradeSectionId,
+              gradeSectionId: _selectedSection!.id,
               rollNumber: rollNumber,
               fullName: fullName,
               email: email,
