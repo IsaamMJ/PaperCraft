@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:papercraft/core/presentation/constants/app_colors.dart';
 import 'package:papercraft/core/presentation/constants/ui_constants.dart';
 import 'package:papercraft/features/student_management/presentation/bloc/student_enrollment_bloc.dart';
+import 'package:papercraft/features/authentication/presentation/bloc/auth_bloc.dart';
+import 'package:papercraft/features/authentication/presentation/bloc/auth_state.dart';
 
 /// Add Student Page
 ///
 /// Allows users (typically admins) to add a single student to a grade/section.
 /// Features:
+/// - Display selected grade/section prominently
 /// - Form validation for roll number, name, email, phone
+/// - Auto-association with grade_section_id
 /// - Async submission with loading state
 /// - Error display with field-level feedback
 /// - Success navigation back to student list
@@ -31,6 +36,61 @@ class _AddStudentPageState extends State<AddStudentPage> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+
+  String? _gradeNumber;
+  String? _sectionName;
+  bool _loadingGradeSection = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGradeSectionDetails();
+  }
+
+  Future<void> _loadGradeSectionDetails() async {
+    try {
+      print('[DEBUG ADD STUDENT] Loading grade section details for: ${widget.gradeSectionId}');
+
+      final authBloc = context.read<AuthBloc>();
+      String? tenantId;
+
+      if (authBloc.state is AuthAuthenticated) {
+        final user = (authBloc.state as AuthAuthenticated).user;
+        tenantId = user.tenantId;
+      }
+
+      if (tenantId == null) {
+        print('[DEBUG ADD STUDENT] Could not get tenant ID');
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+
+      // Fetch grade section with related grade info
+      final gradeSection = await supabase
+          .from('grade_sections')
+          .select('*, grades(grade_number)')
+          .eq('id', widget.gradeSectionId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          _gradeNumber = gradeSection['grades']['grade_number'].toString();
+          _sectionName = gradeSection['section_name'] as String;
+          _loadingGradeSection = false;
+          print('[DEBUG ADD STUDENT] Loaded: Grade $_gradeNumber Section $_sectionName');
+        });
+      }
+    } catch (e) {
+      print('[DEBUG ADD STUDENT] Error loading grade section: $e');
+      if (mounted) {
+        setState(() {
+          _loadingGradeSection = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -93,6 +153,22 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   Widget _buildHeader() {
     print('[DEBUG ADD STUDENT] Building header');
+
+    if (_loadingGradeSection) {
+      return Container(
+        padding: EdgeInsets.all(UIConstants.paddingLarge),
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.all(UIConstants.paddingLarge),
       decoration: BoxDecoration(
@@ -131,6 +207,50 @@ class _AddStudentPageState extends State<AddStudentPage> {
               ),
             ],
           ),
+          SizedBox(height: UIConstants.spacing16),
+          // Grade Section Allocation Card
+          Container(
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.class_,
+                  color: Colors.white,
+                  size: UIConstants.iconMedium,
+                ),
+                SizedBox(width: UIConstants.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Grade & Section Allocation',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: UIConstants.spacing4),
+                      Text(
+                        'Grade $_gradeNumber • Section $_sectionName',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -150,6 +270,37 @@ class _AddStudentPageState extends State<AddStudentPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Info Note
+            Container(
+              padding: EdgeInsets.all(UIConstants.paddingMedium),
+              decoration: BoxDecoration(
+                color: AppColors.primary10,
+                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                border: Border.all(color: AppColors.primary30),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: AppColors.primary,
+                    size: UIConstants.iconMedium,
+                  ),
+                  SizedBox(width: UIConstants.spacing12),
+                  Expanded(
+                    child: Text(
+                      'Grade & section are automatically set to Grade $_gradeNumber Section $_sectionName',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: UIConstants.fontSizeSmall,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing24),
+
             // Roll Number Field
             _buildLabel('Roll Number'),
             TextFormField(

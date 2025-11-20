@@ -744,6 +744,144 @@
     "is_nullable": "NO"
   },
   {
+    "table_name": "student_exam_marks",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "student_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "exam_timetable_entry_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "total_marks",
+    "data_type": "numeric",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "remarks",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "entered_by",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "is_draft",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "student_exam_marks",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "tenant_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "grade_section_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "roll_number",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "full_name",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "students",
+    "column_name": "phone",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "students",
+    "column_name": "academic_year",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "students",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO"
+  },
+  {
     "table_name": "subject_catalog",
     "column_name": "id",
     "data_type": "uuid",

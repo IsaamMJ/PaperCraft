@@ -183,7 +183,7 @@ void main() {
     test('Unauthorized domain/email error', () async {
       // Arrange
       when(() => mockAuthUseCase.signInWithGoogle())
-          .thenAnswer((_) async => const Left(UnauthorizedDomainFailure()));
+          .thenAnswer((_) async => const Left(UnauthorizedDomainFailure('example.com')));
 
       authBloc = AuthBloc(
         mockAuthUseCase,
@@ -306,7 +306,7 @@ void main() {
       );
 
       when(() => mockAuthUseCase.signInWithGoogle())
-          .thenAnswer((_) async => Right(AuthResultEntity(user: mockUser)));
+          .thenAnswer((_) async => Right(AuthResultEntity(user: mockUser, isFirstLogin: false)));
 
       // Act - Retry
       authBloc.add(const AuthSignInGoogle());

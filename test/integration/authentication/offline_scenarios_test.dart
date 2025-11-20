@@ -13,6 +13,7 @@ import 'package:papercraft/features/authentication/domain/usecases/auth_usecase.
 import 'package:papercraft/features/authentication/domain/services/user_state_service.dart';
 import 'package:papercraft/features/authentication/domain/entities/user_entity.dart';
 import 'package:papercraft/features/authentication/domain/entities/user_role.dart';
+import 'package:papercraft/features/authentication/domain/entities/auth_result_entity.dart';
 import 'package:papercraft/features/authentication/domain/failures/auth_failures.dart';
 import 'package:get_it/get_it.dart';
 
@@ -190,7 +191,7 @@ void main() {
 
       when(() => mockAuthUseCase.signInWithGoogle())
           .thenAnswer((_) async => Right(
-            AuthResultEntity(user: mockUser),
+            AuthResultEntity(user: mockUser, isFirstLogin: false),
           ));
 
       authBloc = AuthBloc(

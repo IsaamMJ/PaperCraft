@@ -789,18 +789,7 @@ class AppRouter {
       ),
 
       // Student Management routes
-      GoRoute(
-        path: '/students/:gradeSectionId',
-        name: 'students_list',
-        builder: (context, state) {
-          final gradeSectionId = state.pathParameters['gradeSectionId']!;
-          return BlocProvider(
-            create: (_) => sl<StudentManagementBloc>()
-              ..add(LoadStudentsForGradeSection(gradeSectionId: gradeSectionId)),
-            child: const StudentListPage(), // You'll create this page
-          );
-        },
-      ),
+      // NOTE: More specific routes (with fixed path segments) MUST come before generic routes with parameters
       GoRoute(
         path: '/students/add/:gradeSectionId',
         name: 'add_student',
@@ -808,7 +797,7 @@ class AppRouter {
           final gradeSectionId = state.pathParameters['gradeSectionId']!;
           return BlocProvider(
             create: (_) => sl<StudentEnrollmentBloc>(),
-            child: AddStudentPage(gradeSectionId: gradeSectionId), // You'll create this page
+            child: AddStudentPage(gradeSectionId: gradeSectionId),
           );
         },
       ),
@@ -819,7 +808,19 @@ class AppRouter {
           final gradeSectionId = state.pathParameters['gradeSectionId']!;
           return BlocProvider(
             create: (_) => sl<StudentEnrollmentBloc>(),
-            child: BulkUploadStudentsPage(gradeSectionId: gradeSectionId), // You'll create this page
+            child: BulkUploadStudentsPage(gradeSectionId: gradeSectionId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/students/:gradeSectionId',
+        name: 'students_list',
+        builder: (context, state) {
+          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          return BlocProvider(
+            create: (_) => sl<StudentManagementBloc>()
+              ..add(LoadStudentsForGradeSection(gradeSectionId: gradeSectionId)),
+            child: const StudentListPage(),
           );
         },
       ),
