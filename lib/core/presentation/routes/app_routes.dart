@@ -56,6 +56,25 @@ class AppRoutes {
   static String questionPaperCreateWithDraftId(String id) => '$questionPaperCreate/$id';
   static String adminReviewWithId(String id) => '$adminReview/$id';
   static String officeStaffPdfPreviewWithId(String id) => '$officeStaffPdfPreview/$id';
+
+  // Marks entry route with parameters
+  static String marksEntry({
+    required String examTimetableEntryId,
+    required String teacherId,
+    String? examName,
+    String? subjectName,
+    String? gradeName,
+    String? section,
+  }) {
+    final params = <String>[];
+    params.add('examTimetableEntryId=$examTimetableEntryId');
+    params.add('teacherId=$teacherId');
+    if (examName != null) params.add('examName=$examName');
+    if (subjectName != null) params.add('subjectName=$subjectName');
+    if (gradeName != null) params.add('gradeName=$gradeName');
+    if (section != null) params.add('section=$section');
+    return '/marks/entry?${params.join('&')}';
+  }
 }
 
 /// Route parameters used in dynamic routes

@@ -10,6 +10,10 @@ class AddSingleStudent extends StudentEnrollmentEvent {
   final String fullName;
   final String? email;
   final String? phone;
+  final String? gender;
+  final DateTime? dateOfBirth;
+  final int? gradeNumber;
+  final String? sectionName;
 
   const AddSingleStudent({
     required this.gradeSectionId,
@@ -17,6 +21,10 @@ class AddSingleStudent extends StudentEnrollmentEvent {
     required this.fullName,
     this.email,
     this.phone,
+    this.gender,
+    this.dateOfBirth,
+    this.gradeNumber,
+    this.sectionName,
   });
 
   @override
@@ -26,6 +34,10 @@ class AddSingleStudent extends StudentEnrollmentEvent {
         fullName,
         email,
         phone,
+        gender,
+        dateOfBirth,
+        gradeNumber,
+        sectionName,
       ];
 }
 

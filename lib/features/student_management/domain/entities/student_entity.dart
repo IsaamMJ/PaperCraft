@@ -12,10 +12,14 @@ class StudentEntity extends Equatable {
   final String fullName;
   final String? email;
   final String? phone;
+  final String? gender; // M, F, or other
+  final DateTime? dateOfBirth;
   final String academicYear;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int? gradeNumber; // Grade number (e.g., 1, 2, 3...)
+  final String? sectionName; // Section name (e.g., A, B, C...)
 
   const StudentEntity({
     required this.id,
@@ -25,10 +29,14 @@ class StudentEntity extends Equatable {
     required this.fullName,
     this.email,
     this.phone,
+    this.gender,
+    this.dateOfBirth,
     required this.academicYear,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.gradeNumber,
+    this.sectionName,
   });
 
   @override
@@ -40,10 +48,14 @@ class StudentEntity extends Equatable {
         fullName,
         email,
         phone,
+        gender,
+        dateOfBirth,
         academicYear,
         isActive,
         createdAt,
         updatedAt,
+        gradeNumber,
+        sectionName,
       ];
 
   @override
@@ -59,10 +71,14 @@ class StudentEntity extends Equatable {
     String? fullName,
     String? email,
     String? phone,
+    String? gender,
+    DateTime? dateOfBirth,
     String? academicYear,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? gradeNumber,
+    String? sectionName,
   }) {
     return StudentEntity(
       id: id ?? this.id,
@@ -72,10 +88,14 @@ class StudentEntity extends Equatable {
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      gender: gender ?? this.gender,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       academicYear: academicYear ?? this.academicYear,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      gradeNumber: gradeNumber ?? this.gradeNumber,
+      sectionName: sectionName ?? this.sectionName,
     );
   }
 }

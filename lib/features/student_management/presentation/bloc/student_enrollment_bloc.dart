@@ -47,7 +47,7 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
         return;
       }
 
-      // Call usecase
+      // Call usecase with all student information
       final result = await addStudentUseCase(
         AddStudentParams(
           gradeSectionId: event.gradeSectionId,
@@ -55,6 +55,10 @@ class StudentEnrollmentBloc extends Bloc<StudentEnrollmentEvent, StudentEnrollme
           fullName: event.fullName,
           email: event.email,
           phone: event.phone,
+          gender: event.gender,
+          dateOfBirth: event.dateOfBirth,
+          gradeNumber: event.gradeNumber,
+          sectionName: event.sectionName,
         ),
       );
 

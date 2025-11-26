@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
@@ -36,6 +37,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   // Cache the last valid HomeLoaded state to preserve data across navigation
   HomeLoaded? _cachedHomeState;
+
+  // Cache for marks submission status: examTimetableEntryId -> isSubmitted
+  final Map<String, bool> _marksSubmissionCache = {};
 
   @override
   void initState() {
@@ -124,6 +128,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         );
       }
+    }
+  }
+
+  Future<bool> _checkMarksSubmitted(String examTimetableEntryId) async {
+    // Check cache first
+    if (_marksSubmissionCache.containsKey(examTimetableEntryId)) {
+      return _marksSubmissionCache[examTimetableEntryId]!;
+    }
+
+    try {
+      // Query Supabase to check if marks have been submitted (isDraft = false)
+      final response = await supabase.Supabase.instance.client
+          .from('student_exam_marks')
+          .select('id, is_draft')
+          .eq('exam_timetable_entry_id', examTimetableEntryId)
+          .limit(1)
+          .maybeSingle();
+
+      // If marks exist and are not in draft status, they are submitted
+      final isSubmitted = response != null && response['is_draft'] == false;
+
+      // Cache the result
+      _marksSubmissionCache[examTimetableEntryId] = isSubmitted;
+
+      return isSubmitted;
+    } catch (e) {
+      print('[ERROR] Failed to check marks submission status: $e');
+      return false;
     }
   }
 
@@ -571,18 +603,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final sectionText = paper.section ?? 'All Sections';
 
     // Use exam timetable date if available, otherwise fall back to paper exam date
-    final dateText = paper.examTimetableDate != null
-        ? '${paper.examTimetableDate!.day} ${_getMonthName(paper.examTimetableDate!.month)} ${paper.examTimetableDate!.year}'
-        : (paper.examDate != null
-            ? '${paper.examDate!.day} ${_getMonthName(paper.examDate!.month)} ${paper.examDate!.year}'
-            : 'No date');
+    final examDate = paper.examTimetableDate ?? paper.examDate;
+    final dateText = examDate != null
+        ? '${examDate.day} ${_getMonthName(examDate.month)} ${examDate.year}'
+        : 'No date';
+
+    final isExamDatePassed = examDate != null && _isExamDatePassed(examDate);
+    final canEnterMarks = isExamDatePassed;
+    final countdownText = examDate != null && !isExamDatePassed ? _getCountdownText(examDate) : null;
+
+    // DEBUG: Log exam date info
+    print('[DEBUG MARKS] Paper: ${paper.subject} | ExamDate: $examDate | DatePassed: $isExamDatePassed | CanEnterMarks: $canEnterMarks | Countdown: $countdownText');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        border: Border.all(color: AppColors.primary20),
+        border: Border.all(
+          color: canEnterMarks ? AppColors.success10 : AppColors.primary20,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.black04,
@@ -595,8 +635,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Draft papers open CREATE page to add questions
-            // Non-draft papers open VIEW page (read-only)
+            // After exam date: show marks entry screen
+            if (canEnterMarks) {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated) {
+                final route = AppRoutes.marksEntry(
+                  examTimetableEntryId: paper.examTimetableEntryId ?? '',
+                  teacherId: authState.user.id,
+                  examName: paper.examName,
+                  subjectName: paper.subject,
+                  gradeName: paper.grade,
+                  section: paper.section,
+                );
+                print('[DEBUG] Marks entry tapped - Route: $route');
+                context.push(route);
+              }
+              return;
+            }
+
+            // Before exam date: show question paper
             if (paper.status == PaperStatus.draft) {
               final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
               print('[DEBUG] Auto-assigned draft paper tapped - Route: $route');
@@ -630,6 +687,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          // Show countdown if exam date hasn't passed, otherwise show marks entry button
+                          if (countdownText != null) ...[
+                            SizedBox(height: UIConstants.spacing8),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: UIConstants.spacing8,
+                                vertical: UIConstants.spacing4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.warning10,
+                                borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                              ),
+                              child: Text(
+                                'Student marks will open in $countdownText',
+                                style: TextStyle(
+                                  fontSize: UIConstants.fontSizeSmall,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.warning,
+                                ),
+                              ),
+                            ),
+                          ] else if (canEnterMarks) ...[
+                            SizedBox(height: UIConstants.spacing8),
+                            FutureBuilder<bool>(
+                              future: _checkMarksSubmitted(paper.examTimetableEntryId ?? ''),
+                              builder: (context, snapshot) {
+                                final isMarksSubmitted = snapshot.data ?? false;
+
+                                return Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: UIConstants.spacing8,
+                                    vertical: UIConstants.spacing4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMarksSubmitted ? Colors.blue[50] : AppColors.success10,
+                                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isMarksSubmitted ? Icons.check_circle : Icons.edit,
+                                        size: 14,
+                                        color: isMarksSubmitted ? Colors.blue : AppColors.success,
+                                      ),
+                                      SizedBox(width: UIConstants.spacing4),
+                                      Text(
+                                        isMarksSubmitted ? 'Marks Submitted' : 'Mark Entry',
+                                        style: TextStyle(
+                                          fontSize: UIConstants.fontSizeSmall,
+                                          fontWeight: FontWeight.w600,
+                                          color: isMarksSubmitted ? Colors.blue : AppColors.success,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -891,6 +1008,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return months[month - 1];
+  }
+
+  bool _isExamDatePassed(DateTime examDate) {
+    final now = DateTime.now();
+    final dateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    return todayOnly.isAfter(dateOnly);
+  }
+
+  String _getCountdownText(DateTime examDate) {
+    final now = DateTime.now();
+    final dateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+    final todayOnly = DateTime(now.year, now.month, now.day);
+
+    final difference = dateOnly.difference(todayOnly).inDays;
+
+    if (difference == 0) {
+      return 'today';
+    } else if (difference == 1) {
+      return '1 day';
+    } else if (difference > 1 && difference <= 7) {
+      return '$difference days';
+    } else if (difference > 7) {
+      final weeks = (difference / 7).floor();
+      final remainingDays = difference % 7;
+      if (remainingDays == 0) {
+        return '$weeks ${weeks == 1 ? 'week' : 'weeks'}';
+      } else {
+        return '$weeks ${weeks == 1 ? 'week' : 'weeks'} $remainingDays ${remainingDays == 1 ? 'day' : 'days'}';
+      }
+    }
+    return '';
   }
 
   List<QuestionPaperEntity> _getAllPapers(HomeLoaded state, bool isAdmin) {

@@ -75,13 +75,15 @@ import '../constants/app_messages.dart';
 import 'app_routes.dart';
 
 // Student Management
-import '../../../features/student_management/presentation/bloc/marks_entry_bloc.dart';
 import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
 import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
 import '../../../features/student_management/presentation/pages/student_list_page.dart';
 import '../../../features/student_management/presentation/pages/add_student_page.dart';
 import '../../../features/student_management/presentation/pages/bulk_upload_students_page.dart';
-import '../../../features/student_management/presentation/pages/marks_entry_page.dart';
+
+// Student Exam Marks
+import '../../../features/student_exam_marks/presentation/bloc/marks_entry_bloc.dart';
+import '../../../features/student_exam_marks/presentation/pages/marks_entry_screen.dart';
 
 class AppRouter {
   /// Helper function to extract tenantId from AuthBloc state
@@ -834,18 +836,26 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: '/marks/:examTimetableEntryId/:gradeSectionId',
+        path: '/marks/entry',
         name: 'marks_entry',
         builder: (context, state) {
-          final examTimetableEntryId = state.pathParameters['examTimetableEntryId']!;
-          final gradeSectionId = state.pathParameters['gradeSectionId']!;
+          final examTimetableEntryId = state.uri.queryParameters['examTimetableEntryId'] ?? '';
+          final teacherId = state.uri.queryParameters['teacherId'] ?? '';
+          final examName = state.uri.queryParameters['examName'];
+          final subjectName = state.uri.queryParameters['subjectName'];
+          final gradeName = state.uri.queryParameters['gradeName'];
+          final section = state.uri.queryParameters['section'];
+
           return BlocProvider(
-            create: (_) => sl<MarksEntryBloc>()
-              ..add(InitializeMarksEntry(
-                examTimetableEntryId: examTimetableEntryId,
-                gradeSectionId: gradeSectionId,
-              )),
-            child: const MarksEntryPage(), // You'll create this page
+            create: (_) => sl<MarksEntryBloc>(),
+            child: MarksEntryScreen(
+              examTimetableEntryId: examTimetableEntryId,
+              teacherId: teacherId,
+              examName: examName,
+              subjectName: subjectName,
+              gradeName: gradeName,
+              section: section,
+            ),
           );
         },
       ),

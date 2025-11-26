@@ -71,13 +71,20 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     try {
       final response = await supabaseClient
           .from(_tableName)
-          .select()
+          .select('''
+            *,
+            grade_sections(
+              section_name,
+              grade_id,
+              grades(grade_number)
+            )
+          ''')
           .eq('grade_section_id', gradeSectionId)
           .eq('is_active', true)
           .order('roll_number', ascending: true);
 
       return (response as List<dynamic>)
-          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .map((json) => _mapJsonToStudent(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       rethrow;
@@ -106,16 +113,55 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     try {
       final response = await supabaseClient
           .from(_tableName)
-          .select()
+          .select('''
+            *,
+            grade_sections(
+              section_name,
+              grade_id,
+              grades(grade_number)
+            )
+          ''')
           .eq('is_active', true)
           .order('roll_number', ascending: true);
 
       return (response as List<dynamic>)
-          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .map((json) => _mapJsonToStudent(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Helper method to map JSON response with nested grade_sections data
+  StudentModel _mapJsonToStudent(Map<String, dynamic> json) {
+    // Extract grade and section info from nested response
+    int? gradeNumber;
+    String? sectionName;
+
+    final gradeSections = json['grade_sections'] as Map<String, dynamic>?;
+    if (gradeSections != null) {
+      sectionName = gradeSections['section_name'] as String?;
+      final grades = gradeSections['grades'] as Map<String, dynamic>?;
+      if (grades != null) {
+        gradeNumber = grades['grade_number'] as int?;
+      }
+    }
+
+    return StudentModel(
+      id: json['id'] as String,
+      tenantId: json['tenant_id'] as String,
+      gradeSectionId: json['grade_section_id'] as String,
+      rollNumber: json['roll_number'] as String,
+      fullName: json['full_name'] as String,
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      academicYear: json['academic_year'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+      gradeNumber: gradeNumber,
+      sectionName: sectionName,
+    );
   }
 
   @override
@@ -161,11 +207,18 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       final response = await supabaseClient
           .from(_tableName)
           .insert(jsonList)
-          .select();
+          .select('''
+            *,
+            grade_sections(
+              section_name,
+              grade_id,
+              grades(grade_number)
+            )
+          ''');
 
       print('[DEBUG DS] Insert response received: ${(response as List).length} items');
       return (response as List<dynamic>)
-          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .map((json) => _mapJsonToStudent(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('[DEBUG DS] Exception in bulkInsertStudents: ${e.toString()}');
@@ -216,7 +269,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? gradeSectionId,
   }) async {
     try {
-      var query = supabaseClient.from(_tableName).select().eq('is_active', true);
+      var query = supabaseClient.from(_tableName).select('''
+        *,
+        grade_sections(
+          section_name,
+          grade_id,
+          grades(grade_number)
+        )
+      ''').eq('is_active', true);
 
       if (gradeSectionId != null) {
         query = query.eq('grade_section_id', gradeSectionId);
@@ -227,7 +287,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
           .range(offset, offset + limit - 1);
 
       return (response as List<dynamic>)
-          .map((json) => StudentModel.fromJson(json as Map<String, dynamic>))
+          .map((json) => _mapJsonToStudent(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       rethrow;

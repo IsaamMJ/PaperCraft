@@ -178,7 +178,7 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
           ),
           SizedBox(height: UIConstants.spacing12),
           _buildInstructionPoint(
-            'Header Row: roll_number,full_name,grade,section,email,phone',
+            'Header Row: roll_number,full_name,grade,section,gender,date_of_birth,email,phone',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
@@ -190,11 +190,19 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
-            'Grade: Required, numeric (e.g., 9, 10, 11)',
+            'Grade: Required, numeric (e.g., I, II, III) or (9, 10, 11)',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
             'Section: Required, letter (e.g., A, B, C)',
+          ),
+          SizedBox(height: UIConstants.spacing8),
+          _buildInstructionPoint(
+            'Gender: Optional (Male, Female, Other)',
+          ),
+          SizedBox(height: UIConstants.spacing8),
+          _buildInstructionPoint(
+            'Date of Birth: Optional (YYYY-MM-DD format)',
           ),
           SizedBox(height: UIConstants.spacing8),
           _buildInstructionPoint(
@@ -212,7 +220,7 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
               borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
             ),
             child: Text(
-              'Example: 001,John Doe,10,A,john@example.com,9876543210',
+              'Example: 001,John Doe,I,A,Male,2010-05-15,john@example.com,9876543210',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                   ),
@@ -295,11 +303,11 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
   String _generateCsvTemplate() {
     final List<List<String>> rows = [
       // Header row
-      ['roll_number', 'full_name', 'grade', 'section', 'email', 'phone'],
+      ['roll_number', 'full_name', 'grade', 'section', 'gender', 'date_of_birth', 'email', 'phone'],
       // Sample data rows
-      ['001', 'John Doe', '10', 'A', 'john.doe@example.com', '9876543210'],
-      ['002', 'Jane Smith', '10', 'A', 'jane.smith@example.com', '9876543211'],
-      ['003', 'Alice Johnson', '10', 'B', 'alice.johnson@example.com', '9876543212'],
+      ['001', 'John Doe', 'I', 'A', 'Male', '2010-05-15', 'john.doe@example.com', '9876543210'],
+      ['002', 'Jane Smith', 'I', 'A', 'Female', '2010-08-22', 'jane.smith@example.com', '9876543211'],
+      ['003', 'Alice Johnson', 'I', 'B', 'Female', '2010-12-03', 'alice.johnson@example.com', '9876543212'],
     ];
 
     // Convert to CSV format
@@ -812,6 +820,8 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
           enrichedData.add({
             'roll_number': student['roll_number'].toString(),
             'full_name': student['full_name'].toString(),
+            'gender': student['gender']?.toString() ?? '',
+            'date_of_birth': student['date_of_birth']?.toString() ?? '',
             'email': student['email']?.toString() ?? '',
             'phone': student['phone']?.toString() ?? '',
             'grade': gradeStr,
@@ -859,15 +869,17 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
       }
 
       try {
-        // Extract fields from CSV row (roll_number, full_name, grade, section, email, phone)
+        // Extract fields from CSV row (roll_number, full_name, grade, section, gender, date_of_birth, email, phone)
         final rollNumber = row.isNotEmpty ? row[0]?.toString().trim() ?? '' : '';
         final fullName = row.length > 1 ? row[1]?.toString().trim() ?? '' : '';
         final grade = row.length > 2 ? row[2]?.toString().trim() ?? '' : '';
         final section = row.length > 3 ? row[3]?.toString().trim() ?? '' : '';
-        final email = row.length > 4 ? row[4]?.toString().trim() ?? '' : '';
-        final phone = row.length > 5 ? row[5]?.toString().trim() ?? '' : '';
+        final gender = row.length > 4 ? row[4]?.toString().trim() ?? '' : '';
+        final dateOfBirth = row.length > 5 ? row[5]?.toString().trim() ?? '' : '';
+        final email = row.length > 6 ? row[6]?.toString().trim() ?? '' : '';
+        final phone = row.length > 7 ? row[7]?.toString().trim() ?? '' : '';
 
-        print('[DEBUG CSV PARSE] Row $i: rollNumber=$rollNumber, fullName=$fullName, grade=$grade, section=$section, email=$email, phone=$phone');
+        print('[DEBUG CSV PARSE] Row $i: rollNumber=$rollNumber, fullName=$fullName, grade=$grade, section=$section, gender=$gender, dob=$dateOfBirth, email=$email, phone=$phone');
 
         // Skip if required fields are missing
         if (rollNumber.isEmpty || fullName.isEmpty || grade.isEmpty || section.isEmpty) {
@@ -905,6 +917,8 @@ class _BulkUploadStudentsPageState extends State<BulkUploadStudentsPage> {
           'full_name': fullName,
           'grade': grade,
           'section': section,
+          'gender': gender.isEmpty ? null : gender,
+          'date_of_birth': dateOfBirth.isEmpty ? null : dateOfBirth,
           'email': email.isEmpty ? null : email,
           'phone': phone.isEmpty ? null : phone,
         });

@@ -46,6 +46,8 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   GradeEntity? _selectedGrade;
   GradeSection? _selectedSection;
+  String? _selectedGender; // M, F, or Other
+  DateTime? _selectedDateOfBirth;
 
   bool _loadingData = true;
   String? _loadError;
@@ -475,6 +477,71 @@ class _AddStudentPageState extends State<AddStudentPage> {
                 return null;
               },
             ),
+            SizedBox(height: UIConstants.spacing16),
+
+            // Gender Dropdown
+            _buildLabel('Gender (Optional)'),
+            DropdownButtonFormField<String>(
+              value: _selectedGender,
+              onChanged: (value) {
+                setState(() => _selectedGender = value);
+              },
+              items: const [
+                DropdownMenuItem(value: 'M', child: Text('Male')),
+                DropdownMenuItem(value: 'F', child: Text('Female')),
+                DropdownMenuItem(value: 'Other', child: Text('Other')),
+              ],
+              decoration: InputDecoration(
+                hintText: 'Select gender',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: UIConstants.paddingMedium,
+                  vertical: UIConstants.paddingSmall,
+                ),
+              ),
+            ),
+            SizedBox(height: UIConstants.spacing16),
+
+            // Date of Birth Picker
+            _buildLabel('Date of Birth (Optional)'),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDateOfBirth ?? DateTime.now(),
+                  firstDate: DateTime(1990),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _selectedDateOfBirth = picked);
+                }
+              },
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  hintText: 'Tap to select date',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: UIConstants.paddingMedium,
+                    vertical: UIConstants.paddingSmall,
+                  ),
+                  suffixIcon: const Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  _selectedDateOfBirth != null
+                      ? _selectedDateOfBirth!.toString().split(' ')[0]
+                      : 'No date selected',
+                  style: TextStyle(
+                    color: _selectedDateOfBirth != null
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
             SizedBox(height: UIConstants.spacing32),
 
             // Submit Button
@@ -564,6 +631,10 @@ class _AddStudentPageState extends State<AddStudentPage> {
               fullName: fullName,
               email: email,
               phone: phone,
+              gender: _selectedGender,
+              dateOfBirth: _selectedDateOfBirth,
+              gradeNumber: _selectedGrade?.gradeNumber,
+              sectionName: _selectedSection?.sectionName,
             ),
           );
       print('[DEBUG ADD STUDENT] AddSingleStudent event added to BLoC');

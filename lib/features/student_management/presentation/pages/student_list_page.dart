@@ -40,23 +40,6 @@ class _StudentListPageState extends State<StudentListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Manage Students'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              print('[DEBUG STUDENT LIST] Refresh button clicked');
-              context.read<StudentManagementBloc>().add(
-                    const RefreshStudentList(),
-                  );
-            },
-          ),
-        ],
-      ),
       floatingActionButton: _buildFAB(context),
       body: BlocBuilder<StudentManagementBloc, StudentManagementState>(
         builder: (context, state) {
@@ -97,23 +80,31 @@ class _StudentListPageState extends State<StudentListPage> {
 
           if (state is StudentsLoaded) {
             print('[DEBUG STUDENT LIST] Students loaded: ${state.students.length} total, ${state.filteredStudents.length} filtered');
-            return SingleChildScrollView(
-              padding: EdgeInsets.all(UIConstants.paddingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  _buildHeader(state),
-                  SizedBox(height: UIConstants.spacing24),
+            return RefreshIndicator(
+              onRefresh: () async {
+                print('[DEBUG STUDENT LIST] Pull-down refresh triggered');
+                context.read<StudentManagementBloc>().add(
+                      const RefreshStudentList(),
+                    );
+              },
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(UIConstants.paddingMedium),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    _buildHeader(state),
+                    SizedBox(height: UIConstants.spacing24),
 
-                  // Search bar
-                  _buildSearchBar(context, state),
-                  SizedBox(height: UIConstants.spacing16),
+                    // Search bar
+                    _buildSearchBar(context, state),
+                    SizedBox(height: UIConstants.spacing16),
 
-                  // Students list
-                  _buildStudentsList(state),
-                  SizedBox(height: UIConstants.spacing24),
-                ],
+                    // Students list
+                    _buildStudentsList(state),
+                    SizedBox(height: UIConstants.spacing24),
+                  ],
+                ),
               ),
             );
           }
@@ -243,16 +234,27 @@ class _StudentListPageState extends State<StudentListPage> {
       );
     }
 
-    // Group students by grade section ID
+    // Group students by grade section (using grade number and section name)
     final groupedStudents = <String, List<dynamic>>{};
     for (final student in students) {
-      final key = student.gradeSectionId;
+      final gradeNumber = student.gradeNumber ?? 0;
+      final sectionName = student.sectionName ?? 'Unknown';
+      final key = 'Grade $gradeNumber - Section $sectionName';
       groupedStudents.putIfAbsent(key, () => []);
       groupedStudents[key]!.add(student);
     }
 
-    // Sort keys
-    final sortedKeys = groupedStudents.keys.toList()..sort();
+    // Sort keys by grade number then section name
+    final sortedKeys = groupedStudents.keys.toList()..sort((a, b) {
+      // Extract grade numbers and section names for comparison
+      final aGrade = int.tryParse(a.split(' ')[1]) ?? 0;
+      final bGrade = int.tryParse(b.split(' ')[1]) ?? 0;
+      if (aGrade != bGrade) return aGrade.compareTo(bGrade);
+
+      final aSection = a.split(' ').last;
+      final bSection = b.split(' ').last;
+      return aSection.compareTo(bSection);
+    });
 
     return Container(
       decoration: BoxDecoration(
@@ -268,18 +270,14 @@ class _StudentListPageState extends State<StudentListPage> {
           final key = sortedKeys[index];
           final groupStudents = groupedStudents[key]!;
 
-          return _buildGradeSectionGroup(groupStudents);
+          return _buildGradeSectionGroup(key, groupStudents);
         },
       ),
     );
   }
 
-  Widget _buildGradeSectionGroup(List<dynamic> students) {
+  Widget _buildGradeSectionGroup(String title, List<dynamic> students) {
     if (students.isEmpty) return const SizedBox.shrink();
-
-    // Use first student's grade section for the group title
-    final firstStudent = students.first;
-    final gradeSectionId = firstStudent.gradeSectionId;
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -290,7 +288,7 @@ class _StudentListPageState extends State<StudentListPage> {
             SizedBox(width: UIConstants.spacing12),
             Expanded(
               child: Text(
-                gradeSectionId,
+                title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,

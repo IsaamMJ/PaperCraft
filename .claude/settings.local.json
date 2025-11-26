@@ -16,7 +16,16 @@
       "Bash(flutter test:*)",
       "Bash(cat:*)",
       "Bash(timeout 120 flutter test:*)",
-      "Bash(timeout 180 flutter test:*)"
+      "Bash(timeout 180 flutter test:*)",
+      "Bash(unzip:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(dart pub add:*)",
+      "Bash(dart convert_excel.dart:*)",
+      "Bash(sqlite3:*)",
+      "Bash(dart convert_excel_v2.dart:*)",
+      "Bash(flutter logs:*)",
+      "Bash(dir:*)",
+      "Bash(xargs cat:*)"
     ],
     "deny": [],
     "ask": []

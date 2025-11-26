@@ -72,6 +72,18 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     ));
   }
 
+  // Check if an exam is still upcoming (today or in the future, comparing by date only)
+  bool _isUpcomingExam(DateTime? examDate) {
+    if (examDate == null) return false;
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+
+    // Compare dates only, not times. Return true if exam is today or in the future
+    return !examDateOnly.isBefore(todayDate);
+  }
+
   Future<void> _onRefresh() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
@@ -106,38 +118,79 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
   }
 
 
-  // Group papers by subject only, with papers sorted by grade within each subject
-  Map<String, List<QuestionPaperEntity>> _groupPapersBySubject(
+  // Group papers by exam date, sorted chronologically
+  Map<DateTime, List<QuestionPaperEntity>> _groupPapersByExamDate(
     List<QuestionPaperEntity> papers,
   ) {
-    final grouped = <String, List<QuestionPaperEntity>>{};
+    final grouped = <DateTime, List<QuestionPaperEntity>>{};
 
     for (final paper in papers) {
-      final subject = paper.subject ?? 'Unknown';
-      grouped.putIfAbsent(subject, () => []);
-      grouped[subject]!.add(paper);
+      if (paper.examDate == null) continue;
+
+      // Normalize date to midnight for grouping
+      final examDateOnly = DateTime(
+        paper.examDate!.year,
+        paper.examDate!.month,
+        paper.examDate!.day,
+      );
+
+      grouped.putIfAbsent(examDateOnly, () => []);
+      grouped[examDateOnly]!.add(paper);
     }
 
-    // Sort subjects alphabetically
-    final sortedGroups = <String, List<QuestionPaperEntity>>{};
-    final sortedSubjects = grouped.keys.toList()..sort();
-    for (final subject in sortedSubjects) {
-      // Sort papers within each subject by grade in ascending order
-      final papersList = grouped[subject]!;
-      papersList.sort((a, b) {
-        final gradeA = a.grade ?? '';
-        final gradeB = b.grade ?? '';
+    // Sort by date (earliest first)
+    final sortedDates = grouped.keys.toList()..sort();
+    final sortedGroups = <DateTime, List<QuestionPaperEntity>>{};
 
-        // Extract numeric part from grade string (e.g., "Grade 5" -> 5)
-        final gradeANum = int.tryParse(gradeA.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        final gradeBNum = int.tryParse(gradeB.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-
-        return gradeANum.compareTo(gradeBNum);
-      });
-      sortedGroups[subject] = papersList;
+    for (final date in sortedDates) {
+      sortedGroups[date] = grouped[date]!;
     }
 
     return sortedGroups;
+  }
+
+  // Get urgency color for a given date
+  Color _getDateUrgencyColor(DateTime examDate) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+
+    final daysUntil = examDateOnly.difference(todayDate).inDays;
+
+    if (daysUntil == 1) return AppColors.error; // Tomorrow - Red
+    if (daysUntil <= 3) return AppColors.warning; // Next 2-3 days - Orange
+    return AppColors.primary; // Rest - Blue
+  }
+
+  // Get urgency background color for a given date
+  Color _getDateUrgencyBgColor(DateTime examDate) {
+    final urgencyColor = _getDateUrgencyColor(examDate);
+
+    if (urgencyColor == AppColors.error) return AppColors.error10;
+    if (urgencyColor == AppColors.warning) return AppColors.warning10;
+    return AppColors.primary10;
+  }
+
+  // Format date with day label (e.g., "Tomorrow, Nov 26" or "Wednesday, Nov 27")
+  String _formatDateWithLabel(DateTime date) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final examDateOnly = DateTime(date.year, date.month, date.day);
+
+    final daysUntil = examDateOnly.difference(todayDate).inDays;
+
+    final dateStr = AppDateUtils.formatShortDate(date);
+
+    if (daysUntil == 0) return 'Today, $dateStr';
+    if (daysUntil == 1) return 'Tomorrow, $dateStr';
+
+    final dayName = _getDayName(examDateOnly);
+    return '$dayName, $dateStr';
+  }
+
+  String _getDayName(DateTime date) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[date.weekday - 1];
   }
 
   @override
@@ -168,18 +221,23 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
         }
 
         if (state is ApprovedPapersByExamDateLoaded) {
-          final groupedPapers = _groupPapersBySubject(state.papers);
+          // Filter out papers with exam dates in the past (before today)
+          final upcomingPapers = state.papers
+              .where((paper) => _isUpcomingExam(paper.examDate))
+              .toList();
+
+          final groupedPapers = _groupPapersByExamDate(upcomingPapers);
 
           return RefreshIndicator(
             onRefresh: _onRefresh,
             color: AppColors.primary,
-            child: state.papers.isEmpty
+            child: upcomingPapers.isEmpty
                 ? _buildEmptyState()
                 : CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(
-                        child: _buildStatsHeader('Upcoming Exams', state.papers.length),
+                        child: _buildStatsHeader('Upcoming Exams', upcomingPapers.length),
                       ),
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
@@ -188,11 +246,11 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
-                              final subjects = groupedPapers.keys.toList();
-                              final subject = subjects[index];
-                              final papers = groupedPapers[subject]!;
+                              final dates = groupedPapers.keys.toList();
+                              final date = dates[index];
+                              final papers = groupedPapers[date]!;
 
-                              return _buildSubjectSection(subject, papers);
+                              return _buildDateSection(date, papers);
                             },
                             childCount: groupedPapers.length,
                             addAutomaticKeepAlives: true,
@@ -223,18 +281,29 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     );
   }
 
-  // Build a subject section with collapsible papers
-  Widget _buildSubjectSection(String subject, List<QuestionPaperEntity> papers) {
-    final isCollapsed = _collapsedSubjects[subject] ?? false;
+  // Build a date section with papers for that date
+  Widget _buildDateSection(DateTime date, List<QuestionPaperEntity> papers) {
+    final dateKey = date.toString(); // Use string representation as key
+
+    // Check if this is tomorrow
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final examDateOnly = DateTime(date.year, date.month, date.day);
+    final isTomorrow = examDateOnly.difference(todayDate).inDays == 1;
+
+    // Default: closed for all, except tomorrow which is open
+    final isCollapsed = _collapsedSubjects[dateKey] ?? !isTomorrow;
+    final urgencyColor = _getDateUrgencyColor(date);
+    final urgencyBgColor = _getDateUrgencyBgColor(date);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Subject header with collapse/expand button
+        // Date header with collapse/expand button
         GestureDetector(
           onTap: () {
             setState(() {
-              _collapsedSubjects[subject] = !isCollapsed;
+              _collapsedSubjects[dateKey] = !isCollapsed;
             });
           },
           child: Container(
@@ -244,9 +313,9 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
               vertical: UIConstants.spacing12,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: urgencyBgColor.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: urgencyColor.withValues(alpha: 0.5), width: 1.5),
             ),
             child: Row(
               children: [
@@ -255,7 +324,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
                     Icons.chevron_right,
-                    color: AppColors.textSecondary,
+                    color: urgencyColor,
                     size: 20,
                   ),
                 ),
@@ -263,13 +332,13 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(UIConstants.spacing8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary10,
+                    color: urgencyBgColor,
                     borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
-                  child: const Icon(
-                    Icons.library_books,
+                  child: Icon(
+                    Icons.event,
                     size: 16,
-                    color: AppColors.primary,
+                    color: urgencyColor,
                   ),
                 ),
                 const SizedBox(width: UIConstants.spacing12),
@@ -279,11 +348,11 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        subject,
-                        style: const TextStyle(
+                        _formatDateWithLabel(date),
+                        style: TextStyle(
                           fontSize: UIConstants.fontSizeMedium,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: urgencyColor,
                         ),
                       ),
                       Text(
@@ -302,15 +371,15 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                     vertical: UIConstants.spacing4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary10,
+                    color: urgencyBgColor,
                     borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                   ),
                   child: Text(
                     papers.length.toString(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: UIConstants.fontSizeSmall,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: urgencyColor,
                     ),
                   ),
                 ),

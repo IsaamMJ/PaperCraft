@@ -18,6 +18,10 @@ class AddStudentUseCase implements UseCase<StudentEntity, AddStudentParams> {
       fullName: params.fullName,
       email: params.email,
       phone: params.phone,
+      gender: params.gender,
+      dateOfBirth: params.dateOfBirth,
+      gradeNumber: params.gradeNumber,
+      sectionName: params.sectionName,
     );
   }
 }
@@ -28,6 +32,10 @@ class AddStudentParams extends Equatable {
   final String fullName;
   final String? email;
   final String? phone;
+  final String? gender;
+  final DateTime? dateOfBirth;
+  final int? gradeNumber;
+  final String? sectionName;
 
   const AddStudentParams({
     required this.gradeSectionId,
@@ -35,8 +43,22 @@ class AddStudentParams extends Equatable {
     required this.fullName,
     this.email,
     this.phone,
+    this.gender,
+    this.dateOfBirth,
+    this.gradeNumber,
+    this.sectionName,
   });
 
   @override
-  List<Object?> get props => [gradeSectionId, rollNumber, fullName, email, phone];
+  List<Object?> get props => [
+        gradeSectionId,
+        rollNumber,
+        fullName,
+        email,
+        phone,
+        gender,
+        dateOfBirth,
+        gradeNumber,
+        sectionName,
+      ];
 }

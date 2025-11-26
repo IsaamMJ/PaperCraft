@@ -51,7 +51,6 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
             SharedBlocProvider(child: const AdminDashboardPage()),
             SharedBlocProvider(child: const QuestionBankPage()),
             ExamsDashboardPage(tenantId: tenantId),
-            SharedBlocProvider(child: const SettingsPage()),
             BlocProvider<StudentManagementBloc>(
               create: (context) {
                 final bloc = GetIt.instance<StudentManagementBloc>();
@@ -61,6 +60,7 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
               },
               child: const StudentListPage(), // Students management page
             ),
+            SharedBlocProvider(child: const SettingsPage()),
           ];
 
     final teacherPages = [

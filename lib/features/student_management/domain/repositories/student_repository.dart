@@ -11,6 +11,10 @@ abstract class StudentRepository {
     required String fullName,
     String? email,
     String? phone,
+    String? gender,
+    DateTime? dateOfBirth,
+    int? gradeNumber,
+    String? sectionName,
   });
 
   /// Get all active students for a specific grade section

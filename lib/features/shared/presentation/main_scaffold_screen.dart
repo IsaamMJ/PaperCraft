@@ -381,16 +381,16 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
             semanticLabel: 'Exam timetables',
           ),
           _NavItem(
-            icon: Icons.settings_outlined,
-            activeIcon: Icons.settings,
-            label: 'Settings',
-            semanticLabel: 'Settings and preferences',
-          ),
-          _NavItem(
             icon: Icons.people_outline_rounded,
             activeIcon: Icons.people_rounded,
             label: 'Students',
             semanticLabel: 'Student management',
+          ),
+          _NavItem(
+            icon: Icons.settings_outlined,
+            activeIcon: Icons.settings,
+            label: 'Settings',
+            semanticLabel: 'Settings and preferences',
           ),
         ];
       }

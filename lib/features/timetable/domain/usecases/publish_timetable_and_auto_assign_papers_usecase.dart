@@ -5,6 +5,7 @@ import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../assignments/domain/repositories/teacher_subject_repository.dart';
 import '../../../authentication/domain/repositories/user_repository.dart';
 import '../../../paper_workflow/domain/usecases/auto_assign_question_papers_usecase.dart';
+import '../../../student_exam_marks/domain/usecases/auto_create_marks_for_timetable_usecase.dart';
 import '../entities/exam_timetable_entity.dart';
 import '../entities/exam_timetable_entry_entity.dart';
 import '../repositories/exam_timetable_repository.dart';
@@ -60,6 +61,7 @@ class PublishTimetableAndAutoAssignPapersUsecase {
   final TeacherSubjectRepository _teacherSubjectRepository;
   final UserRepository _userRepository;
   final AutoAssignQuestionPapersUsecase _autoAssignUsecase;
+  final AutoCreateMarksForTimetableUsecase _autoCreateMarksUsecase;
   final ILogger _logger;
 
   PublishTimetableAndAutoAssignPapersUsecase({
@@ -68,12 +70,14 @@ class PublishTimetableAndAutoAssignPapersUsecase {
     required TeacherSubjectRepository teacherSubjectRepository,
     required UserRepository userRepository,
     required AutoAssignQuestionPapersUsecase autoAssignUsecase,
+    required AutoCreateMarksForTimetableUsecase autoCreateMarksUsecase,
     required ILogger logger,
   })  : _publishUsecase = publishUsecase,
         _timetableRepository = timetableRepository,
         _teacherSubjectRepository = teacherSubjectRepository,
         _userRepository = userRepository,
         _autoAssignUsecase = autoAssignUsecase,
+        _autoCreateMarksUsecase = autoCreateMarksUsecase,
         _logger = logger;
 
   /// Execute publish and auto-assign
@@ -273,73 +277,131 @@ class PublishTimetableAndAutoAssignPapersUsecase {
         ),
       );
 
-      return autoAssignResult.fold(
-        (failure) {
-          _logger.error(
-            'Auto-assignment failed after successful publish',
-            context: {
-              'timetableId': timetable.id,
-              'error': failure.message,
-            },
-          );
-          // Don't fail the whole operation - timetable is already published
-          // Just return with 0 papers assigned
-          return Right(
+      if (autoAssignResult.isLeft()) {
+        return autoAssignResult.fold(
+          (failure) {
+            _logger.error(
+              'Auto-assignment failed after successful publish',
+              context: {
+                'timetableId': timetable.id,
+                'error': failure.message,
+              },
+            );
+            // Don't fail the whole operation - timetable is already published
+            // Just return with 0 papers assigned
+            return Right(
+              PublishTimetableAndAutoAssignPapersResult(
+                timetable: timetable,
+                autoAssignedPapersCount: 0,
+              ),
+            );
+          },
+          (_) => Right(
             PublishTimetableAndAutoAssignPapersResult(
               timetable: timetable,
               autoAssignedPapersCount: 0,
             ),
-          );
-        },
-        (assignedPapers) {
-          // Extract failure and skipped metadata from papers
-          List<String> failedAssignments = [];
-          List<String> skippedEntries = [];
-          var actualPapersCount = assignedPapers.length;
-          var metadataCount = 0;
+          ),
+        );
+      }
 
-          // Check for metadata markers in the papers list
-          for (final paper in assignedPapers) {
-            if (paper.id == '__FAILURE_METADATA__') {
-              // Extract failures from the title field (they were joined by '|')
-              final failureString = paper.title;
-              if (failureString.isNotEmpty) {
-                failedAssignments = failureString.split('|');
-              }
-              metadataCount++;
-            } else if (paper.id == '__SKIPPED_ENTRIES_METADATA__') {
-              // Extract skipped entries from the title field (they were joined by '|')
-              final skippedString = paper.title;
-              if (skippedString.isNotEmpty) {
-                skippedEntries = skippedString.split('|');
-              }
-              metadataCount++;
-            }
+      // Extract papers from successful result
+      final assignedPapers = autoAssignResult.fold(
+        (_) => <dynamic>[],
+        (papers) => papers,
+      );
+
+      // Extract failure and skipped metadata from papers
+      List<String> failedAssignments = [];
+      List<String> skippedEntries = [];
+      var actualPapersCount = assignedPapers.length;
+      var metadataCount = 0;
+
+      // Check for metadata markers in the papers list
+      for (final paper in assignedPapers) {
+        if (paper.id == '__FAILURE_METADATA__') {
+          // Extract failures from the title field (they were joined by '|')
+          final failureString = paper.title;
+          if (failureString.isNotEmpty) {
+            failedAssignments = failureString.split('|');
           }
+          metadataCount++;
+        } else if (paper.id == '__SKIPPED_ENTRIES_METADATA__') {
+          // Extract skipped entries from the title field (they were joined by '|')
+          final skippedString = paper.title;
+          if (skippedString.isNotEmpty) {
+            skippedEntries = skippedString.split('|');
+          }
+          metadataCount++;
+        }
+      }
 
-          // Don't count metadata papers
-          actualPapersCount = assignedPapers.length - metadataCount;
+      // Don't count metadata papers
+      actualPapersCount = assignedPapers.length - metadataCount;
 
-          _logger.info(
-            'Successfully auto-assigned papers',
-            context: {
-              'timetableId': timetable.id,
-              'papersCount': actualPapersCount,
-              'failedCount': failedAssignments.length,
-              'skippedCount': skippedEntries.length,
-            },
-          );
-          return Right(
-            PublishTimetableAndAutoAssignPapersResult(
-              timetable: timetable,
-              autoAssignedPapersCount: actualPapersCount,
-              failedAssignmentsCount: failedAssignments.length,
-              failedAssignmentDetails: failedAssignments,
-              skippedEntriesCount: skippedEntries.length,
-              skippedEntryDetails: skippedEntries,
-            ),
-          );
+      _logger.info(
+        'Successfully auto-assigned papers',
+        context: {
+          'timetableId': timetable.id,
+          'papersCount': actualPapersCount,
+          'failedCount': failedAssignments.length,
+          'skippedCount': skippedEntries.length,
         },
+      );
+
+      // Step 4: Auto-create marks for all timetable entries
+      _logger.info(
+        'Starting auto-creation of student exam marks',
+        context: {'timetableId': timetable.id, 'entriesCount': entries.length},
+      );
+
+      for (final entry in entries) {
+        if (!entry.isActive || entry.gradeId == null || entry.id == null || entry.id!.isEmpty) {
+          continue;
+        }
+
+        final marksResult = await _autoCreateMarksUsecase.call(
+          params: AutoCreateMarksForTimetableParams(
+            examTimetableEntryId: entry.id!,
+            gradeId: entry.gradeId!,
+            section: entry.section ?? '',
+            tenantId: timetable.tenantId,
+          ),
+        );
+
+        marksResult.fold(
+          (failure) {
+            _logger.warning(
+              'Failed to auto-create marks for timetable entry',
+              context: {
+                'entryId': entry.id,
+                'gradeId': entry.gradeId,
+                'error': failure.message,
+              },
+            );
+            // Don't fail the whole operation, just log the warning
+          },
+          (marks) {
+            _logger.info(
+              'Successfully auto-created marks for timetable entry',
+              context: {
+                'entryId': entry.id,
+                'marksCount': marks.length,
+              },
+            );
+          },
+        );
+      }
+
+      return Right(
+        PublishTimetableAndAutoAssignPapersResult(
+          timetable: timetable,
+          autoAssignedPapersCount: actualPapersCount,
+          failedAssignmentsCount: failedAssignments.length,
+          failedAssignmentDetails: failedAssignments,
+          skippedEntriesCount: skippedEntries.length,
+          skippedEntryDetails: skippedEntries,
+        ),
       );
     } catch (e, stackTrace) {
       _logger.error(
