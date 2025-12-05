@@ -5,13 +5,13 @@ import '../bloc/exam_calendar_bloc.dart';
 import '../bloc/exam_calendar_event.dart';
 import '../bloc/exam_calendar_state.dart';
 import '../../domain/entities/exam_calendar.dart';
+import '../../../../core/presentation/constants/app_colors.dart';
 
 /// Page to view and manage exam calendars
 ///
 /// Allows admins to:
-/// - View yearly exam calendar (June Monthly, September Quarterly, etc.)
+/// - View yearly exam calendar organized by status (Upcoming, Ongoing, Past)
 /// - Create new calendar entries
-/// - Delete calendar entries
 class ExamCalendarListPage extends StatefulWidget {
   final String tenantId;
   final String academicYear;
@@ -389,28 +389,28 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     );
   }
 
-  void _showDeleteConfirmation(String calendarId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Calendar Entry?'),
-        content: const Text('This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              context.read<ExamCalendarBloc>().add(
-                    DeleteExamCalendarEvent(calendarId: calendarId),
-                  );
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+
+  Widget _buildSectionHeader(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
             ),
-            child: const Text('Delete'),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -447,27 +447,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
               ),
             );
           } else if (state is ExamCalendarCreationError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: ${state.message}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          } else if (state is ExamCalendarDeleted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Calendar entry deleted'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            // Reload the calendar list to reflect the deletion
-            context.read<ExamCalendarBloc>().add(
-              LoadExamCalendarsEvent(
-                tenantId: widget.tenantId,
-                academicYear: widget.academicYear,
-              ),
-            );
-          } else if (state is ExamCalendarDeletionError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Error: ${state.message}'),
@@ -555,6 +534,10 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
             // Loaded state
             if (state is ExamCalendarLoaded) {
+              final upcomingExams = state.calendars.where((c) => c.isUpcoming && !c.isPastDeadline).toList();
+              final ongoingExams = state.calendars.where((c) => !c.isUpcoming && !c.isPastDeadline).toList();
+              final pastExams = state.calendars.where((c) => c.isPastDeadline).toList();
+
               return Column(
                 children: [
                   Padding(
@@ -566,15 +549,24 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                     ),
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: state.calendars.length,
-                      itemBuilder: (context, index) {
-                        final calendar = state.calendars[index];
-                        return _ExamCalendarCard(
-                          calendar: calendar,
-                          onDelete: () => _showDeleteConfirmation(calendar.id),
-                        );
-                      },
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        if (upcomingExams.isNotEmpty) ...[
+                          _buildSectionHeader('Upcoming', AppColors.success),
+                          ...upcomingExams.map((c) => _ExamCalendarCard(calendar: c)),
+                          const SizedBox(height: 24),
+                        ],
+                        if (ongoingExams.isNotEmpty) ...[
+                          _buildSectionHeader('Ongoing', AppColors.warning),
+                          ...ongoingExams.map((c) => _ExamCalendarCard(calendar: c)),
+                          const SizedBox(height: 24),
+                        ],
+                        if (pastExams.isNotEmpty) ...[
+                          _buildSectionHeader('Past', AppColors.error),
+                          ...pastExams.map((c) => _ExamCalendarCard(calendar: c)),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -593,149 +585,109 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
 class _ExamCalendarCard extends StatelessWidget {
   final ExamCalendar calendar;
-  final VoidCallback onDelete;
 
   const _ExamCalendarCard({
     required this.calendar,
-    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     final dateFormatter = DateFormat('MMM d');
-    final monthFormatter = DateFormat('MMMM');
-    final isUpcoming = calendar.isUpcoming;
-    final isPastDeadline = calendar.isPastDeadline;
+    final daysTilDeadline = calendar.daysUntilDeadline ?? 0;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.border,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black04,
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with title and menu
+            // Title and type
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        calendar.examName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.shade100,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              calendar.examType,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.purple.shade700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${monthFormatter.format(calendar.plannedStartDate)})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: Text(
+                    calendar.examName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      onDelete();
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => [
-                    const PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Text('Delete'),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary10,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    calendar.examType,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.secondary,
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 0),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // Date range with icons
+            // Date range and deadline
             Row(
               children: [
-                const Icon(Icons.calendar_today, size: 16, color: Colors.blue),
-                const SizedBox(width: 8),
-                Text(
-                  '${dateFormatter.format(calendar.plannedStartDate)} - ${dateFormatter.format(calendar.plannedEndDate)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    '${dateFormatter.format(calendar.plannedStartDate)} - ${dateFormatter.format(calendar.plannedEndDate)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
+                if (calendar.paperSubmissionDeadline != null)
+                  Text(
+                    'Deadline: ${dateFormatter.format(calendar.paperSubmissionDeadline!)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // Deadline info
-            if (calendar.paperSubmissionDeadline != null)
-              Row(
-                children: [
-                  const Icon(Icons.schedule, size: 16, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Deadline: ${dateFormatter.format(calendar.paperSubmissionDeadline!)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.orange),
-                  ),
-                ],
+            // Days left indicator
+            if (daysTilDeadline > 0)
+              Text(
+                '$daysTilDeadline days remaining',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            const SizedBox(height: 12),
-
-            // Status indicators
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (isUpcoming)
-                  Chip(
-                    label: const Text('📅 Upcoming'),
-                    backgroundColor: Colors.blue.shade100,
-                    labelStyle: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w500),
-                    side: BorderSide(color: Colors.blue.shade300),
-                  ),
-                if (isPastDeadline)
-                  Chip(
-                    label: const Text('⚠️ Past Deadline'),
-                    backgroundColor: Colors.orange.shade100,
-                    labelStyle: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.w500),
-                    side: BorderSide(color: Colors.orange.shade300),
-                  ),
-                if (calendar.daysUntilDeadline != null && !isPastDeadline)
-                  Chip(
-                    label: Text('⏱️ ${calendar.daysUntilDeadline} days left'),
-                    backgroundColor: Colors.green.shade100,
-                    labelStyle: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w500),
-                    side: BorderSide(color: Colors.green.shade300),
-                  ),
-              ],
-            ),
           ],
         ),
       ),
