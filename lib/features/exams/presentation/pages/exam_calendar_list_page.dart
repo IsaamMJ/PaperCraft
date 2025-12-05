@@ -422,6 +422,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Exam Calendar - ${widget.academicYear}'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
           IconButton(
