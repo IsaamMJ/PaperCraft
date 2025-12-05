@@ -28,7 +28,6 @@ class ExamCalendarListPage extends StatefulWidget {
 
 class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   late TextEditingController _examNameController;
-  late TextEditingController _examTypeController;
   late TextEditingController _monthNumberController;
   late TextEditingController _displayOrderController;
   DateTime? _startDate;
@@ -37,13 +36,21 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   Set<int> _selectedGrades = {}; // Grade selection
   late TextEditingController _marks1To5Controller;
   late TextEditingController _marks6To12Controller;
+  String? _selectedExamType; // Exam type selection
+
+  final List<String> _examTypes = [
+    'monthlyTest',
+    'halfYearlyTest',
+    'quarterlyTest',
+    'finalExam',
+    'dailyTest',
+  ];
 
   @override
   void initState() {
     super.initState();
 
     _examNameController = TextEditingController();
-    _examTypeController = TextEditingController();
     _monthNumberController = TextEditingController();
     _displayOrderController = TextEditingController(text: '1');
     _marks1To5Controller = TextEditingController();
@@ -61,7 +68,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   @override
   void dispose() {
     _examNameController.dispose();
-    _examTypeController.dispose();
     _monthNumberController.dispose();
     _displayOrderController.dispose();
     _marks1To5Controller.dispose();
@@ -83,7 +89,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
   void _showCreateDialog() {
     _examNameController.clear();
-    _examTypeController.clear();
     _monthNumberController.clear();
     _displayOrderController.text = '1';
     _startDate = null;
@@ -92,6 +97,7 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _selectedGrades = {}; // Reset grade selection
     _marks1To5Controller.text = ''; // Reset marks
     _marks6To12Controller.text = '';
+    _selectedExamType = null; // Reset exam type selection
 
 
     // IMPORTANT: Capture the BLoC BEFORE showing dialog to avoid provider scope issues
@@ -115,13 +121,28 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _examTypeController,
+                DropdownButtonFormField<String>(
+                  value: _selectedExamType,
                   decoration: const InputDecoration(
                     labelText: 'Exam Type',
-                    hintText: 'e.g., monthlyTest, quarterlyTest',
                     border: OutlineInputBorder(),
                   ),
+                  hint: const Text('Select exam type'),
+                  items: _examTypes.map((type) {
+                    return DropdownMenuItem<String>(
+                      value: type,
+                      child: Text(type),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedExamType = value);
+                  },
+                  validator: (value) {
+                    if (value?.isEmpty ?? true) {
+                      return 'Exam type is required';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -311,19 +332,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
             ElevatedButton(
               onPressed: () {
 
-                if (_examNameController.text.isEmpty) {
-                }
-                if (_examTypeController.text.isEmpty) {
-                }
-                if (_monthNumberController.text.isEmpty) {
-                }
-                if (_startDate == null) {
-                }
-                if (_endDate == null) {
-                }
-
                 if (_examNameController.text.isEmpty ||
-                    _examTypeController.text.isEmpty ||
+                    _selectedExamType == null ||
                     _monthNumberController.text.isEmpty ||
                     _startDate == null ||
                     _endDate == null) {
@@ -363,7 +373,7 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                   final event = CreateExamCalendarEvent(
                     tenantId: widget.tenantId,
                     examName: _examNameController.text.trim(),
-                    examType: _examTypeController.text.trim(),
+                    examType: _selectedExamType!,
                     monthNumber: int.tryParse(_monthNumberController.text) ?? 1,
                     plannedStartDate: _startDate!,
                     plannedEndDate: _endDate!,
