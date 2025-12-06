@@ -37,14 +37,13 @@ class _ExamsDashboardPageState extends State<ExamsDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Exam Management'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-      ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(UIConstants.paddingMedium),
+        padding: EdgeInsets.only(
+          left: UIConstants.paddingMedium,
+          right: UIConstants.paddingMedium,
+          bottom: UIConstants.paddingMedium,
+          top: UIConstants.paddingMedium + 8,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
