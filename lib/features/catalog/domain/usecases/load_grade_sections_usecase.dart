@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
@@ -18,8 +19,8 @@ import '../repositories/grade_section_repository.dart';
 /// );
 ///
 /// result.fold(
-///   (failure) => print('Error: ${failure.message}'),
-///   (sections) => print('Found ${sections.length} sections'),
+///   (failure) => debugPrint('Error: ${failure.message}'),
+///   (sections) => debugPrint('Found ${sections.length} sections'),
 /// );
 /// ```
 class LoadGradeSectionsUseCase {

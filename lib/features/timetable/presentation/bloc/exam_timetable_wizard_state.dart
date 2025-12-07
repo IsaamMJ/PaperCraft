@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
+import '../../../exams/domain/entities/exam_timetable_entry.dart';
 import '../../domain/entities/exam_calendar_entity.dart';
-import '../../domain/entities/exam_timetable_entry_entity.dart';
 import '../../../catalog/domain/entities/grade_entity.dart';
 import '../../../catalog/domain/entities/subject_entity.dart';
 
@@ -58,11 +58,11 @@ class WizardStep2State extends ExamTimetableWizardState {
   final ExamCalendarEntity selectedCalendar;
   final List<String> selectedGradeIds;
   final List<SubjectEntity> subjects;
-  final List<ExamTimetableEntryEntity> entries;
-  final Map<String, dynamic> gradeSectionMapping; // Maps gradeId -> List of sections with id, name
-  final Map<String, dynamic> sectionDetailsMap; // Maps gradeSectionId -> {gradeId, sectionName}
-  final Map<String, List<String>> subjectToGradesMap; // Maps subjectId -> list of gradeIds that have it
-  final Map<String, int> gradeIdToNumberMap; // Maps gradeId -> grade number (1, 2, 3, 4, 5, etc.)
+  final List<ExamTimetableEntry> entries;
+  final Map<String, dynamic> gradeSectionMapping;
+  final Map<String, dynamic> sectionDetailsMap;
+  final Map<String, List<String>> subjectToGradesMap;
+  final Map<String, int> gradeIdToNumberMap;
   final bool isLoading;
   final String? error;
 
@@ -85,7 +85,7 @@ class WizardStep2State extends ExamTimetableWizardState {
     ExamCalendarEntity? selectedCalendar,
     List<String>? selectedGradeIds,
     List<SubjectEntity>? subjects,
-    List<ExamTimetableEntryEntity>? entries,
+    List<ExamTimetableEntry>? entries,
     Map<String, dynamic>? gradeSectionMapping,
     Map<String, dynamic>? sectionDetailsMap,
     Map<String, List<String>>? subjectToGradesMap,
@@ -109,7 +109,7 @@ class WizardStep2State extends ExamTimetableWizardState {
   }
 
   /// Get assigned entry for a subject
-  ExamTimetableEntryEntity? getEntryForSubject(String subjectId) {
+  ExamTimetableEntry? getEntryForSubject(String subjectId) {
     try {
       return entries.firstWhere((entry) => entry.subjectId == subjectId);
     } catch (e) {
@@ -139,6 +139,93 @@ class WizardStep2State extends ExamTimetableWizardState {
     sectionDetailsMap,
     subjectToGradesMap,
     gradeIdToNumberMap,
+    isLoading,
+    error,
+  ];
+}
+
+/// Step 3: Assign teachers & create papers
+class WizardStep3State extends ExamTimetableWizardState {
+  final String tenantId;
+  final ExamCalendarEntity selectedCalendar;
+  final List<String> selectedGradeIds;
+  final List<SubjectEntity> subjects;
+  final List<ExamTimetableEntry> entries;
+  final Map<String, dynamic> gradeSectionMapping;
+  final Map<String, dynamic> sectionDetailsMap;
+  final Map<String, List<String>> subjectToGradesMap;
+  final Map<String, int> gradeIdToNumberMap;
+
+  /// Maps "gradeId_subjectId_section" -> List of teacher IDs
+  final Map<String, List<String>> entryTeachers;
+
+  /// Maps "gradeId_subjectId_section" -> "Teacher ID 1, Teacher ID 2" or "No teacher assigned"
+  final Map<String, String> entryTeacherNames;
+
+  final bool isLoading;
+  final String? error;
+
+  const WizardStep3State({
+    required this.tenantId,
+    required this.selectedCalendar,
+    required this.selectedGradeIds,
+    this.subjects = const [],
+    this.entries = const [],
+    this.gradeSectionMapping = const {},
+    this.sectionDetailsMap = const {},
+    this.subjectToGradesMap = const {},
+    this.gradeIdToNumberMap = const {},
+    this.entryTeachers = const {},
+    this.entryTeacherNames = const {},
+    this.isLoading = false,
+    this.error,
+  });
+
+  WizardStep3State copyWith({
+    String? tenantId,
+    ExamCalendarEntity? selectedCalendar,
+    List<String>? selectedGradeIds,
+    List<SubjectEntity>? subjects,
+    List<ExamTimetableEntry>? entries,
+    Map<String, dynamic>? gradeSectionMapping,
+    Map<String, dynamic>? sectionDetailsMap,
+    Map<String, List<String>>? subjectToGradesMap,
+    Map<String, int>? gradeIdToNumberMap,
+    Map<String, List<String>>? entryTeachers,
+    Map<String, String>? entryTeacherNames,
+    bool? isLoading,
+    String? error,
+  }) {
+    return WizardStep3State(
+      tenantId: tenantId ?? this.tenantId,
+      selectedCalendar: selectedCalendar ?? this.selectedCalendar,
+      selectedGradeIds: selectedGradeIds ?? this.selectedGradeIds,
+      subjects: subjects ?? this.subjects,
+      entries: entries ?? this.entries,
+      gradeSectionMapping: gradeSectionMapping ?? this.gradeSectionMapping,
+      sectionDetailsMap: sectionDetailsMap ?? this.sectionDetailsMap,
+      subjectToGradesMap: subjectToGradesMap ?? this.subjectToGradesMap,
+      gradeIdToNumberMap: gradeIdToNumberMap ?? this.gradeIdToNumberMap,
+      entryTeachers: entryTeachers ?? this.entryTeachers,
+      entryTeacherNames: entryTeacherNames ?? this.entryTeacherNames,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    tenantId,
+    selectedCalendar,
+    selectedGradeIds,
+    subjects,
+    entries,
+    gradeSectionMapping,
+    sectionDetailsMap,
+    subjectToGradesMap,
+    gradeIdToNumberMap,
+    entryTeachers,
+    entryTeacherNames,
     isLoading,
     error,
   ];

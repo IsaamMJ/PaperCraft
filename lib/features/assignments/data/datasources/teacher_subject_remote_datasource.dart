@@ -14,6 +14,8 @@ abstract class TeacherSubjectRemoteDataSource {
 
   /// Get all teachers assigned to a specific (grade, subject, section)
   /// Used when publishing timetable to find which teachers need papers
+  ///
+  /// Now includes teacher names via join with profiles table
   Future<List<TeacherSubject>> getTeachersFor({
     required String tenantId,
     required String gradeId,
@@ -93,9 +95,22 @@ class TeacherSubjectRemoteDataSourceImpl implements TeacherSubjectRemoteDataSour
     bool activeOnly = true,
   }) async {
     try {
+      // FIXED: Add join to profiles table to get teacher names
       var query = supabaseClient
           .from('teacher_subjects')
-          .select()
+          .select('''
+            id,
+            tenant_id,
+            teacher_id,
+            grade_id,
+            subject_id,
+            section,
+            academic_year,
+            is_active,
+            created_at,
+            updated_at,
+            profiles(full_name)
+          ''')
           .eq('tenant_id', tenantId)
           .eq('grade_id', gradeId)
           .eq('subject_id', subjectId)
@@ -109,7 +124,7 @@ class TeacherSubjectRemoteDataSourceImpl implements TeacherSubjectRemoteDataSour
       final response = await query;
 
       return List<TeacherSubject>.from(
-        response.map((json) => TeacherSubject.fromJson(json as Map<String, dynamic>)),
+        response.map((json) => _mapJsonToTeacherSubject(json as Map<String, dynamic>)),
       );
     } catch (e) {
       rethrow;
@@ -196,5 +211,20 @@ class TeacherSubjectRemoteDataSourceImpl implements TeacherSubjectRemoteDataSour
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Helper to map JSON response (with teacher name from join) to TeacherSubject
+  TeacherSubject _mapJsonToTeacherSubject(Map<String, dynamic> json) {
+    // Extract teacher name from joined profiles table
+    final profile = json['profiles'] as Map<String, dynamic>?;
+    final teacherName = profile?['full_name'] as String?;
+
+    // Create TeacherSubject with teacher name
+    final teacherSubject = TeacherSubject.fromJson(json);
+
+    // Return with teacher name set
+    return teacherSubject.copyWith(
+      teacherName: teacherName,
+    );
   }
 }

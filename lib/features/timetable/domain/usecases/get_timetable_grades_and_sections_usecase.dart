@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,8 +23,8 @@ import '../entities/timetable_grade_entity.dart';
 ///   tenantId: 'tenant-123',
 /// ));
 /// result.fold(
-///   (failure) => print('Error: ${failure.message}'),
-///   (gradesData) => print('Found ${gradesData.grades.length} grades'),
+///   (failure) => debugPrint('Error: ${failure.message}'),
+///   (gradesData) => debugPrint('Found ${gradesData.grades.length} grades'),
 /// );
 /// ```
 class GetTimetableGradesAndSectionsUsecase {

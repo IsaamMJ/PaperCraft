@@ -21,6 +21,8 @@ class ExamTimetableEntryEntity extends Equatable {
   final Duration startTime; // Time as Duration (e.g., Duration(hours: 9, minutes: 0))
   final Duration endTime; // Calculated from startTime + durationMinutes
   final int durationMinutes; // 120 = 2 hours
+  final String? subjectType; // 'core' or 'auxiliary' - from subject_catalog
+  final int? maxMarks; // Total marks for this exam (60 for core, 50 for auxiliary)
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -39,6 +41,8 @@ class ExamTimetableEntryEntity extends Equatable {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
+    this.subjectType = 'core',
+    this.maxMarks = 60,
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
@@ -59,6 +63,8 @@ class ExamTimetableEntryEntity extends Equatable {
         startTime,
         endTime,
         durationMinutes,
+        subjectType,
+        maxMarks,
         isActive,
         createdAt,
         updatedAt,
@@ -117,6 +123,8 @@ class ExamTimetableEntryEntity extends Equatable {
     Duration? startTime,
     Duration? endTime,
     int? durationMinutes,
+    String? subjectType,
+    int? maxMarks,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -135,6 +143,8 @@ class ExamTimetableEntryEntity extends Equatable {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
+      subjectType: subjectType ?? this.subjectType,
+      maxMarks: maxMarks ?? this.maxMarks,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

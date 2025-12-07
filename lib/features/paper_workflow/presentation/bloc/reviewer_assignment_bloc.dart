@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
@@ -115,7 +116,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
   ReviewerAssignmentBloc({ReviewerAssignmentRepository? repository})
       : _repository = repository ?? sl<ReviewerAssignmentRepository>(),
         super(ReviewerAssignmentInitial()) {
-    print('[DEBUG BLOC] ReviewerAssignmentBloc initialized');
+    debugPrint('[DEBUG BLOC] ReviewerAssignmentBloc initialized');
     on<LoadReviewerAssignments>(_onLoadReviewerAssignments);
     on<CreateReviewerAssignment>(_onCreateReviewerAssignment);
     on<UpdateReviewerAssignment>(_onUpdateReviewerAssignment);
@@ -124,7 +125,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
 
   @override
   void onEvent(ReviewerAssignmentEvent event) {
-    print('[DEBUG BLOC] Event received: ${event.runtimeType}');
+    debugPrint('[DEBUG BLOC] Event received: ${event.runtimeType}');
     super.onEvent(event);
   }
 
@@ -132,18 +133,18 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     LoadReviewerAssignments event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Loading reviewer assignments for tenant: ${event.tenantId}');
+    debugPrint('[DEBUG BLOC] Loading reviewer assignments for tenant: ${event.tenantId}');
     emit(const ReviewerAssignmentLoading(message: 'Loading assignments...'));
 
     final result = await _repository.getReviewerAssignments(event.tenantId);
 
     result.fold(
       (failure) {
-        print('[DEBUG BLOC] Load failed: ${failure.message}');
+        debugPrint('[DEBUG BLOC] Load failed: ${failure.message}');
         emit(ReviewerAssignmentError(failure.message));
       },
       (assignments) {
-        print('[DEBUG BLOC] Loaded ${assignments.length} assignments');
+        debugPrint('[DEBUG BLOC] Loaded ${assignments.length} assignments');
         emit(ReviewerAssignmentLoaded(assignments));
       },
     );
@@ -153,7 +154,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     CreateReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Creating reviewer assignment: reviewerId=${event.reviewerId}, grades=${event.gradeMin}-${event.gradeMax}');
+    debugPrint('[DEBUG BLOC] Creating reviewer assignment: reviewerId=${event.reviewerId}, grades=${event.gradeMin}-${event.gradeMax}');
     emit(const ReviewerAssignmentLoading(message: 'Creating assignment...'));
 
     final result = await _repository.createReviewerAssignment(
@@ -165,11 +166,11 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
 
     result.fold(
       (failure) {
-        print('[DEBUG BLOC] Create failed: ${failure.message}');
+        debugPrint('[DEBUG BLOC] Create failed: ${failure.message}');
         emit(ReviewerAssignmentError(failure.message));
       },
       (_) {
-        print('[DEBUG BLOC] Assignment created successfully, reloading...');
+        debugPrint('[DEBUG BLOC] Assignment created successfully, reloading...');
         emit(const ReviewerAssignmentSuccess('Assignment created successfully'));
         add(LoadReviewerAssignments(event.tenantId));
       },
@@ -180,7 +181,7 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     UpdateReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Updating reviewer assignment: assignmentId=${event.assignmentId}, grades=${event.gradeMin}-${event.gradeMax}');
+    debugPrint('[DEBUG BLOC] Updating reviewer assignment: assignmentId=${event.assignmentId}, grades=${event.gradeMin}-${event.gradeMax}');
     emit(const ReviewerAssignmentLoading(message: 'Updating assignment...'));
 
     final result = await _repository.updateReviewerAssignment(
@@ -191,11 +192,11 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
 
     result.fold(
       (failure) {
-        print('[DEBUG BLOC] Update failed: ${failure.message}');
+        debugPrint('[DEBUG BLOC] Update failed: ${failure.message}');
         emit(ReviewerAssignmentError(failure.message));
       },
       (_) {
-        print('[DEBUG BLOC] Assignment updated successfully');
+        debugPrint('[DEBUG BLOC] Assignment updated successfully');
         emit(const ReviewerAssignmentSuccess('Assignment updated successfully'));
       },
     );
@@ -205,18 +206,18 @@ class ReviewerAssignmentBloc extends Bloc<ReviewerAssignmentEvent, ReviewerAssig
     DeleteReviewerAssignment event,
     Emitter<ReviewerAssignmentState> emit,
   ) async {
-    print('[DEBUG BLOC] Deleting reviewer assignment: assignmentId=${event.assignmentId}');
+    debugPrint('[DEBUG BLOC] Deleting reviewer assignment: assignmentId=${event.assignmentId}');
     emit(const ReviewerAssignmentLoading(message: 'Deleting assignment...'));
 
     final result = await _repository.deleteReviewerAssignment(event.assignmentId);
 
     result.fold(
       (failure) {
-        print('[DEBUG BLOC] Delete failed: ${failure.message}');
+        debugPrint('[DEBUG BLOC] Delete failed: ${failure.message}');
         emit(ReviewerAssignmentError(failure.message));
       },
       (_) {
-        print('[DEBUG BLOC] Assignment deleted successfully');
+        debugPrint('[DEBUG BLOC] Assignment deleted successfully');
         emit(const ReviewerAssignmentSuccess('Assignment deleted successfully'));
       },
     );

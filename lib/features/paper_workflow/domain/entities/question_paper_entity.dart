@@ -49,6 +49,7 @@ class QuestionPaperEntity extends Equatable {
   final String? section;              // Section (e.g., "A", "B") - pre-filled for auto-assigned papers
   final String? examName;             // Exam name from exam_timetables (e.g., "November Monthly Test")
   final DateTime? examTimetableDate;  // Exam date from exam_timetable_entries (the actual exam date)
+  final int? maxMarks;                // Maximum marks for this paper (from exam_timetable_entries.max_marks)
 
   const QuestionPaperEntity({
     required this.id,
@@ -80,6 +81,7 @@ class QuestionPaperEntity extends Equatable {
     this.section,
     this.examName,
     this.examTimetableDate,
+    this.maxMarks,
   });
 
   // Computed properties
@@ -274,6 +276,7 @@ class QuestionPaperEntity extends Equatable {
     String? section,
     String? examName,
     DateTime? examTimetableDate,
+    int? maxMarks,
   }) {
     return QuestionPaperEntity(
       id: id ?? this.id,
@@ -305,6 +308,7 @@ class QuestionPaperEntity extends Equatable {
       section: section ?? this.section,
       examName: examName ?? this.examName,
       examTimetableDate: examTimetableDate ?? this.examTimetableDate,
+      maxMarks: maxMarks ?? this.maxMarks,
     );
   }
 
@@ -339,5 +343,6 @@ class QuestionPaperEntity extends Equatable {
     section,
     examName,
     examTimetableDate,
+    maxMarks,
   ];
 }

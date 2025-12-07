@@ -15,6 +15,7 @@ class ExamTimetableEntry extends Equatable {
   final String gradeId;
   final String subjectId;
   final String section;
+  final String gradeSectionId; // FK reference to grade_sections table
   final DateTime examDate;
   final TimeOfDay startTime;
   final TimeOfDay endTime;
@@ -30,6 +31,7 @@ class ExamTimetableEntry extends Equatable {
     required this.gradeId,
     required this.subjectId,
     required this.section,
+    required this.gradeSectionId,
     required this.examDate,
     required this.startTime,
     required this.endTime,
@@ -77,6 +79,7 @@ class ExamTimetableEntry extends Equatable {
     String? gradeId,
     String? subjectId,
     String? section,
+    String? gradeSectionId,
     DateTime? examDate,
     TimeOfDay? startTime,
     TimeOfDay? endTime,
@@ -92,6 +95,7 @@ class ExamTimetableEntry extends Equatable {
       gradeId: gradeId ?? this.gradeId,
       subjectId: subjectId ?? this.subjectId,
       section: section ?? this.section,
+      gradeSectionId: gradeSectionId ?? this.gradeSectionId,
       examDate: examDate ?? this.examDate,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
@@ -111,6 +115,7 @@ class ExamTimetableEntry extends Equatable {
       'grade_id': gradeId,
       'subject_id': subjectId,
       'section': section,
+      'grade_section_id': gradeSectionId,
       'exam_date': examDate.toIso8601String().split('T')[0], // Date only
       'start_time': timeRange.split(' - ')[0], // "HH:mm"
       'end_time': timeRange.split(' - ')[1], // "HH:mm"
@@ -130,6 +135,7 @@ class ExamTimetableEntry extends Equatable {
       gradeId: json['grade_id'] as String,
       subjectId: json['subject_id'] as String,
       section: json['section'] as String,
+      gradeSectionId: json['grade_section_id'] as String? ?? '',
       examDate: DateTime.parse(json['exam_date'] as String),
       startTime: parseTime(json['start_time'] as String),
       endTime: parseTime(json['end_time'] as String),
@@ -148,6 +154,7 @@ class ExamTimetableEntry extends Equatable {
     gradeId,
     subjectId,
     section,
+    gradeSectionId,
     examDate,
     startTime,
     endTime,

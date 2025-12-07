@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1150,11 +1151,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     AppColors.warning,
     'Mark as Spare',
         () {
-      print('DEBUG: Mark as Spare clicked for paper: ${paper.id}');
-      print('DEBUG: Paper status: ${paper.status}');
-      print('DEBUG: Paper title: ${paper.title}');
-      print('DEBUG: Paper grade: ${paper.gradeId}');
-      print('DEBUG: Paper subject: ${paper.subjectId}');
+      debugPrint('DEBUG: Mark as Spare clicked for paper: ${paper.id}');
+      debugPrint('DEBUG: Paper status: ${paper.status}');
+      debugPrint('DEBUG: Paper title: ${paper.title}');
+      debugPrint('DEBUG: Paper grade: ${paper.gradeId}');
+      debugPrint('DEBUG: Paper subject: ${paper.subjectId}');
       context.read<QuestionPaperBloc>().add(MarkPaperAsSpare(paper.id));
     },
   );

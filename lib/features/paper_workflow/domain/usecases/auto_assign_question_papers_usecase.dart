@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
@@ -32,8 +33,8 @@ import '../repositories/question_paper_repository.dart';
 ///   ),
 /// );
 /// result.fold(
-///   (failure) => print('Auto-assignment failed: ${failure.message}'),
-///   (papers) => print('${papers.length} papers auto-assigned'),
+///   (failure) => debugPrint('Auto-assignment failed: ${failure.message}'),
+///   (papers) => debugPrint('${papers.length} papers auto-assigned'),
 /// );
 /// ```
 class AutoAssignQuestionPapersUsecase {

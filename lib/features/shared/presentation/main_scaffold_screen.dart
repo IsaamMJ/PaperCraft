@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:core';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -131,7 +132,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
         return role == 'primary_reviewer' || role == 'secondary_reviewer';
       }
     } catch (e) {
-      print('[DEBUG SCAFFOLD] Error checking reviewer role: $e');
+      debugPrint('[DEBUG SCAFFOLD] Error checking reviewer role: $e');
     }
     return false;
   }
@@ -360,7 +361,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
           ),
         ];
       } else {
-        // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings, Students
+        // Admin navigation: Admin Dashboard, Question Bank, Exams, Settings
         return [
           _NavItem(
             icon: Icons.admin_panel_settings_outlined,
@@ -379,12 +380,6 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
             activeIcon: Icons.calendar_today,
             label: 'Exams',
             semanticLabel: 'Exam timetables',
-          ),
-          _NavItem(
-            icon: Icons.people_outline_rounded,
-            activeIcon: Icons.people_rounded,
-            label: 'Students',
-            semanticLabel: 'Student management',
           ),
           _NavItem(
             icon: Icons.settings_outlined,
@@ -443,7 +438,7 @@ class _MainScaffoldPageState extends State<MainScaffoldPage>
               final isMobile = constraints.maxWidth < 768;
               final hasMultiplePages = navigationItems.length > 1;
 
-              print('[DEBUG SCAFFOLD] Building - isMobile: $isMobile, pages: ${navigationItems.length}, showNav: $hasMultiplePages');
+              debugPrint('[DEBUG SCAFFOLD] Building - isMobile: $isMobile, pages: ${navigationItems.length}, showNav: $hasMultiplePages');
 
               return Scaffold(
                 backgroundColor: AppColors.background,

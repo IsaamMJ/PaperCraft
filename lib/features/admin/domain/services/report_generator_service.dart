@@ -256,4 +256,5 @@ class ReportGeneratorService {
     final timestamp = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
     return 'teacher_assignments_$timestamp.csv';
   }
+
 }

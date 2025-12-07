@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:convert' show utf8, base64Encode;
 import 'dart:io' show File, Platform, Directory;
 import 'package:path_provider/path_provider.dart';
@@ -599,16 +600,16 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       // Generate filename
       final filename = ReportGeneratorService.getAcademicStructureReportFilename();
 
-      // Download based on platform
-      if (kIsWeb) {
-        _downloadFileWeb(csv, filename);
-      } else {
-        await _downloadFileMobile(csv, filename);
-      }
+      // Share the report
+      if (!context.mounted) return;
+      await Share.share(
+        csv,
+        subject: filename,
+      );
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report downloaded: $filename')),
+        SnackBar(content: Text('Report shared: $filename')),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -901,16 +902,16 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       // Generate filename
       final filename = ReportGeneratorService.getTeacherAssignmentsReportFilename();
 
-      // Download based on platform
-      if (kIsWeb) {
-        _downloadFileWeb(csv, filename);
-      } else {
-        await _downloadFileMobile(csv, filename);
-      }
+      // Share the report
+      if (!context.mounted) return;
+      await Share.share(
+        csv,
+        subject: filename,
+      );
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report downloaded: $filename')),
+        SnackBar(content: Text('Report shared: $filename')),
       );
     } catch (e) {
       if (!context.mounted) return;

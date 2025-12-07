@@ -19,6 +19,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
     super.displayOrder,
     super.metadata,
     super.marksConfig,
+    super.selectedGradeNumbers,
     super.isActive,
     required super.createdAt,
     required super.updatedAt,
@@ -38,6 +39,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       displayOrder: entity.displayOrder,
       metadata: entity.metadata,
       marksConfig: entity.marksConfig,
+      selectedGradeNumbers: entity.selectedGradeNumbers,
       isActive: entity.isActive,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
@@ -84,6 +86,15 @@ class ExamCalendarModel extends ExamCalendarEntity {
       }
     }
 
+    // Parse selected grade numbers from database (INTEGER[] -> List<int>)
+    List<int>? selectedGrades;
+    final selectedGradesJson = json['selected_grade_numbers'];
+    if (selectedGradesJson != null) {
+      if (selectedGradesJson is List) {
+        selectedGrades = (selectedGradesJson).cast<int>().toList();
+      }
+    }
+
     return ExamCalendarModel(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
@@ -99,6 +110,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       displayOrder: json['display_order'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
       marksConfig: marksConfigList,
+      selectedGradeNumbers: selectedGrades,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -163,6 +175,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       'display_order': displayOrder,
       'metadata': metadata,
       'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
+      'selected_grade_numbers': selectedGradeNumbers,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -181,6 +194,7 @@ class ExamCalendarModel extends ExamCalendarEntity {
       'display_order': displayOrder,
       'metadata': metadata,
       'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
+      'selected_grade_numbers': selectedGradeNumbers,
     };
   }
 

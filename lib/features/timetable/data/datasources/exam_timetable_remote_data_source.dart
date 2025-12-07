@@ -877,8 +877,12 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
         return const Right([]);
       }
 
+
       final models = entries.map((e) {
-        return ExamTimetableEntryModel.fromEntity(e).toJson();
+
+        final model = ExamTimetableEntryModel.fromEntity(e);
+        final json = model.toJson();
+        return json;
       }).toList();
 
 
@@ -888,15 +892,18 @@ class ExamTimetableRemoteDataSourceImpl implements ExamTimetableRemoteDataSource
             .insert(models)
             .select();
 
+
         final created = (response as List<dynamic>)
-            .map((json) => ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>))
+            .map((json) {
+              return ExamTimetableEntryModel.fromJson(json as Map<String, dynamic>);
+            })
             .toList();
 
         return Right(created);
       } on PostgrestException catch (e) {
         return Left(_mapPostgrestException(e));
       }
-    } catch (e) {
+    } catch (e, st) {
       return Left(ServerFailure('Failed to add multiple exam entries: ${e.toString()}'));
     }
   }

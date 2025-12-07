@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/presentation/constants/app_colors.dart';
+import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/exam_timetable_entity.dart';
 import '../bloc/exam_timetable_bloc.dart';
 import '../bloc/exam_timetable_event.dart';
@@ -35,9 +37,6 @@ class ExamTimetableListPage extends StatefulWidget {
 }
 
 class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
-  /// Current filter status
-  String _filterStatus = 'all'; // all, draft, published, archived
-
   @override
   void initState() {
     super.initState();
@@ -50,20 +49,16 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Exam Timetables'),
         elevation: 0,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Tooltip(
-              message: 'Create new timetable',
-              child: TextButton.icon(
-                onPressed: () => _navigateToWizard(context),
-                icon: const Icon(Icons.add),
-                label: const Text('New'),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshTimetables,
           ),
         ],
       ),
@@ -270,34 +265,69 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
             }
 
             if (state is ExamTimetablesLoaded) {
-              final filteredTimetables = _filterTimetables(state.timetables);
-
-              if (filteredTimetables.isEmpty) {
+              if (state.timetables.isEmpty) {
                 return _buildEmptyState(context);
               }
 
+              // Organize timetables by status
+              final draftTimetables = state.timetables.where((t) => t.isDraft).toList();
+              final publishedTimetables = state.timetables.where((t) => t.isPublished).toList();
+              final archivedTimetables = state.timetables.where((t) => t.isArchived).toList();
+
               return Column(
                 children: [
-                  // Filter chips
-                  _buildFilterBar(),
-                  // Timetable list
+                  // Create button
+                  Padding(
+                    padding: EdgeInsets.all(UIConstants.paddingMedium),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _navigateToWizard(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create Timetable'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                    ),
+                  ),
+                  // Timetable sections
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filteredTimetables.length,
-                      itemBuilder: (context, index) {
-                        final timetable = filteredTimetables[index];
-                        return TimetableListItem(
-                          timetable: timetable,
-                          onTap: () => _navigateToDetail(context, timetable),
-                          onPublish: () =>
-                              _publishTimetable(context, timetable),
-                          onArchive: () =>
-                              _archiveTimetable(context, timetable),
-                          onDelete: () =>
-                              _deleteTimetable(context, timetable),
-                        );
-                      },
+                    child: ListView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: UIConstants.paddingMedium,
+                      ),
+                      children: [
+                        if (draftTimetables.isNotEmpty) ...[
+                          _buildSectionHeader('Draft', Colors.orange),
+                          ...draftTimetables.map((t) => TimetableListItem(
+                            timetable: t,
+                            onTap: () => _navigateToDetail(context, t),
+                            onPublish: () => _publishTimetable(context, t),
+                            onArchive: () => _archiveTimetable(context, t),
+                            onDelete: () => _deleteTimetable(context, t),
+                          )),
+                          SizedBox(height: UIConstants.spacing24),
+                        ],
+                        if (publishedTimetables.isNotEmpty) ...[
+                          _buildSectionHeader('Published', Colors.green),
+                          ...publishedTimetables.map((t) => TimetableListItem(
+                            timetable: t,
+                            onTap: () => _navigateToDetail(context, t),
+                            onPublish: () => _publishTimetable(context, t),
+                            onArchive: () => _archiveTimetable(context, t),
+                            onDelete: () => _deleteTimetable(context, t),
+                          )),
+                          SizedBox(height: UIConstants.spacing24),
+                        ],
+                        if (archivedTimetables.isNotEmpty) ...[
+                          _buildSectionHeader('Archived', Colors.grey),
+                          ...archivedTimetables.map((t) => TimetableListItem(
+                            timetable: t,
+                            onTap: () => _navigateToDetail(context, t),
+                            onPublish: () => _publishTimetable(context, t),
+                            onArchive: () => _archiveTimetable(context, t),
+                            onDelete: () => _deleteTimetable(context, t),
+                          )),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -348,6 +378,7 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     );
   }
 
+
   /// Build empty state
   Widget _buildEmptyState(BuildContext context) {
     return Center(
@@ -355,23 +386,21 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.calendar_today,
+            Icons.schedule,
             size: 64,
             color: Colors.grey[400],
           ),
           const SizedBox(height: 16),
           Text(
-            'No timetables found',
+            'No timetables scheduled',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            _filterStatus == 'all'
-                ? 'Create a new timetable to get started'
-                : 'No timetables in this status',
+            'Create your first timetable to get started',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+              color: Colors.grey[600],
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -384,53 +413,37 @@ class _ExamTimetableListPageState extends State<ExamTimetableListPage> {
     );
   }
 
-  /// Build filter bar
-  Widget _buildFilterBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  /// Build section header with colored bar (like exam calendars)
+  Widget _buildSectionHeader(String title, Color color) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: UIConstants.spacing12,
+        bottom: UIConstants.spacing12,
+      ),
       child: Row(
         children: [
-          _buildFilterChip('All', 'all'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Draft', 'draft'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Published', 'published'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Archived', 'archived'),
+          Container(
+            width: 4,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          SizedBox(width: UIConstants.spacing12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeLarge,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  /// Build filter chip
-  Widget _buildFilterChip(String label, String status) {
-    final isSelected = _filterStatus == status;
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        setState(() {
-          _filterStatus = status;
-        });
-      },
-      backgroundColor: Colors.white,
-      selectedColor: Colors.blue[100],
-      side: BorderSide(
-        color: isSelected ? Colors.blue : Colors.grey[300]!,
-      ),
-    );
-  }
-
-  /// Filter timetables by status
-  List<ExamTimetableEntity> _filterTimetables(
-    List<ExamTimetableEntity> timetables,
-  ) {
-    if (_filterStatus == 'all') {
-      return timetables;
-    }
-    return timetables.where((t) => t.status == _filterStatus).toList();
-  }
 
   /// Refresh timetables
   void _refreshTimetables() {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
@@ -27,7 +28,7 @@ class _ReviewerGradeAssignmentWidgetState
   @override
   void initState() {
     super.initState();
-    print('[DEBUG WIDGET] ReviewerGradeAssignmentWidget initialized for tenant: ${widget.tenantId}');
+    debugPrint('[DEBUG WIDGET] ReviewerGradeAssignmentWidget initialized for tenant: ${widget.tenantId}');
     context.read<ReviewerAssignmentBloc>().add(LoadReviewerAssignments(widget.tenantId));
   }
 
@@ -271,10 +272,10 @@ class _ReviewerGradeAssignmentWidgetState
               final gradeMin = int.tryParse(minController.text) ?? 1;
               final gradeMax = int.tryParse(maxController.text) ?? 12;
 
-              print('[DEBUG WIDGET] Dialog save clicked: reviewer=${reviewer.displayName}, grades=$gradeMin-$gradeMax, isCreate=${assignment == null}');
+              debugPrint('[DEBUG WIDGET] Dialog save clicked: reviewer=${reviewer.displayName}, grades=$gradeMin-$gradeMax, isCreate=${assignment == null}');
 
               if (gradeMin < 1 || gradeMax > 12 || gradeMin > gradeMax) {
-                print('[DEBUG WIDGET] Invalid grade range: $gradeMin-$gradeMax');
+                debugPrint('[DEBUG WIDGET] Invalid grade range: $gradeMin-$gradeMax');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Invalid grade range'),
@@ -287,7 +288,7 @@ class _ReviewerGradeAssignmentWidgetState
               Navigator.pop(context);
 
               if (assignment == null) {
-                print('[DEBUG WIDGET] Creating assignment for reviewer: ${reviewer.id}');
+                debugPrint('[DEBUG WIDGET] Creating assignment for reviewer: ${reviewer.id}');
                 bloc.add(
                   CreateReviewerAssignment(
                     tenantId: widget.tenantId,
@@ -297,7 +298,7 @@ class _ReviewerGradeAssignmentWidgetState
                   ),
                 );
               } else {
-                print('[DEBUG WIDGET] Updating assignment: ${assignment.id}');
+                debugPrint('[DEBUG WIDGET] Updating assignment: ${assignment.id}');
                 bloc.add(
                   UpdateReviewerAssignment(
                     assignmentId: assignment.id,
@@ -319,9 +320,9 @@ class _ReviewerGradeAssignmentWidgetState
   }
 
   void _handleStateChanges(BuildContext context, ReviewerAssignmentState state) {
-    print('[DEBUG WIDGET] State changed: ${state.runtimeType}');
+    debugPrint('[DEBUG WIDGET] State changed: ${state.runtimeType}');
     if (state is ReviewerAssignmentSuccess) {
-      print('[DEBUG WIDGET] Success: ${state.message}');
+      debugPrint('[DEBUG WIDGET] Success: ${state.message}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(state.message),
@@ -329,9 +330,9 @@ class _ReviewerGradeAssignmentWidgetState
         ),
       );
     } else if (state is ReviewerAssignmentError) {
-      print('[DEBUG WIDGET] Error: ${state.message}');
+      debugPrint('[DEBUG WIDGET] Error: ${state.message}');
     } else if (state is ReviewerAssignmentLoading) {
-      print('[DEBUG WIDGET] Loading: ${state.message}');
+      debugPrint('[DEBUG WIDGET] Loading: ${state.message}');
     }
   }
 

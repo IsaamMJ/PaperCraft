@@ -1,9 +1,9 @@
 // features/home/presentation/pages/home_page.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
@@ -35,11 +35,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _notificationRefreshTimer;
   bool _isAppInForeground = true;
 
+  // Track which exam sections are expanded (both upcoming and past)
+  final Map<String, bool> _expandedExams = {}; // examName -> isExpanded
+
   // Cache the last valid HomeLoaded state to preserve data across navigation
   HomeLoaded? _cachedHomeState;
-
-  // Cache for marks submission status: examTimetableEntryId -> isSubmitted
-  final Map<String, bool> _marksSubmissionCache = {};
 
   @override
   void initState() {
@@ -128,34 +128,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         );
       }
-    }
-  }
-
-  Future<bool> _checkMarksSubmitted(String examTimetableEntryId) async {
-    // Check cache first
-    if (_marksSubmissionCache.containsKey(examTimetableEntryId)) {
-      return _marksSubmissionCache[examTimetableEntryId]!;
-    }
-
-    try {
-      // Query Supabase to check if marks have been submitted (isDraft = false)
-      final response = await supabase.Supabase.instance.client
-          .from('student_exam_marks')
-          .select('id, is_draft')
-          .eq('exam_timetable_entry_id', examTimetableEntryId)
-          .limit(1)
-          .maybeSingle();
-
-      // If marks exist and are not in draft status, they are submitted
-      final isSubmitted = response != null && response['is_draft'] == false;
-
-      // Cache the result
-      _marksSubmissionCache[examTimetableEntryId] = isSubmitted;
-
-      return isSubmitted;
-    } catch (e) {
-      print('[ERROR] Failed to check marks submission status: $e');
-      return false;
     }
   }
 
@@ -426,54 +398,101 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         // DEBUG: Print all papers and their classification
         for (final paper in papers) {
-          print('[DEBUG PAPERS] Paper ID: ${paper.id}, Status: ${paper.status}, isAutoAssigned: ${paper.isAutoAssigned}');
+          debugPrint('[DEBUG PAPERS] Paper ID: ${paper.id}, Status: ${paper.status}, isAutoAssigned: ${paper.isAutoAssigned}');
         }
 
-        // Build list items: Assigned section + Assigned papers (grouped by exam) + Manual section + Manual papers
+        // Separate upcoming and past exams
+        final upcomingPapers = <QuestionPaperEntity>[];
+        final pastPapers = <QuestionPaperEntity>[];
+
+        for (final paper in autoAssignedPapers) {
+          final examDate = paper.examTimetableDate ?? paper.examDate;
+          if (examDate != null && _isExamDatePassed(examDate)) {
+            pastPapers.add(paper);
+          } else {
+            upcomingPapers.add(paper);
+          }
+        }
+
+        // Build list items: Assigned section + Upcoming papers + Past papers (collapsed) + Manual section + Manual papers
         final listItems = <_PaperListItem>[];
 
         if (!isAdmin) {
-          // Add assigned section header
+          // Add assigned exams section header
           listItems.add(_AssignedSectionHeader());
 
           if (autoAssignedPapers.isEmpty) {
             listItems.add(_EmptyAssignedState());
           } else {
-            // Sort auto-assigned papers by exam date (upcoming first)
-            final sortedPapers = List<QuestionPaperEntity>.from(autoAssignedPapers);
-            sortedPapers.sort((a, b) {
+            // Sort upcoming papers by exam date
+            final sortedUpcomingPapers = List<QuestionPaperEntity>.from(upcomingPapers);
+            sortedUpcomingPapers.sort((a, b) {
               final dateA = a.examTimetableDate ?? DateTime(2099);
               final dateB = b.examTimetableDate ?? DateTime(2099);
               return dateA.compareTo(dateB);
             });
 
-            // Group auto-assigned papers by exam name (maintains sorted order)
-            final papersByExam = <String, List<QuestionPaperEntity>>{};
-            for (final paper in sortedPapers) {
-              final examName = paper.examName ?? 'Unknown Exam';
-              papersByExam.putIfAbsent(examName, () => []).add(paper);
-            }
+            // Add upcoming papers grouped by exam name - COLLAPSIBLE
+            if (sortedUpcomingPapers.isNotEmpty) {
+              final upcomingByExam = <String, List<QuestionPaperEntity>>{};
+              for (final paper in sortedUpcomingPapers) {
+                final examName = paper.examName ?? 'Unknown Exam';
+                upcomingByExam.putIfAbsent(examName, () => []).add(paper);
+              }
 
-            // Add papers grouped by exam with subsection headers (in chronological order)
-            for (final examName in papersByExam.keys) {
-              listItems.add(_ExamSubsectionHeader(examName: examName));
-              for (final paper in papersByExam[examName]!) {
-                listItems.add(_AutoAssignedPaperItem(paper: paper));
+              // Add each exam as a collapsible group
+              for (final examName in upcomingByExam.keys) {
+                // Initialize expanded state for this exam if not already set
+                _expandedExams.putIfAbsent(examName, () => true); // Upcoming exams expanded by default
+
+                listItems.add(_CollapsibleExamHeader(
+                  examName: examName,
+                  isExpanded: _expandedExams[examName] ?? true,
+                  isPast: false,
+                ));
+
+                // Show papers only if exam is expanded
+                if (_expandedExams[examName] ?? true) {
+                  for (final paper in upcomingByExam[examName]!) {
+                    listItems.add(_AutoAssignedPaperItem(paper: paper));
+                  }
+                }
               }
             }
-          }
 
-          // Add manual section header if there are any papers
-          if (manualPapers.isNotEmpty || autoAssignedPapers.isNotEmpty) {
-            listItems.add(_ManualSectionHeader());
-          }
+            // Add past exams section (collapsible by exam name) if there are past papers
+            if (pastPapers.isNotEmpty) {
+              final sortedPastPapers = List<QuestionPaperEntity>.from(pastPapers);
+              sortedPastPapers.sort((a, b) {
+                final dateA = a.examTimetableDate ?? DateTime(2000);
+                final dateB = b.examTimetableDate ?? DateTime(2000);
+                return dateB.compareTo(dateA); // Most recent first
+              });
 
-          if (manualPapers.isEmpty && autoAssignedPapers.isNotEmpty) {
-            listItems.add(_EmptyManualState());
-          } else {
-            // Add manual papers
-            for (final paper in manualPapers) {
-              listItems.add(_ManualPaperItem(paper: paper));
+              final pastByExam = <String, List<QuestionPaperEntity>>{};
+              for (final paper in sortedPastPapers) {
+                final examName = paper.examName ?? 'Unknown Exam';
+                pastByExam.putIfAbsent(examName, () => []).add(paper);
+              }
+
+              // Add each past exam as a collapsible group
+              for (final examName in pastByExam.keys) {
+                // Initialize expanded state - past exams collapsed by default
+                _expandedExams.putIfAbsent('${examName}_past', () => false);
+
+                listItems.add(_CollapsibleExamHeader(
+                  examName: examName,
+                  isExpanded: _expandedExams['${examName}_past'] ?? false,
+                  isPast: true,
+                ));
+
+                // Show papers only if exam is expanded
+                if (_expandedExams['${examName}_past'] ?? false) {
+                  for (final paper in pastByExam[examName]!) {
+                    listItems.add(_AutoAssignedPaperItem(paper: paper));
+                  }
+                }
+              }
             }
           }
         } else {
@@ -497,18 +516,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               final item = listItems[index];
               if (item is _AssignedSectionHeader) {
                 return _buildAssignedExamsHeader();
-              } else if (item is _ExamSubsectionHeader) {
-                return _buildExamSubsectionHeader(item.examName);
-              } else if (item is _ManualSectionHeader) {
-                return _buildMyPapersHeader();
+              } else if (item is _CollapsibleExamHeader) {
+                return _buildCollapsibleExamHeader(item.examName, item.isExpanded, item.isPast);
               } else if (item is _AutoAssignedPaperItem) {
                 return _buildAutoAssignedPaperCard(item.paper);
               } else if (item is _ManualPaperItem) {
                 return _buildPaperCard(item.paper);
               } else if (item is _EmptyAssignedState) {
                 return _buildEmptyAssignedState();
-              } else if (item is _EmptyManualState) {
-                return _buildEmptyManualState();
               } else if (item is _EmptyAdminState) {
                 return _buildEmptyAdminState();
               }
@@ -549,15 +564,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildMyPapersHeader() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 12),
-      child: Text(
-        'My Papers',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
+  Widget _buildCollapsibleExamHeader(String examName, bool isExpanded, bool isPast) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          final key = isPast ? '${examName}_past' : examName;
+          _expandedExams[key] = !(_expandedExams[key] ?? false);
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8, left: 0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isPast ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isPast ? AppColors.textTertiary : Colors.transparent,
+              width: 0.5,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                isExpanded ? Icons.expand_less : Icons.expand_more,
+                color: isPast ? AppColors.textSecondary : AppColors.primary,
+                size: 22,
+              ),
+              SizedBox(width: 12),
+              Text(
+                examName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isPast ? AppColors.textSecondary : AppColors.primary,
+                ),
+              ),
+              if (isPast)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    '(Past)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -570,17 +626,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         icon: Icons.assignment_outlined,
         title: 'No assigned exams yet',
         message: 'Exams will appear here when your school publishes the timetable',
-      ),
-    );
-  }
-
-  Widget _buildEmptyManualState() {
-    return SizedBox(
-      height: 200,
-      child: EmptyMessageWidget(
-        icon: Icons.description_outlined,
-        title: 'No papers created yet',
-        message: 'Create your first question paper to get started',
       ),
     );
   }
@@ -613,7 +658,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final countdownText = examDate != null && !isExamDatePassed ? _getCountdownText(examDate) : null;
 
     // DEBUG: Log exam date info
-    print('[DEBUG MARKS] Paper: ${paper.subject} | ExamDate: $examDate | DatePassed: $isExamDatePassed | CanEnterMarks: $canEnterMarks | Countdown: $countdownText');
+    debugPrint('[DEBUG MARKS] Paper: ${paper.subject} | ExamDate: $examDate | DatePassed: $isExamDatePassed | CanEnterMarks: $canEnterMarks | Countdown: $countdownText');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -621,7 +666,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
         border: Border.all(
-          color: canEnterMarks ? AppColors.success10 : AppColors.primary20,
+          color: AppColors.primary20,
         ),
         boxShadow: [
           BoxShadow(
@@ -635,32 +680,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // After exam date: show marks entry screen
-            if (canEnterMarks) {
-              final authState = context.read<AuthBloc>().state;
-              if (authState is AuthAuthenticated) {
-                final route = AppRoutes.marksEntry(
-                  examTimetableEntryId: paper.examTimetableEntryId ?? '',
-                  teacherId: authState.user.id,
-                  examName: paper.examName,
-                  subjectName: paper.subject,
-                  gradeName: paper.grade,
-                  section: paper.section,
-                );
-                print('[DEBUG] Marks entry tapped - Route: $route');
-                context.push(route);
-              }
-              return;
-            }
-
-            // Before exam date: show question paper
+            // Show question paper
             if (paper.status == PaperStatus.draft) {
               final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
-              print('[DEBUG] Auto-assigned draft paper tapped - Route: $route');
+              debugPrint('[DEBUG] Auto-assigned draft paper tapped - Route: $route');
               context.push(route);
             } else {
               final route = AppRoutes.questionPaperViewWithId(paper.id);
-              print('[DEBUG] Auto-assigned non-draft paper tapped - Route: $route');
+              debugPrint('[DEBUG] Auto-assigned non-draft paper tapped - Route: $route');
               context.push(route);
             }
           },
@@ -687,7 +714,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          // Show countdown if exam date hasn't passed, otherwise show marks entry button
+                          // Show countdown if exam date hasn't passed
                           if (countdownText != null) ...[
                             SizedBox(height: UIConstants.spacing8),
                             Container(
@@ -700,51 +727,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
                               ),
                               child: Text(
-                                'Student marks will open in $countdownText',
+                                'Exam in $countdownText',
                                 style: TextStyle(
                                   fontSize: UIConstants.fontSizeSmall,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.warning,
                                 ),
                               ),
-                            ),
-                          ] else if (canEnterMarks) ...[
-                            SizedBox(height: UIConstants.spacing8),
-                            FutureBuilder<bool>(
-                              future: _checkMarksSubmitted(paper.examTimetableEntryId ?? ''),
-                              builder: (context, snapshot) {
-                                final isMarksSubmitted = snapshot.data ?? false;
-
-                                return Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: UIConstants.spacing8,
-                                    vertical: UIConstants.spacing4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isMarksSubmitted ? Colors.blue[50] : AppColors.success10,
-                                    borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isMarksSubmitted ? Icons.check_circle : Icons.edit,
-                                        size: 14,
-                                        color: isMarksSubmitted ? Colors.blue : AppColors.success,
-                                      ),
-                                      SizedBox(width: UIConstants.spacing4),
-                                      Text(
-                                        isMarksSubmitted ? 'Marks Submitted' : 'Mark Entry',
-                                        style: TextStyle(
-                                          fontSize: UIConstants.fontSizeSmall,
-                                          fontWeight: FontWeight.w600,
-                                          color: isMarksSubmitted ? Colors.blue : AppColors.success,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
                             ),
                           ],
                         ],
@@ -782,19 +771,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           onTap: () {
             // Open create page for draft papers, view page for others
             // Draft papers are incomplete and need questions to be added
-            print('[DEBUG] Paper Card Tap - Paper ID: ${paper.id}');
-            print('[DEBUG] Paper Status: ${paper.status}');
-            print('[DEBUG] Total Questions: ${paper.totalQuestions}');
-            print('[DEBUG] Is Draft: ${paper.status == PaperStatus.draft}');
-            print('[DEBUG] Has Zero Questions: ${(paper.totalQuestions ?? 0) == 0}');
+            debugPrint('[DEBUG] Paper Card Tap - Paper ID: ${paper.id}');
+            debugPrint('[DEBUG] Paper Status: ${paper.status}');
+            debugPrint('[DEBUG] Total Questions: ${paper.totalQuestions}');
+            debugPrint('[DEBUG] Is Draft: ${paper.status == PaperStatus.draft}');
+            debugPrint('[DEBUG] Has Zero Questions: ${(paper.totalQuestions ?? 0) == 0}');
 
             if (paper.status == PaperStatus.draft || (paper.totalQuestions ?? 0) == 0) {
               final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
-              print('[DEBUG] Opening DRAFT route: $route');
+              debugPrint('[DEBUG] Opening DRAFT route: $route');
               context.push(route);
             } else {
               final route = AppRoutes.questionPaperViewWithId(paper.id);
-              print('[DEBUG] Opening VIEW route: $route');
+              debugPrint('[DEBUG] Opening VIEW route: $route');
               context.push(route);
             }
           },
@@ -873,16 +862,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildActionButton(QuestionPaperEntity paper) {
     // For draft papers, show Edit button
-    print('[DEBUG] _buildActionButton called - Paper ID: ${paper.id}, Status: ${paper.status}');
+    debugPrint('[DEBUG] _buildActionButton called - Paper ID: ${paper.id}, Status: ${paper.status}');
     if (paper.status == PaperStatus.draft) {
-      print('[DEBUG] Draft paper detected, showing Edit button');
+      debugPrint('[DEBUG] Draft paper detected, showing Edit button');
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           InkWell(
             onTap: () {
               final route = AppRoutes.questionPaperCreateWithDraftId(paper.id);
-              print('[DEBUG] Edit button tapped - Route: $route');
+              debugPrint('[DEBUG] Edit button tapped - Route: $route');
               context.push(route);
             },
             borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
@@ -1139,12 +1128,16 @@ abstract class _PaperListItem {}
 
 class _AssignedSectionHeader extends _PaperListItem {}
 
-class _ExamSubsectionHeader extends _PaperListItem {
+class _CollapsibleExamHeader extends _PaperListItem {
   final String examName;
-  _ExamSubsectionHeader({required this.examName});
+  final bool isExpanded;
+  final bool isPast;
+  _CollapsibleExamHeader({
+    required this.examName,
+    required this.isExpanded,
+    required this.isPast,
+  });
 }
-
-class _ManualSectionHeader extends _PaperListItem {}
 
 class _AutoAssignedPaperItem extends _PaperListItem {
   final QuestionPaperEntity paper;
@@ -1157,7 +1150,5 @@ class _ManualPaperItem extends _PaperListItem {
 }
 
 class _EmptyAssignedState extends _PaperListItem {}
-
-class _EmptyManualState extends _PaperListItem {}
 
 class _EmptyAdminState extends _PaperListItem {}

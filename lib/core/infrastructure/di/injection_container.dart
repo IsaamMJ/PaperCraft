@@ -101,20 +101,6 @@ import '../../../features/exams/domain/usecases/load_exam_calendars_usecase.dart
 import '../../../features/exams/domain/usecases/create_exam_calendar_usecase.dart';
 import '../../../features/exams/domain/usecases/delete_exam_calendar_usecase.dart';
 
-// Student Management feature imports
-import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
-import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
-import 'modules/student_management_module.dart';
-
-// Student Exam Marks feature imports
-import '../../../features/student_exam_marks/data/datasources/student_exam_marks_cloud_data_source.dart';
-import '../../../features/student_exam_marks/data/repositories/student_exam_marks_repository_impl.dart';
-import '../../../features/student_exam_marks/domain/repositories/student_exam_marks_repository.dart';
-import '../../../features/student_exam_marks/domain/usecases/get_marks_for_timetable_entry_usecase.dart';
-import '../../../features/student_exam_marks/domain/usecases/save_marks_as_draft_usecase.dart';
-import '../../../features/student_exam_marks/domain/usecases/submit_marks_usecase.dart';
-import '../../../features/student_exam_marks/domain/usecases/auto_create_marks_for_timetable_usecase.dart';
-import '../../../features/student_exam_marks/presentation/bloc/marks_entry_bloc.dart';
 
 import '../../domain/interfaces/i_logger.dart';
 import '../analytics/analytics_service.dart';
@@ -242,7 +228,6 @@ Future<void> setupDependencies() async {
     await _AuthModule.setup();
     await _QuestionPapersModule.setup();
     await _GradeModule.setup();
-    await StudentManagementModule.setup();
     await _AssignmentModule.setup();
     await _ReviewerManagementModule.setup();
     await _NotificationModule.setup();
@@ -1275,7 +1260,6 @@ class _AdminModule {
       teacherSubjectRepository: sl<TeacherSubjectRepository>(),
       userRepository: sl<UserRepository>(),
       autoAssignUsecase: sl<AutoAssignQuestionPapersUsecase>(),
-      autoCreateMarksUsecase: sl<AutoCreateMarksForTimetableUsecase>(),
       logger: sl<ILogger>(),
     ));
 
@@ -1309,40 +1293,6 @@ class _AdminModule {
     ));
 
     sl<ILogger>().debug('Exam timetable wizard use cases registered successfully', category: LogCategory.system);
-
-    // Register student exam marks use cases
-    sl<ILogger>().debug('Setting up student exam marks use cases', category: LogCategory.system);
-
-    sl.registerLazySingleton<StudentExamMarksCloudDataSource>(
-      () => StudentExamMarksCloudDataSourceImpl(
-        sl<ApiClient>(),
-        sl<ILogger>(),
-      ),
-    );
-
-    sl.registerLazySingleton<StudentExamMarksRepository>(
-      () => StudentExamMarksRepositoryImpl(
-        sl<StudentExamMarksCloudDataSource>(),
-      ),
-    );
-
-    sl.registerLazySingleton(() => GetMarksForTimetableEntryUsecase(
-      repository: sl<StudentExamMarksRepository>(),
-    ));
-
-    sl.registerLazySingleton(() => SaveMarksAsDraftUsecase(
-      repository: sl<StudentExamMarksRepository>(),
-    ));
-
-    sl.registerLazySingleton(() => SubmitMarksUsecase(
-      repository: sl<StudentExamMarksRepository>(),
-    ));
-
-    sl.registerLazySingleton(() => AutoCreateMarksForTimetableUsecase(
-      repository: sl<StudentExamMarksRepository>(),
-    ));
-
-    sl<ILogger>().debug('Student exam marks use cases registered successfully', category: LogCategory.system);
 
     sl<ILogger>().debug('Exam timetable use cases registered successfully', category: LogCategory.system);
   }
@@ -1455,20 +1405,13 @@ class _AdminModule {
         getSubjectsByGrade: sl<GetSubjectsByGradeUseCase>(),
         getSubjectsByGradeAndSection: sl<GetSubjectsByGradeAndSectionUseCase>(),
         loadGradeSections: sl<LoadGradeSectionsUseCase>(),
+        teacherSubjectRepository: sl<TeacherSubjectRepository>(),
+        autoAssignQuestionPapers: sl<AutoAssignQuestionPapersUsecase>(),
       ));
     } catch (e, st) {
       rethrow;
     }
     sl<ILogger>().debug('ExamTimetableWizardBloc registered successfully', category: LogCategory.system);
-
-    // Register MarksEntryBloc
-    sl<ILogger>().debug('Setting up marks entry BLoC', category: LogCategory.system);
-    sl.registerFactory(() => MarksEntryBloc(
-      getMarksUsecase: sl<GetMarksForTimetableEntryUsecase>(),
-      saveMarksUsecase: sl<SaveMarksAsDraftUsecase>(),
-      submitMarksUsecase: sl<SubmitMarksUsecase>(),
-    ));
-    sl<ILogger>().debug('MarksEntryBloc registered successfully', category: LogCategory.system);
   }
 }
 

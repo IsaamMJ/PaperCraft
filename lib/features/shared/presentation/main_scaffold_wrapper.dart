@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,8 +10,6 @@ import '../../home/presentation/pages/home_page.dart';
 import '../../office_staff/presentation/pages/office_staff_dashboard_page.dart';
 import '../../paper_workflow/presentation/bloc/shared_bloc_provider.dart';
 import '../../question_bank/presentation/pages/question_bank_page.dart';
-import '../../student_management/presentation/pages/student_list_page.dart';
-import '../../student_management/presentation/bloc/student_management_bloc.dart';
 import '../../timetable/presentation/bloc/exam_timetable_bloc.dart';
 import '../../../core/infrastructure/di/injection_container.dart';
 import 'main_scaffold_screen.dart';
@@ -37,11 +36,11 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
     final isReviewer = userStateService.isReviewer;
     final isOfficeStaff = userStateService.isOfficeStaff;
 
-    print('[DEBUG SCAFFOLD WRAPPER] Building scaffold - isReviewer: $isReviewer, isOfficeStaff: $isOfficeStaff');
+    debugPrint('[DEBUG SCAFFOLD WRAPPER] Building scaffold - isReviewer: $isReviewer, isOfficeStaff: $isOfficeStaff');
 
     // Reviewers see papers for review and exam management
-    // Admins see full admin pages + students management
-    // Office staff see approved papers + students management
+    // Admins see full admin pages
+    // Office staff see approved papers
     final adminPages = isReviewer
         ? [
             SharedBlocProvider(child: const AdminDashboardPage()),
@@ -51,15 +50,6 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
             SharedBlocProvider(child: const AdminDashboardPage()),
             SharedBlocProvider(child: const QuestionBankPage()),
             ExamsDashboardPage(tenantId: tenantId),
-            BlocProvider<StudentManagementBloc>(
-              create: (context) {
-                final bloc = GetIt.instance<StudentManagementBloc>();
-                // Load students for admin (no specific grade section)
-                bloc.add(const LoadStudentsForGradeSection(gradeSectionId: ''));
-                return bloc;
-              },
-              child: const StudentListPage(), // Students management page
-            ),
             SharedBlocProvider(child: const SettingsPage()),
           ];
 
@@ -70,15 +60,6 @@ class _MainScaffoldWrapperState extends State<MainScaffoldWrapper> {
 
     final officeStaffPages = [
       SharedBlocProvider(child: const OfficeStaffDashboardPage()),
-      BlocProvider<StudentManagementBloc>(
-        create: (context) {
-          final bloc = GetIt.instance<StudentManagementBloc>();
-          // Load students for office staff (no specific grade section)
-          bloc.add(const LoadStudentsForGradeSection(gradeSectionId: ''));
-          return bloc;
-        },
-        child: const StudentListPage(), // Students management page
-      ),
     ];
 
     return MainScaffoldPage(

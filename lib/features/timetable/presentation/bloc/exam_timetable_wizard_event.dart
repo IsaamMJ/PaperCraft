@@ -65,22 +65,24 @@ class SelectGradesEvent extends ExamTimetableWizardEvent {
   List<Object?> get props => [examCalendarId, gradeSectionIds];
 }
 
-/// Step 3: Assign a subject to an exam date
+/// Step 3: Assign a subject to an exam date for a specific grade
 class AssignSubjectDateEvent extends ExamTimetableWizardEvent {
   final String subjectId;
+  final String gradeId;
   final DateTime examDate;
   final TimeOfDay startTime;
   final TimeOfDay endTime;
 
   const AssignSubjectDateEvent({
     required this.subjectId,
+    required this.gradeId,
     required this.examDate,
     required this.startTime,
     required this.endTime,
   });
 
   @override
-  List<Object?> get props => [subjectId, examDate, startTime, endTime];
+  List<Object?> get props => [subjectId, gradeId, examDate, startTime, endTime];
 }
 
 /// Remove a subject assignment (before submission)
@@ -98,12 +100,14 @@ class RemoveSubjectAssignmentEvent extends ExamTimetableWizardEvent {
 /// Update a subject assignment (change date/time)
 class UpdateSubjectAssignmentEvent extends ExamTimetableWizardEvent {
   final String subjectId;
+  final String gradeId;
   final DateTime newExamDate;
   final TimeOfDay newStartTime;
   final TimeOfDay newEndTime;
 
   const UpdateSubjectAssignmentEvent({
     required this.subjectId,
+    required this.gradeId,
     required this.newExamDate,
     required this.newStartTime,
     required this.newEndTime,
@@ -112,10 +116,38 @@ class UpdateSubjectAssignmentEvent extends ExamTimetableWizardEvent {
   @override
   List<Object?> get props => [
     subjectId,
+    gradeId,
     newExamDate,
     newStartTime,
     newEndTime,
   ];
+}
+
+/// Step 2 → Step 3: Go to next step (teacher assignment)
+/// Validates that at least ONE subject has a date assigned
+class GoToNextStepEvent extends ExamTimetableWizardEvent {
+  const GoToNextStepEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Step 3: Load teacher assignments for all scheduled subjects
+///
+/// Triggered: When entering Step 3 (after scheduling subjects)
+/// Purpose: Fetch which teachers are assigned to each subject+grade+section
+/// Result: Emits WizardStep3State with teacher data populated
+class LoadTeacherAssignmentsEvent extends ExamTimetableWizardEvent {
+  final String tenantId;
+  final String academicYear;
+
+  const LoadTeacherAssignmentsEvent({
+    required this.tenantId,
+    required this.academicYear,
+  });
+
+  @override
+  List<Object?> get props => [tenantId, academicYear];
 }
 
 /// Step 3: Submit the wizard and create timetable
@@ -140,4 +172,23 @@ class ResetWizardEvent extends ExamTimetableWizardEvent {
 
   @override
   List<Object?> get props => [];
+}
+
+/// Batch assign multiple subjects to the same date/time for all their grades
+/// Use case: Assign Math, Science, English all to June 1, 9:00-11:00 AM
+class BatchAssignSubjectsEvent extends ExamTimetableWizardEvent {
+  final List<String> subjectIds;
+  final DateTime examDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+
+  const BatchAssignSubjectsEvent({
+    required this.subjectIds,
+    required this.examDate,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  @override
+  List<Object?> get props => [subjectIds, examDate, startTime, endTime];
 }

@@ -397,6 +397,7 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
       'reviewed_at': paper.reviewedAt?.millisecondsSinceEpoch,
       'reviewed_by': paper.reviewedBy,
       'rejection_reason': paper.rejectionReason,
+      'max_marks': paper.maxMarks,
     };
   }
 
@@ -569,6 +570,7 @@ class PaperLocalDataSourceHive implements PaperLocalDataSource {
             : null,
         reviewedBy: paperMap['reviewed_by'] as String?,
         rejectionReason: paperMap['rejection_reason'] as String?,
+        maxMarks: paperMap['max_marks'] as int?,
       );
 
       return paper;

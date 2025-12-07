@@ -21,6 +21,9 @@ class ExamCalendar extends Equatable {
   final int displayOrder; // For UI ordering
   final Map<String, dynamic>? metadata; // Future expansion
   final Map<String, dynamic>? marksConfig; // Grade-wise mark configurations
+  final List<int>? selectedGradeNumbers; // Grades participating in this exam (e.g., [1, 2, 3, 4, 5])
+  final int? coreMaxMarks; // Max marks for core subjects
+  final int? auxiliaryMaxMarks; // Max marks for auxiliary subjects
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -37,6 +40,9 @@ class ExamCalendar extends Equatable {
     required this.displayOrder,
     this.metadata,
     this.marksConfig,
+    this.selectedGradeNumbers,
+    this.coreMaxMarks,
+    this.auxiliaryMaxMarks,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -69,6 +75,9 @@ class ExamCalendar extends Equatable {
     int? displayOrder,
     Map<String, dynamic>? metadata,
     Map<String, dynamic>? marksConfig,
+    List<int>? selectedGradeNumbers,
+    int? coreMaxMarks,
+    int? auxiliaryMaxMarks,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -86,6 +95,9 @@ class ExamCalendar extends Equatable {
       displayOrder: displayOrder ?? this.displayOrder,
       metadata: metadata ?? this.metadata,
       marksConfig: marksConfig ?? this.marksConfig,
+      selectedGradeNumbers: selectedGradeNumbers ?? this.selectedGradeNumbers,
+      coreMaxMarks: coreMaxMarks ?? this.coreMaxMarks,
+      auxiliaryMaxMarks: auxiliaryMaxMarks ?? this.auxiliaryMaxMarks,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -106,6 +118,9 @@ class ExamCalendar extends Equatable {
       'display_order': displayOrder,
       'metadata': metadata,
       'marks_config': marksConfig,
+      'selected_grade_numbers': selectedGradeNumbers,
+      'core_max_marks': coreMaxMarks,
+      'auxiliary_max_marks': auxiliaryMaxMarks,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -119,6 +134,15 @@ class ExamCalendar extends Equatable {
       json['exam_type'] as String,
       json['exam_name'] as String,
     );
+
+    // Parse selected grade numbers from database (INTEGER[] -> List<int>)
+    List<int>? selectedGrades;
+    final selectedGradesJson = json['selected_grade_numbers'];
+    if (selectedGradesJson != null) {
+      if (selectedGradesJson is List) {
+        selectedGrades = (selectedGradesJson).cast<int>().toList();
+      }
+    }
 
     return ExamCalendar(
       id: json['id'] as String,
@@ -134,6 +158,9 @@ class ExamCalendar extends Equatable {
       displayOrder: json['display_order'] as int,
       metadata: json['metadata'] as Map<String, dynamic>?,
       marksConfig: json['marks_config'] as Map<String, dynamic>?,
+      selectedGradeNumbers: selectedGrades,
+      coreMaxMarks: json['core_max_marks'] as int?,
+      auxiliaryMaxMarks: json['auxiliary_max_marks'] as int?,
       isActive: json['is_active'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -214,6 +241,9 @@ class ExamCalendar extends Equatable {
     displayOrder,
     metadata,
     marksConfig,
+    selectedGradeNumbers,
+    coreMaxMarks,
+    auxiliaryMaxMarks,
     isActive,
     createdAt,
     updatedAt,

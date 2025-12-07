@@ -5,13 +5,15 @@ import '../bloc/exam_timetable_wizard_bloc.dart';
 import '../bloc/exam_timetable_wizard_event.dart';
 import '../bloc/exam_timetable_wizard_state.dart';
 import '../widgets/wizard_step1_calendar.dart';
-import '../widgets/wizard_step3_schedule.dart';
+import '../widgets/wizard_step2_schedule_subjects.dart';
+import '../widgets/wizard_step3_assign_teachers.dart';
 
 /// Main Exam Timetable Wizard Page
 ///
-/// Orchestrates the 2-step wizard flow:
+/// Orchestrates the 3-step wizard flow:
 /// 1. Select exam calendar (grades are automatically loaded from calendar)
-/// 2. Assign subjects to exam dates
+/// 2. Schedule subjects (assign dates per subject per grade)
+/// 3. Assign teachers & create papers (validate and generate)
 class ExamTimetableWizardPage extends StatefulWidget {
   final String tenantId;
   final String userId;
@@ -40,12 +42,12 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
 
     // Initialize wizard
     context.read<ExamTimetableWizardBloc>().add(
-          InitializeWizardEvent(
-            tenantId: widget.tenantId,
-            userId: widget.userId,
-            academicYear: widget.academicYear,
-          ),
-        );
+      InitializeWizardEvent(
+        tenantId: widget.tenantId,
+        userId: widget.userId,
+        academicYear: widget.academicYear,
+      ),
+    );
   }
 
   @override
@@ -87,9 +89,9 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
           elevation: 0,
           leading: _currentStep > 0
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _goBack,
-                )
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _goBack,
+          )
               : null,
         ),
         body: BlocListener<ExamTimetableWizardBloc, ExamTimetableWizardState>(
@@ -99,8 +101,24 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
               _goToStep(0);
             } else if (state is WizardStep2State) {
               _goToStep(1);
+            } else if (state is WizardStep3State) {
+              // New: Navigate to step 3 when Step3State is emitted
+              _goToStep(2);
             } else if (state is WizardCompletedState) {
               _showSuccessDialog(context, state);
+            } else if (state is WizardValidationErrorState) {
+              // New: Show validation error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: state.errors.map((error) => Text('• $error')).toList(),
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
             } else if (state is WizardErrorState) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -110,12 +128,12 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
                     label: 'Retry',
                     onPressed: () {
                       context.read<ExamTimetableWizardBloc>().add(
-                            InitializeWizardEvent(
-                              tenantId: widget.tenantId,
-                              userId: widget.userId,
-                              academicYear: widget.academicYear,
-                            ),
-                          );
+                        InitializeWizardEvent(
+                          tenantId: widget.tenantId,
+                          userId: widget.userId,
+                          academicYear: widget.academicYear,
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -133,8 +151,9 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
                   controller: _pageController,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    WizardStep1Calendar(),
-                    WizardStep3Schedule(),
+                    WizardStep1Calendar(), // Step 1: Select Exam Calendar
+                    WizardStep2ScheduleSubjects(), // Step 2: Schedule Subjects with per-grade scheduling
+                    WizardStep3AssignTeachers(), // Step 3: Assign Teachers & Create Papers
                   ],
                 ),
               ),
@@ -155,13 +174,15 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Step indicator
+          // Step indicator (3 steps)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStepBubble(0, 'Calendar'),
+              _buildStepBubble(0, 'Select Exam'),
               _buildStepConnector(0),
               _buildStepBubble(1, 'Schedule'),
+              _buildStepConnector(1),
+              _buildStepBubble(2, 'Assign & Create'),
             ],
           ),
           const SizedBox(height: 8),
@@ -169,7 +190,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (_currentStep + 1) / 2,
+              value: (_currentStep + 1) / 3,
               minHeight: 4,
               backgroundColor: Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation(Colors.blue.shade400),
@@ -195,23 +216,23 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
               color: isCurrent
                   ? Colors.blue
                   : isActive
-                      ? Colors.blue.shade200
-                      : Colors.grey.shade200,
+                  ? Colors.blue.shade200
+                  : Colors.grey.shade200,
             ),
             child: Center(
               child: isActive
                   ? Icon(
-                      isCurrent ? Icons.circle : Icons.check,
-                      color: isCurrent ? Colors.white : Colors.blue.shade700,
-                      size: 20,
-                    )
+                isCurrent ? Icons.circle : Icons.check,
+                color: isCurrent ? Colors.white : Colors.blue.shade700,
+                size: 20,
+              )
                   : Text(
-                      '${step + 1}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                '${step + 1}',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -258,7 +279,7 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: state is! WizardStep2State ||
-                            !(state as WizardStep2State).isLoading
+                        !(state as WizardStep2State).isLoading
                         ? _goBack
                         : null,
                     child: const Text('Back'),
@@ -284,29 +305,55 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
   }
 
   VoidCallback? _getNextButtonAction(
-    BuildContext context,
-    ExamTimetableWizardState state,
-  ) {
+      BuildContext context,
+      ExamTimetableWizardState state,
+      ) {
+
     if (state is WizardStep1State) {
       return state.selectedCalendar != null && !state.isLoading
           ? () {
-              // Already handled by BLoC listener
-            }
+        // Trigger calendar selection event
+        context.read<ExamTimetableWizardBloc>().add(
+          SelectExamCalendarEvent(calendar: state.selectedCalendar!),
+        );
+      }
           : null;
     } else if (state is WizardStep2State) {
+      // At step 2, check if we're at the final step (step index 2)
+      if (_currentStep == 2) {
+        // Final step - submit
+        return !state.isLoading
+            ? () {
+          context
+              .read<ExamTimetableWizardBloc>()
+              .add(const SubmitWizardEvent());
+        }
+            : null;
+      } else {
+        // Step 1 (transitioning to step 2) - go to next step
+        return !state.isLoading
+            ? () {
+          context
+              .read<ExamTimetableWizardBloc>()
+              .add(const GoToNextStepEvent());
+        }
+            : null;
+      }
+    } else if (state is WizardStep3State) {
+      // Step 3 - submit (allow proceeding even if some subjects have no teacher assigned)
       return !state.isLoading
           ? () {
-              context
-                  .read<ExamTimetableWizardBloc>()
-                  .add(const SubmitWizardEvent());
-            }
+        context
+            .read<ExamTimetableWizardBloc>()
+            .add(const SubmitWizardEvent());
+      }
           : null;
     }
     return null;
   }
 
   Widget _getNextButtonLabel(ExamTimetableWizardState state) {
-    if (state is WizardStep2State && state.isLoading) {
+    if ((state is WizardStep2State && state.isLoading) || (state is WizardStep3State && state.isLoading)) {
       return const SizedBox(
         height: 20,
         width: 20,
@@ -314,18 +361,20 @@ class _ExamTimetableWizardPageState extends State<ExamTimetableWizardPage> {
       );
     }
 
-    if (_currentStep == 1) {
+    // Step 2 and 3 (final steps) show "Create Timetable"
+    if (_currentStep == 2 || state is WizardStep3State) {
       return const Text('Create Timetable');
     }
 
+    // Steps 0 and 1 show "Next"
     return const Text('Next');
   }
 
   /// Show success dialog
   void _showSuccessDialog(
-    BuildContext context,
-    WizardCompletedState state,
-  ) {
+      BuildContext context,
+      WizardCompletedState state,
+      ) {
     showDialog(
       context: context,
       barrierDismissible: false,

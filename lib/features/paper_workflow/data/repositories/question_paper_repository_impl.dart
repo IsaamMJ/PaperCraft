@@ -1,5 +1,7 @@
 // features/question_papers/data/repositories/question_paper_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/domain/errors/failures.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
@@ -360,36 +362,36 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
   @override
   Future<Either<Failure, QuestionPaperEntity>> markPaperAsSpare(String id) async {
     try {
-      print('DEBUG Repo: markPaperAsSpare called with id: $id');
+      debugPrint('DEBUG Repo: markPaperAsSpare called with id: $id');
       final userId = await _getUserId();
-      print('DEBUG Repo: userId: $userId');
-      print('DEBUG Repo: canApprovePapers: ${_canApprovePapers()}');
+      debugPrint('DEBUG Repo: userId: $userId');
+      debugPrint('DEBUG Repo: canApprovePapers: ${_canApprovePapers()}');
 
       if (!_canApprovePapers() || userId == null) {
-        print('DEBUG Repo: Permission check failed');
+        debugPrint('DEBUG Repo: Permission check failed');
         return Left(PermissionFailure('Admin privileges required'));
       }
 
       final paperModel = await _cloudDataSource.getPaperById(id);
-      print('DEBUG Repo: paperModel status: ${paperModel?.status}');
+      debugPrint('DEBUG Repo: paperModel status: ${paperModel?.status}');
       if (paperModel == null) {
-        print('DEBUG Repo: Paper not found');
+        debugPrint('DEBUG Repo: Paper not found');
         return Left(NotFoundFailure('Paper not found'));
       }
 
       if (!paperModel.status.isSubmitted && !paperModel.status.isApproved) {
-        print('DEBUG Repo: Paper status validation failed');
+        debugPrint('DEBUG Repo: Paper status validation failed');
         return Left(ValidationFailure('Only submitted or approved papers can be marked as spare'));
       }
 
-      print('DEBUG Repo: Calling updatePaperStatus with status: ${PaperStatus.spare.value}');
+      debugPrint('DEBUG Repo: Calling updatePaperStatus with status: ${PaperStatus.spare.value}');
       final model = await _cloudDataSource.updatePaperStatus(
         id,
         PaperStatus.spare.value,
         reviewerId: userId,
       );
 
-      print('DEBUG Repo: Paper updated successfully, new status: ${model.status}');
+      debugPrint('DEBUG Repo: Paper updated successfully, new status: ${model.status}');
       _logger.info('Paper marked as spare', category: LogCategory.paper, context: {
         'paperId': id,
         'title': model.title,
@@ -397,8 +399,8 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
 
       return Right(model.toEntity());
     } catch (e, stackTrace) {
-      print('DEBUG Repo: Exception caught: $e');
-      print('DEBUG Repo: StackTrace: $stackTrace');
+      debugPrint('DEBUG Repo: Exception caught: $e');
+      debugPrint('DEBUG Repo: StackTrace: $stackTrace');
       _logger.error('Failed to mark paper as spare', category: LogCategory.paper, error: e, stackTrace: stackTrace);
       return Left(ServerFailure('Failed to mark paper as spare: ${e.toString()}'));
     }
@@ -687,6 +689,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
             : null;
         final examType = entry['exam_type'] as String? ?? 'monthlyTest';
         final examNumber = entry['exam_number'] as int?;
+        final maxMarks = entry['max_marks'] as int?;
 
         // Get teachers assigned to this entry
         final teachers = entry['teachers'] as List<dynamic>? ?? [];
@@ -753,6 +756,7 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
             userId: teacherId,
             examTimetableEntryId: entryId,
             section: section,
+            maxMarks: maxMarks,
           );
 
           // Note: Titles now include section (e.g., "Grade 5 English - 23 Dec 2025 (Section A)")
@@ -881,69 +885,139 @@ class QuestionPaperRepositoryImpl implements QuestionPaperRepository {
       case 'monthlytest':
       case 'monthly':
         return ExamType.monthlyTest;
+      case 'halfyearly':
+      case 'halfyearlytest':
+        return ExamType.halfYearly;
+      case 'quarterlytest':
+      case 'quarterlyexam':
+      case 'quarterly':
+        return ExamType.quarterlyTest;
+      case 'finalexam':
+      case 'annualexam':
+      case 'final':
+      case 'annual':
+        return ExamType.finalExam;
       case 'dailytest':
       case 'daily':
         return ExamType.dailyTest;
-      case 'quarterlyexam':
-      case 'quarterly':
-        return ExamType.quarterlyExam;
-      case 'annualexam':
-      case 'annual':
-      case 'finalexam':
-      case 'final':
-        return ExamType.annualExam;
       default:
         return ExamType.monthlyTest;
     }
   }
 
-  /// Validate paper marks against exam calendar marks config
+  /// Validate paper marks against exam timetable entry max_marks
   ///
   /// For auto-assigned papers with exam_timetable_entry_id:
-  /// 1. Fetch the exam timetable entry
-  /// 2. Get the associated exam calendar via the timetable
-  /// 3. Extract marks_config (List<MarkConfigEntity>)
-  /// 4. Find matching grade range for the paper's grade_id
-  /// 5. Validate: paper.totalMarks <= marks_config.totalMarks
+  /// 1. Fetch the exam timetable entry using exam_timetable_entry_id
+  /// 2. Extract max_marks from the entry
+  /// 3. Validate: paper.totalMarks <= max_marks
   ///
   /// Returns:
   /// - null if validation passes
   /// - Error message string if validation fails
   ///
-  /// Note: This requires access to exam_timetable_entries and exam_calendars tables
-  /// Current implementation uses a placeholder - full validation should be implemented
-  /// by fetching actual exam calendar marks config
+  /// Note: Papers without exam_timetable_entry_id (manually created) skip validation
   Future<String?> _validatePaperMarksAgainstExamCalendar(QuestionPaperEntity paper) async {
     try {
-      // TODO: Implement full marks validation
-      // 1. Use exam_timetable_entry_id to fetch entry from database
-      // 2. Get timetable_id from entry
-      // 3. Fetch exam_calendar linked to timetable_id
-      // 4. Extract marks_config for paper's grade range
-      // 5. Compare paper.totalMarks with max_marks
+      // Skip validation for papers without exam_timetable_entry_id (manually created papers)
+      if (paper.examTimetableEntryId == null || paper.examTimetableEntryId!.isEmpty) {
+        _logger.info(
+          'Skipping marks validation - no exam timetable entry',
+          category: LogCategory.paper,
+          context: {
+            'paperId': paper.id,
+            'totalMarks': paper.totalMarks,
+          },
+        );
+        return null;
+      }
 
-      // For now, we allow submission but log the total marks
+      // Fetch exam timetable entry to get max_marks
+      final supabase = Supabase.instance.client;
+
+      final response = await supabase
+          .from('exam_timetable_entries')
+          .select('id, max_marks')
+          .eq('id', paper.examTimetableEntryId!)
+          .maybeSingle();
+
+      if (response == null) {
+        _logger.warning(
+          'Exam timetable entry not found for validation',
+          category: LogCategory.paper,
+          context: {
+            'paperId': paper.id,
+            'examTimetableEntryId': paper.examTimetableEntryId,
+          },
+        );
+        // Entry not found - don't block submission, just log
+        return null;
+      }
+
+      final maxMarks = response['max_marks'] as int?;
+
+      // If no max_marks set on timetable entry, skip validation
+      if (maxMarks == null) {
+        _logger.info(
+          'No max_marks configured on timetable entry',
+          category: LogCategory.paper,
+          context: {
+            'paperId': paper.id,
+            'examTimetableEntryId': paper.examTimetableEntryId,
+          },
+        );
+        return null;
+      }
+
+      // Validate: paper total marks must not exceed max_marks
+      final paperTotalMarks = paper.totalMarks;
+
       _logger.info(
-        'Paper marks for exam calendar validation',
+        'Validating paper marks against exam timetable entry',
         category: LogCategory.paper,
         context: {
           'paperId': paper.id,
-          'totalMarks': paper.totalMarks,
+          'paperTotalMarks': paperTotalMarks,
+          'maxMarks': maxMarks,
           'examTimetableEntryId': paper.examTimetableEntryId,
         },
       );
 
-      // Placeholder: No marks validation failure for now
-      // Will be fully implemented with access to exam calendar data
+      if (paperTotalMarks > maxMarks) {
+        final errorMessage = 'Paper total marks ($paperTotalMarks) exceeds exam maximum marks ($maxMarks)';
+        _logger.warning(
+          'Marks validation failed - paper exceeds maximum marks',
+          category: LogCategory.paper,
+          context: {
+            'paperId': paper.id,
+            'paperTotalMarks': paperTotalMarks,
+            'maxMarks': maxMarks,
+            'difference': paperTotalMarks - maxMarks,
+          },
+        );
+        return errorMessage;
+      }
+
+      _logger.info(
+        'Marks validation passed',
+        category: LogCategory.paper,
+        context: {
+          'paperId': paper.id,
+          'paperTotalMarks': paperTotalMarks,
+          'maxMarks': maxMarks,
+        },
+      );
+
       return null;
     } catch (e, stackTrace) {
       _logger.error(
-        'Error validating paper marks against exam calendar',
+        'Error validating paper marks against exam timetable entry',
         category: LogCategory.paper,
         error: e,
         stackTrace: stackTrace,
       );
       // Don't fail submission due to validation error - just log it
+      // User can still submit if validation fails to run
       return null;
     }
   }

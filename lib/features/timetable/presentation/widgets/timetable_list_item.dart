@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/presentation/constants/app_colors.dart';
+import '../../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/exam_timetable_entity.dart';
 
 /// Timetable List Item Card
@@ -52,17 +54,33 @@ class _TimetableListItemState extends State<TimetableListItem> {
 
   @override
   Widget build(BuildContext context) {
-    // Only card is displayed - no InkWell to prevent double navigation
-    // Use buttons to trigger actions instead
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with title and status
-            Row(
+    return Container(
+      margin: EdgeInsets.only(bottom: UIConstants.spacing12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: Border.all(color: AppColors.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black04,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header section with gradient left border
+          Container(
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
+            decoration: BoxDecoration(
+              color: _getStatusBackgroundColor(),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(UIConstants.radiusLarge),
+                topRight: Radius.circular(UIConstants.radiusLarge),
+              ),
+            ),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
@@ -71,61 +89,72 @@ class _TimetableListItemState extends State<TimetableListItem> {
                     children: [
                       Text(
                         widget.timetable.examName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: UIConstants.spacing4),
                       Text(
-                        'Type: ${widget.timetable.examType}',
-                        style: Theme.of(context).textTheme.labelSmall,
+                        widget.timetable.examType,
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeSmall,
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: UIConstants.spacing12),
                 _buildStatusBadge(context),
               ],
             ),
-            const SizedBox(height: 12),
+          ),
 
-            // Details row
-            Row(
+          // Details section
+          Container(
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
+            child: Column(
               children: [
-                Icon(
-                  Icons.calendar_month,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Year: ${widget.timetable.academicYear}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _getCreatedDate(),
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  children: [
+                    _buildDetailItem(
+                      icon: Icons.school,
+                      label: 'Year',
+                      value: widget.timetable.academicYear,
+                    ),
+                    const Spacer(),
+                    _buildDetailItem(
+                      icon: Icons.calendar_today,
+                      label: 'Created',
+                      value: _getCreatedDate(),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+          ),
 
-            // Action buttons
-            _buildActionButtons(context),
-          ],
-        ),
+          // Action buttons section
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: UIConstants.paddingMedium,
+              vertical: UIConstants.paddingSmall,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(UIConstants.radiusLarge),
+                bottomRight: Radius.circular(UIConstants.radiusLarge),
+              ),
+            ),
+            child: _buildActionButtons(context),
+          ),
+        ],
       ),
     );
   }
@@ -136,22 +165,31 @@ class _TimetableListItemState extends State<TimetableListItem> {
     final statusIcon = _getStatusIcon();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: UIConstants.spacing8,
+        vertical: UIConstants.spacing6,
+      ),
       decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor),
+        color: statusColor,
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(statusIcon, size: 14, color: statusColor),
-          const SizedBox(width: 4),
+          Icon(statusIcon, size: 14, color: Colors.white),
+          SizedBox(width: UIConstants.spacing6),
           Text(
             widget.timetable.status.capitalize(),
             style: TextStyle(
-              color: statusColor,
-              fontSize: 12,
+              color: Colors.white,
+              fontSize: UIConstants.fontSizeSmall,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -165,7 +203,7 @@ class _TimetableListItemState extends State<TimetableListItem> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           // View button (always available)
           _buildActionButton(
@@ -175,9 +213,10 @@ class _TimetableListItemState extends State<TimetableListItem> {
             Colors.blue,
             widget.onTap,
           ),
+          SizedBox(width: UIConstants.spacing8),
 
           // Publish button (draft only)
-          if (widget.timetable.isDraft)
+          if (widget.timetable.isDraft) ...[
             _buildActionButton(
               context,
               'Publish',
@@ -185,9 +224,11 @@ class _TimetableListItemState extends State<TimetableListItem> {
               Colors.green,
               widget.onPublish,
             ),
+            SizedBox(width: UIConstants.spacing8),
+          ],
 
           // Archive button (published only)
-          if (widget.timetable.isPublished)
+          if (widget.timetable.isPublished) ...[
             _buildActionButton(
               context,
               'Archive',
@@ -195,6 +236,8 @@ class _TimetableListItemState extends State<TimetableListItem> {
               Colors.purple,
               widget.onArchive,
             ),
+            SizedBox(width: UIConstants.spacing8),
+          ],
 
           // Delete button (draft only)
           if (widget.timetable.isDraft)
@@ -218,21 +261,26 @@ class _TimetableListItemState extends State<TimetableListItem> {
     Color color,
     VoidCallback onPressed,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: SizedBox(
-        height: 32,
-        child: OutlinedButton.icon(
-          onPressed: () {
-            _handleButtonPress(onPressed, label);
-          },
-          icon: Icon(icon, size: 14),
-          label: Text(label, style: const TextStyle(fontSize: 12)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: color,
-            side: BorderSide(color: color),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-          ),
+    return ElevatedButton.icon(
+      onPressed: () {
+        _handleButtonPress(onPressed, label);
+      },
+      icon: Icon(icon, size: 16),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.1),
+        foregroundColor: color,
+        elevation: 0,
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
+        padding: EdgeInsets.symmetric(
+          horizontal: UIConstants.spacing12,
+          vertical: UIConstants.spacing8,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
         ),
       ),
     );
@@ -252,6 +300,12 @@ class _TimetableListItemState extends State<TimetableListItem> {
     }
   }
 
+  /// Get status background color for header
+  Color _getStatusBackgroundColor() {
+    final color = _getStatusColor();
+    return color.withValues(alpha: 0.08);
+  }
+
   /// Get status icon
   IconData _getStatusIcon() {
     switch (widget.timetable.status) {
@@ -264,6 +318,45 @@ class _TimetableListItemState extends State<TimetableListItem> {
       default:
         return Icons.info;
     }
+  }
+
+  /// Build detail item with icon
+  Widget _buildDetailItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: AppColors.textSecondary,
+        ),
+        SizedBox(width: UIConstants.spacing6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: UIConstants.fontSizeSmall,
+                color: AppColors.textTertiary,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: UIConstants.fontSizeSmall,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   /// Get created date formatted

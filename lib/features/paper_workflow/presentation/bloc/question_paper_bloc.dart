@@ -1,4 +1,5 @@
 // features/paper_workflow/presentation/bloc/question_paper_bloc.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/domain/models/paginated_result.dart';
@@ -518,22 +519,22 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   }
 
   Future<void> _onLoadAllPapersForAdmin(LoadAllPapersForAdmin event, Emitter<QuestionPaperState> emit) async {
-    print('[DEBUG BLOC] _onLoadAllPapersForAdmin started');
+    debugPrint('[DEBUG BLOC] _onLoadAllPapersForAdmin started');
     emit(const QuestionPaperLoading(message: 'Loading papers...'));
 
     final result = await _getAllPapersForAdminUseCase();
 
     await result.fold(
           (failure) async {
-        print('[DEBUG BLOC] Error loading papers: ${failure.message}');
+        debugPrint('[DEBUG BLOC] Error loading papers: ${failure.message}');
         emit(QuestionPaperError(failure.message));
       },
           (allPapers) async {
-        print('[DEBUG BLOC] Got ${allPapers.length} papers, enriching...');
+        debugPrint('[DEBUG BLOC] Got ${allPapers.length} papers, enriching...');
         // Enrich papers with display names
         final enrichedPapers = await sl<PaperDisplayService>().enrichPapers(allPapers);
 
-        print('[DEBUG BLOC] Emitting loaded state with ${enrichedPapers.length} papers');
+        debugPrint('[DEBUG BLOC] Emitting loaded state with ${enrichedPapers.length} papers');
         if (state is QuestionPaperLoaded) {
           final currentState = state as QuestionPaperLoaded;
           emit(currentState.copyWith(allPapersForAdmin: enrichedPapers));
@@ -747,19 +748,19 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
   }
 
   Future<void> _onMarkPaperAsSpare(MarkPaperAsSpare event, Emitter<QuestionPaperState> emit) async {
-    print('DEBUG BLoC: _onMarkPaperAsSpare called with paperId: ${event.paperId}');
+    debugPrint('DEBUG BLoC: _onMarkPaperAsSpare called with paperId: ${event.paperId}');
     emit(const QuestionPaperLoading(message: 'Marking paper as spare...'));
 
     final result = await _questionPaperRepository.markPaperAsSpare(event.paperId);
-    print('DEBUG BLoC: markPaperAsSpare result received');
+    debugPrint('DEBUG BLoC: markPaperAsSpare result received');
 
     result.fold(
           (failure) {
-            print('DEBUG BLoC: Error marking paper as spare: ${failure.message}');
+            debugPrint('DEBUG BLoC: Error marking paper as spare: ${failure.message}');
             emit(QuestionPaperError(failure.message));
           },
           (sparePaper) {
-            print('DEBUG BLoC: Paper marked as spare successfully: ${sparePaper.id}');
+            debugPrint('DEBUG BLoC: Paper marked as spare successfully: ${sparePaper.id}');
             emit(const QuestionPaperSuccess('Paper marked as spare', actionType: 'mark_spare'));
             add(const LoadPapersForReview());
             add(const LoadUserSubmissions());

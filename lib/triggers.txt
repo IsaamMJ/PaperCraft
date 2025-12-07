@@ -1,0 +1,112 @@
+[
+  {
+    "trigger_name": "set_grade_sections_updated_at",
+    "event_object_table": "grade_sections",
+    "action_statement": "EXECUTE FUNCTION update_grade_sections_updated_at()"
+  },
+  {
+    "trigger_name": "set_tenants_updated_at",
+    "event_object_table": "tenants",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "set_profiles_updated_at",
+    "event_object_table": "profiles",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "set_subjects_updated_at",
+    "event_object_table": "subjects",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "set_grades_updated_at",
+    "event_object_table": "grades",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "validate_timetable_entry_dates_trigger",
+    "event_object_table": "exam_timetable_entries",
+    "action_statement": "EXECUTE FUNCTION validate_timetable_entry_dates()"
+  },
+  {
+    "trigger_name": "validate_timetable_entry_dates_trigger",
+    "event_object_table": "exam_timetable_entries",
+    "action_statement": "EXECUTE FUNCTION validate_timetable_entry_dates()"
+  },
+  {
+    "trigger_name": "set_question_papers_updated_at",
+    "event_object_table": "question_papers",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "handle_paper_status",
+    "event_object_table": "question_papers",
+    "action_statement": "EXECUTE FUNCTION handle_paper_status_change()"
+  },
+  {
+    "trigger_name": "set_exam_calendar_updated_at",
+    "event_object_table": "exam_calendar",
+    "action_statement": "EXECUTE FUNCTION update_exam_calendar_updated_at()"
+  },
+  {
+    "trigger_name": "set_exam_timetables_updated_at",
+    "event_object_table": "exam_timetables",
+    "action_statement": "EXECUTE FUNCTION update_exam_timetables_updated_at()"
+  },
+  {
+    "trigger_name": "teacher_patterns_updated_at_trigger",
+    "event_object_table": "teacher_patterns",
+    "action_statement": "EXECUTE FUNCTION update_teacher_patterns_updated_at()"
+  },
+  {
+    "trigger_name": "on_profile_updated_sync_jwt",
+    "event_object_table": "profiles",
+    "action_statement": "EXECUTE FUNCTION update_jwt_claims_on_profile_update()"
+  },
+  {
+    "trigger_name": "set_exam_timetable_entries_updated_at",
+    "event_object_table": "exam_timetable_entries",
+    "action_statement": "EXECUTE FUNCTION update_exam_timetable_entries_updated_at()"
+  },
+  {
+    "trigger_name": "set_teacher_subjects_updated_at",
+    "event_object_table": "teacher_subjects",
+    "action_statement": "EXECUTE FUNCTION update_teacher_subjects_updated_at()"
+  },
+  {
+    "trigger_name": "exam_calendar_grade_mapping_updated_at",
+    "event_object_table": "exam_calendar_grade_mapping",
+    "action_statement": "EXECUTE FUNCTION update_exam_calendar_grade_mapping_updated_at()"
+  },
+  {
+    "trigger_name": "update_student_exam_marks_timestamp",
+    "event_object_table": "student_exam_marks",
+    "action_statement": "EXECUTE FUNCTION update_student_exam_marks_timestamp()"
+  },
+  {
+    "trigger_name": "update_students_timestamp",
+    "event_object_table": "students",
+    "action_statement": "EXECUTE FUNCTION update_students_timestamp()"
+  },
+  {
+    "trigger_name": "set_grade_section_subject_updated_at",
+    "event_object_table": "grade_section_subject",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "exam_calendar_updated_at",
+    "event_object_table": "exam_calendar",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "exam_timetables_updated_at",
+    "event_object_table": "exam_timetables",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  },
+  {
+    "trigger_name": "exam_timetable_entries_updated_at",
+    "event_object_table": "exam_timetable_entries",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+  }
+]

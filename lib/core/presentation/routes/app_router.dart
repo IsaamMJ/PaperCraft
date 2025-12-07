@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -74,17 +75,6 @@ import '../widgets/app_error_widget.dart';
 import '../constants/app_messages.dart';
 import 'app_routes.dart';
 
-// Student Management
-import '../../../features/student_management/presentation/bloc/student_enrollment_bloc.dart';
-import '../../../features/student_management/presentation/bloc/student_management_bloc.dart';
-import '../../../features/student_management/presentation/pages/student_list_page.dart';
-import '../../../features/student_management/presentation/pages/add_student_page.dart';
-import '../../../features/student_management/presentation/pages/bulk_upload_students_page.dart';
-
-// Student Exam Marks
-import '../../../features/student_exam_marks/presentation/bloc/marks_entry_bloc.dart';
-import '../../../features/student_exam_marks/presentation/pages/marks_entry_screen.dart';
-
 class AppRouter {
   /// Helper function to extract tenantId from AuthBloc state
   /// This is more reliable than UserStateService which is async
@@ -131,7 +121,7 @@ class AppRouter {
     final authState = authBloc.state;
     final currentLocation = state.matchedLocation;
     final uri = state.uri;
-    print('[DEBUG ROUTER] _handleRedirection - currentLocation: $currentLocation, uri: $uri');
+    debugPrint('[DEBUG ROUTER] _handleRedirection - currentLocation: $currentLocation, uri: $uri');
 
 
     // ✅ FIRST: Check if we're ALREADY on the auth callback page
@@ -181,7 +171,7 @@ class AppRouter {
         final isAllowedRoute = allowedRoutes.any((route) => currentLocation.startsWith(route));
 
         if (!isAllowedRoute) {
-          print('[DEBUG ROUTER] Reviewer trying to access unauthorized route: $currentLocation - redirecting to home with scaffold');
+          debugPrint('[DEBUG ROUTER] Reviewer trying to access unauthorized route: $currentLocation - redirecting to home with scaffold');
           return AppRoutes.home; // Redirect to home which uses MainScaffoldWrapper
         }
       }
@@ -332,7 +322,7 @@ class AppRouter {
         path: '${AppRoutes.questionPaperView}/:${RouteParams.id}',
         builder: (context, state) {
           final id = state.pathParameters[RouteParams.id]!;
-          print('[DEBUG ROUTER] Opening QuestionPaperDetailPage (View) with id: $id');
+          debugPrint('[DEBUG ROUTER] Opening QuestionPaperDetailPage (View) with id: $id');
           return MultiBlocProvider(
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
@@ -430,7 +420,7 @@ class AppRouter {
         path: '${AppRoutes.questionPaperCreate}/:${RouteParams.id}',
         builder: (context, state) {
           final draftId = state.pathParameters[RouteParams.id]!;
-          print('[DEBUG ROUTER] Opening QuestionPaperCreatePage with draftId: $draftId');
+          debugPrint('[DEBUG ROUTER] Opening QuestionPaperCreatePage with draftId: $draftId');
           return MultiBlocProvider(
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
@@ -785,76 +775,6 @@ class AppRouter {
               tenantId: tenantId,
               userId: userId,
               academicYear: academicYear,
-            ),
-          );
-        },
-      ),
-
-      // Student Management routes
-      // NOTE: More specific routes (with fixed path segments) MUST come before generic routes with parameters
-      GoRoute(
-        path: '/students/add',
-        name: 'add_student',
-        builder: (context, state) {
-          return BlocProvider(
-            create: (_) => sl<StudentEnrollmentBloc>(),
-            child: const AddStudentPage(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/students/all',
-        name: 'students_all',
-        builder: (context, state) {
-          return BlocProvider(
-            create: (_) => sl<StudentManagementBloc>()
-              ..add(const LoadStudentsForGradeSection(gradeSectionId: '')),
-            child: const StudentListPage(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/students/bulk-upload',
-        name: 'bulk_upload_students',
-        builder: (context, state) {
-          return BlocProvider(
-            create: (_) => sl<StudentEnrollmentBloc>(),
-            child: const BulkUploadStudentsPage(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/students/:gradeSectionId',
-        name: 'students_list',
-        builder: (context, state) {
-          final gradeSectionId = state.pathParameters['gradeSectionId']!;
-          return BlocProvider(
-            create: (_) => sl<StudentManagementBloc>()
-              ..add(LoadStudentsForGradeSection(gradeSectionId: gradeSectionId)),
-            child: const StudentListPage(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/marks/entry',
-        name: 'marks_entry',
-        builder: (context, state) {
-          final examTimetableEntryId = state.uri.queryParameters['examTimetableEntryId'] ?? '';
-          final teacherId = state.uri.queryParameters['teacherId'] ?? '';
-          final examName = state.uri.queryParameters['examName'];
-          final subjectName = state.uri.queryParameters['subjectName'];
-          final gradeName = state.uri.queryParameters['gradeName'];
-          final section = state.uri.queryParameters['section'];
-
-          return BlocProvider(
-            create: (_) => sl<MarksEntryBloc>(),
-            child: MarksEntryScreen(
-              examTimetableEntryId: examTimetableEntryId,
-              teacherId: teacherId,
-              examName: examName,
-              subjectName: subjectName,
-              gradeName: gradeName,
-              section: section,
             ),
           );
         },

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
@@ -16,8 +17,8 @@ import '../repositories/exam_timetable_repository.dart';
 /// final usecase = GetExamCalendarsUsecase(repository);
 /// final result = await usecase(params: GetExamCalendarsParams(tenantId: 'tenant-123'));
 /// result.fold(
-///   (failure) => print('Error: ${failure.message}'),
-///   (calendars) => print('Found ${calendars.length} calendars'),
+///   (failure) => debugPrint('Error: ${failure.message}'),
+///   (calendars) => debugPrint('Found ${calendars.length} calendars'),
 /// );
 /// ```
 class GetExamCalendarsUsecase {

@@ -238,10 +238,15 @@ class _WizardStep3ScheduleState extends State<WizardStep3Schedule> {
                                 state.selectedCalendar.plannedStartDate,
                             maxDate: state.selectedCalendar.plannedEndDate,
                             onDateSelected: (date) {
+                              // Assign to first grade that has this subject
+                              final firstGrade = gradesWithSubject.isNotEmpty
+                                  ? gradesWithSubject.first
+                                  : state.selectedGradeIds.first;
                               context
                                   .read<ExamTimetableWizardBloc>()
                                   .add(AssignSubjectDateEvent(
                                     subjectId: subject.id,
+                                    gradeId: firstGrade,
                                     examDate: date,
                                     startTime:
                                         const TimeOfDay(hour: 9, minute: 0),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
@@ -25,12 +26,12 @@ import '../repositories/exam_timetable_repository.dart';
 ///   params: ValidateExamTimetableParams(timetableId: 'timetable-123'),
 /// );
 /// result.fold(
-///   (failure) => print('Validation failed: ${failure.message}'),
+///   (failure) => debugPrint('Validation failed: ${failure.message}'),
 ///   (errors) {
 ///     if (errors.isEmpty) {
-///       print('Timetable is valid');
+///       debugPrint('Timetable is valid');
 ///     } else {
-///       errors.forEach((error) => print('- $error'));
+///       errors.forEach((error) => debugPrint('- $error'));
 ///     }
 ///   },
 /// );

@@ -95,6 +95,10 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   bool _showSaveIndicator = false;
   bool _aiPolishCompleted = false; // Track if AI polish was completed successfully
 
+  // AI Polish timeout and cancellation
+  bool _aiPolishCancelled = false;
+  static const Duration _aiPolishTimeout = Duration(seconds: 120); // 2 minutes total timeout
+
   @override
   void initState() {
     super.initState();
@@ -883,6 +887,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   /// Run AI polish on all questions with progress dialog (per-section optimization)
   /// Processes all questions in each section in a single API call for better performance
+  /// Supports timeout and cancellation to prevent UI blocking
   Future<Map<String, List<Question>>?> _runAIPolish() async {
     // Calculate total sections with questions
     int nonEmptySections = 0;
@@ -896,49 +901,50 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       return _allQuestions; // No questions to polish
     }
 
+    // Reset cancellation flag before starting
+    _aiPolishCancelled = false;
+
     // Track progress with ValueNotifier to avoid rebuilding dialog
     final processedSectionsNotifier = ValueNotifier<int>(0);
 
-    // Show loading dialog once
+    // Show loading dialog with cancel callback
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => PolishLoadingDialog(
         totalQuestions: nonEmptySections,
         processedQuestionsNotifier: processedSectionsNotifier,
-        isPerSection: true, // New flag to show section-based progress
+        isPerSection: true,
+        onCancel: () {
+          // Set cancellation flag
+          _aiPolishCancelled = true;
+          // Close the dialog
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        },
       ),
     );
 
     try {
-      final polished = <String, List<Question>>{};
+      // Wrap entire operation in a timeout to prevent indefinite hanging
+      final polished = await _performAIPolish(
+        nonEmptySections,
+        processedSectionsNotifier,
+      ).timeout(
+        _aiPolishTimeout,
+        onTimeout: () {
+          _aiPolishCancelled = true;
+          throw Exception('AI Polish operation timed out after ${_aiPolishTimeout.inSeconds} seconds');
+        },
+      );
 
-      // Process each section
-      for (var section in widget.paperSections) {
-        final sectionName = section.name;
-        final sectionQuestions = _allQuestions[sectionName] ?? [];
-
-        if (sectionQuestions.isEmpty) {
-          polished[sectionName] = [];
-          continue;
+      if (_aiPolishCancelled) {
+        if (mounted) {
+          Navigator.pop(context);
         }
-
-        try {
-          // Polish section using per-section method
-          final polishedList = await _polishSectionQuestions(
-            sectionQuestions,
-            section.type,
-          );
-
-          polished[sectionName] = polishedList;
-
-          // Update progress
-          processedSectionsNotifier.value++;
-        } catch (e) {
-          // If polishing fails for this section, keep original questions
-          polished[sectionName] = sectionQuestions;
-          processedSectionsNotifier.value++;
-        }
+        processedSectionsNotifier.dispose();
+        return null; // User cancelled - return null to indicate no changes
       }
 
       if (mounted) {
@@ -950,11 +956,64 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        _showMessage('AI Polish failed: $e', AppColors.error);
+        if (e.toString().contains('timed out')) {
+          _showMessage('AI Polish timed out. Returning original questions.', AppColors.warning);
+          processedSectionsNotifier.dispose();
+          return _allQuestions; // Return original questions as fallback
+        } else {
+          _showMessage('AI Polish failed: $e', AppColors.error);
+        }
       }
-      processedSectionsNotifier.dispose(); // Clean up notifier
+      processedSectionsNotifier.dispose();
       return null;
     }
+  }
+
+  /// Perform the actual AI polish operation with cancellation support
+  Future<Map<String, List<Question>>?> _performAIPolish(
+    int nonEmptySections,
+    ValueNotifier<int> processedSectionsNotifier,
+  ) async {
+    final result = <String, List<Question>>{};
+
+    // Process each section
+    for (var section in widget.paperSections) {
+      // Check if user cancelled
+      if (_aiPolishCancelled) {
+        if (mounted) {
+          Navigator.pop(context);
+        }
+        _showMessage('AI Polish cancelled', AppColors.warning);
+        return null;
+      }
+
+      final sectionName = section.name;
+      final sectionQuestions = _allQuestions[sectionName] ?? [];
+
+      if (sectionQuestions.isEmpty) {
+        result[sectionName] = [];
+        continue;
+      }
+
+      try {
+        // Polish section using per-section method
+        final polishedList = await _polishSectionQuestions(
+          sectionQuestions,
+          section.type,
+        );
+
+        result[sectionName] = polishedList;
+
+        // Update progress
+        processedSectionsNotifier.value++;
+      } catch (e) {
+        // If polishing fails for this section, keep original questions
+        result[sectionName] = sectionQuestions;
+        processedSectionsNotifier.value++;
+      }
+    }
+
+    return result;
   }
 
   /// Polish all questions in a section using per-section API optimization

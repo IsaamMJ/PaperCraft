@@ -39,6 +39,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
   DateTime? _plannedEndDate;
   DateTime? _paperSubmissionDeadline;
   List<MarkConfigEntity> _marksConfig = [];
+  List<int> _selectedGradeNumbers = [];
 
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
@@ -70,6 +71,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
     _paperSubmissionDeadline =
         widget.initialCalendar?.paperSubmissionDeadline;
     _marksConfig = widget.initialCalendar?.marksConfig ?? [];
+    _selectedGradeNumbers = widget.initialCalendar?.selectedGradeNumbers ?? [];
 
   }
 
@@ -266,6 +268,64 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
               ),
               const SizedBox(height: 24),
 
+              // Grade Selection Section (REQUIRED)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  border: Border.all(color: Colors.orange.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Grades Participating in This Exam (Required)',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _getAllAvailableGrades().map((grade) {
+                        final isSelected = _selectedGradeNumbers.contains(grade);
+                        return FilterChip(
+                          label: Text('Grade $grade'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedGradeNumbers.add(grade);
+                                _selectedGradeNumbers.sort();
+                              } else {
+                                _selectedGradeNumbers.remove(grade);
+                              }
+                            });
+                          },
+                          backgroundColor: Colors.grey.shade200,
+                          selectedColor: Colors.orange.shade200,
+                        );
+                      }).toList(),
+                    ),
+                    if (_selectedGradeNumbers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          '⚠️ Select at least one grade',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Mark Configuration Section
               Builder(
                 builder: (context) {
@@ -389,6 +449,17 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
       return;
     }
 
+    // Validate grades are selected
+    if (_selectedGradeNumbers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one grade for this exam'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -408,6 +479,7 @@ class _ExamCalendarFormDialogState extends State<ExamCalendarFormDialog> {
         displayOrder: widget.initialCalendar?.displayOrder ?? 0,
         metadata: widget.initialCalendar?.metadata ?? {},
         marksConfig: _marksConfig.isNotEmpty ? _marksConfig : null,
+        selectedGradeNumbers: _selectedGradeNumbers.isNotEmpty ? _selectedGradeNumbers : null,
         isActive: widget.initialCalendar?.isActive ?? true,
         createdAt: widget.initialCalendar?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),

@@ -58,6 +58,12 @@ class ExamCalendarEntity extends Equatable {
   /// Can be null if marks haven't been configured yet
   final List<MarkConfigEntity>? marksConfig;
 
+  /// Grades participating in this exam
+  /// Example: [1, 2, 3, 4, 5] for grades 1-5
+  /// This is selected during exam calendar creation by the admin
+  /// Must be set before creating timetables
+  final List<int>? selectedGradeNumbers;
+
   /// Whether this calendar is active
   /// Soft delete flag - inactive calendars are hidden from users
   final bool isActive;
@@ -80,6 +86,7 @@ class ExamCalendarEntity extends Equatable {
     this.displayOrder = 0,
     this.metadata,
     this.marksConfig,
+    this.selectedGradeNumbers,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -99,6 +106,7 @@ class ExamCalendarEntity extends Equatable {
     int? displayOrder,
     Map<String, dynamic>? metadata,
     List<MarkConfigEntity>? marksConfig,
+    List<int>? selectedGradeNumbers,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -116,6 +124,7 @@ class ExamCalendarEntity extends Equatable {
       displayOrder: displayOrder ?? this.displayOrder,
       metadata: metadata ?? this.metadata,
       marksConfig: marksConfig ?? this.marksConfig,
+      selectedGradeNumbers: selectedGradeNumbers ?? this.selectedGradeNumbers,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -136,6 +145,7 @@ class ExamCalendarEntity extends Equatable {
       'display_order': displayOrder,
       'metadata': metadata,
       'marks_config': marksConfig?.map((config) => config.toJson()).toList(),
+      'selected_grade_numbers': selectedGradeNumbers,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -184,6 +194,15 @@ class ExamCalendarEntity extends Equatable {
       }
     }
 
+    // Parse selected grade numbers from database (INTEGER[] -> List<int>)
+    List<int>? selectedGrades;
+    final selectedGradesJson = json['selected_grade_numbers'];
+    if (selectedGradesJson != null) {
+      if (selectedGradesJson is List) {
+        selectedGrades = (selectedGradesJson).cast<int>().toList();
+      }
+    }
+
     return ExamCalendarEntity(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
@@ -199,6 +218,7 @@ class ExamCalendarEntity extends Equatable {
       displayOrder: json['display_order'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
       marksConfig: marksConfigList,
+      selectedGradeNumbers: selectedGrades,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -291,6 +311,7 @@ class ExamCalendarEntity extends Equatable {
         displayOrder,
         metadata,
         marksConfig,
+        selectedGradeNumbers,
         isActive,
         createdAt,
         updatedAt,

@@ -37,6 +37,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
     super.section,
     super.examName,
     super.examTimetableDate,
+    super.maxMarks,
   });
 
   factory QuestionPaperModel.fromEntity(QuestionPaperEntity entity) {
@@ -70,6 +71,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       section: entity.section,
       examName: entity.examName,
       examTimetableDate: entity.examTimetableDate,
+      maxMarks: entity.maxMarks,
     );
   }
 
@@ -194,6 +196,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
         section: json['section'] as String?,
         examName: examName,
         examTimetableDate: examTimetableDate,
+        maxMarks: json['max_marks'] as int?,
       );
     } catch (e) {
       throw FormatException('Failed to parse QuestionPaperModel from Supabase: $e');
@@ -260,6 +263,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'rejection_reason': rejectionReason,
       'exam_timetable_entry_id': examTimetableEntryId,
       'section': section,
+      'max_marks': maxMarks,
     };
 
     return map;
@@ -298,6 +302,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       'reviewed_at': reviewedAt?.millisecondsSinceEpoch,
       'reviewed_by': reviewedBy,
       'rejection_reason': rejectionReason,
+      'max_marks': maxMarks,
     };
   }
 
@@ -365,6 +370,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
             : null,
         reviewedBy: paperMap['reviewed_by'] as String?,
         rejectionReason: paperMap['rejection_reason'] as String?,
+        maxMarks: paperMap['max_marks'] as int?,
       );
     } catch (e) {
       throw FormatException('Failed to parse QuestionPaperModel from Hive: $e');
@@ -402,6 +408,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
     String? section,
     String? examName,
     DateTime? examTimetableDate,
+    int? maxMarks,
   }) {
     return QuestionPaperModel(
       id: id ?? this.id,
@@ -433,6 +440,7 @@ class QuestionPaperModel extends QuestionPaperEntity {
       section: section ?? this.section,
       examName: examName ?? this.examName,
       examTimetableDate: examTimetableDate ?? this.examTimetableDate,
+      maxMarks: maxMarks ?? this.maxMarks,
     );
   }
 }

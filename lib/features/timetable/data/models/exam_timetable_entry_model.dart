@@ -16,6 +16,8 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
     required super.startTime,
     required super.endTime,
     required super.durationMinutes,
+    super.subjectType,
+    super.maxMarks,
     super.isActive,
     required super.createdAt,
     required super.updatedAt,
@@ -39,6 +41,8 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       isActive: entity.isActive,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
+      subjectType: entity.subjectType,
+      maxMarks: entity.maxMarks,
     );
   }
 
@@ -60,6 +64,8 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      subjectType: json['subject_type'] as String? ?? 'core',
+      maxMarks: json['max_marks'] as int? ?? 60,
     );
   }
 
@@ -76,6 +82,8 @@ class ExamTimetableEntryModel extends ExamTimetableEntryEntity {
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'subject_type': subjectType ?? 'core',
+      'max_marks': maxMarks ?? 60,
     };
 
     // Only include id if it's not null (for updates/existing records)

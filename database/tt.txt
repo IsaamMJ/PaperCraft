@@ -1,0 +1,48 @@
+PEARL MATRIC HR SEC SCHOOL,THEREKALPUTHOOR,NAGERCOIL
+Academic year 2025 - 26
+Half Yearly Examination (From 10/12/2025 to 23/12/2025)
+"Ser.
+No"	Date	Day	                                          Grade I & II (AB)					Timing
+				FORENOON			AFTERNOON
+01	10-12-2025	Wednesday	Tamil Grammar				Ved/Islam	FN (10am - 12pm)         AN (2pm-3pm)
+02	11-12-2025	Thursday		           English Grammar
+03	12-12-2025	Friday	Computer				Drawing
+04	15-12-2025	Monday	Tamil
+05	16-12-2025	Tuesday		            English
+06	18-12-2025	Thursday	Maths
+07	19-12-2025	Friday		        GK			Hindi
+08	22-12-2025	Monday		      Science
+09	23-12-2025	Tuesday		Social Science
+
+
+Academic year 2025 - 26
+Half Yearly Examination (From 10/12/2025 to 23/12/2025)
+"Ser.
+No"	Date	Day	                                          Grade V (AB)					Timing
+				FORENOON			AFTERNOON
+01	10-12-2025	Wednesday	Tamil Grammar				Drawing	FN (10am - 12pm)         AN (2pm-3pm)
+02	11-12-2025	Thursday	English Grammar
+03	12-12-2025	Friday	Computer				VEd/Islam
+04	15-12-2025	Monday	Tamil
+05	16-12-2025	Tuesday		                   English
+06	18-12-2025	Thursday	Maths
+07	19-12-2025	Friday		                GK			Hindi
+08	22-12-2025	Monday		               Science
+09	23-12-2025	Tuesday		     Social Science
+
+
+PEARL MATRIC HR SEC SCHOOL,THEREKALPUTHOOR,NAGERCOIL
+Academic year 2025 - 26
+Half Yearly Examination (From 10/12/2025 to 23/12/2025)
+"Ser.
+No"	Date	Day	                           Grade III& IV (AB)					Timing
+				FORENOON			AFTERNOON
+01	10-12-2025	Wednesday	Tamil Grammar				Drawing	FN (10am - 12pm)         AN (2pm-3pm)
+02	11-12-2025	Thursday	English Grammar				VEd/Islam
+03	12-12-2025	Friday	Computer
+04	15-12-2025	Monday	Tamil
+05	16-12-2025	Tuesday		                   English
+06	18-12-2025	Thursday	Maths
+07	19-12-2025	Friday		                GK			Hindi
+08	22-12-2025	Monday		               Science
+09	23-12-2025	Tuesday		     Social Science

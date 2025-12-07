@@ -34,8 +34,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   DateTime? _endDate;
   DateTime? _deadlineDate;
   Set<int> _selectedGrades = {}; // Grade selection
-  late TextEditingController _marks1To5Controller;
-  late TextEditingController _marks6To12Controller;
+  late TextEditingController _coreMaxMarksController;
+  late TextEditingController _auxiliaryMaxMarksController;
   String? _selectedExamType; // Exam type selection
 
   final List<String> _examTypes = [
@@ -53,8 +53,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _examNameController = TextEditingController();
     _monthNumberController = TextEditingController();
     _displayOrderController = TextEditingController(text: '1');
-    _marks1To5Controller = TextEditingController();
-    _marks6To12Controller = TextEditingController();
+    _coreMaxMarksController = TextEditingController(text: '60');
+    _auxiliaryMaxMarksController = TextEditingController(text: '50');
 
     // Load calendars on init
     context.read<ExamCalendarBloc>().add(
@@ -70,8 +70,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _examNameController.dispose();
     _monthNumberController.dispose();
     _displayOrderController.dispose();
-    _marks1To5Controller.dispose();
-    _marks6To12Controller.dispose();
+    _coreMaxMarksController.dispose();
+    _auxiliaryMaxMarksController.dispose();
     super.dispose();
   }
 
@@ -95,8 +95,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     _endDate = null;
     _deadlineDate = null;
     _selectedGrades = {}; // Reset grade selection
-    _marks1To5Controller.text = ''; // Reset marks
-    _marks6To12Controller.text = '';
+    _coreMaxMarksController.text = '60'; // Reset core max marks
+    _auxiliaryMaxMarksController.text = '50'; // Reset auxiliary max marks
     _selectedExamType = null; // Reset exam type selection
 
 
@@ -218,7 +218,7 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                   child: Column(
                     children: [
                       const Text(
-                        '✅ SELECT GRADES (OPTIONAL)',
+                        '✅ SELECT GRADES',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
                       ),
                       const SizedBox(height: 12),
@@ -274,53 +274,47 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                     ],
                   ),
                 ),
-                // Marks Configuration Section - Only show if grades are selected
-                if (_selectedGrades.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      border: Border.all(color: Colors.green, width: 2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '📊 MARKS CONFIGURATION',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
-                        ),
-                        const SizedBox(height: 16),
-                        // Show Grades 1-5 marks field only if grades 1-5 are selected
-                        if (_selectedGrades.any((g) => g <= 5))
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: TextField(
-                              controller: _marks1To5Controller,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Grades 1-5: Total Marks',
-                                hintText: 'e.g., 25',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        // Show Grades 6-12 marks field only if grades 6-12 are selected
-                        if (_selectedGrades.any((g) => g >= 6))
-                          TextField(
-                            controller: _marks6To12Controller,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Grades 6-12: Total Marks',
-                              hintText: 'e.g., 50',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                      ],
-                    ),
+                const SizedBox(height: 24),
+                // Subject Type Max Marks Configuration
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    border: Border.all(color: Colors.green, width: 2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '📊 SUBJECT TYPE MAX MARKS',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
+                      ),
+                      const SizedBox(height: 16),
+                      // Core subjects max marks
+                      TextField(
+                        controller: _coreMaxMarksController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Core Subjects: Max Marks',
+                          hintText: 'e.g., 60',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Auxiliary subjects max marks
+                      TextField(
+                        controller: _auxiliaryMaxMarksController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Auxiliary Subjects: Max Marks',
+                          hintText: 'e.g., 50',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -336,7 +330,10 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                     _selectedExamType == null ||
                     _monthNumberController.text.isEmpty ||
                     _startDate == null ||
-                    _endDate == null) {
+                    _endDate == null ||
+                    _selectedGrades.isEmpty ||
+                    _coreMaxMarksController.text.isEmpty ||
+                    _auxiliaryMaxMarksController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please fill in all required fields')),
                   );
@@ -345,30 +342,8 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
                 try {
 
-                  // Build marks configuration from the input fields
-                  Map<String, dynamic>? marksConfig;
-                  if (_selectedGrades.isNotEmpty) {
-                    marksConfig = {
-                      'selected_grades': _selectedGrades.toList()..sort(),
-                    };
-
-                    // Add marks for grades 1-5 if applicable
-                    if (_selectedGrades.any((g) => g <= 5) && _marks1To5Controller.text.isNotEmpty) {
-                      final marks1To5 = int.tryParse(_marks1To5Controller.text);
-                      if (marks1To5 != null) {
-                        marksConfig['grades_1_to_5_marks'] = marks1To5;
-                      }
-                    }
-
-                    // Add marks for grades 6-12 if applicable
-                    if (_selectedGrades.any((g) => g >= 6) && _marks6To12Controller.text.isNotEmpty) {
-                      final marks6To12 = int.tryParse(_marks6To12Controller.text);
-                      if (marks6To12 != null) {
-                        marksConfig['grades_6_to_12_marks'] = marks6To12;
-                      }
-                    }
-
-                  }
+                  final coreMaxMarks = int.tryParse(_coreMaxMarksController.text) ?? 60;
+                  final auxiliaryMaxMarks = int.tryParse(_auxiliaryMaxMarksController.text) ?? 50;
 
                   final event = CreateExamCalendarEvent(
                     tenantId: widget.tenantId,
@@ -379,7 +354,9 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                     plannedEndDate: _endDate!,
                     paperSubmissionDeadline: _deadlineDate,
                     displayOrder: int.tryParse(_displayOrderController.text) ?? 1,
-                    marksConfig: marksConfig,
+                    selectedGradeNumbers: _selectedGrades.toList()..sort(),
+                    coreMaxMarks: coreMaxMarks,
+                    auxiliaryMaxMarks: auxiliaryMaxMarks,
                   );
 
                   bloc.add(event);

@@ -66,6 +66,9 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   // Cache the last valid QuestionBankLoaded state to preserve data across navigation
   QuestionBankLoaded? _cachedQuestionBankState;
 
+  // Collapsible sections state - track which grade sections are expanded
+  final Map<String, bool> _expandedSections = {};
+
   @override
   void initState() {
     super.initState();
@@ -450,60 +453,77 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   // This eliminates expensive filtering/grouping on every build/tab switch
 
   Widget _buildMonthSection(String monthYear, List<QuestionPaperEntity> papers) {
+    // Get expanded state for this section (default to expanded)
+    final isExpanded = _expandedSections.putIfAbsent(monthYear, () => true);
+
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(UIConstants.paddingSmall),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.accentGradient,
-                    borderRadius: BorderRadius.circular(10),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _expandedSections[monthYear] = !isExpanded;
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(UIConstants.paddingSmall),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.accentGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.calendar_month, color: Colors.white, size: 16),
                   ),
-                  child: const Icon(Icons.calendar_month, color: Colors.white, size: 16),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    monthYear,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      monthYear,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary10,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary10,
+                      borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+                    ),
+                    child: Text(
+                      '${papers.length}',
+                      style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
+                    ),
                   ),
-                  child: Text(
-                    '${papers.length}',
-                    style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textSecondary,
+                    size: 24,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final paper = papers[index];
-                return KeyedSubtree(
-                  key: ValueKey(paper.id),
-                  child: _buildModernPaperCard(paper),
-                );
-              },
-              childCount: papers.length,
-              addAutomaticKeepAlives: true,
-              addRepaintBoundaries: true,
+        if (isExpanded)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final paper = papers[index];
+                  return KeyedSubtree(
+                    key: ValueKey(paper.id),
+                    child: _buildModernPaperCard(paper),
+                  );
+                },
+                childCount: papers.length,
+                addAutomaticKeepAlives: true,
+                addRepaintBoundaries: true,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -561,60 +581,77 @@ class _QuestionBankState extends State<QuestionBankPage> with TickerProviderStat
   }
 
   Widget _buildModernClassSection(String className, List<QuestionPaperEntity> papers) {
+    // Get expanded state for this section (default to expanded)
+    final isExpanded = _expandedSections.putIfAbsent(className, () => true);
+
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(UIConstants.paddingSmall),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(10),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _expandedSections[className] = !isExpanded;
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(UIConstants.paddingSmall),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.school, color: Colors.white, size: 16),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 16),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    className,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      className,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary10,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary10,
+                      borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+                    ),
+                    child: Text(
+                      '${papers.length}',
+                      style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
+                    ),
                   ),
-                  child: Text(
-                    '${papers.length}',
-                    style: TextStyle(color: AppColors.accent, fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w700),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textSecondary,
+                    size: 24,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final paper = papers[index];
-                return KeyedSubtree(
-                  key: ValueKey(paper.id),
-                  child: _buildModernPaperCard(paper),
-                );
-              },
-              childCount: papers.length,
-              addAutomaticKeepAlives: true,
-              addRepaintBoundaries: true,
+        if (isExpanded)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final paper = papers[index];
+                  return KeyedSubtree(
+                    key: ValueKey(paper.id),
+                    child: _buildModernPaperCard(paper),
+                  );
+                },
+                childCount: papers.length,
+                addAutomaticKeepAlives: true,
+                addRepaintBoundaries: true,
+              ),
             ),
           ),
-        ),
       ],
     );
   }

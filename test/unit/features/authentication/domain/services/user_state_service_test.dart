@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -461,16 +462,16 @@ group('UserStateService - Permission Refresh', () {
         .thenAnswer((_) async => Right(createMockTenant()));
 
     await userStateService.updateUser(initialUser);
-    print('Initial role: ${userStateService.currentRole}');
+    debugPrint('Initial role: ${userStateService.currentRole}');
     expect(userStateService.currentRole, UserRole.teacher);
 
     // Create a DIFFERENT user object with different timestamp to ensure != comparison
     await Future.delayed(Duration(milliseconds: 10));
     final updatedUser = createMockUser(id: 'user-123', role: UserRole.admin, tenantId: 'tenant-123');
 
-    print('Initial user: $initialUser');
-    print('Updated user: $updatedUser');
-    print('Are they equal? ${initialUser == updatedUser}');
+    debugPrint('Initial user: $initialUser');
+    debugPrint('Updated user: $updatedUser');
+    debugPrint('Are they equal? ${initialUser == updatedUser}');
 
     // Setup mock to return updated user
     when(() => mockAuthUseCase.getCurrentUser())
@@ -479,7 +480,7 @@ group('UserStateService - Permission Refresh', () {
     // Act
     await userStateService.forcePermissionRefresh();
 
-    print('Final role: ${userStateService.currentRole}');
+    debugPrint('Final role: ${userStateService.currentRole}');
 
     // Assert
     verify(() => mockAuthUseCase.getCurrentUser()).called(1);

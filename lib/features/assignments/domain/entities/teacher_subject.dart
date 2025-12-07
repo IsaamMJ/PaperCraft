@@ -20,6 +20,7 @@ class TeacherSubject extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? teacherName;  // NEW: Teacher's full name from profiles table
 
   const TeacherSubject({
     required this.id,
@@ -32,6 +33,7 @@ class TeacherSubject extends Equatable {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.teacherName,  // NEW: Optional teacher name
   });
 
   /// User-friendly display: "Grade 5-A Maths"
@@ -49,6 +51,7 @@ class TeacherSubject extends Equatable {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? teacherName,  // NEW: Add to copyWith
   }) {
     return TeacherSubject(
       id: id ?? this.id,
@@ -61,6 +64,7 @@ class TeacherSubject extends Equatable {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      teacherName: teacherName ?? this.teacherName,  // NEW
     );
   }
 
@@ -93,6 +97,7 @@ class TeacherSubject extends Equatable {
       isActive: json['is_active'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      teacherName: json['teacherName'] as String?,  // NEW: Read from JSON if present
     );
   }
 
@@ -108,9 +113,10 @@ class TeacherSubject extends Equatable {
     isActive,
     createdAt,
     updatedAt,
+    teacherName,  // NEW
   ];
 
   @override
   String toString() =>
-      'TeacherSubject(teacherId: $teacherId, displayName: $displayName, academicYear: $academicYear)';
+      'TeacherSubject(teacherId: $teacherId, teacherName: $teacherName, displayName: $displayName, academicYear: $academicYear)';
 }

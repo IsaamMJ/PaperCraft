@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/domain/errors/failures.dart';
@@ -26,8 +27,8 @@ import '../repositories/exam_timetable_repository.dart';
 ///   params: PublishExamTimetableParams(timetableId: 'timetable-123'),
 /// );
 /// result.fold(
-///   (failure) => print('Error: ${failure.message}'),
-///   (published) => print('Timetable published successfully'),
+///   (failure) => debugPrint('Error: ${failure.message}'),
+///   (published) => debugPrint('Timetable published successfully'),
 /// );
 /// ```
 class PublishExamTimetableUsecase {

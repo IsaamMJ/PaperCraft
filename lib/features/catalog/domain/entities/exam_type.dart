@@ -2,21 +2,24 @@
 
 enum ExamType {
   monthlyTest,
-  dailyTest,
-  quarterlyExam,
-  annualExam;
+  halfYearly,
+  quarterlyTest,
+  finalExam,
+  dailyTest;
 
   /// Display name for UI
   String get displayName {
     switch (this) {
       case ExamType.monthlyTest:
         return 'Monthly Test';
+      case ExamType.halfYearly:
+        return 'Half Yearly Examination';
+      case ExamType.quarterlyTest:
+        return 'Quarterly Examination';
+      case ExamType.finalExam:
+        return 'Final Examination';
       case ExamType.dailyTest:
         return 'Daily Test';
-      case ExamType.quarterlyExam:
-        return 'Quarterly Exam';
-      case ExamType.annualExam:
-        return 'Annual Exam';
     }
   }
 

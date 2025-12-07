@@ -1,0 +1,86 @@
+[
+  {
+    "routine_name": "update_grade_sections_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_teacher_subjects_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_exam_calendar_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_exam_timetables_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_exam_timetable_entries_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_student_exam_marks_timestamp",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_students_timestamp",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "validate_timetable_entry_dates",
+    "routine_definition": "\r\nDECLARE\r\n  calendar_start DATE;\r\n  calendar_end DATE;\r\nBEGIN\r\n  -- Get the exam calendar's date range\r\n  SELECT planned_start_date, planned_end_date INTO calendar_start, calendar_end\r\n  FROM exam_calendar\r\n  WHERE id = (\r\n    SELECT exam_calendar_id FROM exam_timetables\r\n    WHERE id = NEW.timetable_id\r\n  );\r\n\r\n  -- Validate the exam_date is within range\r\n  IF calendar_start IS NOT NULL AND calendar_end IS NOT NULL THEN\r\n    IF NEW.exam_date < calendar_start OR NEW.exam_date > calendar_end THEN\r\n      RAISE EXCEPTION 'Exam date % must be within calendar range (% to %)',\r\n        NEW.exam_date, calendar_start, calendar_end;\r\n    END IF;\r\n  END IF;\r\n\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "teacher_has_assignment",
+    "routine_definition": "\r\n  SELECT EXISTS (\r\n    SELECT 1 \r\n    FROM teacher_grade_assignments tga\r\n    JOIN teacher_subject_assignments tsa ON tsa.teacher_id = tga.teacher_id\r\n    WHERE tga.teacher_id = auth.uid()\r\n    AND tga.grade_id = p_grade_id\r\n    AND tsa.subject_id = p_subject_id\r\n    AND tga.academic_year = p_academic_year\r\n    AND tsa.academic_year = p_academic_year\r\n    AND tga.is_active = true\r\n    AND tsa.is_active = true\r\n  );\r\n"
+  },
+  {
+    "routine_name": "user_has_role",
+    "routine_definition": "\r\n    SELECT EXISTS (\r\n      SELECT 1 FROM public.profiles\r\n      WHERE id = auth.uid()\r\n      AND role = required_role\r\n    )\r\n  "
+  },
+  {
+    "routine_name": "update_exam_calendar_grade_mapping_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_user_role_admin",
+    "routine_definition": "\r\n  BEGIN\r\n    -- Check if current user is admin by looking at their profile, not JWT\r\n    IF (SELECT role FROM public.profiles WHERE id = (SELECT auth.uid())) != 'admin' THEN\r\n      RAISE EXCEPTION 'Only admins can update user roles';\r\n    END IF;\r\n\r\n    UPDATE public.profiles\r\n    SET role = new_role, updated_at = now()\r\n    WHERE id = user_id;\r\n  END;\r\n  "
+  },
+  {
+    "routine_name": "handle_new_user_registration",
+    "routine_definition": "\r\n  DECLARE\r\n    user_domain TEXT;\r\n    default_role TEXT;\r\n    assigned_tenant_id UUID;\r\n    tenant_name TEXT;\r\n    existing_tenant_id UUID;\r\n  BEGIN\r\n    IF NEW.email IS NULL THEN\r\n      RAISE EXCEPTION 'Email address is required for registration';\r\n    END IF;\r\n\r\n    user_domain := LOWER(split_part(NEW.email, '@', 2));\r\n\r\n    SELECT id INTO existing_tenant_id\r\n    FROM public.tenants\r\n    WHERE domain = user_domain AND is_active = true\r\n    LIMIT 1;\r\n\r\n    IF existing_tenant_id IS NOT NULL THEN\r\n      assigned_tenant_id := existing_tenant_id;\r\n\r\n      IF NOT EXISTS (\r\n        SELECT 1 FROM public.profiles\r\n        WHERE tenant_id = assigned_tenant_id AND role = 'admin'\r\n      ) THEN\r\n        default_role := 'admin';\r\n      ELSE\r\n        default_role := 'teacher';\r\n      END IF;\r\n\r\n    ELSE\r\n      IF user_domain IN ('gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',\r\n                         'aol.com', 'protonmail.com', 'icloud.com', 'mail.com',\r\n                         'yandex.com', 'zoho.com', 'tutanota.com') THEN\r\n        default_role := 'admin';\r\n\r\n        tenant_name := COALESCE(\r\n          NEW.raw_user_meta_data->>'full_name',\r\n          split_part(NEW.email, '@', 1)\r\n        ) || '''s Workspace (' || substring(NEW.id::TEXT from 1 for 8) || ')';\r\n\r\n        INSERT INTO public.tenants (name, domain, is_active, is_initialized, current_academic_year)\r\n        VALUES (tenant_name, NULL, true, false, '2025-2026')\r\n        RETURNING id INTO assigned_tenant_id;\r\n      ELSE\r\n        default_role := 'admin';\r\n        tenant_name := initcap(replace(user_domain, '.', ' '));\r\n\r\n        INSERT INTO public.tenants (name, domain, is_active, is_initialized, current_academic_year)\r\n        VALUES (tenant_name, user_domain, true, false, '2025-2026')\r\n        RETURNING id INTO assigned_tenant_id;\r\n      END IF;\r\n    END IF;\r\n\r\n    INSERT INTO public.profiles (\r\n      id, email, full_name, tenant_id, role, is_active, last_login_at\r\n    )\r\n    VALUES (\r\n      NEW.id, NEW.email,\r\n      COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),\r\n      assigned_tenant_id, default_role, true,\r\n      NULL\r\n    );\r\n\r\n    UPDATE auth.users\r\n    SET raw_app_meta_data =\r\n      COALESCE(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(\r\n        'tenant_id', assigned_tenant_id::text,\r\n        'role', default_role\r\n      )\r\n    WHERE id = NEW.id;\r\n\r\n    RETURN NEW;\r\n\r\n  EXCEPTION\r\n    WHEN OTHERS THEN\r\n      RAISE WARNING 'Profile creation failed for user %: %', NEW.id, SQLERRM;\r\n      RAISE;\r\n  END;\r\n  "
+  },
+  {
+    "routine_name": "update_teacher_patterns_updated_at",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = NOW();\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "update_jwt_claims_on_profile_update",
+    "routine_definition": "\r\nBEGIN\r\n  -- Only update JWT claims if tenant_id or role changed\r\n  IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.role IS DISTINCT FROM OLD.role THEN\r\n    UPDATE auth.users\r\n    SET raw_app_meta_data =\r\n      COALESCE(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(\r\n        'tenant_id', NEW.tenant_id::text,\r\n        'role', NEW.role\r\n      )\r\n    WHERE id = NEW.id;\r\n  END IF;\r\n\r\n  RETURN NEW;\r\n\r\nEXCEPTION WHEN OTHERS THEN\r\n  RAISE WARNING 'Error updating JWT claims for user %: %', NEW.id, SQLERRM;\r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "get_user_tenant_id",
+    "routine_definition": "\r\n    SELECT tenant_id FROM public.profiles WHERE id = user_id LIMIT 1;\r\n  "
+  },
+  {
+    "routine_name": "is_valid_subject_for_grade_section",
+    "routine_definition": "\r\nBEGIN\r\n  RETURN EXISTS (\r\n    SELECT 1\r\n    FROM grade_section_subject\r\n    WHERE tenant_id = p_tenant_id\r\n      AND grade_id = p_grade_id\r\n      AND section = p_section\r\n      AND subject_id = p_subject_id\r\n      AND is_offered = true\r\n  );\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "handle_paper_status_change",
+    "routine_definition": "\r\nBEGIN\r\n  -- When paper is submitted, validate timestamps\r\n  IF NEW.status = 'submitted' AND OLD.status = 'draft' THEN\r\n    NEW.submitted_at = NOW();\r\n    NEW.rejection_reason = NULL;\r\n  END IF;\r\n  \r\n  -- When admin reviews (approve or reject)\r\n  IF NEW.status IN ('approved', 'rejected') AND OLD.status = 'submitted' THEN\r\n    NEW.reviewed_at = NOW();\r\n    NEW.reviewed_by = auth.uid();\r\n  END IF;\r\n  \r\n  -- When admin rejects, move back to draft for editing\r\n  IF NEW.status = 'rejected' AND OLD.status = 'submitted' THEN\r\n    NEW.status = 'draft';  -- Force back to draft\r\n  END IF;\r\n  \r\n  RETURN NEW;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "validate_timetable_entries",
+    "routine_definition": "\r\nDECLARE\r\n  v_invalid_entry_count INT;\r\n  v_error_msg TEXT;\r\n  v_invalid_entries TEXT;\r\nBEGIN\r\n  -- Check if all entries have valid subject assignments in grade_section_subject\r\n  SELECT COUNT(*) INTO v_invalid_entry_count\r\n  FROM exam_timetable_entries ete\r\n  WHERE ete.timetable_id = p_timetable_id\r\n    AND NOT EXISTS (\r\n      SELECT 1\r\n      FROM grade_section_subject gss\r\n      WHERE gss.tenant_id = ete.tenant_id\r\n        AND gss.grade_id = ete.grade_id\r\n        AND gss.section = ete.section\r\n        AND gss.subject_id = ete.subject_id\r\n        AND gss.is_offered = true\r\n    );\r\n\r\n  IF v_invalid_entry_count > 0 THEN\r\n    -- Get details of invalid entries\r\n    SELECT STRING_AGG(DISTINCT 'Grade ' || ete.grade_id || ' Section ' || ete.section || ' Subject ' || ete.subject_id, ', ')\r\n    INTO v_invalid_entries\r\n    FROM exam_timetable_entries ete\r\n    WHERE ete.timetable_id = p_timetable_id\r\n      AND NOT EXISTS (\r\n        SELECT 1\r\n        FROM grade_section_subject gss\r\n        WHERE gss.tenant_id = ete.tenant_id\r\n          AND gss.grade_id = ete.grade_id\r\n          AND gss.section = ete.section\r\n          AND gss.subject_id = ete.subject_id\r\n          AND gss.is_offered = true\r\n      );\r\n\r\n    v_error_msg := 'Timetable has ' || v_invalid_entry_count || ' invalid entries. ' || COALESCE(v_invalid_entries, '');\r\n    RETURN QUERY SELECT false, v_error_msg;\r\n  ELSE\r\n    RETURN QUERY SELECT true, 'All entries are valid'::TEXT;\r\n  END IF;\r\nEND;\r\n"
+  },
+  {
+    "routine_name": "get_user_tenant_id",
+    "routine_definition": "\r\n    SELECT tenant_id FROM public.profiles WHERE id = auth.uid()\r\n  "
+  },
+  {
+    "routine_name": "update_updated_at_column",
+    "routine_definition": "\r\nBEGIN\r\n  NEW.updated_at = now();\r\n  RETURN NEW;\r\nEND;\r\n"
+  }
+]

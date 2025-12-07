@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 
-/// Loading dialog shown during AI polishing with progress
+/// Loading dialog shown during AI polishing with progress and cancel option
 /// This is now a stateful widget with a ValueNotifier to avoid rebuilding the entire dialog
 /// [isPerSection] - If true, displays progress as sections instead of individual questions
+/// [onCancel] - Callback invoked when user clicks cancel button
 class PolishLoadingDialog extends StatefulWidget {
   final int totalQuestions;
   final ValueNotifier<int> processedQuestionsNotifier;
   final bool isPerSection;
+  final VoidCallback? onCancel;
 
   const PolishLoadingDialog({
     super.key,
     required this.totalQuestions,
     required this.processedQuestionsNotifier,
     this.isPerSection = false,
+    this.onCancel,
   });
 
   @override
@@ -30,7 +33,7 @@ class _PolishLoadingDialogState extends State<PolishLoadingDialog> {
         final progress = widget.totalQuestions > 0 ? processedQuestions / widget.totalQuestions : 0.0;
 
     return WillPopScope(
-      onWillPop: () async => false, // Prevent dismissal
+      onWillPop: () async => false, // Prevent accidental dismissal via back button
       child: Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
@@ -111,6 +114,31 @@ class _PolishLoadingDialogState extends State<PolishLoadingDialog> {
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiary,
+                  ),
+                ),
+              const SizedBox(height: 24),
+
+              // Cancel button
+              if (widget.onCancel != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: widget.onCancel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'Cancel Polishing',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
             ],

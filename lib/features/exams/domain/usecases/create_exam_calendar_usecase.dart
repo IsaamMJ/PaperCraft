@@ -27,6 +27,9 @@ class CreateExamCalendarUseCase {
     required int displayOrder,
     Map<String, dynamic>? metadata,
     Map<String, dynamic>? marksConfig,
+    List<int>? selectedGradeNumbers,
+    int? coreMaxMarks,
+    int? auxiliaryMaxMarks,
   }) async {
     // Validate inputs
     if (monthNumber < 1 || monthNumber > 12) {
@@ -83,6 +86,9 @@ class CreateExamCalendarUseCase {
       displayOrder: displayOrder,
       metadata: metadata,
       marksConfig: marksConfig,
+      selectedGradeNumbers: selectedGradeNumbers,
+      coreMaxMarks: coreMaxMarks,
+      auxiliaryMaxMarks: auxiliaryMaxMarks,
       isActive: true,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),

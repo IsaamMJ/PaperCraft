@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../core/domain/interfaces/i_logger.dart';
 import '../../../../core/infrastructure/network/api_client.dart';
 import '../models/reviewer_assignment_model.dart';
@@ -29,7 +30,7 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
   @override
   Future<List<ReviewerAssignmentModel>> getReviewerAssignments(String tenantId) async {
     try {
-      print('[DEBUG DS] Fetching reviewer assignments for tenant: $tenantId');
+      debugPrint('[DEBUG DS] Fetching reviewer assignments for tenant: $tenantId');
       _logger.debug('Fetching reviewer assignments for tenant',
           category: LogCategory.auth,
           context: {'tenantId': tenantId});
@@ -45,10 +46,10 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
         throw Exception(response.message ?? 'Failed to fetch reviewer assignments');
       }
 
-      print('[DEBUG DS] Fetched ${response.data?.length ?? 0} reviewer assignments');
+      debugPrint('[DEBUG DS] Fetched ${response.data?.length ?? 0} reviewer assignments');
       return response.data ?? [];
     } catch (e, stackTrace) {
-      print('[DEBUG DS] Error fetching assignments: $e');
+      debugPrint('[DEBUG DS] Error fetching assignments: $e');
       _logger.error('Failed to fetch reviewer assignments',
           category: LogCategory.auth,
           error: e,
@@ -92,7 +93,7 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
     required int gradeMax,
   }) async {
     try {
-      print('[DEBUG DS] Creating reviewer assignment: reviewerId=$reviewerId, grades=$gradeMin-$gradeMax');
+      debugPrint('[DEBUG DS] Creating reviewer assignment: reviewerId=$reviewerId, grades=$gradeMin-$gradeMax');
       _logger.info('Creating reviewer assignment',
           category: LogCategory.auth,
           context: {
@@ -117,13 +118,13 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
         throw Exception(response.message ?? 'Failed to create reviewer assignment');
       }
 
-      print('[DEBUG DS] Assignment created successfully: ${response.data?.id}');
+      debugPrint('[DEBUG DS] Assignment created successfully: ${response.data?.id}');
       _logger.info('Reviewer assignment created successfully',
           category: LogCategory.auth);
 
       return response.data!;
     } catch (e, stackTrace) {
-      print('[DEBUG DS] Error creating assignment: $e');
+      debugPrint('[DEBUG DS] Error creating assignment: $e');
       _logger.error('Failed to create reviewer assignment',
           category: LogCategory.auth,
           error: e,
@@ -139,7 +140,7 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
     required int gradeMax,
   }) async {
     try {
-      print('[DEBUG DS] Updating reviewer assignment: assignmentId=$assignmentId, grades=$gradeMin-$gradeMax');
+      debugPrint('[DEBUG DS] Updating reviewer assignment: assignmentId=$assignmentId, grades=$gradeMin-$gradeMax');
       _logger.info('Updating reviewer assignment',
           category: LogCategory.auth,
           context: {
@@ -155,13 +156,13 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
           .eq('id', assignmentId);
 
       final updated = await getReviewerAssignment(assignmentId);
-      print('[DEBUG DS] Assignment updated successfully');
+      debugPrint('[DEBUG DS] Assignment updated successfully');
       _logger.info('Reviewer assignment updated successfully',
           category: LogCategory.auth);
 
       return updated;
     } catch (e, stackTrace) {
-      print('[DEBUG DS] Error updating assignment: $e');
+      debugPrint('[DEBUG DS] Error updating assignment: $e');
       _logger.error('Failed to update reviewer assignment',
           category: LogCategory.auth,
           error: e,
@@ -173,7 +174,7 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
   @override
   Future<void> deleteReviewerAssignment(String assignmentId) async {
     try {
-      print('[DEBUG DS] Deleting reviewer assignment: assignmentId=$assignmentId');
+      debugPrint('[DEBUG DS] Deleting reviewer assignment: assignmentId=$assignmentId');
       _logger.info('Deleting reviewer assignment',
           category: LogCategory.auth,
           context: {'assignmentId': assignmentId});
@@ -181,11 +182,11 @@ class ReviewerAssignmentDataSourceImpl implements ReviewerAssignmentDataSource {
       final supabase = await _getSupabaseClient();
       await supabase.from(_tableName).delete().eq('id', assignmentId);
 
-      print('[DEBUG DS] Assignment deleted successfully');
+      debugPrint('[DEBUG DS] Assignment deleted successfully');
       _logger.info('Reviewer assignment deleted successfully',
           category: LogCategory.auth);
     } catch (e, stackTrace) {
-      print('[DEBUG DS] Error deleting assignment: $e');
+      debugPrint('[DEBUG DS] Error deleting assignment: $e');
       _logger.error('Failed to delete reviewer assignment',
           category: LogCategory.auth,
           error: e,

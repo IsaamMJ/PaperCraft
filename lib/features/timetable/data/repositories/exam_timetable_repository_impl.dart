@@ -418,6 +418,9 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
     required List<ExamTimetableEntryEntity> entries,
   }) async {
     try {
+      for (var entry in entries) {
+      }
+
       // First, create the timetable
       final timetableId = _generateId('timetable');
 
@@ -456,11 +459,11 @@ class ExamTimetableRepositoryImpl implements ExamTimetableRepository {
         return updated;
       }).toList();
 
-
       final entriesResult =
           await _remoteDataSource.addMultipleExamTimetableEntries(
         entriesWithTimetableId,
       );
+
 
       if (entriesResult.isLeft()) {
         // Rollback timetable if entries fail
