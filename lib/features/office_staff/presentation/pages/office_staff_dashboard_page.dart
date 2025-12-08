@@ -23,8 +23,31 @@ class OfficeStaffDashboardPage extends StatefulWidget {
 class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
   bool _isRefreshing = false;
 
-  // Track collapsed subjects: Map<subject, isCollapsed>
-  final Map<String, bool> _collapsedSubjects = {};
+  // Cache today's date at midnight to avoid repeated calculations
+  late final DateTime _cachedTodayDate = _initializeTodayDate();
+
+  // Track collapsed dates: Map<dateString, isCollapsed>
+  final Map<String, bool> _collapsedDates = {};
+
+  // Cache for formatted dates: Map<dateString, formatted>
+  final Map<String, String> _formattedDateCache = {};
+
+  DateTime _initializeTodayDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Get days until exam from today
+  int _getDaysUntilExam(DateTime? examDate) {
+    if (examDate == null) return -1;
+    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+    return examDateOnly.difference(_cachedTodayDate).inDays;
+  }
+
+  /// Normalize date to midnight for consistent comparisons
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
 
   @override
   void initState() {
@@ -72,16 +95,10 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     ));
   }
 
-  // Check if an exam is still upcoming (today or in the future, comparing by date only)
+  /// Check if an exam is still upcoming (today or in the future, comparing by date only)
   bool _isUpcomingExam(DateTime? examDate) {
     if (examDate == null) return false;
-
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
-
-    // Compare dates only, not times. Return true if exam is today or in the future
-    return !examDateOnly.isBefore(todayDate);
+    return _getDaysUntilExam(examDate) >= 0;
   }
 
   Future<void> _onRefresh() async {
@@ -118,7 +135,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
   }
 
 
-  // Group papers by exam date, sorted chronologically
+  /// Group papers by exam date, sorted chronologically (O(n) operation)
   Map<DateTime, List<QuestionPaperEntity>> _groupPapersByExamDate(
     List<QuestionPaperEntity> papers,
   ) {
@@ -127,65 +144,58 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     for (final paper in papers) {
       if (paper.examDate == null) continue;
 
-      // Normalize date to midnight for grouping
-      final examDateOnly = DateTime(
-        paper.examDate!.year,
-        paper.examDate!.month,
-        paper.examDate!.day,
-      );
-
-      grouped.putIfAbsent(examDateOnly, () => []);
-      grouped[examDateOnly]!.add(paper);
+      final examDateOnly = _normalizeDate(paper.examDate!);
+      grouped.putIfAbsent(examDateOnly, () => []).add(paper);
     }
 
-    // Sort by date (earliest first)
-    final sortedDates = grouped.keys.toList()..sort();
-    final sortedGroups = <DateTime, List<QuestionPaperEntity>>{};
+    // Return sorted map entries (avoids creating duplicate map)
+    return Map.fromEntries(
+      grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+  }
 
-    for (final date in sortedDates) {
-      sortedGroups[date] = grouped[date]!;
+  /// Get urgency colors (foreground and background) for a given date - combined to avoid redundant calculations
+  Map<String, Color> _getDateUrgencyColors(DateTime examDate) {
+    final daysUntil = _getDaysUntilExam(examDate);
+
+    Color fgColor;
+    Color bgColor;
+
+    if (daysUntil == 1) {
+      fgColor = AppColors.error;      // Tomorrow - Red
+      bgColor = AppColors.error10;
+    } else if (daysUntil <= 3) {
+      fgColor = AppColors.warning;    // Next 2-3 days - Orange
+      bgColor = AppColors.warning10;
+    } else {
+      fgColor = AppColors.primary;    // Rest - Blue
+      bgColor = AppColors.primary10;
     }
 
-    return sortedGroups;
+    return {'fg': fgColor, 'bg': bgColor};
   }
 
-  // Get urgency color for a given date
-  Color _getDateUrgencyColor(DateTime examDate) {
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
-
-    final daysUntil = examDateOnly.difference(todayDate).inDays;
-
-    if (daysUntil == 1) return AppColors.error; // Tomorrow - Red
-    if (daysUntil <= 3) return AppColors.warning; // Next 2-3 days - Orange
-    return AppColors.primary; // Rest - Blue
-  }
-
-  // Get urgency background color for a given date
-  Color _getDateUrgencyBgColor(DateTime examDate) {
-    final urgencyColor = _getDateUrgencyColor(examDate);
-
-    if (urgencyColor == AppColors.error) return AppColors.error10;
-    if (urgencyColor == AppColors.warning) return AppColors.warning10;
-    return AppColors.primary10;
-  }
-
-  // Format date with day label (e.g., "Tomorrow, Nov 26" or "Wednesday, Nov 27")
+  /// Format date with day label (e.g., "Tomorrow, Nov 26" or "Wednesday, Nov 27") - with caching
   String _formatDateWithLabel(DateTime date) {
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final examDateOnly = DateTime(date.year, date.month, date.day);
+    final dateKey = date.toString().split(' ')[0]; // YYYY-MM-DD format
 
-    final daysUntil = examDateOnly.difference(todayDate).inDays;
+    // Return cached formatted date if available
+    if (_formattedDateCache.containsKey(dateKey)) {
+      return _formattedDateCache[dateKey]!;
+    }
 
+    final daysUntil = _getDaysUntilExam(date);
     final dateStr = AppDateUtils.formatShortDate(date);
 
-    if (daysUntil == 0) return 'Today, $dateStr';
-    if (daysUntil == 1) return 'Tomorrow, $dateStr';
+    final formatted = daysUntil == 0
+        ? 'Today, $dateStr'
+        : daysUntil == 1
+            ? 'Tomorrow, $dateStr'
+            : '${_getDayName(_normalizeDate(date))}, $dateStr';
 
-    final dayName = _getDayName(examDateOnly);
-    return '$dayName, $dateStr';
+    // Cache the formatted date
+    _formattedDateCache[dateKey] = formatted;
+    return formatted;
   }
 
   String _getDayName(DateTime date) {
@@ -281,20 +291,18 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     );
   }
 
-  // Build a date section with papers for that date
+  /// Build a date section with papers for that date
   Widget _buildDateSection(DateTime date, List<QuestionPaperEntity> papers) {
-    final dateKey = date.toString(); // Use string representation as key
+    final dateKey = date.toString().split(' ')[0]; // YYYY-MM-DD format
 
-    // Check if this is tomorrow
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final examDateOnly = DateTime(date.year, date.month, date.day);
-    final isTomorrow = examDateOnly.difference(todayDate).inDays == 1;
+    // Check if this is tomorrow - default: open for tomorrow, closed for others
+    final daysUntil = _getDaysUntilExam(date);
+    final isTomorrow = daysUntil == 1;
 
-    // Default: closed for all, except tomorrow which is open
-    final isCollapsed = _collapsedSubjects[dateKey] ?? !isTomorrow;
-    final urgencyColor = _getDateUrgencyColor(date);
-    final urgencyBgColor = _getDateUrgencyBgColor(date);
+    final isCollapsed = _collapsedDates[dateKey] ?? !isTomorrow;
+    final colors = _getDateUrgencyColors(date);
+    final urgencyColor = colors['fg']!;
+    final urgencyBgColor = colors['bg']!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,7 +311,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
         GestureDetector(
           onTap: () {
             setState(() {
-              _collapsedSubjects[dateKey] = !isCollapsed;
+              _collapsedDates[dateKey] = !isCollapsed;
             });
           },
           child: Container(
@@ -454,7 +462,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     final isSmallScreen = screenWidth < 600;
 
     // Calculate days until exam
-    final daysUntilExam = paper.examDate?.difference(DateTime.now()).inDays;
+    final daysUntilExam = _getDaysUntilExam(paper.examDate);
 
     return Container(
       key: ValueKey(paper.id),
@@ -520,7 +528,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      if (daysUntilExam != null)
+                      if (daysUntilExam >= 0)
                         Container(
                           margin: const EdgeInsets.only(top: UIConstants.spacing4),
                           padding: const EdgeInsets.symmetric(
@@ -576,6 +584,14 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
     );
   }
 
+  /// Get background color for tag based on foreground color
+  Color _getTagBgColor(Color fgColor) {
+    if (fgColor == AppColors.primary) return AppColors.primary10;
+    if (fgColor == AppColors.success) return AppColors.success10;
+    if (fgColor == AppColors.warning) return AppColors.warning10;
+    return AppColors.error10;
+  }
+
   Widget _buildTag(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -583,13 +599,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
         vertical: UIConstants.spacing4,
       ),
       decoration: BoxDecoration(
-        color: color == AppColors.primary
-            ? AppColors.primary10
-            : color == AppColors.success
-                ? AppColors.success10
-                : color == AppColors.warning
-                    ? AppColors.warning10
-                    : AppColors.error10,
+        color: _getTagBgColor(color),
         borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
       ),
       child: Text(

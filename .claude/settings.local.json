@@ -42,7 +42,8 @@
       "Bash(tee:*)",
       "Bash(grep:*)",
       "Bash(timeout 180 flutter run:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

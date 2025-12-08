@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,9 +22,9 @@ class AdminDashboardPage extends StatefulWidget {
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   bool _isRefreshing = false;
-  bool _showUnassignedPapers = false;
-  final Map<String, bool> _expandedExams = {}; // Track expanded state per exam (examName -> isExpanded)
-  final Map<String, bool> _expandedSubjects = {}; // Track expanded subjects per exam
+  final Map<String, bool> _expandedDates = {}; // Track expanded state per date (dateString -> isExpanded)
+  final Map<String, bool> _expandedExams = {}; // Track expanded state per exam (dateString::examName -> isExpanded)
+  final Map<String, bool> _expandedSubjects = {}; // Track expanded subjects per exam (dateString::examName::subject -> isExpanded)
 
   @override
   void initState() {
@@ -252,174 +251,94 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildPapersView(List<QuestionPaperEntity> allPapers) {
-    var papers = allPapers;
+    // Filter: Only upcoming exams, papers must have exam name
+    final upcomingPapers = allPapers
+        .where((paper) {
+          if (paper.examName == null || paper.examName!.isEmpty) return false;
+          final examDate = paper.examTimetableDate ?? paper.examDate;
+          return examDate == null || !_isExamDatePassed(examDate);
+        })
+        .toList();
 
-    // Filter papers by reviewer's assigned grades if user is a reviewer
-    final userStateService = sl<UserStateService>();
-    if (userStateService.isReviewer) {
-      final currentUser = userStateService.currentUser;
-      if (currentUser != null) {
-        debugPrint('[DEBUG ADMIN] Filtering papers for reviewer ${currentUser.displayName}');
-        // TODO: Implement grade filtering once reviewer_grade_assignments repository is integrated
-        // For now, show all papers to reviewers - they'll see all papers to review
-        // Future: Fetch reviewer assignment and filter by grade range
-      }
+    if (upcomingPapers.isEmpty) {
+      return _buildEmptyState();
     }
 
-    // Separate assigned and unassigned papers
-    final assignedPapers = <String, List<QuestionPaperEntity>>{};
-    final unassignedPapers = <QuestionPaperEntity>[];
+    // Group by date, then by exam, then by subject
+    final papersByDateAndExam = <DateTime, Map<String, List<QuestionPaperEntity>>>{};
 
-    for (var paper in papers) {
-      if (paper.examName != null && paper.examName!.isNotEmpty) {
-        assignedPapers.putIfAbsent(paper.examName!, () => []).add(paper);
-      } else {
-        unassignedPapers.add(paper);
-      }
+    for (final paper in upcomingPapers) {
+      final examDate = paper.examTimetableDate ?? paper.examDate ?? DateTime(2999);
+      final examName = paper.examName!;
+
+      papersByDateAndExam.putIfAbsent(examDate, () => {});
+      papersByDateAndExam[examDate]!.putIfAbsent(examName, () => []).add(paper);
     }
 
-    // Sort papers within each exam by date first, then by subject
-    assignedPapers.forEach((_, papers) {
-      papers.sort((a, b) {
-        final dateA = a.examTimetableDate ?? a.examDate ?? DateTime(2999);
-        final dateB = b.examTimetableDate ?? b.examDate ?? DateTime(2999);
-        final dateCompare = dateA.compareTo(dateB);
-        if (dateCompare != 0) return dateCompare;
-        // If same date, sort by subject
-        return (a.subject ?? '').compareTo(b.subject ?? '');
-      });
-    });
-
-    // Separate upcoming and past exams
-    final upcomingExams = <String>[];
-    final pastExams = <String>[];
-
-    for (final examName in assignedPapers.keys) {
-      final examPapers = assignedPapers[examName]!;
-      final firstPaper = examPapers.first;
-      final examDate = firstPaper.examTimetableDate ?? firstPaper.examDate;
-
-      if (examDate != null && _isExamDatePassed(examDate)) {
-        pastExams.add(examName);
-      } else {
-        upcomingExams.add(examName);
-      }
-    }
-
-    // Sort upcoming exams by earliest date
-    upcomingExams.sort((examA, examB) {
-      final firstDateA = assignedPapers[examA]?.first.examTimetableDate ??
-          assignedPapers[examA]?.first.examDate ??
-          DateTime(2999);
-      final firstDateB = assignedPapers[examB]?.first.examTimetableDate ??
-          assignedPapers[examB]?.first.examDate ??
-          DateTime(2999);
-      return firstDateA.compareTo(firstDateB);
-    });
-
-    // Sort past exams by most recent first
-    pastExams.sort((examA, examB) {
-      final firstDateA = assignedPapers[examA]?.first.examTimetableDate ??
-          assignedPapers[examA]?.first.examDate ??
-          DateTime(2000);
-      final firstDateB = assignedPapers[examB]?.first.examTimetableDate ??
-          assignedPapers[examB]?.first.examDate ??
-          DateTime(2000);
-      return firstDateB.compareTo(firstDateA); // Most recent first
-    });
+    // Sort dates in ascending order (earliest first)
+    final sortedDates = papersByDateAndExam.keys.toList()..sort();
 
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (upcomingExams.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16, top: 8),
-              child: Text(
-                'UPCOMING EXAMS',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16, top: 8),
+            child: Text(
+              'UPCOMING EXAMS',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
             ),
-            ...upcomingExams.map((examName) {
-              final papersList = assignedPapers[examName]!;
-              // Initialize expanded state for upcoming exams as true
-              _expandedExams.putIfAbsent(examName, () => true);
-              return _buildCollapsibleExamSection(examName, papersList, isPast: false);
-            }),
-          ],
-          if (pastExams.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16, top: 24),
-              child: Text(
-                'PAST EXAMS',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-              ),
-            ),
-            ...pastExams.map((examName) {
-              final papersList = assignedPapers[examName]!;
-              // Initialize expanded state for past exams as false
-              _expandedExams.putIfAbsent('${examName}_past', () => false);
-              return _buildCollapsibleExamSection(examName, papersList, isPast: true);
-            }),
-          ],
-          if (unassignedPapers.isNotEmpty) _buildUnassignedPapersSection(unassignedPapers),
+          ),
+          ...sortedDates.map((date) {
+            final examsOnDate = papersByDateAndExam[date]!;
+            return _buildCollapsibleDateSection(date, examsOnDate);
+          }),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildCollapsibleExamSection(String examName, List<QuestionPaperEntity> papers, {required bool isPast}) {
-    final firstPaper = papers.first;
-    final examDate = firstPaper.examTimetableDate ?? firstPaper.examDate;
-    final formattedDate = examDate != null
-        ? '${examDate.day} ${_getMonthName(examDate.month)} ${examDate.year}'
-        : 'No date';
+  Widget _buildCollapsibleDateSection(DateTime date, Map<String, List<QuestionPaperEntity>> examsOnDate) {
+    final dateKey = '${date.year}-${date.month}-${date.day}';
+    final isDateExpanded = _expandedDates[dateKey] ?? true;
+    final formattedDate = '${date.day} ${_getMonthName(date.month)} ${date.year}';
 
-    final stateKey = isPast ? '${examName}_past' : examName;
-    final isExpanded = _expandedExams[stateKey] ?? false;
+    // Sort exams by name
+    final sortedExamNames = examsOnDate.keys.toList()..sort();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isPast ? AppColors.textTertiary : Colors.grey[200]!,
-          width: isPast ? 0.5 : 1,
-        ),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Collapsible exam header
+          // Date header (collapsible)
           GestureDetector(
             onTap: () {
               setState(() {
-                _expandedExams[stateKey] = !isExpanded;
+                _expandedDates[dateKey] = !isDateExpanded;
               });
             },
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isPast ? AppColors.surface : null,
-                gradient: !isPast ? LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [AppColors.primary10, AppColors.secondary10],
-                ) : null,
-                borderRadius: isExpanded
+                ),
+                borderRadius: isDateExpanded
                     ? const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         topRight: Radius.circular(12),
@@ -429,54 +348,102 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               child: Row(
                 children: [
                   Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: isPast ? AppColors.textSecondary : AppColors.primary,
+                    isDateExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.primary,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          examName,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: isPast ? AppColors.textSecondary : AppColors.textPrimary,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          formattedDate,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
+                    child: Text(
+                      formattedDate,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
                           ),
-                        ),
-                      ],
                     ),
                   ),
-                  if (isPast)
-                    Text(
-                      '(Past)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textTertiary,
-                      ),
+                  Text(
+                    '${sortedExamNames.length} exam${sortedExamNames.length != 1 ? 's' : ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
                     ),
+                  ),
                 ],
               ),
             ),
           ),
-          // Papers (shown only if exam is expanded)
-          if (isExpanded) _buildExamPapersList(examName, papers),
+          // Exams on this date (shown only if date is expanded)
+          if (isDateExpanded)
+            ...sortedExamNames.map((examName) {
+              final examPapers = examsOnDate[examName]!;
+              return _buildExamSection(dateKey, examName, examPapers);
+            }),
         ],
       ),
     );
   }
 
-  Widget _buildExamPapersList(String examName, List<QuestionPaperEntity> papers) {
+  Widget _buildExamSection(String dateKey, String examName, List<QuestionPaperEntity> papers) {
+    final examKey = '$dateKey::$examName';
+    final isExpanded = _expandedExams[examKey] ?? true;
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.grey[200]!, width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Exam header (collapsible)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _expandedExams[examKey] = !isExpanded;
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              color: Colors.grey[50],
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      examName,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                    ),
+                  ),
+                  Text(
+                    '${papers.length} paper${papers.length != 1 ? 's' : ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Papers grouped by subject (shown only if exam is expanded)
+          if (isExpanded) _buildExamPapersList(dateKey, examName, papers),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExamPapersList(String dateKey, String examName, List<QuestionPaperEntity> papers) {
     // Group papers by subject
     final papersBySubject = <String, List<QuestionPaperEntity>>{};
     for (final paper in papers) {
@@ -484,39 +451,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       papersBySubject.putIfAbsent(subject, () => []).add(paper);
     }
 
-    // Sort subjects by their earliest exam date, then alphabetically
+    // Pre-compute earliest dates for each subject (O(n) instead of O(n²))
+    final subjectEarliestDates = <String, DateTime?>{};
+    for (final subject in papersBySubject.keys) {
+      subjectEarliestDates[subject] = papersBySubject[subject]!
+          .map((p) => p.examTimetableDate ?? p.examDate)
+          .whereType<DateTime>()
+          .fold<DateTime?>(null, (prev, curr) => prev == null || curr.isBefore(prev) ? curr : prev);
+    }
+
+    // Sort subjects by earliest date, then alphabetically
     final sortedSubjects = papersBySubject.keys.toList()
       ..sort((subjectA, subjectB) {
-        final papersA = papersBySubject[subjectA]!;
-        final papersB = papersBySubject[subjectB]!;
+        final dateA = subjectEarliestDates[subjectA];
+        final dateB = subjectEarliestDates[subjectB];
 
-        // Get earliest date for each subject
-        DateTime? earliestDateA;
-        for (final paper in papersA) {
-          final paperDate = paper.examTimetableDate ?? paper.examDate;
-          if (paperDate != null && (earliestDateA == null || paperDate.isBefore(earliestDateA))) {
-            earliestDateA = paperDate;
-          }
+        if (dateA != null && dateB != null) {
+          return dateA.compareTo(dateB);
+        } else if (dateA != null) {
+          return -1;
+        } else if (dateB != null) {
+          return 1;
         }
-
-        DateTime? earliestDateB;
-        for (final paper in papersB) {
-          final paperDate = paper.examTimetableDate ?? paper.examDate;
-          if (paperDate != null && (earliestDateB == null || paperDate.isBefore(earliestDateB))) {
-            earliestDateB = paperDate;
-          }
-        }
-
-        // Compare by date
-        if (earliestDateA != null && earliestDateB != null) {
-          return earliestDateA.compareTo(earliestDateB);
-        } else if (earliestDateA != null) {
-          return -1; // A has date, B doesn't - A comes first
-        } else if (earliestDateB != null) {
-          return 1; // B has date, A doesn't - B comes first
-        }
-
-        // Both have no date or same date - sort alphabetically
         return subjectA.compareTo(subjectB);
       });
 
@@ -530,7 +486,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           final isLastSubject = index == sortedSubjects.length - 1;
 
           // Create unique key for subject expand/collapse state
-          final subjectKey = '$examName::$subject';
+          final subjectKey = '$dateKey::$examName::$subject';
           final isExpanded = _expandedSubjects[subjectKey] ?? false;
 
           // Group papers by grade within this subject
@@ -542,7 +498,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
           // Sort grades naturally (numerically if possible)
           final sortedGrades = papersByGrade.keys.toList()..sort((a, b) {
-            // Try to parse as numbers for natural sorting
             final aNum = int.tryParse(a);
             final bNum = int.tryParse(b);
             if (aNum != null && bNum != null) {
@@ -562,7 +517,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(32, 12, 16, 12),
                   color: Colors.grey[50],
                   child: Row(
                     children: [
@@ -596,9 +551,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ...sortedGrades.asMap().entries.map((gradeEntry) {
                   final gradeIndex = gradeEntry.key;
                   final grade = gradeEntry.value;
-                  var gradePapers = papersByGrade[grade]!;
+                  final gradePapers = papersByGrade[grade]!;
 
-                  // Sort papers by date
+                  // Sort papers by date once
                   gradePapers.sort((a, b) {
                     final dateA = a.examTimetableDate ?? a.examDate ?? DateTime(2999);
                     final dateB = b.examTimetableDate ?? b.examDate ?? DateTime(2999);
@@ -612,7 +567,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     children: [
                       // Grade sub-header
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(32, 8, 16, 6),
+                        padding: const EdgeInsets.fromLTRB(48, 8, 16, 6),
                         child: Text(
                           'Grade $grade',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -628,7 +583,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: gradePapers.length,
                         separatorBuilder: (_, __) => Divider(
-                            height: 1, color: Colors.grey[200], indent: 32, endIndent: 16),
+                            height: 1, color: Colors.grey[200], indent: 48, endIndent: 16),
                         itemBuilder: (context, idx) => _buildPaperCard(gradePapers[idx]),
                       ),
                       // Add divider between grades (except after last)
@@ -646,69 +601,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       ],
     );
   }
-
-  Widget _buildUnassignedPapersSection(List<QuestionPaperEntity> papers) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () => setState(() => _showUnassignedPapers = !_showUnassignedPapers),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.grey[200]!, Colors.grey[100]!],
-                ),
-                borderRadius: _showUnassignedPapers
-                    ? const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      )
-                    : BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Not Assigned (${papers.length})',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    _showUnassignedPapers ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.textSecondary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_showUnassignedPapers)
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: papers.length,
-              separatorBuilder: (_, __) =>
-                  Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
-              itemBuilder: (context, index) => _buildPaperCard(papers[index]),
-            ),
-        ],
-      ),
-    );
-  }
-
 
   Widget _buildPaperCard(QuestionPaperEntity paper) {
     return Material(
