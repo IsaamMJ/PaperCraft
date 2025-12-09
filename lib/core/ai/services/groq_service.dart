@@ -35,12 +35,22 @@ class GroqService {
   static const timeoutDuration = Duration(seconds: 15);
   static const maxRetries = 3;
 
+  /// Toggle to enable dry-run mode (AI polishing flow without making actual changes)
+  /// When true: Shows loading & review dialogs, but returns original text unchanged
+  /// When false: Calls Groq API for actual AI polishing
+  static bool isDryRun = true;
+
   /// Polish educational question text with grammar, spelling, and punctuation fixes
   ///
   /// Optional [questionType] parameter provides context to the AI for better understanding
   /// of the question format (e.g., 'mcq', 'short_answer', 'fill_in_blanks', etc.)
   static Future<PolishResult> polishText(String text, {String? questionType}) async {
     if (text.trim().isEmpty) {
+      return PolishResult.noChanges(text);
+    }
+
+    // Dry-run mode: skip API call and return original unchanged
+    if (isDryRun) {
       return PolishResult.noChanges(text);
     }
 
@@ -228,6 +238,14 @@ class GroqService {
   }) async {
     if (questions.isEmpty) {
       return [];
+    }
+
+    // Dry-run mode: skip API call and return all originals unchanged
+    if (isDryRun) {
+      return List.generate(
+        questions.length,
+        (i) => PolishResult.noChanges(questions[i]),
+      );
     }
 
     // Filter out empty questions
