@@ -973,7 +973,8 @@ class SimplePdfService implements IPdfGenerationService {
     double maxHeightForCurrentPage = availableHeightFirstPage;
     bool isFirstPage = true;
 
-    for (final widget in allWidgets) {
+    for (int i = 0; i < allWidgets.length; i++) {
+      final widget = allWidgets[i];
       final widgetHeight = _estimateWidgetHeight(widget, fontSizeMultiplier);
 
       if (currentPageHeight + widgetHeight > maxHeightForCurrentPage && currentPage.isNotEmpty) {
@@ -1001,21 +1002,21 @@ class SimplePdfService implements IPdfGenerationService {
     }
 
     if (widget is pw.Text) {
-      return 12 * fontSizeMultiplier;
+      return 14 * fontSizeMultiplier;  // Balanced estimate for text
     }
 
     if (widget is pw.Container) {
-      return 15 * fontSizeMultiplier;
+      return 20 * fontSizeMultiplier;  // Section headers
     }
 
     if (widget is pw.Column) {
-      return 18 * fontSizeMultiplier;
+      return 22 * fontSizeMultiplier;  // Questions with options
     }
 
     if (widget is pw.Row) {
-      return 14 * fontSizeMultiplier;
+      return 16 * fontSizeMultiplier;  // Row layout
     }
 
-    return 10 * fontSizeMultiplier;
+    return 12 * fontSizeMultiplier;  // Default fallback
   }
 }

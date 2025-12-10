@@ -215,13 +215,10 @@ class QuestionPaperEntity extends Equatable {
     return 'Unknown Grade';
   }
 
-  // Clean PDF title with exam type and number (for professional PDF display)
-  // Example: "Daily Test - 1 - Mathematics" or "Monthly Test - Mathematics"
+  // Clean PDF title with exam type (for professional PDF display)
+  // Example: "Daily Test - Mathematics" or "Monthly Test - Mathematics"
   String get pdfTitle {
     if (subject != null) {
-      if (examNumber != null) {
-        return '${examType.displayName} - $examNumber - $subject';
-      }
       return '${examType.displayName} - $subject';
     }
     return title;

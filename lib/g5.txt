@@ -1,0 +1,130 @@
+{"idx":39,"id":"6ce94fff-5c33-4faa-8dc1-a4f871e6e083","tenant_id":"36b43800-2625-4d26-935e-24a7703a334d","user_id":"3eea6c60-230a-488a-ae34-f1b068ef1323","reviewed_by":"abecefcd-6bad-4709-96e5-f9ecb3ce5202","subject_id":"162395d1-70a2-43b2-8070-261f4e7b09c3","grade_id":"bfbcbbca-1c88-4bcc-8b84-ef699fdb2dee","academic_year":"2025-2026","title":"Grade 5 English Grammar - 11 Dec 2025 (Section A)","exam_date":"2025-12-11","questions":"{\"Differentiate\": [{\"text\": \"Write the differences between Gerund and Participle.\", \"type\": \"short_answer\", \"marks\": 5, \"options\": null, \"is_optional\": false, \"sub_questions\": [], \"correct_answer\": null}], \"Letter writing\": [{\"text\": \"Write a Thank you letter to your grandma for her birthday gift to you\", \"type\": \"short_answer\", \"marks\": 8, \"options\": null, \"is_optional\": false, \"sub_questions\": [], \"correct_answer\": null}], \"Fill in the blanks\": [{\"text\": \"The kite had ____ (flow) very high.\", \"type\": \"fill_in_blanks\", \"marks\": 1}, {\"text\": \"The car has ____ (pick) up speed.\", \"type\": \"fill_in_blanks\", \"marks\": 1}, {\"text\": \"PT teacher has _____ (blow) the whistle.\", \"type\": \"fill_in_blanks\", \"marks\": 1}, {\"text\": \"Followers have _____ Gandhi's principles.\", \"type\": \"fill_in_blanks\", \"marks\": 1}, {\"text\": \"They have _____ (broke) the tea cups accidentally.\", \"type\": \"fill_in_blanks\", \"marks\": 1}], \"Match the following\": [{\"text\": \"Match the following\", \"type\": \"match_following\", \"marks\": 5, \"options\": [\"It is raining\", \"Everyone was happy\", \"Would you like to have coffee\", \"Kamal has a sister\", \"Father was writing\", \"---SEPARATOR---\", \"or tea?\", \"and a brother\", \"so we do not go to movie\", \"while we were sleeping\", \"because I won\"]}], \"Answer the following\": [{\"text\": \"Who started the event?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Who was the champion of the year?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Who won the relay race?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Who won the first place in 200 metres?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"When was the Annual Sports Day conducted?\", \"type\": \"short_answer\", \"marks\": 1}], \"Rewrite the following\": [{\"text\": \"My nanny pays us a visit 'for giving' us gifts.(Gerund to Infinitive).\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"His uncle takes a seat in every stage 'to popularize'.(infinitive to Gerund)\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"The soldiers joins army 'for serving' his country.(Gerund to Infinitive)\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Mother feeds her child 'for making' the baby healthy.(Gerund to Infinitive)\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Prayers leads us 'to run' a day with the presence of God.(Infinitive to Gerund)\", \"type\": \"short_answer\", \"marks\": 1}], \"Circle the prepositions\": [{\"text\": \"Under the tree, in the sunlight, above the earth for happiness the children are known for their pranks and suit to their ages.\", \"type\": \"short_answer\", \"marks\": 5}], \"Choose the correct answer\": [{\"text\": \"Birds fly _____ in the sky.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"in\", \"on\"]}, {\"text\": \"The tyres are attached _____ the bus.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"with\", \"down\"]}, {\"text\": \"Bus is _____ the road.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"on\", \"in\"]}, {\"text\": \"Does the tree give the shade _____ Arun?\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"from\", \"to\"]}, {\"text\": \"_____ I were a monkey, I would live on trees.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"But\", \"If\"]}, {\"text\": \"Ramsay was ill ____ he came to school.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"so\", \"but\"]}, {\"text\": \"Rajee did not come to school _____ she was ill\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"because\", \"so\"]}, {\"text\": \"Tomorrow is a holiday ____ we are happy.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"so\", \"or\"]}, {\"text\": \"You do only ____ work\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"your\", \"you're\"]}, {\"text\": \"_______ do the work completely.\", \"type\": \"multiple_choice\", \"marks\": 0.5, \"options\": [\"They'll\", \"Themselves\"]}], \"Answer the following common questions\": [{\"text\": \"Who is the founder of our school?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"In which year was our school founded?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"How many consonants are there in the English alphabet?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"Write the name of your favourite player.\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"How do you come to school?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"How many taluks are there in Kanyakumari district?\", \"type\": \"short_answer\", \"marks\": 1}, {\"text\": \"How many seconds do we take to sing the National Anthem?\", \"type\": \"short_answer\", \"marks\": 1}]}","metadata":"{\"selected_sections\": [\"All\"]}","status":"approved","rejection_reason":null,"created_at":"2025-12-07 06:04:32.213612+00","updated_at":"2025-12-10 09:36:45.630553+00","submitted_at":"2025-12-08 13:17:18.788061+00","reviewed_at":"2025-12-10 07:17:04.357359+00","paper_sections":"[{\"name\": \"Choose the correct answer\", \"type\": \"multiple_choice\", \"questions\": 10, \"marks_per_question\": 0.5}, {\"name\": \"Fill in the blanks\", \"type\": \"fill_in_blanks\", \"questions\": 5, \"marks_per_question\": 1}, {\"name\": \"Match the following\", \"type\": \"match_following\", \"questions\": 5, \"marks_per_question\": 1}, {\"name\": \"Circle the prepositions\", \"type\": \"short_answer\", \"questions\": 1, \"marks_per_question\": 5}, {\"name\": \"Rewrite the following\", \"type\": \"short_answer\", \"questions\": 5, \"marks_per_question\": 1}, {\"name\": \"Answer the following\", \"type\": \"short_answer\", \"questions\": 5, \"marks_per_question\": 1}, {\"name\": \"Answer the following common questions\", \"type\": \"short_answer\", \"questions\": 7, \"marks_per_question\": 1}, {\"name\": \"Differentiate\", \"type\": \"short_answer\", \"questions\": 1, \"marks_per_question\": 5}, {\"name\": \"Letter writing\", \"type\": \"short_answer\", \"questions\": 1, \"marks_per_question\": 8}]","exam_type":"halfYearly","exam_number":1,"section":null,"exam_timetable_entry_id":"e29ff7b4-51b8-4e3b-955a-299e9a55d112","max_marks":null}
+
+
+onitor doFrame : time=2ms vsyncFrame=0 latency=1655ms procState=2
+I/flutter (26634): DEBUG PDF: Starting PDF generation for paper: Half Yearly Examination - 1 - English Grammar
+I/flutter (26634): DEBUG PDF: Font multiplier: 1.3, Spacing multiplier: 1.0
+I/flutter (26634): DEBUG PDF: Found 9 sections
+I/flutter (26634): DEBUG SECTION: Processing section "Choose the correct answer" with 10 questions
+I/flutter (26634): DEBUG SECTION: Section "Choose the correct answer" - Total marks: 5.0, Non-optional questions: 10
+I/flutter (26634): DEBUG SECTION: Processing section "Fill in the blanks" with 5 questions
+I/flutter (26634): DEBUG SECTION: Section "Fill in the blanks" - Total marks: 5.0, Non-optional questions: 5
+I/flutter (26634): DEBUG SECTION: Processing section "Match the following" with 1 questions
+I/flutter (26634): DEBUG SECTION: Section "Match the following" - Total marks: 5.0, Non-optional questions: 1
+I/flutter (26634): DEBUG SECTION: Processing section "Rewrite the following" with 5 questions
+I/flutter (26634): DEBUG SECTION: Section "Rewrite the following" - Total marks: 5.0, Non-optional questions: 5
+I/flutter (26634): DEBUG SECTION: Processing section "Answer the following" with 5 questions
+I/flutter (26634): DEBUG SECTION: Section "Answer the following" - Total marks: 5.0, Non-optional questions: 5
+I/flutter (26634): DEBUG SECTION: Processing section "Answer the following common questions" with 7 questions
+I/flutter (26634): DEBUG SECTION: Section "Answer the following common questions" - Total marks: 7.0, Non-optional questions: 7
+I/flutter (26634): DEBUG SECTION: Processing section "Circle the prepositions" with 1 questions
+I/flutter (26634): DEBUG SECTION: Section "Circle the prepositions" - Total marks: 5.0, Non-optional questions: 1
+I/flutter (26634): DEBUG SECTION: Processing section "Differentiate" with 1 questions
+I/flutter (26634): DEBUG SECTION: Section "Differentiate" - Total marks: 5.0, Non-optional questions: 1
+I/flutter (26634): DEBUG SECTION: Processing section "Letter writing" with 1 questions
+I/flutter (26634): DEBUG SECTION: Section "Letter writing" - Total marks: 8.0, Non-optional questions: 1
+I/flutter (26634): DEBUG PAGINATION: Total widgets: 90
+I/flutter (26634): DEBUG PAGINATION: Available height first page: 695.4
+I/flutter (26634): DEBUG PAGINATION: Available height other pages: 742.9
+I/flutter (26634): DEBUG PAGINATION: Widget 0 - Type: Container - Estimated height: 19.5 - Current page height: 0.0
+I/flutter (26634): DEBUG PAGINATION: Widget 1 - Type: SizedBox - Estimated height: 4.0 - Current page height: 19.5
+I/flutter (26634): DEBUG PAGINATION: Widget 2 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 23.5
+I/flutter (26634): DEBUG PAGINATION: Widget 3 - Type: SizedBox - Estimated height: 6.0 - Current page height: 46.900000000000006
+I/flutter (26634): DEBUG PAGINATION: Widget 4 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 52.900000000000006
+I/flutter (26634): DEBUG PAGINATION: Widget 5 - Type: SizedBox - Estimated height: 6.0 - Current page height: 76.30000000000001
+I/flutter (26634): DEBUG PAGINATION: Widget 6 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 82.30000000000001
+I/flutter (26634): DEBUG PAGINATION: Widget 7 - Type: SizedBox - Estimated height: 6.0 - Current page height: 105.70000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 8 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 111.70000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 9 - Type: SizedBox - Estimated height: 6.0 - Current page height: 135.10000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 10 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 141.10000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 11 - Type: SizedBox - Estimated height: 6.0 - Current page height: 164.50000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 12 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 170.50000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 13 - Type: SizedBox - Estimated height: 6.0 - Current page height: 193.90000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 14 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 199.90000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 15 - Type: SizedBox - Estimated height: 6.0 - Current page height: 223.30000000000004
+I/flutter (26634): DEBUG PAGINATION: Widget 16 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 229.30000000000004
+I/flutter (26634): DEBUG PAGINATION: Widget 17 - Type: SizedBox - Estimated height: 6.0 - Current page height: 252.70000000000005
+I/flutter (26634): DEBUG PAGINATION: Widget 18 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 258.70000000000005
+I/flutter (26634): DEBUG PAGINATION: Widget 19 - Type: SizedBox - Estimated height: 6.0 - Current page height: 282.1
+I/flutter (26634): DEBUG PAGINATION: Widget 20 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 288.1
+I/flutter (26634): DEBUG PAGINATION: Widget 21 - Type: SizedBox - Estimated height: 12.0 - Current page height: 311.5
+I/flutter (26634): DEBUG PAGINATION: Widget 22 - Type: Container - Estimated height: 19.5 - Current page height: 323.5
+I/flutter (26634): DEBUG PAGINATION: Widget 23 - Type: SizedBox - Estimated height: 4.0 - Current page height: 343.0
+I/flutter (26634): DEBUG PAGINATION: Widget 24 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 347.0
+I/flutter (26634): DEBUG PAGINATION: Widget 25 - Type: SizedBox - Estimated height: 6.0 - Current page height: 370.4
+I/flutter (26634): DEBUG PAGINATION: Widget 26 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 376.4
+I/flutter (26634): DEBUG PAGINATION: Widget 27 - Type: SizedBox - Estimated height: 6.0 - Current page height: 399.79999999999995
+I/flutter (26634): DEBUG PAGINATION: Widget 28 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 405.79999999999995
+I/flutter (26634): DEBUG PAGINATION: Widget 29 - Type: SizedBox - Estimated height: 6.0 - Current page height: 429.19999999999993
+I/flutter (26634): DEBUG PAGINATION: Widget 30 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 435.19999999999993
+I/flutter (26634): DEBUG PAGINATION: Widget 31 - Type: SizedBox - Estimated height: 6.0 - Current page height: 458.5999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 32 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 464.5999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 33 - Type: SizedBox - Estimated height: 12.0 - Current page height: 487.9999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 34 - Type: Container - Estimated height: 19.5 - Current page height: 499.9999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 35 - Type: SizedBox - Estimated height: 4.0 - Current page height: 519.4999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 36 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 523.4999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 37 - Type: SizedBox - Estimated height: 12.0 - Current page height: 546.8999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 38 - Type: Container - Estimated height: 19.5 - Current page height: 558.8999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 39 - Type: SizedBox - Estimated height: 4.0 - Current page height: 578.3999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 40 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 582.3999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 41 - Type: SizedBox - Estimated height: 6.0 - Current page height: 605.7999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 42 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 611.7999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 43 - Type: SizedBox - Estimated height: 6.0 - Current page height: 635.1999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 44 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 641.1999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 45 - Type: SizedBox - Estimated height: 6.0 - Current page height: 664.5999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 46 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 670.5999999999998
+I/flutter (26634): DEBUG PAGINATION: Widget 47 - Type: SizedBox - Estimated height: 6.0 - Current page height: 693.9999999999998
+I/flutter (26634): DEBUG PAGINATION: PAGE BREAK at widget 47. Moving to next page. Current page had 47 widgets
+I/flutter (26634): DEBUG PAGINATION: Widget 48 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 6.0
+I/flutter (26634): DEBUG PAGINATION: Widget 49 - Type: SizedBox - Estimated height: 12.0 - Current page height: 29.400000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 50 - Type: Container - Estimated height: 19.5 - Current page height: 41.400000000000006
+I/flutter (26634): DEBUG PAGINATION: Widget 51 - Type: SizedBox - Estimated height: 4.0 - Current page height: 60.900000000000006
+I/flutter (26634): DEBUG PAGINATION: Widget 52 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 64.9
+I/flutter (26634): DEBUG PAGINATION: Widget 53 - Type: SizedBox - Estimated height: 6.0 - Current page height: 88.30000000000001
+I/flutter (26634): DEBUG PAGINATION: Widget 54 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 94.30000000000001
+I/flutter (26634): DEBUG PAGINATION: Widget 55 - Type: SizedBox - Estimated height: 6.0 - Current page height: 117.70000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 56 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 123.70000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 57 - Type: SizedBox - Estimated height: 6.0 - Current page height: 147.10000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 58 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 153.10000000000002
+I/flutter (26634): DEBUG PAGINATION: Widget 59 - Type: SizedBox - Estimated height: 6.0 - Current page height: 176.50000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 60 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 182.50000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 61 - Type: SizedBox - Estimated height: 12.0 - Current page height: 205.90000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 62 - Type: Container - Estimated height: 19.5 - Current page height: 217.90000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 63 - Type: SizedBox - Estimated height: 4.0 - Current page height: 237.40000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 64 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 241.40000000000003
+I/flutter (26634): DEBUG PAGINATION: Widget 65 - Type: SizedBox - Estimated height: 6.0 - Current page height: 264.8
+I/flutter (26634): DEBUG PAGINATION: Widget 66 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 270.8
+I/flutter (26634): DEBUG PAGINATION: Widget 67 - Type: SizedBox - Estimated height: 6.0 - Current page height: 294.2
+I/flutter (26634): DEBUG PAGINATION: Widget 68 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 300.2
+I/flutter (26634): DEBUG PAGINATION: Widget 69 - Type: SizedBox - Estimated height: 6.0 - Current page height: 323.59999999999997
+I/flutter (26634): DEBUG PAGINATION: Widget 70 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 329.59999999999997
+I/flutter (26634): DEBUG PAGINATION: Widget 71 - Type: SizedBox - Estimated height: 6.0 - Current page height: 352.99999999999994
+I/flutter (26634): DEBUG PAGINATION: Widget 72 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 358.99999999999994
+I/flutter (26634): DEBUG PAGINATION: Widget 73 - Type: SizedBox - Estimated height: 6.0 - Current page height: 382.3999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 74 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 388.3999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 75 - Type: SizedBox - Estimated height: 6.0 - Current page height: 411.7999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 76 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 417.7999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 77 - Type: SizedBox - Estimated height: 12.0 - Current page height: 441.1999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 78 - Type: Container - Estimated height: 19.5 - Current page height: 453.1999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 79 - Type: SizedBox - Estimated height: 4.0 - Current page height: 472.6999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 80 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 476.6999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 81 - Type: SizedBox - Estimated height: 12.0 - Current page height: 500.09999999999985
+I/flutter (26634): DEBUG PAGINATION: Widget 82 - Type: Container - Estimated height: 19.5 - Current page height: 512.0999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 83 - Type: SizedBox - Estimated height: 4.0 - Current page height: 531.5999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 84 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 535.5999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 85 - Type: SizedBox - Estimated height: 12.0 - Current page height: 558.9999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 86 - Type: Container - Estimated height: 19.5 - Current page height: 570.9999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 87 - Type: SizedBox - Estimated height: 4.0 - Current page height: 590.4999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 88 - Type: Column - Estimated height: 23.400000000000002 - Current page height: 594.4999999999999
+I/flutter (26634): DEBUG PAGINATION: Widget 89 - Type: SizedBox - Estimated height: 12.0 - Current page height: 617.8999999999999
+I/flutter (26634): DEBUG PAGINATION: Final result - Total pages: 2
+I/flutter (26634): DEBUG PAGINATION: Page 1 has 47 widgets
+I/flutter (26634): DEBUG PAGINATION: Page 2 has 43 widgets
+I/flutter (26634): Times-Bold has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+I/flutter (26634): Times-Roman has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+W/InputEventReceiver(26634): App Input: 326ms before dispatchInputEvent (MotionEvent: event_seq=263, seq=2768461, action=ACTION_HOVER_ENTER)
+I/Choreographer(26634): Skipped 31 frames!  The application may be doing too much work on its main thread.
+W/Looper  (26634): PerfMonitor doFrame : time=0ms vsyncFrame=0 latency=528ms procState=2 historyMsgCount=1
+I/.papercraft.de(26634): Waiting for a blocking GC ProfileSaver
+I/.papercraft.de(26634): WaitForGcToComplete blocked ProfileSaver on HeapTrim for 13.018ms
+
