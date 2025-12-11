@@ -7,8 +7,9 @@ class QuestionInlineEditModal extends StatefulWidget {
   final Question question;
   final int questionIndex;
   final String sectionName;
-  final Function(String updatedText, List<String>? updatedOptions) onSave;
+  final Function(String updatedText, List<String>? updatedOptions, String? newType) onSave;
   final VoidCallback onCancel;
+  final bool allowTypeChange;
 
   const QuestionInlineEditModal({
     super.key,
@@ -17,6 +18,7 @@ class QuestionInlineEditModal extends StatefulWidget {
     required this.sectionName,
     required this.onSave,
     required this.onCancel,
+    this.allowTypeChange = false,
   });
 
   @override
@@ -29,6 +31,7 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   late List<TextEditingController> _columnAControllers;
   late List<TextEditingController> _columnBControllers;
   bool _isSaving = false;
+  late String _selectedType;
 
   /// Helper method to check if question is "Match the Following" type
   bool _isMatchFollowing() => widget.question.type == 'match_following';
@@ -56,6 +59,7 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
   void initState() {
     super.initState();
 
+    _selectedType = widget.question.type;
     _questionTextController = TextEditingController(text: widget.question.text);
 
     // Initialize option controllers
@@ -177,9 +181,9 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
 
     setState(() => _isSaving = true);
 
-    // Call the save callback
-
-    widget.onSave(updatedText, updatedOptions);
+    // Call the save callback with the new type if it changed
+    final newType = _selectedType != widget.question.type ? _selectedType : null;
+    widget.onSave(updatedText, updatedOptions, newType);
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -275,6 +279,44 @@ class _QuestionInlineEditModalState extends State<QuestionInlineEditModal> {
                       ),
                     ),
                     SizedBox(height: UIConstants.spacing16),
+
+                    // Question Type (only for admins)
+                    if (widget.allowTypeChange && (widget.question.type == 'word_forms' || widget.question.type == 'short_answer'))
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Question Type'),
+                          SizedBox(height: UIConstants.spacing8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: UIConstants.paddingSmall),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                            ),
+                            child: DropdownButton<String>(
+                              value: _selectedType,
+                              isExpanded: true,
+                              underline: const SizedBox.shrink(),
+                              items: [
+                                DropdownMenuItem(
+                                  value: 'word_forms',
+                                  child: Text('Word Forms'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'short_answer',
+                                  child: Text('Short Answer'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _selectedType = value);
+                                }
+                              },
+                            ),
+                          ),
+                          SizedBox(height: UIConstants.spacing16),
+                        ],
+                      ),
 
                     // Match the Following Options
                     if (widget.question.type == 'match_following')

@@ -43,7 +43,8 @@
       "Bash(grep:*)",
       "Bash(timeout 180 flutter run:*)",
       "Bash(cd:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(timeout 180 flutter analyze:*)"
     ],
     "deny": [],
     "ask": []

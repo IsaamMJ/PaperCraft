@@ -92,7 +92,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   bool _isExamDatePassed(DateTime? examDate) {
     if (examDate == null) return false;
-    return DateTime.now().isAfter(examDate);
+    // Show exams from yesterday onwards (hide only exams before yesterday)
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final examDateOnly = DateTime(examDate.year, examDate.month, examDate.day);
+    return examDateOnly.isBefore(yesterday);
   }
 
   @override

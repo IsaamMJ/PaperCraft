@@ -258,8 +258,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               SizedBox(height: UIConstants.spacing24),
               _buildInfo(paper),
               SizedBox(height: UIConstants.spacing24),
-              _buildSummary(paper),
-              SizedBox(height: UIConstants.spacing24),
               _buildQuestions(paper),
               const SizedBox(height: 100),
             ],
@@ -561,77 +559,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     );
   }
 
-  Widget _buildSummary(QuestionPaperEntity paper) {
-    // Use the new section ordering helper
-    final orderedSections = SectionOrderingHelper.getOrderedSections(paper.paperSections, paper.questions);
-
-    // DEBUG: Log marks breakdown
-    double totalSectionMarks = 0;
-    for (int i = 0; i < orderedSections.length; i++) {
-      final section = orderedSections[i];
-      totalSectionMarks += section.totalMarks;
-    }
-    paper.questions.forEach((sectionName, questions) {
-      double sectionTotal = 0;
-      for (var q in questions) {
-        sectionTotal += q.marks;
-      }
-    });
-
-    return Container(
-      padding: const EdgeInsets.all(UIConstants.paddingMedium),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
-        boxShadow: [BoxShadow(color: AppColors.black04, blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Question Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-          SizedBox(height: UIConstants.spacing16),
-          ...orderedSections.map((orderedSection) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary05,
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                border: Border.all(color: AppColors.primary10),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
-                    child: Center(
-                      child: Text('${orderedSection.sectionNumber}',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: UIConstants.fontSizeMedium)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(orderedSection.section.name,
-                            style: TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                        Text(SectionOrderingHelper.getSectionSummary(orderedSection),
-                            style: TextStyle(fontSize: UIConstants.fontSizeSmall, color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  ),
-                  Text('${orderedSection.totalMarks % 1 == 0 ? orderedSection.totalMarks.toInt() : orderedSection.totalMarks} marks',
-                      style: TextStyle(fontSize: UIConstants.fontSizeMedium, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
   Widget _buildQuestions(QuestionPaperEntity paper) {
     // Use ordered sections for questions display
     if (paper.questions.isEmpty) {
@@ -861,13 +788,18 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     final pageContext = context;
     final bloc = context.read<QuestionPaperBloc>();
 
+    // Check if user is admin/reviewer to allow type changes
+    final userStateService = sl<UserStateService>();
+    final allowTypeChange = userStateService.isAdminOrReviewer && !widget.isViewOnly;
+
     showDialog(
       context: context,
       builder: (dialogContext) => QuestionInlineEditModal(
         question: question,
         questionIndex: questionIndex,
         sectionName: sectionName,
-        onSave: (updatedText, updatedOptions) {
+        allowTypeChange: allowTypeChange,
+        onSave: (updatedText, updatedOptions, newType) {
 
           try {
             bloc.add(
@@ -876,6 +808,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 questionIndex: questionIndex,
                 updatedText: updatedText,
                 updatedOptions: updatedOptions,
+                newType: newType,
               ),
             );
 
