@@ -222,7 +222,7 @@ class SimplePdfService implements IPdfGenerationService {
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(15),
+            margin: pw.EdgeInsets.only(left: 15, right: 15, top: 15, bottom: isFirstPage ? 10 : 0),
             build: (context) {
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -258,7 +258,7 @@ class SimplePdfService implements IPdfGenerationService {
           pdf.addPage(
             pw.Page(
               pageFormat: PdfPageFormat.a4,
-              margin: const pw.EdgeInsets.all(15),
+              margin: pw.EdgeInsets.only(left: 15, right: 15, top: 15, bottom: isFirstPage ? 10 : 0),
               build: (context) {
                 return pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -296,7 +296,7 @@ class SimplePdfService implements IPdfGenerationService {
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(15),
+            margin: const pw.EdgeInsets.only(left: 15, right: 15, top: 15, bottom: 0),
             build: (context) {
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -967,8 +967,9 @@ class SimplePdfService implements IPdfGenerationService {
     final currentPage = <pw.Widget>[];
     double currentPageHeight = 0;
 
-    final availableHeightFirstPage = (USABLE_PAGE_HEIGHT - HEADER_HEIGHT) * 0.95;
-    final availableHeightOtherPages = (USABLE_PAGE_HEIGHT - 30) * 0.95;
+    final availableHeightFirstPage = (USABLE_PAGE_HEIGHT - HEADER_HEIGHT) * 0.94;
+    // Page 2+: zero bottom margin = maximum available height
+    final availableHeightOtherPages = (USABLE_PAGE_HEIGHT - 5) * 0.92;
 
     double maxHeightForCurrentPage = availableHeightFirstPage;
     bool isFirstPage = true;
@@ -1002,21 +1003,21 @@ class SimplePdfService implements IPdfGenerationService {
     }
 
     if (widget is pw.Text) {
-      return 14 * fontSizeMultiplier;  // Balanced estimate for text
+      return 12.5 * fontSizeMultiplier;  // More compact text estimate
     }
 
     if (widget is pw.Container) {
-      return 20 * fontSizeMultiplier;  // Section headers
+      return 17 * fontSizeMultiplier;  // Section headers
     }
 
     if (widget is pw.Column) {
-      return 22 * fontSizeMultiplier;  // Questions with options
+      return 19 * fontSizeMultiplier;  // Questions with options
     }
 
     if (widget is pw.Row) {
-      return 16 * fontSizeMultiplier;  // Row layout
+      return 14.5 * fontSizeMultiplier;  // Row layout
     }
 
-    return 12 * fontSizeMultiplier;  // Default fallback
+    return 10.5 * fontSizeMultiplier;  // Default fallback
   }
 }
