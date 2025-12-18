@@ -111,16 +111,19 @@ class SimplePdfService implements IPdfGenerationService {
               width: double.infinity,
               padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
               child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    sectionHeaderText,
-                    style: pw.TextStyle(
-                      fontSize: UIConstants.fontSizeSmall * fontSizeMultiplier,
-                      fontWeight: pw.FontWeight.bold,
-                      font: _boldFont,
+                  pw.Expanded(
+                    child: pw.Text(
+                      sectionHeaderText,
+                      style: pw.TextStyle(
+                        fontSize: UIConstants.fontSizeSmall * fontSizeMultiplier,
+                        fontWeight: pw.FontWeight.bold,
+                        font: _boldFont,
+                      ),
                     ),
                   ),
+                  pw.SizedBox(width: 10),
                   pw.Text(
                     questionCount > 0
                         ? '$questionCount × ${(sectionMarks / questionCount).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} = ${sectionMarks.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '')} marks'

@@ -44,7 +44,8 @@
       "Bash(timeout 180 flutter run:*)",
       "Bash(cd:*)",
       "Bash(wc:*)",
-      "Bash(timeout 180 flutter analyze:*)"
+      "Bash(timeout 180 flutter analyze:*)",
+      "Bash(timeout 120 dart analyze:*)"
     ],
     "deny": [],
     "ask": []
