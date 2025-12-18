@@ -102,6 +102,7 @@ class SimplePdfService implements IPdfGenerationService {
           final questionCount = nonOptionalQuestions.length;
 
           final isFillBlanksSection = questions.first.type == 'fill_in_blanks' || questions.first.type == 'fill_blanks';
+          final isMissingLettersSection = questions.first.type == 'missing_letters';
 
           String sectionHeaderText = '${_getRomanNumeral(sectionIndex)}. $sectionName';
 
@@ -161,6 +162,13 @@ class SimplePdfService implements IPdfGenerationService {
                 textAlign: pw.TextAlign.left,
               ),
             );
+          } else if (isMissingLettersSection) {
+            // Build 2-column layout for missing letters questions
+            allQuestionWidgets.addAll(_buildTwoColumnMissingLettersQuestions(
+              questions: questions,
+              fontSizeMultiplier: fontSizeMultiplier,
+              spacingMultiplier: spacingMultiplier,
+            ));
           } else {
             for (int i = 0; i < questions.length; i++) {
               final question = questions[i];
@@ -894,6 +902,73 @@ class SimplePdfService implements IPdfGenerationService {
       ),
       pw.SizedBox(height: 1 * spacingMultiplier),
     ];
+  }
+
+  List<pw.Widget> _buildTwoColumnMissingLettersQuestions({
+    required List<Question> questions,
+    required double fontSizeMultiplier,
+    required double spacingMultiplier,
+  }) {
+    final widgets = <pw.Widget>[];
+
+    // Build rows with 2 questions per row
+    for (int i = 0; i < questions.length; i += 2) {
+      final leftQuestion = questions[i];
+      final rightQuestion = i + 1 < questions.length ? questions[i + 1] : null;
+
+      try {
+        final leftWidget = _buildSinglePageQuestion(
+          question: leftQuestion,
+          questionNumber: i + 1,
+          showCommonText: true,
+          fontSizeMultiplier: fontSizeMultiplier,
+          hideOptions: false,
+        );
+
+        final rightWidget = rightQuestion != null
+            ? _buildSinglePageQuestion(
+                question: rightQuestion,
+                questionNumber: i + 2,
+                showCommonText: true,
+                fontSizeMultiplier: fontSizeMultiplier,
+                hideOptions: false,
+              )
+            : null;
+
+        // Build row with two columns
+        widgets.add(
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: leftWidget,
+              ),
+              pw.SizedBox(width: 20), // Space between columns
+              if (rightWidget != null)
+                pw.Expanded(
+                  child: rightWidget,
+                )
+              else
+                pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+        );
+
+        // Add spacing between rows
+        if (i + 2 < questions.length) {
+          widgets.add(pw.SizedBox(height: 8 * spacingMultiplier));
+        }
+      } catch (e) {
+        widgets.add(
+          pw.Text(
+            '${i + 1}. [Question could not be displayed]',
+            style: pw.TextStyle(fontSize: 9 * fontSizeMultiplier, color: PdfColors.grey),
+          ),
+        );
+      }
+    }
+
+    return widgets;
   }
 
   String _formatExamDate(DateTime date) {
