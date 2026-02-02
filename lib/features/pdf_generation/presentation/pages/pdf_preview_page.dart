@@ -50,21 +50,21 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     super.initState();
     _currentPdfBytes = widget.pdfBytes;
 
-    print('\n📱 === PDF PREVIEW PAGE INITIALIZED ===');
-    print('   Paper: ${widget.paperTitle}');
-    print('   Layout Type: ${widget.layoutType}');
-    print('   PDF Size: ${(_currentPdfBytes.length / 1024).toStringAsFixed(2)} KB');
+    debugPrint('\n📱 === PDF PREVIEW PAGE INITIALIZED ===');
+    debugPrint('   Paper: ${widget.paperTitle}');
+    debugPrint('   Layout Type: ${widget.layoutType}');
+    debugPrint('   PDF Size: ${(_currentPdfBytes.length / 1024).toStringAsFixed(2)} KB');
 
     // Try to determine page count
     _getPdfPageCount(_currentPdfBytes).then((result) {
       if (result['success']) {
-        print('   📖 Page Count: ${result['pageCount']} pages');
+        debugPrint('   📖 Page Count: ${result['pageCount']} pages');
       } else {
-        print('   ⚠️  Could not determine page count: ${result['error']}');
+        debugPrint('   ⚠️  Could not determine page count: ${result['error']}');
       }
     });
 
-    print('📱 === PDF PREVIEW READY ===\n');
+    debugPrint('📱 === PDF PREVIEW READY ===\n');
   }
 
   @override
@@ -76,9 +76,9 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
   void _handleCustomSliderChange(double fontMultiplier, double spacingMultiplier) {
     if (_isRegenerating || widget.onRegeneratePdf == null) return;
 
-    print('\n🎚️  PDF Settings Changed:');
-    print('   Font Multiplier: ${fontMultiplier.toStringAsFixed(2)}');
-    print('   Spacing Multiplier: ${spacingMultiplier.toStringAsFixed(2)}');
+    debugPrint('\n🎚️  PDF Settings Changed:');
+    debugPrint('   Font Multiplier: ${fontMultiplier.toStringAsFixed(2)}');
+    debugPrint('   Spacing Multiplier: ${spacingMultiplier.toStringAsFixed(2)}');
 
     setState(() {
       _customFontMultiplier = fontMultiplier;
@@ -90,7 +90,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (!mounted || _isRegenerating) return;
 
-      print('⏳ Regenerating PDF with new settings...');
+      debugPrint('⏳ Regenerating PDF with new settings...');
 
       setState(() => _isRegenerating = true);
 

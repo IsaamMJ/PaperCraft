@@ -856,11 +856,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Future<void> _generateAndShowPreview(QuestionPaperEntity paper) async {
-    print('\n🚀 === PDF GENERATION STARTED ===');
-    print('📝 Paper: ${paper.title}');
-    print('🎯 Total Questions: ${paper.totalQuestions}');
-    print('📊 Total Marks: ${paper.totalMarks}');
-    print('🗂️  Sections: ${paper.questions.keys.join(", ")}');
+    debugPrint('\n🚀 === PDF GENERATION STARTED ===');
+    debugPrint('📝 Paper: ${paper.title}');
+    debugPrint('🎯 Total Questions: ${paper.totalQuestions}');
+    debugPrint('📊 Total Marks: ${paper.totalMarks}');
+    debugPrint('🗂️  Sections: ${paper.questions.keys.join(", ")}');
 
     setState(() {
       _isGeneratingPdf = true;
@@ -925,10 +925,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       final userStateService = sl<UserStateService>();
       final schoolName = userStateService.schoolName;
 
-      print('⚙️  Starting PDF generation...');
-      print('   School: $schoolName');
-      print('   Font Multiplier: 1.3');
-      print('   Spacing Multiplier: 1.0');
+      debugPrint('⚙️  Starting PDF generation...');
+      debugPrint('   School: $schoolName');
+      debugPrint('   Font Multiplier: 1.3');
+      debugPrint('   Spacing Multiplier: 1.0');
 
       // Generate PDF with standard layout
       final pdfBytes = await pdfService.generateStudentPdf(
@@ -938,8 +938,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         spacingMultiplier: 1.0,
       );
 
-      print('✅ PDF Generated Successfully!');
-      print('   Size: ${(pdfBytes.length / 1024).toStringAsFixed(2)} KB');
+      debugPrint('✅ PDF Generated Successfully!');
+      debugPrint('   Size: ${(pdfBytes.length / 1024).toStringAsFixed(2)} KB');
 
       // Check if cancelled
       if (_cancelPdfGeneration) {
@@ -955,8 +955,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
       // Navigate directly to preview page
       if (mounted) {
-        print('🔄 Navigating to PDF Preview page...');
-        print('🚀 === PDF GENERATION ENDED ===\n');
+        debugPrint('🔄 Navigating to PDF Preview page...');
+        debugPrint('🚀 === PDF GENERATION ENDED ===\n');
 
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -965,9 +965,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               paperTitle: paper.title,
               layoutType: 'single',
               onRegeneratePdf: (fontMultiplier, spacingMultiplier) async {
-                print('\n🔄 === PDF REGENERATION TRIGGERED ===');
-                print('   Font Multiplier: $fontMultiplier');
-                print('   Spacing Multiplier: $spacingMultiplier');
+                debugPrint('\n🔄 === PDF REGENERATION TRIGGERED ===');
+                debugPrint('   Font Multiplier: $fontMultiplier');
+                debugPrint('   Spacing Multiplier: $spacingMultiplier');
 
                 final regeneratedPdf = await pdfService.generateStudentPdf(
                   paper: paper,
@@ -976,9 +976,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                   spacingMultiplier: spacingMultiplier,
                 );
 
-                print('✅ PDF Regenerated!');
-                print('   Size: ${(regeneratedPdf.length / 1024).toStringAsFixed(2)} KB');
-                print('🔄 === PDF REGENERATION ENDED ===\n');
+                debugPrint('✅ PDF Regenerated!');
+                debugPrint('   Size: ${(regeneratedPdf.length / 1024).toStringAsFixed(2)} KB');
+                debugPrint('🔄 === PDF REGENERATION ENDED ===\n');
 
                 return regeneratedPdf;
               },
