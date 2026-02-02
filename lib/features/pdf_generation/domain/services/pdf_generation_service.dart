@@ -212,6 +212,10 @@ class SimplePdfService implements IPdfGenerationService {
         }
       }
 
+      print('\n🔍 === PDF PAGINATION DEBUG START ===');
+      print('📊 Total widgets to paginate: ${allQuestionWidgets.length}');
+      print('🎯 Font multiplier: $fontSizeMultiplier, Spacing multiplier: $spacingMultiplier');
+
       final pages = _paginateContent(
         allQuestionWidgets,
         schoolName,
@@ -222,13 +226,25 @@ class SimplePdfService implements IPdfGenerationService {
         spacingMultiplier,
       );
 
+      print('📄 Total pages created: ${pages.length}');
+      for (int i = 0; i < pages.length; i++) {
+        print('   Page ${i + 1}: ${pages[i].length} widgets');
+      }
+      print('🔍 === PDF PAGINATION DEBUG END ===\n');
+
       // Check if single page or two pages for duplication logic
       final isSinglePage = pages.length == 1;
       final isTwoPages = pages.length == 2;
 
+      print('\n📖 BUILDING PDF PAGES:');
+      print('   Total pages: ${pages.length}');
+      print('   Single page: $isSinglePage, Two pages: $isTwoPages');
+
       for (int pageIndex = 0; pageIndex < pages.length; pageIndex++) {
         final isFirstPage = pageIndex == 0;
         final pageContent = pages[pageIndex];
+
+        print('   Building PDF page ${pageIndex + 1} with ${pageContent.length} widgets (isFirstPage: $isFirstPage)');
 
         pdf.addPage(
           pw.Page(
@@ -1048,6 +1064,10 @@ class SimplePdfService implements IPdfGenerationService {
       double fontSizeMultiplier,
       double spacingMultiplier,
       ) {
+    print('\n📐 PAGINATION CALCULATION:');
+    print('   USABLE_PAGE_HEIGHT: $USABLE_PAGE_HEIGHT pt');
+    print('   HEADER_HEIGHT: $HEADER_HEIGHT pt');
+
     final pages = <List<pw.Widget>>[];
     final currentPage = <pw.Widget>[];
 
@@ -1057,31 +1077,51 @@ class SimplePdfService implements IPdfGenerationService {
     // Subsequent pages: Minimal top margin + safety buffer
     final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 40;
 
+    print('   First page available: $availableHeightFirstPage pt');
+    print('   Other pages available: $availableHeightOtherPages pt');
+
     double currentPageHeight = 0;
     double maxHeightForCurrentPage = availableHeightFirstPage;
+    int currentPageNumber = 1;
+
+    print('\n📝 WIDGET ALLOCATION:');
 
     for (int i = 0; i < allWidgets.length; i++) {
       final widget = allWidgets[i];
       final widgetHeight = _measureActualWidgetHeight(widget, fontSizeMultiplier, spacingMultiplier);
 
+      final widgetType = widget.runtimeType.toString();
+      print('   Widget $i: $widgetType - Height: ${widgetHeight.toStringAsFixed(2)} pt');
+
       // Check if adding this widget would exceed page capacity
       if (currentPageHeight + widgetHeight > maxHeightForCurrentPage && currentPage.isNotEmpty) {
         // Page is full - save it and start a new page
+        print('   ⚠️  Page $currentPageNumber FULL (${currentPageHeight.toStringAsFixed(2)} pt used of ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
+        print('   💾 Saving page $currentPageNumber with ${currentPage.length} widgets');
+
         pages.add(List.from(currentPage));
         currentPage.clear();
         currentPageHeight = 0;
         maxHeightForCurrentPage = availableHeightOtherPages;
+        currentPageNumber++;
+
+        print('   📄 Starting page $currentPageNumber (max: ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
       }
 
       // Add widget to current page
       currentPage.add(widget);
       currentPageHeight += widgetHeight;
+
+      print('      → Added to page $currentPageNumber (total: ${currentPageHeight.toStringAsFixed(2)} pt / ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
     }
 
     // Add final page if it has content
     if (currentPage.isNotEmpty) {
+      print('   💾 Saving final page $currentPageNumber with ${currentPage.length} widgets (${currentPageHeight.toStringAsFixed(2)} pt)');
       pages.add(currentPage);
     }
+
+    print('\n✅ PAGINATION COMPLETE: ${pages.length} pages created\n');
 
     return pages.isEmpty ? [allWidgets] : pages;
   }
@@ -1092,7 +1132,11 @@ class SimplePdfService implements IPdfGenerationService {
   double _measureActualWidgetHeight(pw.Widget widget, double fontSizeMultiplier, double spacingMultiplier) {
     // 1. Fixed-height widgets (spacers)
     if (widget is pw.SizedBox) {
-      return widget.height ?? 0;
+      final height = widget.height ?? 0;
+      if (height > 0) {
+        // print('      📏 SizedBox: ${height.toStringAsFixed(2)} pt');
+      }
+      return height;
     }
 
     // 2. Simple text widgets - use conservative estimation
@@ -1102,7 +1146,9 @@ class SimplePdfService implements IPdfGenerationService {
       // Use conservative 13pt average × fontSizeMultiplier
       final estimatedFontSize = 13.0 * fontSizeMultiplier;
       // Average line height is 1.5x font size for readability
-      return estimatedFontSize * 1.5;
+      final height = estimatedFontSize * 1.5;
+      // print('      📏 Text: ${height.toStringAsFixed(2)} pt (font: ${estimatedFontSize.toStringAsFixed(1)}pt)');
+      return height;
     }
 
     // 3. Containers (section headers, etc.)
