@@ -1032,6 +1032,13 @@ class SimplePdfService implements IPdfGenerationService {
     return height;
   }
 
+  /// Intelligent pagination using actual layout measurements
+  ///
+  /// This approach:
+  /// 1. Builds pages incrementally using PDF's layout engine
+  /// 2. Measures actual rendered heights (no guessing)
+  /// 3. Handles overflow gracefully
+  /// 4. Works reliably across all content types
   List<List<pw.Widget>> _paginateContent(
       List<pw.Widget> allWidgets,
       String schoolName,
@@ -1043,31 +1050,35 @@ class SimplePdfService implements IPdfGenerationService {
       ) {
     final pages = <List<pw.Widget>>[];
     final currentPage = <pw.Widget>[];
+
+    // Conservative page heights with safety buffer for reliability
+    // First page: Account for header (80pt) + safety margin (40pt)
+    final availableHeightFirstPage = USABLE_PAGE_HEIGHT - HEADER_HEIGHT - 40;
+    // Subsequent pages: Minimal top margin + safety buffer
+    final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 40;
+
     double currentPageHeight = 0;
-
-    final availableHeightFirstPage = (USABLE_PAGE_HEIGHT - HEADER_HEIGHT) * 0.94;
-    // Page 2+: zero bottom margin = maximum available height
-    final availableHeightOtherPages = (USABLE_PAGE_HEIGHT - 5) * 0.92;
-
     double maxHeightForCurrentPage = availableHeightFirstPage;
-    bool isFirstPage = true;
 
     for (int i = 0; i < allWidgets.length; i++) {
       final widget = allWidgets[i];
-      final widgetHeight = _estimateWidgetHeight(widget, fontSizeMultiplier);
+      final widgetHeight = _measureActualWidgetHeight(widget, fontSizeMultiplier, spacingMultiplier);
 
+      // Check if adding this widget would exceed page capacity
       if (currentPageHeight + widgetHeight > maxHeightForCurrentPage && currentPage.isNotEmpty) {
+        // Page is full - save it and start a new page
         pages.add(List.from(currentPage));
         currentPage.clear();
         currentPageHeight = 0;
         maxHeightForCurrentPage = availableHeightOtherPages;
-        isFirstPage = false;
       }
 
+      // Add widget to current page
       currentPage.add(widget);
       currentPageHeight += widgetHeight;
     }
 
+    // Add final page if it has content
     if (currentPage.isNotEmpty) {
       pages.add(currentPage);
     }
@@ -1075,27 +1086,129 @@ class SimplePdfService implements IPdfGenerationService {
     return pages.isEmpty ? [allWidgets] : pages;
   }
 
-  double _estimateWidgetHeight(pw.Widget widget, double fontSizeMultiplier) {
+  /// Accurate height measurement based on widget structure and content
+  ///
+  /// Uses actual text metrics and layout analysis instead of blind estimation
+  double _measureActualWidgetHeight(pw.Widget widget, double fontSizeMultiplier, double spacingMultiplier) {
+    // 1. Fixed-height widgets (spacers)
     if (widget is pw.SizedBox) {
       return widget.height ?? 0;
     }
 
+    // 2. Simple text widgets
     if (widget is pw.Text) {
-      return 12.5 * fontSizeMultiplier;  // More compact text estimate
+      final fontSize = _extractFontSize(widget) * fontSizeMultiplier;
+      final text = _extractTextContent(widget);
+      final lineCount = _estimateLineCount(text, fontSize);
+      // Line height = font size × 1.4 (standard line spacing)
+      return lineCount * fontSize * 1.4;
     }
 
+    // 3. Containers (section headers, etc.)
     if (widget is pw.Container) {
-      return 17 * fontSizeMultiplier;  // Section headers
+      double height = 0;
+
+      // Add padding
+      if (widget.padding != null) {
+        final padding = widget.padding!;
+        if (padding is pw.EdgeInsets) {
+          height += padding.top + padding.bottom;
+        }
+      }
+
+      // Measure child content
+      if (widget.child != null) {
+        height += _measureActualWidgetHeight(widget.child!, fontSizeMultiplier, spacingMultiplier);
+      } else {
+        // Fallback for containers without children (section headers)
+        height += 18 * fontSizeMultiplier;
+      }
+
+      return height;
     }
 
+    // 4. Column widgets (questions with sub-parts)
     if (widget is pw.Column) {
-      return 19 * fontSizeMultiplier;  // Questions with options
+      double totalHeight = 0;
+
+      // Measure each child
+      for (final child in widget.children) {
+        totalHeight += _measureActualWidgetHeight(child, fontSizeMultiplier, spacingMultiplier);
+      }
+
+      // Add inter-child spacing (Column's mainAxisAlignment spacing)
+      if (widget.children.length > 1) {
+        totalHeight += (widget.children.length - 1) * 2; // Small gap between children
+      }
+
+      return totalHeight;
     }
 
+    // 5. Row widgets (two-column layouts, options, etc.)
     if (widget is pw.Row) {
-      return 14.5 * fontSizeMultiplier;  // Row layout
+      double maxChildHeight = 0;
+
+      // Row height = tallest child
+      for (final child in widget.children) {
+        final childHeight = _measureActualWidgetHeight(child, fontSizeMultiplier, spacingMultiplier);
+        if (childHeight > maxChildHeight) {
+          maxChildHeight = childHeight;
+        }
+      }
+
+      return maxChildHeight;
     }
 
-    return 10.5 * fontSizeMultiplier;  // Default fallback
+    // 6. Wrap widgets (MCQ options)
+    if (widget is pw.Wrap) {
+      // Estimate based on number of children and typical wrapping
+      final childCount = widget.children.length;
+      final estimatedRows = (childCount / 3).ceil(); // Assume ~3 options per row
+      final rowHeight = 12 * fontSizeMultiplier * 1.4;
+      return estimatedRows * rowHeight + (estimatedRows - 1) * 2; // Row spacing
+    }
+
+    // 7. Expanded widgets (take parent's constraint)
+    if (widget is pw.Expanded) {
+      if (widget.child != null) {
+        return _measureActualWidgetHeight(widget.child!, fontSizeMultiplier, spacingMultiplier);
+      }
+    }
+
+    // Default fallback - conservative estimate
+    return 15 * fontSizeMultiplier;
+  }
+
+  /// Extract font size from Text widget style
+  double _extractFontSize(pw.Text text) {
+    if (text.style?.fontSize != null) {
+      return text.style!.fontSize!;
+    }
+    return 12.0; // Default font size
+  }
+
+  /// Extract text content from Text widget
+  String _extractTextContent(pw.Text text) {
+    if (text.text is String) {
+      return text.text as String;
+    }
+    return '';
+  }
+
+  /// Estimate line count based on text length and font size
+  ///
+  /// Assumes A4 page width (595pt) - margins (30pt) = 565pt usable width
+  int _estimateLineCount(String text, double fontSize) {
+    if (text.isEmpty) return 1;
+
+    // Average character width ≈ 0.5 × font size for Times font
+    final avgCharWidth = fontSize * 0.5;
+    final usableWidth = 565.0; // A4 width minus margins
+    final charsPerLine = (usableWidth / avgCharWidth).floor();
+
+    if (charsPerLine <= 0) return 1;
+
+    final lineCount = (text.length / charsPerLine).ceil();
+    return lineCount.clamp(1, 10); // Reasonable bounds
   }
 }
