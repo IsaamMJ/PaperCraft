@@ -1095,13 +1095,14 @@ class SimplePdfService implements IPdfGenerationService {
       return widget.height ?? 0;
     }
 
-    // 2. Simple text widgets
+    // 2. Simple text widgets - use conservative estimation
     if (widget is pw.Text) {
-      final fontSize = _extractFontSize(widget) * fontSizeMultiplier;
-      final text = _extractTextContent(widget);
-      final lineCount = _estimateLineCount(text, fontSize);
-      // Line height = font size × 1.4 (standard line spacing)
-      return lineCount * fontSize * 1.4;
+      // We use 11pt as base font for most content (questions, options)
+      // Section headers use UIConstants.fontSizeSmall (typically 12-14pt)
+      // Use conservative 13pt average × fontSizeMultiplier
+      final estimatedFontSize = 13.0 * fontSizeMultiplier;
+      // Average line height is 1.5x font size for readability
+      return estimatedFontSize * 1.5;
     }
 
     // 3. Containers (section headers, etc.)
@@ -1113,6 +1114,8 @@ class SimplePdfService implements IPdfGenerationService {
         final padding = widget.padding!;
         if (padding is pw.EdgeInsets) {
           height += padding.top + padding.bottom;
+        } else if (padding is pw.EdgeInsetsDirectional) {
+          height += padding.top + padding.bottom;
         }
       }
 
@@ -1121,7 +1124,7 @@ class SimplePdfService implements IPdfGenerationService {
         height += _measureActualWidgetHeight(widget.child!, fontSizeMultiplier, spacingMultiplier);
       } else {
         // Fallback for containers without children (section headers)
-        height += 18 * fontSizeMultiplier;
+        height += 20 * fontSizeMultiplier;
       }
 
       return height;
@@ -1136,9 +1139,9 @@ class SimplePdfService implements IPdfGenerationService {
         totalHeight += _measureActualWidgetHeight(child, fontSizeMultiplier, spacingMultiplier);
       }
 
-      // Add inter-child spacing (Column's mainAxisAlignment spacing)
+      // Add inter-child spacing
       if (widget.children.length > 1) {
-        totalHeight += (widget.children.length - 1) * 2; // Small gap between children
+        totalHeight += (widget.children.length - 1) * 3 * spacingMultiplier;
       }
 
       return totalHeight;
@@ -1156,16 +1159,18 @@ class SimplePdfService implements IPdfGenerationService {
         }
       }
 
-      return maxChildHeight;
+      return maxChildHeight > 0 ? maxChildHeight : 15 * fontSizeMultiplier;
     }
 
     // 6. Wrap widgets (MCQ options)
     if (widget is pw.Wrap) {
       // Estimate based on number of children and typical wrapping
       final childCount = widget.children.length;
-      final estimatedRows = (childCount / 3).ceil(); // Assume ~3 options per row
-      final rowHeight = 12 * fontSizeMultiplier * 1.4;
-      return estimatedRows * rowHeight + (estimatedRows - 1) * 2; // Row spacing
+      // Assume ~2.5 options per row on average (conservative)
+      final estimatedRows = (childCount / 2.5).ceil();
+      final rowHeight = 11 * fontSizeMultiplier * 1.5; // Option font × line height
+      final spacing = widget.runSpacing ?? 1;
+      return estimatedRows * rowHeight + (estimatedRows - 1) * spacing;
     }
 
     // 7. Expanded widgets (take parent's constraint)
@@ -1175,40 +1180,20 @@ class SimplePdfService implements IPdfGenerationService {
       }
     }
 
+    // 8. Padding widgets
+    if (widget is pw.Padding) {
+      double height = 0;
+      if (widget.padding is pw.EdgeInsets) {
+        final padding = widget.padding as pw.EdgeInsets;
+        height += padding.top + padding.bottom;
+      }
+      if (widget.child != null) {
+        height += _measureActualWidgetHeight(widget.child!, fontSizeMultiplier, spacingMultiplier);
+      }
+      return height;
+    }
+
     // Default fallback - conservative estimate
-    return 15 * fontSizeMultiplier;
-  }
-
-  /// Extract font size from Text widget style
-  double _extractFontSize(pw.Text text) {
-    if (text.style?.fontSize != null) {
-      return text.style!.fontSize!;
-    }
-    return 12.0; // Default font size
-  }
-
-  /// Extract text content from Text widget
-  String _extractTextContent(pw.Text text) {
-    if (text.text is String) {
-      return text.text as String;
-    }
-    return '';
-  }
-
-  /// Estimate line count based on text length and font size
-  ///
-  /// Assumes A4 page width (595pt) - margins (30pt) = 565pt usable width
-  int _estimateLineCount(String text, double fontSize) {
-    if (text.isEmpty) return 1;
-
-    // Average character width ≈ 0.5 × font size for Times font
-    final avgCharWidth = fontSize * 0.5;
-    final usableWidth = 565.0; // A4 width minus margins
-    final charsPerLine = (usableWidth / avgCharWidth).floor();
-
-    if (charsPerLine <= 0) return 1;
-
-    final lineCount = (text.length / charsPerLine).ceil();
-    return lineCount.clamp(1, 10); // Reasonable bounds
+    return 16 * fontSizeMultiplier;
   }
 }
