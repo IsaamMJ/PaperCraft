@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/app_messages.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../../core/presentation/constants/app_assets.dart';
-import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -21,46 +21,38 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  Timer? _animationTimer; // Track timer to prevent memory leak
+  late AnimationController _staggerController;
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
     _fadeController = AnimationController(
-      duration: Duration(milliseconds: UIConstants.durationSlow + 200),
       vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
-    _slideController = AnimationController(
-      duration: Duration(milliseconds: UIConstants.durationSlow),
+    _staggerController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 1200),
     );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-
-    // Start animations with a timer (to prevent memory leak)
-    _animationTimer = Timer(Duration(milliseconds: UIConstants.durationFast), () {
+    Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _fadeController.forward();
-        _slideController.forward();
+        _staggerController.forward();
       }
     });
   }
 
   @override
   void dispose() {
-    _animationTimer?.cancel();
     _fadeController.dispose();
-    _slideController.dispose();
+    _staggerController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -69,52 +61,61 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       _showErrorDialog(context, state.message);
     }
     if (state is AuthAuthenticated) {
-      _navigateToHome(context);
+      try {
+        context.go(AppRoutes.home);
+      } catch (_) {}
     }
   }
 
   void _showErrorDialog(BuildContext context, String message) {
+    HapticFeedback.heavyImpact();
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+          borderRadius: BorderRadius.circular(24),
         ),
         icon: Container(
-          padding: EdgeInsets.all(UIConstants.spacing16),
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
-            color: Color(0xFFFF3B30).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+            color: AppColors.error10,
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            Icons.error_outline,
-            color: Color(0xFFFF3B30),
-            size: 32,
+          child: const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 28,
           ),
         ),
         title: const Text(
           AppMessages.authFailedGeneric,
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Text(
           message,
           style: TextStyle(
             color: AppColors.textSecondary,
-            fontSize: UIConstants.fontSizeMedium,
+            fontSize: 15,
             height: 1.5,
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Try Again',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: UIConstants.fontSizeMedium,
-                fontWeight: FontWeight.w600,
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
+            ),
+            child: const Text(
+              'Try Again',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -122,32 +123,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  void _navigateToHome(BuildContext context) {
-    try {
-      context.go(AppRoutes.home);
-    } catch (e) {
-      // GoRouter not available in test context, ignore
-    }
-  }
-
   void _triggerSignIn(BuildContext context) {
+    HapticFeedback.mediumImpact();
     context.read<AuthBloc>().add(const AuthSignInGoogle());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           try {
             _handleAuthState(context, state);
-          } catch (e) {
-            // GoRouter/navigation errors are handled silently
-          }
+          } catch (_) {}
         },
         child: BlocBuilder<AuthBloc, AuthState>(
-          // Only rebuild if loading state changes (reduces unnecessary rebuilds)
           buildWhen: (previous, current) {
             final wasLoading = previous is AuthLoading;
             final isLoading = current is AuthLoading;
@@ -156,12 +146,23 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           builder: (context, state) {
             return LayoutBuilder(
               builder: (context, constraints) {
-                return _ResponsiveLoginLayout(
-                  constraints: constraints,
-                  fadeAnimation: _fadeAnimation,
-                  slideAnimation: _slideAnimation,
+                final isDesktop =
+                    constraints.maxWidth >= UIConstants.breakpointDesktop;
+                if (isDesktop) {
+                  return _DesktopLayout(
+                    fadeController: _fadeController,
+                    staggerController: _staggerController,
+                    isLoading: state is AuthLoading,
+                    onSignIn: () => _triggerSignIn(context),
+                  );
+                }
+                return _MobileLayout(
+                  fadeController: _fadeController,
+                  staggerController: _staggerController,
+                  pulseController: _pulseController,
                   isLoading: state is AuthLoading,
                   onSignIn: () => _triggerSignIn(context),
+                  isCompact: constraints.maxHeight < 680,
                 );
               },
             );
@@ -172,397 +173,228 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 }
 
-class _ResponsiveLoginLayout extends StatelessWidget {
-  final BoxConstraints constraints;
-  final Animation<double> fadeAnimation;
-  final Animation<Offset> slideAnimation;
+// ---------------------------------------------------------------------------
+// MOBILE LAYOUT
+// ---------------------------------------------------------------------------
+class _MobileLayout extends StatelessWidget {
+  final AnimationController fadeController;
+  final AnimationController staggerController;
+  final AnimationController pulseController;
   final bool isLoading;
   final VoidCallback onSignIn;
+  final bool isCompact;
 
-  const _ResponsiveLoginLayout({
-    required this.constraints,
-    required this.fadeAnimation,
-    required this.slideAnimation,
+  const _MobileLayout({
+    required this.fadeController,
+    required this.staggerController,
+    required this.pulseController,
     required this.isLoading,
     required this.onSignIn,
-    super.key,
+    required this.isCompact,
   });
-
-  // Responsive breakpoints using UiHelpers
-  bool get isMobile => constraints.maxWidth < UIConstants.breakpointMobile;
-  bool get isTablet => constraints.maxWidth >= UIConstants.breakpointMobile &&
-      constraints.maxWidth < UIConstants.breakpointDesktop;
-  bool get isDesktop => constraints.maxWidth >= UIConstants.breakpointDesktop;
-  bool get isVeryWide => constraints.maxWidth >= 1440;
-  bool get isShortScreen => constraints.maxHeight < 600;
-
-  // Dynamic sizing based on screen size
-  double get maxContentWidth {
-    if (isMobile) return double.infinity;
-    if (isTablet) return 480;
-    if (isDesktop) return double.infinity; // Full width for 2-column layout
-    return 400;
-  }
-
-  EdgeInsets get padding {
-    if (isMobile) {
-      return EdgeInsets.symmetric(
-        horizontal: constraints.maxWidth * 0.08,
-        vertical: isShortScreen ? UIConstants.paddingMedium : UIConstants.paddingLarge,
-      );
-    }
-    if (isTablet) return EdgeInsets.all(UIConstants.paddingLarge * 2);
-    return EdgeInsets.zero; // No padding for desktop 2-column layout
-  }
-
-  double get logoSize {
-    if (isMobile) return isShortScreen ? 60 : 80;
-    if (isTablet) return 90;
-    return 100;
-  }
-
-  double get titleFontSize {
-    if (isMobile) return isShortScreen ? 28 : 32;
-    if (isTablet) return 36;
-    return 40;
-  }
-
-  double get subtitleFontSize {
-    if (isMobile) return UIConstants.fontSizeLarge;
-    if (isTablet) return UIConstants.fontSizeXLarge;
-    return UIConstants.fontSizeXXLarge;
-  }
-
-  double get buttonHeight {
-    if (isMobile) return 56;
-    if (isTablet) return 60;
-    if (isDesktop) return 64;
-    return 56;
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (isDesktop) {
-      return _build2ColumnLayout();
-    }
-
-    return SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxContentWidth),
-          child: Padding(
-            padding: padding,
-            child: isShortScreen
-                ? _buildCompactLayout()
-                : _buildStandardLayout(),
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.primary.withOpacity(0.08),
+            AppColors.background,
+            AppColors.background,
+          ],
+          stops: const [0.0, 0.40, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: isCompact ? 20 : 32,
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: isCompact ? 32 : 60),
+              // Logo + Title
+              _buildStaggered(
+                index: 0,
+                child: _buildLogo(context),
+              ),
+              SizedBox(height: isCompact ? 12 : 20),
+              _buildStaggered(
+                index: 1,
+                child: _buildTitle(),
+              ),
+              SizedBox(height: isCompact ? 8 : 12),
+              _buildStaggered(
+                index: 2,
+                child: _buildSubtitle(),
+              ),
+              SizedBox(height: isCompact ? 36 : 56),
+              // Sign-in button or loading
+              _buildStaggered(
+                index: 3,
+                child: isLoading
+                    ? _buildLoadingState()
+                    : _GoogleSignInButton(
+                        onPressed: onSignIn,
+                        height: 56,
+                      ),
+              ),
+              SizedBox(height: isCompact ? 24 : 40),
+              // Feature highlights
+              _buildStaggered(
+                index: 4,
+                child: _buildFeatureHighlights(),
+              ),
+              SizedBox(height: isCompact ? 24 : 40),
+              // Footer
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: staggerController,
+                  curve: const Interval(0.8, 1.0, curve: Curves.easeOut),
+                ),
+                child: _buildFooter(),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
       ),
     );
   }
 
-  /// New 2-Column Desktop Layout (Professional)
-  Widget _build2ColumnLayout() {
-    return Row(
-      children: [
-        // LEFT: Hero Section with Gradient Background
-        Expanded(
-          flex: 1,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primary.withOpacity(0.8),
-                  Color(0xFF5856D6),
-                ],
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(UIConstants.spacing24 * 3),
-                child: FadeTransition(
-                  opacity: fadeAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.asset(
-                            AppAssets.logoRounded,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: UIConstants.spacing32),
-                      Text(
-                        'Manage Question Papers\nwith Ease',
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1.3,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      SizedBox(height: UIConstants.spacing20),
-                      Text(
-                        'Create, organize, and distribute question papers in minutes. Trusted by educational institutions.',
-                        style: TextStyle(
-                          fontSize: UIConstants.fontSizeXLarge,
-                          color: Colors.white.withOpacity(0.9),
-                          height: 1.6,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      SizedBox(height: UIConstants.spacing32),
-                      // Security/Trust Badges
-                      Row(
-                        children: [
-                          Icon(Icons.lock, color: Colors.white, size: 20),
-                          SizedBox(width: UIConstants.spacing12),
-                          Expanded(
-                            child: Text(
-                              'Secure & GDPR Compliant',
-                              style: TextStyle(
-                                fontSize: UIConstants.fontSizeMedium,
-                                color: Colors.white.withOpacity(0.85),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: UIConstants.spacing16),
-                      Row(
-                        children: [
-                          Icon(Icons.verified_user, color: Colors.white, size: 20),
-                          SizedBox(width: UIConstants.spacing12),
-                          Expanded(
-                            child: Text(
-                              'OAuth 2.0 Authentication',
-                              style: TextStyle(
-                                fontSize: UIConstants.fontSizeMedium,
-                                color: Colors.white.withOpacity(0.85),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        // RIGHT: Login Form
-        Expanded(
-          flex: 1,
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: UIConstants.spacing24 * 2),
-                  child: isLoading
-                      ? _buildSkeletonScreen()
-                      : SlideTransition(
-                          position: slideAnimation,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: UIConstants.spacing12),
-                              Text(
-                                'Enter with your Google account',
-                                style: TextStyle(
-                                  fontSize: UIConstants.fontSizeMedium,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              SizedBox(height: UIConstants.spacing32),
-                              _SignInButton(
-                                onPressed: onSignIn,
-                                height: buttonHeight,
-                              ),
-                              SizedBox(height: UIConstants.spacing32),
-                              _buildFooter(),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildStaggered({required int index, required Widget child}) {
+    final start = (0.1 + index * 0.12).clamp(0.0, 0.8);
+    final end = (start + 0.3).clamp(0.0, 1.0);
+    final interval = Interval(start, end, curve: Curves.easeOutCubic);
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.12),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: staggerController, curve: interval)),
+      child: FadeTransition(
+        opacity:
+            CurvedAnimation(parent: staggerController, curve: interval),
+        child: child,
+      ),
     );
   }
 
-  Widget _buildStandardLayout() {
-    return Column(
-      children: [
-        Expanded(
-          flex: isDesktop ? 3 : 2,
-          child: _buildHeader(),
-        ),
-        Expanded(
-          child: _buildActionSection(),
-        ),
-        if (!isMobile) SizedBox(height: UIConstants.spacing24),
-        _buildFooter(),
-      ],
+  Widget _buildLogo(BuildContext context) {
+    return AnimatedBuilder(
+      animation: pulseController,
+      builder: (context, child) {
+        final glowOpacity = 0.20 + (pulseController.value * 0.12);
+        return Container(
+          width: isCompact ? 80 : 96,
+          height: isCompact ? 80 : 96,
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(glowOpacity),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Image.asset(
+              AppAssets.logoRounded,
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCompactLayout() {
-    // Ensure minimum bottom padding of 16px on very short screens
-    final bottomPadding = (constraints.maxHeight * 0.06).clamp(16.0, double.infinity);
+  Widget _buildTitle() {
+    return Text(
+      'Papercraft',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: isCompact ? 32 : 38,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+        letterSpacing: -0.8,
+        height: 1.1,
+      ),
+    );
+  }
 
-    return SingleChildScrollView(
-      child: Column(
+  Widget _buildSubtitle() {
+    return Text(
+      'Create and manage question papers\nwith ease',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 16,
+        color: AppColors.textSecondary,
+        height: 1.5,
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(height: constraints.maxHeight * 0.1),
-          _buildHeader(),
-          SizedBox(height: constraints.maxHeight * 0.08),
-          _buildActionSection(),
-          SizedBox(height: constraints.maxHeight * 0.06),
-          _buildFooter(),
-          SizedBox(height: bottomPadding),
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            AppMessages.processingAuth,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return FadeTransition(
-      opacity: fadeAnimation,
-      child: SlideTransition(
-        position: slideAnimation,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: logoSize,
-              height: logoSize,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(logoSize * 0.25),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary30,
-                    // Reduce shadow harshness on small screens (min 8, max 15)
-                    blurRadius: (logoSize * 0.2).clamp(8.0, 15.0),
-                    // Reduce offset on small screens (min 4, max 8)
-                    offset: Offset(0, (logoSize * 0.1).clamp(4.0, 8.0)),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(logoSize * 0.25),
-                child: Image.asset(
-                  AppAssets.logoRounded,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            SizedBox(height: isShortScreen ? UIConstants.spacing12 : UIConstants.spacing24),
-            Text(
-              'Papercraft',
-              style: TextStyle(
-                fontSize: titleFontSize,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-            SizedBox(height: isShortScreen ? UIConstants.spacing4 : UIConstants.spacing8),
-            Flexible(
-              child: Text(
-                'Create, organize, and manage your question papers easily',
-                textAlign: TextAlign.center,
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: subtitleFontSize,
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
+  Widget _buildFeatureHighlights() {
+    return Column(
+      children: [
+        _FeatureRow(
+          icon: Icons.auto_stories_rounded,
+          text: 'Smart question paper creation',
+          color: AppColors.primary,
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionSection() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (isLoading)
-          const _LoadingIndicator()
-        else ...[
-          _SignInButton(
-            onPressed: onSignIn,
-            height: isShortScreen ? 52 : buttonHeight,
-          ),
-          SizedBox(height: isShortScreen ? UIConstants.spacing8 : UIConstants.spacing16),
-          Flexible(
-            child: Text(
-              'Currently supporting Google sign-in.\nMore providers coming soon.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: isMobile ? UIConstants.fontSizeSmall + 1 : UIConstants.fontSizeMedium,
-                color: AppColors.textTertiary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// Skeleton Screen for Desktop Loading State
-  Widget _buildSkeletonScreen() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _SkeletonLoading(width: 250, height: 28, borderRadius: 8),
-        SizedBox(height: UIConstants.spacing12),
-        _SkeletonLoading(width: 350, height: 16, borderRadius: 6),
-        SizedBox(height: UIConstants.spacing32),
-        _SkeletonLoading(width: double.infinity, height: 64, borderRadius: 12),
-        SizedBox(height: UIConstants.spacing16),
-        Text(
-          'Signing you in...',
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
+        const SizedBox(height: 14),
+        _FeatureRow(
+          icon: Icons.groups_rounded,
+          text: 'Collaborate with your team',
+          color: AppColors.secondary,
+        ),
+        const SizedBox(height: 14),
+        _FeatureRow(
+          icon: Icons.lock_rounded,
+          text: 'Secure & private',
+          color: AppColors.success,
         ),
       ],
     );
@@ -573,34 +405,47 @@ class _ResponsiveLoginLayout extends StatelessWidget {
       'By continuing, you agree to our Terms of Service\nand Privacy Policy',
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: isMobile ? UIConstants.fontSizeSmall : UIConstants.fontSizeSmall + 1,
+        fontSize: 12,
         color: AppColors.textTertiary,
-        height: 1.3,
+        height: 1.4,
       ),
     );
   }
 }
 
-class _LoadingIndicator extends StatelessWidget {
-  const _LoadingIndicator({super.key});
+// ---------------------------------------------------------------------------
+// FEATURE ROW
+// ---------------------------------------------------------------------------
+class _FeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _FeatureRow({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(
-          width: UIConstants.iconLarge,
-          height: UIConstants.iconLarge,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
           ),
+          child: Icon(icon, color: color, size: 18),
         ),
-        SizedBox(height: UIConstants.spacing20),
+        const SizedBox(width: 12),
         Text(
-          AppMessages.processingAuth,
+          text,
           style: TextStyle(
-            fontSize: UIConstants.fontSizeMedium + 1,
+            fontSize: 14,
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
@@ -610,130 +455,100 @@ class _LoadingIndicator extends StatelessWidget {
   }
 }
 
-class _SignInButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  final double height;
+// ---------------------------------------------------------------------------
+// DESKTOP LAYOUT
+// ---------------------------------------------------------------------------
+class _DesktopLayout extends StatelessWidget {
+  final AnimationController fadeController;
+  final AnimationController staggerController;
+  final bool isLoading;
+  final VoidCallback onSignIn;
 
-  const _SignInButton({
-    required this.onPressed,
-    required this.height,
-    super.key,
+  const _DesktopLayout({
+    required this.fadeController,
+    required this.staggerController,
+    required this.isLoading,
+    required this.onSignIn,
   });
 
   @override
-  State<_SignInButton> createState() => _SignInButtonState();
-}
-
-class _SignInButtonState extends State<_SignInButton> {
-  bool _isPressed = false;
-  bool _isClickDisabled = false; // Debounce flag
-  Timer? _debounceTimer;
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    // Debounce: ignore taps within 1 second of previous tap
-    if (_isClickDisabled) return;
-
-    _isClickDisabled = true;
-    widget.onPressed();
-
-    // Re-enable after 1 second
-    _debounceTimer = Timer(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() => _isClickDisabled = false);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isDesktop = UiHelpers.isDesktop(context);
-    final borderRadius = isDesktop ? UIConstants.radiusXXLarge : UIConstants.radiusLarge;
-
-    return AnimatedScale(
-      scale: (_isPressed && !_isClickDisabled) ? 0.96 : 1.0,
-      duration: Duration(milliseconds: UIConstants.durationVeryFast),
-      child: GestureDetector(
-        onTapDown: (_) {
-          if (!_isClickDisabled) {
-            setState(() => _isPressed = true);
-          }
-        },
-        onTapUp: (_) {
-          if (!_isClickDisabled) {
-            setState(() => _isPressed = false);
-          }
-        },
-        onTapCancel: () {
-          if (!_isClickDisabled) {
-            setState(() => _isPressed = false);
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          height: widget.height,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.overlayDark,
-                blurRadius: isDesktop ? 15 : 10,
-                offset: const Offset(0, 4),
+    return Row(
+      children: [
+        // LEFT: Hero section
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF007AFF),
+                  Color(0xFF5856D6),
+                  Color(0xFF4B3FCC),
+                ],
               ),
-            ],
-          ),
-          child: Semantics(
-            label: 'Sign in with Google account',
-            button: true,
-            enabled: !_isClickDisabled,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _handleTap, // Use debounced handler
-                borderRadius: BorderRadius.circular(borderRadius),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isDesktop ? UIConstants.spacing24 : UIConstants.spacing20,
-                  ),
-                  child: Row(
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(72),
+                child: FadeTransition(
+                  opacity: fadeController,
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Logo
                       Container(
-                        width: UIConstants.iconLarge,
-                        height: UIConstants.iconLarge,
+                        width: 64,
+                        height: 64,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall - 2),
-                          color: AppColors.surface,
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(18),
                         ),
-                        child: Image.network(
-                          AppAssets.googleIcon,
-                          width: UIConstants.iconMedium,
-                          height: UIConstants.iconMedium,
-                          errorBuilder: (context, error, stackTrace) => Icon(
-                            Icons.g_mobiledata,
-                            color: AppColors.primary,
-                            size: UIConstants.iconMedium,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.asset(
+                            AppAssets.logoRounded,
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                      SizedBox(width: UIConstants.spacing16),
-                      Flexible(
-                        child: Text(
-                          'Continue with Google',
-                          style: TextStyle(
-                            // Slightly larger font size to ensure button meets accessibility requirements
-                            fontSize: isDesktop ? UIConstants.fontSizeXLarge : UIConstants.fontSizeXLarge,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
+                      const SizedBox(height: 36),
+                      const Text(
+                        'Manage Question\nPapers with Ease',
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.2,
+                          letterSpacing: -0.8,
                         ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Create, organize, and distribute question papers\nin minutes. Trusted by educational institutions.',
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: Colors.white.withOpacity(0.85),
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      _buildDesktopFeature(
+                        Icons.auto_stories_rounded,
+                        'Smart paper creation with templates',
+                      ),
+                      const SizedBox(height: 18),
+                      _buildDesktopFeature(
+                        Icons.groups_rounded,
+                        'Multi-teacher collaboration & review',
+                      ),
+                      const SizedBox(height: 18),
+                      _buildDesktopFeature(
+                        Icons.verified_user_rounded,
+                        'Secure & GDPR compliant',
                       ),
                     ],
                   ),
@@ -742,67 +557,273 @@ class _SignInButtonState extends State<_SignInButton> {
             ),
           ),
         ),
+        // RIGHT: Sign-in form
+        Expanded(
+          flex: 1,
+          child: Container(
+            color: AppColors.background,
+            child: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.05, 0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: staggerController,
+                        curve: const Interval(0.2, 0.7,
+                            curve: Curves.easeOutCubic),
+                      )),
+                      child: FadeTransition(
+                        opacity: CurvedAnimation(
+                          parent: staggerController,
+                          curve: const Interval(0.2, 0.7,
+                              curve: Curves.easeOut),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Welcome back',
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Sign in to continue to Papercraft',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                            isLoading
+                                ? _buildDesktopLoading()
+                                : _GoogleSignInButton(
+                                    onPressed: onSignIn,
+                                    height: 60,
+                                  ),
+                            const SizedBox(height: 32),
+                            Text(
+                              'By continuing, you agree to our\nTerms of Service and Privacy Policy',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textTertiary,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopFeature(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLoading() {
+    return Container(
+      width: double.infinity,
+      height: 60,
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            'Signing you in...',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Skeleton Loading Widget for Desktop
-class _SkeletonLoading extends StatefulWidget {
-  final double width;
+// ---------------------------------------------------------------------------
+// GOOGLE SIGN-IN BUTTON
+// ---------------------------------------------------------------------------
+class _GoogleSignInButton extends StatefulWidget {
+  final VoidCallback onPressed;
   final double height;
-  final double borderRadius;
 
-  const _SkeletonLoading({
-    required this.width,
+  const _GoogleSignInButton({
+    required this.onPressed,
     required this.height,
-    required this.borderRadius,
-    super.key,
   });
 
   @override
-  State<_SkeletonLoading> createState() => _SkeletonLoadingState();
+  State<_GoogleSignInButton> createState() => _GoogleSignInButtonState();
 }
 
-class _SkeletonLoadingState extends State<_SkeletonLoading>
+class _GoogleSignInButtonState extends State<_GoogleSignInButton>
     with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerController;
+  late AnimationController _pressController;
+  bool _isClickDisabled = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+    _pressController = AnimationController(
       vsync: this,
-    )..repeat();
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 200),
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    );
   }
 
   @override
   void dispose() {
-    _shimmerController.dispose();
+    _pressController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleTap() {
+    if (_isClickDisabled) return;
+    _isClickDisabled = true;
+    HapticFeedback.mediumImpact();
+    widget.onPressed();
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _isClickDisabled = false);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            AppColors.border,
-            AppColors.border.withOpacity(0.5),
-            AppColors.border,
-          ],
-          stops: [
-            _shimmerController.value - 0.3,
-            _shimmerController.value,
-            _shimmerController.value + 0.3,
-          ],
+    return AnimatedBuilder(
+      animation: _pressController,
+      builder: (context, child) {
+        final scale = 1.0 - (_pressController.value * 0.03);
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: GestureDetector(
+        onTapDown: (_) {
+          if (!_isClickDisabled) _pressController.forward();
+        },
+        onTapUp: (_) {
+          _pressController.reverse();
+          if (!_isClickDisabled) _handleTap();
+        },
+        onTapCancel: () => _pressController.reverse(),
+        child: Container(
+          width: double.infinity,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(widget.height / 2),
+            border: Border.all(
+              color: AppColors.border,
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Semantics(
+            label: 'Sign in with Google account',
+            button: true,
+            enabled: !_isClickDisabled,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                  ),
+                  child: Image.network(
+                    AppAssets.googleIcon,
+                    width: 22,
+                    height: 22,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.g_mobiledata,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  'Continue with Google',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -152,7 +152,16 @@ class AppRouter {
       // If tenant is not initialized, redirect to onboarding choice screen
       // so the admin can pick "school setup" or "solo teacher" flow.
       if (!authState.tenantInitialized && authState.user.role.value == 'admin') {
-        return AppRoutes.onboardingChoice;
+        // Allow navigation within the onboarding flow
+        const onboardingRoutes = [
+          AppRoutes.onboardingChoice,
+          AppRoutes.adminSetupWizard,
+          AppRoutes.soloTeacherSetup,
+        ];
+        if (!onboardingRoutes.contains(currentLocation)) {
+          return AppRoutes.onboardingChoice;
+        }
+        return null;
       }
 
       // LEVEL 1.5: Reviewer-only access (high priority)

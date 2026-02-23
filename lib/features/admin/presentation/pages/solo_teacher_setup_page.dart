@@ -361,8 +361,7 @@ class _SoloTeacherSetupPageState extends State<SoloTeacherSetupPage>
                   curr is StepValidationFailed,
               listener: (context, state) {
                 if (state is AdminSetupSaved) {
-                  context.read<AuthBloc>().add(const AuthCheckStatus());
-                  _showSuccessOverlay();
+                  _handleSetupComplete(context);
                 } else if (state is AdminSetupError) {
                   _showError(state.errorMessage);
                 } else if (state is StepValidationFailed) {
@@ -1302,85 +1301,16 @@ class _SoloTeacherSetupPageState extends State<SoloTeacherSetupPage>
     );
   }
 
-  void _showSuccessOverlay() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.42),
-      builder: (dialogContext) {
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (dialogContext.mounted) {
-            Navigator.of(dialogContext).pop();
-          }
-          if (context.mounted) {
-            context.go(AppRoutes.home);
-          }
-        });
-
-        return Center(
-          child: Container(
-            width: 200,
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF11998e), Color(0xFF38ef7d)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF11998e).withOpacity(0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "You're all set!",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Taking you to your dashboard',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  void _handleSetupComplete(BuildContext ctx) {
+    // Dispatch auth refresh first
+    ctx.read<AuthBloc>().add(const AuthCheckStatus());
+    // Navigate directly after a brief delay to let auth state settle
+    HapticFeedback.mediumImpact();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        context.go(AppRoutes.home);
+      }
+    });
   }
 }
 
