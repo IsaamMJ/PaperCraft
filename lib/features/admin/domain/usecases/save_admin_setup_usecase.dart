@@ -4,14 +4,22 @@ import '../../../../core/domain/errors/failures.dart';
 import '../entities/admin_setup_state.dart';
 import '../repositories/admin_setup_repository.dart';
 
-/// Use case to save the complete admin setup (grades, sections, subjects)
+/// Use case to save the complete admin setup (grades, sections, subjects).
+///
+/// All operations are idempotent (upsert-based) so retrying a step is safe.
+/// Each step is retried up to [_maxRetries] times on transient failures
+/// before the whole save is reported as failed.
 class SaveAdminSetupUseCase {
   final AdminSetupRepository repository;
 
+  static const int _maxRetries = 2;
+  static const Duration _retryDelay = Duration(milliseconds: 800);
+
   SaveAdminSetupUseCase({required this.repository});
 
-  /// Save the complete admin setup state
-  /// This performs multiple operations in sequence:
+  /// Save the complete admin setup state.
+  ///
+  /// Steps executed in order (each retried up to [_maxRetries] on failure):
   /// 1. Update tenant details (name, address)
   /// 2. Create grades
   /// 3. Create sections for each grade
@@ -23,65 +31,103 @@ class SaveAdminSetupUseCase {
     String? tenantAddress,
   }) async {
     try {
-      // Step 0: Update tenant details if provided
+      // Step 1: Update tenant details if provided
       if (tenantName != null && tenantName.isNotEmpty) {
-        final tenantResult = await repository.updateTenantDetails(
-          tenantId: setupState.tenantId,
-          name: tenantName,
-          address: tenantAddress,
+        final step1 = await _retryStep(
+          stepName: 'tenant details',
+          action: () => repository.updateTenantDetails(
+            tenantId: setupState.tenantId,
+            name: tenantName,
+            address: tenantAddress,
+          ),
         );
-
-        if (tenantResult.isLeft()) {
-          return tenantResult;
-        }
+        if (step1.isLeft()) return step1;
       }
 
-      // Step 1: Create all grades
-      final gradeNumbers = setupState.selectedGrades.map((g) => g.gradeNumber).toList();
+      // Step 2: Create all grades (idempotent via upsert — safe to retry)
+      final gradeNumbers =
+          setupState.selectedGrades.map((g) => g.gradeNumber).toList();
 
-      final gradesResult = await repository.createGrades(
-        tenantId: setupState.tenantId,
-        gradeNumbers: gradeNumbers,
+      final step2 = await _retryStep(
+        stepName: 'grades',
+        action: () => repository.createGrades(
+          tenantId: setupState.tenantId,
+          gradeNumbers: gradeNumbers,
+        ),
       );
+      if (step2.isLeft()) return step2;
 
-      if (gradesResult.isLeft()) {
-        return gradesResult;
-      }
-
-      // Step 2: Create sections for each grade
+      // Step 3: Create sections for each grade (idempotent via upsert)
       for (final grade in setupState.selectedGrades) {
         final sections = setupState.getSectionsForGrade(grade.gradeNumber);
 
-        final sectionsResult = await repository.createSections(
-          tenantId: setupState.tenantId,
-          gradeNumber: grade.gradeNumber,
-          sections: sections,
+        final step3 = await _retryStep(
+          stepName: 'sections for grade ${grade.gradeNumber}',
+          action: () => repository.createSections(
+            tenantId: setupState.tenantId,
+            gradeNumber: grade.gradeNumber,
+            sections: sections,
+          ),
         );
-
-        if (sectionsResult.isLeft()) {
-          return sectionsResult;
-        }
+        if (step3.isLeft()) return step3;
       }
 
-      // Step 3: Create subjects for each grade
+      // Step 4: Create subjects for each grade (collects from per-section data)
       for (final grade in setupState.selectedGrades) {
-        final subjects = setupState.getSubjectsForGrade(grade.gradeNumber);
+        final subjects = setupState.getAllSubjectsForGrade(grade.gradeNumber);
+        if (subjects.isEmpty) continue;
 
-        final subjectsResult = await repository.createSubjectsForGrade(
-          tenantId: setupState.tenantId,
-          gradeNumber: grade.gradeNumber,
-          subjectNames: subjects,
+        final step4 = await _retryStep(
+          stepName: 'subjects for grade ${grade.gradeNumber}',
+          action: () => repository.createSubjectsForGrade(
+            tenantId: setupState.tenantId,
+            gradeNumber: grade.gradeNumber,
+            subjectNames: subjects,
+          ),
         );
-
-        if (subjectsResult.isLeft()) {
-          return subjectsResult;
-        }
+        if (step4.isLeft()) return step4;
       }
 
-      // Step 4: Mark tenant as initialized
-      return repository.markTenantInitialized(setupState.tenantId);
+      // Step 5: Mark tenant as initialized
+      final step5 = await _retryStep(
+        stepName: 'finalize',
+        action: () => repository.markTenantInitialized(setupState.tenantId),
+      );
+      if (step5.isLeft()) {
+        return Left(ServerFailure(
+          'Setup saved but failed to finalize. Please try again. '
+          '${step5.fold((f) => f.message, (_) => '')}',
+        ));
+      }
+
+      return step5;
     } catch (e) {
       return Left(ServerFailure('Failed to save setup: ${e.toString()}'));
     }
+  }
+
+  /// Retry a single step up to [_maxRetries] times.
+  /// Returns the result of the last attempt.
+  Future<Either<Failure, void>> _retryStep({
+    required String stepName,
+    required Future<Either<Failure, void>> Function() action,
+  }) async {
+    Either<Failure, void> lastResult = const Right(null);
+
+    for (int attempt = 0; attempt <= _maxRetries; attempt++) {
+      lastResult = await action();
+      if (lastResult.isRight()) return lastResult;
+
+      // Don't delay after the final attempt
+      if (attempt < _maxRetries) {
+        await Future.delayed(_retryDelay);
+      }
+    }
+
+    // All retries exhausted — wrap with step context
+    return Left(ServerFailure(
+      'Failed at $stepName after ${_maxRetries + 1} attempts: '
+      '${lastResult.fold((f) => f.message, (_) => '')}',
+    ));
   }
 }

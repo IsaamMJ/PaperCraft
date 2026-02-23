@@ -213,7 +213,7 @@ void main() {
           ),
         ),
         act: (bloc) => bloc.add(
-            const AddSubjectEvent(gradeNumber: 9, subjectName: 'Math')),
+            const AddSubjectToGradeSectionEvent(gradeNumber: 9, section: 'A', subjectName: 'Math')),
         expect: () => [
           isA<AdminSetupUpdated>(),
         ],

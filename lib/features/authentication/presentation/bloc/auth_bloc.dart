@@ -417,66 +417,69 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Use the new method to get user WITH initialization status
       final result = await _authUseCase.getCurrentUserWithInitStatus();
 
-      result.fold(
-            (failure) {
+      // Use isLeft/isRight instead of fold to support async/await properly
+      if (result.isLeft()) {
+        _userStateService.clearUser();
 
-          _userStateService.clearUser();
+        final failure = result.fold((f) => f, (_) => null)!;
+        AppLogger.authError('Status check failed', failure, context: {
+          'failureType': failure.runtimeType.toString(),
+          'fallbackAction': 'clear_state_redirect_login',
+        });
 
-          AppLogger.authError('Status check failed', failure, context: {
-            'failureType': failure.runtimeType.toString(),
-            'fallbackAction': 'clear_state_redirect_login',
-          });
+        emit(const AuthUnauthenticated());
+        return;
+      }
 
-          emit(const AuthUnauthenticated());
-        },
-            (data) {
+      final data = result.getOrElse(() => {});
 
-          if (data.isEmpty) {
-            _userStateService.clearUser();
+      if (data.isEmpty) {
+        _userStateService.clearUser();
 
-            AppLogger.authEvent('status_check_success', 'none', context: {
-              'hasUser': false,
-              'sessionValid': false,
-              'reason': 'no_current_session',
-            });
+        AppLogger.authEvent('status_check_success', 'none', context: {
+          'hasUser': false,
+          'sessionValid': false,
+          'reason': 'no_current_session',
+        });
 
-            emit(const AuthUnauthenticated());
-            return;
-          }
+        emit(const AuthUnauthenticated());
+        return;
+      }
 
-          final user = data['user'] as UserEntity?;
-          final tenantInitialized = data['tenantInitialized'] as bool? ?? true;
+      final user = data['user'] as UserEntity?;
+      final tenantInitialized = data['tenantInitialized'] as bool? ?? true;
 
-          if (user != null) {
+      if (user != null) {
+        await _userStateService.updateUser(user);
+        // Always reload tenant data to pick up changes (e.g. school name
+        // updated during admin setup). updateUser only loads tenant when
+        // the tenantId itself changes, so an explicit reload is needed.
+        await _userStateService.reloadTenantData();
 
-            _userStateService.updateUser(user);
+        AppLogger.authEvent('status_check_success', user.id, context: {
+          'hasUser': true,
+          'userName': user.fullName,
+          'sessionValid': true,
+          'tenantInitialized': tenantInitialized,
+          'userOnboarded': user.hasCompletedOnboarding,
+        });
 
-            AppLogger.authEvent('status_check_success', user.id, context: {
-              'hasUser': true,
-              'userName': user.fullName,
-              'sessionValid': true,
-              'tenantInitialized': tenantInitialized,
-              'userOnboarded': user.hasCompletedOnboarding,
-            });
+        emit(AuthAuthenticated(
+          user,
+          tenantInitialized: tenantInitialized,
+          userOnboarded: user.hasCompletedOnboarding,
+        ));
+      } else {
+        _userStateService.clearUser();
 
-            emit(AuthAuthenticated(
-              user,
-              tenantInitialized: tenantInitialized,
-              userOnboarded: user.hasCompletedOnboarding,
-            ));
-          } else {
-            _userStateService.clearUser();
+        AppLogger.authEvent('status_check_success', 'none', context: {
+          'hasUser': false,
+          'sessionValid': false,
+          'reason': 'user_null',
+        });
 
-            AppLogger.authEvent('status_check_success', 'none', context: {
-              'hasUser': false,
-              'sessionValid': false,
-              'reason': 'user_null',
-            });
-
-            emit(const AuthUnauthenticated());
-          }
-        },
-      );
+        emit(const AuthUnauthenticated());
+      }
 
     } catch (e, stackTrace) {
 

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/admin_setup_grade.dart';
 import '../../domain/entities/admin_setup_state.dart' as domain;
@@ -19,6 +18,13 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     tenantId: '',
   );
 
+  // In-memory cache for subject suggestions (survives widget rebuilds)
+  final Map<int, List<String>> _subjectSuggestions = {};
+
+  /// Getter for subject suggestions cache
+  Map<int, List<String>> get subjectSuggestions =>
+      Map.unmodifiable(_subjectSuggestions);
+
   AdminSetupBloc({
     required this.getAvailableGradesUseCase,
     required this.getSubjectSuggestionsUseCase,
@@ -32,9 +38,6 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     on<RemoveSectionEvent>(_onRemoveSection);
     on<UpdateSectionsEvent>(_onUpdateSections);
     on<LoadSubjectSuggestionsEvent>(_onLoadSubjectSuggestions);
-    on<AddSubjectEvent>(_onAddSubject);
-    on<RemoveSubjectEvent>(_onRemoveSubject);
-    on<UpdateSubjectsEvent>(_onUpdateSubjects);
     on<AddSubjectToGradeSectionEvent>(_onAddSubjectToGradeSection);
     on<RemoveSubjectFromGradeSectionEvent>(_onRemoveSubjectFromGradeSection);
     on<UpdateSchoolDetailsEvent>(_onUpdateSchoolDetails);
@@ -66,16 +69,6 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     result.fold(
       (failure) => emit(AdminSetupError(errorMessage: failure.message)),
       (grades) {
-        // Create AdminSetupGrade entities for each grade
-        // Note: setupGrades is built but not used - sections are added later in Step 2
-        grades.map((gradeNum) {
-          return AdminSetupGrade(
-            gradeId: '', // Will be assigned by DB
-            gradeNumber: gradeNum,
-            sections: [],
-          );
-        }).toList();
-
         emit(GradesLoaded(availableGrades: grades));
       },
     );
@@ -155,6 +148,12 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     LoadSubjectSuggestionsEvent event,
     Emitter<AdminSetupUIState> emit,
   ) async {
+    // Skip if already cached
+    if (_subjectSuggestions.containsKey(event.gradeNumber)) {
+      emit(AdminSetupUpdated(setupState: _setupState));
+      return;
+    }
+
     emit(LoadingSubjectSuggestions(gradeNumber: event.gradeNumber));
 
     final result = await getSubjectSuggestionsUseCase(
@@ -164,74 +163,16 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
     result.fold(
       (failure) => emit(AdminSetupError(errorMessage: failure.message)),
       (suggestions) {
+        // Store in cache so it survives widget rebuilds
+        _subjectSuggestions[event.gradeNumber] = suggestions;
         emit(SubjectSuggestionsLoaded(
           gradeNumber: event.gradeNumber,
           suggestions: suggestions,
         ));
+        // Emit AdminSetupUpdated so the UI rebuilds with data available
+        emit(AdminSetupUpdated(setupState: _setupState));
       },
     );
-  }
-
-  /// Add a subject to a grade
-  Future<void> _onAddSubject(
-    AddSubjectEvent event,
-    Emitter<AdminSetupUIState> emit,
-  ) async {
-    if (kDebugMode) {
-    }
-
-    final currentSubjects = _setupState.getSubjectsForGrade(event.gradeNumber);
-    if (kDebugMode) {
-    }
-
-    if (!currentSubjects.contains(event.subjectName)) {
-      final newSubjects = [...currentSubjects, event.subjectName];
-      if (kDebugMode) {
-      }
-
-      _setupState = _setupState.updateSubjectsForGrade(
-        event.gradeNumber,
-        newSubjects,
-      );
-
-      // DEBUG: Show updated state
-      if (kDebugMode) {
-      }
-
-      emit(AdminSetupUpdated(setupState: _setupState));
-    } else {
-      if (kDebugMode) {
-      }
-    }
-  }
-
-  /// Remove a subject from a grade
-  Future<void> _onRemoveSubject(
-    RemoveSubjectEvent event,
-    Emitter<AdminSetupUIState> emit,
-  ) async {
-    final currentSubjects = _setupState.getSubjectsForGrade(event.gradeNumber);
-    final newSubjects = currentSubjects
-        .where((s) => s != event.subjectName)
-        .toList();
-
-    _setupState = _setupState.updateSubjectsForGrade(
-      event.gradeNumber,
-      newSubjects,
-    );
-    emit(AdminSetupUpdated(setupState: _setupState));
-  }
-
-  /// Update all subjects for a grade
-  Future<void> _onUpdateSubjects(
-    UpdateSubjectsEvent event,
-    Emitter<AdminSetupUIState> emit,
-  ) async {
-    _setupState = _setupState.updateSubjectsForGrade(
-      event.gradeNumber,
-      event.subjects,
-    );
-    emit(AdminSetupUpdated(setupState: _setupState));
   }
 
   /// Add a subject to a specific grade+section (per-section selection)
@@ -367,11 +308,10 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
       case 2:
         return 'Please add sections for all selected grades';
       case 3:
-        // Check which grades are missing subjects
+        // Check which grades are missing subjects (using per-section data)
         final gradesMissingSubjects = <int>[];
         for (final grade in _setupState.selectedGrades) {
-          final subjects = _setupState.subjectsPerGrade[grade.gradeNumber] ?? [];
-          if (subjects.isEmpty) {
+          if (!_setupState.gradeHasSubjects(grade.gradeNumber)) {
             gradesMissingSubjects.add(grade.gradeNumber);
           }
         }

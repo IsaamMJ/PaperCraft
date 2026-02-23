@@ -41,14 +41,17 @@ class AdminSetupState extends Equatable {
     final newGrades = selectedGrades.where((g) => g.gradeNumber != gradeNumber).toList();
     final newSections = Map<int, List<String>>.from(sectionsPerGrade);
     final newSubjects = Map<int, List<String>>.from(subjectsPerGrade);
+    final newSubjectsPerSection = Map<String, List<String>>.from(subjectsPerGradeSection);
 
     newSections.remove(gradeNumber);
     newSubjects.remove(gradeNumber);
+    newSubjectsPerSection.removeWhere((key, _) => key.startsWith('$gradeNumber:'));
 
     return copyWith(
       selectedGrades: newGrades,
       sectionsPerGrade: newSections,
       subjectsPerGrade: newSubjects,
+      subjectsPerGradeSection: newSubjectsPerSection,
     );
   }
 
@@ -85,6 +88,23 @@ class AdminSetupState extends Equatable {
     return subjectsPerGradeSection[key] ?? [];
   }
 
+  /// Get all unique subjects for a grade across all its sections
+  List<String> getAllSubjectsForGrade(int gradeNumber) {
+    final uniqueSubjects = <String>{};
+    for (final entry in subjectsPerGradeSection.entries) {
+      if (entry.key.startsWith('$gradeNumber:')) {
+        uniqueSubjects.addAll(entry.value);
+      }
+    }
+    return uniqueSubjects.toList();
+  }
+
+  /// Check if a grade has any subjects assigned in any section
+  bool gradeHasSubjects(int gradeNumber) {
+    return subjectsPerGradeSection.entries.any((entry) =>
+        entry.key.startsWith('$gradeNumber:') && entry.value.isNotEmpty);
+  }
+
   /// Move to next step
   AdminSetupState nextStep() {
     return copyWith(currentStep: (currentStep + 1).clamp(1, 4));
@@ -116,10 +136,8 @@ class AdminSetupState extends Equatable {
         return selectedGrades.every((grade) =>
             (sectionsPerGrade[grade.gradeNumber]?.isNotEmpty ?? false));
       case 3:
-        // ADMIN SETUP: All selected grades must have at least 1 subject (global per-grade)
-        // NOTE: Teachers will later assign subjects per-section, but admin defines available subjects per grade
-        return selectedGrades.every((grade) =>
-            (subjectsPerGrade[grade.gradeNumber]?.isNotEmpty ?? false));
+        // All selected grades must have at least 1 subject in any section
+        return selectedGrades.every((grade) => gradeHasSubjects(grade.gradeNumber));
       case 4:
         // Review step - always valid
         return true;

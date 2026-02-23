@@ -1,6 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/domain/errors/failures.dart';
+/// Exception thrown by admin setup data source for server/network errors.
+/// The repository layer catches this and converts to domain Failure.
+class AdminSetupDataSourceException implements Exception {
+  final String message;
+  const AdminSetupDataSourceException(this.message);
+
+  @override
+  String toString() => 'AdminSetupDataSourceException: $message';
+}
 
 /// Abstract interface for admin setup remote data source
 abstract class AdminSetupRemoteDataSource {
@@ -70,7 +78,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
       grades.sort();
       return grades;
     } catch (e) {
-      throw ServerFailure('Failed to fetch grades: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to fetch grades: ${e.toString()}');
     }
   }
 
@@ -91,7 +99,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
       subjects.sort();
       return subjects;
     } catch (e) {
-      throw ServerFailure('Failed to fetch subject suggestions: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to fetch subject suggestions: ${e.toString()}');
     }
   }
 
@@ -112,7 +120,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
       subjects.sort();
       return subjects;
     } catch (e) {
-      throw ServerFailure('Failed to fetch tenant subjects: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to fetch tenant subjects: ${e.toString()}');
     }
   }
 
@@ -141,7 +149,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
           .from('grades')
           .upsert(gradeData, onConflict: 'tenant_id,grade_number');
     } catch (e) {
-      throw ServerFailure('Failed to create grades: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to create grades: ${e.toString()}');
     }
   }
 
@@ -182,7 +190,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
           .from('grade_sections')
           .upsert(sectionsToUpsert, onConflict: 'tenant_id,grade_id,section_name');
     } catch (e) {
-      throw ServerFailure('Failed to create sections: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to create sections: ${e.toString()}');
     }
   }
 
@@ -221,47 +229,66 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
           .update({'is_offered': false})
           .eq('grade_id', gradeId);
 
-      // Step 4: For each subject name, find the subject ID and create mappings for all sections
-      final gradeSubjectsToInsert = <Map<String, dynamic>>[];
+      // Step 4: Batch-lookup catalog subject IDs for all subject names (1 query)
+      // Early return after soft-delete so stale mappings are cleaned even for empty lists
+      if (subjectNames.isEmpty) return;
 
-      for (final subjectName in subjectNames) {
-        // Find the catalog_subject_id for this subject name
-        final catalogResponse = await supabaseClient
-            .from('subject_catalog')
-            .select('id')
-            .eq('subject_name', subjectName)
-            .eq('is_active', true)
-            .single();
+      final catalogResponse = await supabaseClient
+          .from('subject_catalog')
+          .select('id, subject_name')
+          .inFilter('subject_name', subjectNames)
+          .eq('is_active', true);
 
-        final catalogSubjectId = catalogResponse['id'] as String;
+      final catalogMap = <String, String>{}; // subject_name -> catalog_id
+      for (final row in catalogResponse as List) {
+        catalogMap[row['subject_name'] as String] = row['id'] as String;
+      }
 
-        // Check if subject already exists in subjects table for this tenant
-        final subjectsResponse = await supabaseClient
+      final catalogIds = catalogMap.values.toList();
+      if (catalogIds.isEmpty) return;
+
+      // Step 5: Batch-lookup existing subjects for this tenant (1 query)
+      final existingSubjectsResponse = await supabaseClient
+          .from('subjects')
+          .select('id, catalog_subject_id')
+          .eq('tenant_id', tenantId)
+          .inFilter('catalog_subject_id', catalogIds);
+
+      final existingSubjectMap = <String, String>{}; // catalog_subject_id -> subject_id
+      for (final row in existingSubjectsResponse as List) {
+        existingSubjectMap[row['catalog_subject_id'] as String] = row['id'] as String;
+      }
+
+      // Step 6: Batch-insert subjects that don't exist yet (0-1 query)
+      final missingCatalogIds = catalogIds
+          .where((id) => !existingSubjectMap.containsKey(id))
+          .toList();
+
+      if (missingCatalogIds.isNotEmpty) {
+        final newSubjectsData = missingCatalogIds.map((catalogId) => {
+          'tenant_id': tenantId,
+          'catalog_subject_id': catalogId,
+          'is_active': true,
+        }).toList();
+
+        final newSubjectsResponse = await supabaseClient
             .from('subjects')
-            .select('id')
-            .eq('tenant_id', tenantId)
-            .eq('catalog_subject_id', catalogSubjectId);
+            .insert(newSubjectsData, defaultToNull: false)
+            .select('id, catalog_subject_id');
 
-        String subjectId;
-        if ((subjectsResponse as List).isNotEmpty) {
-          // Subject already exists, use its ID
-          subjectId = subjectsResponse[0]['id'] as String;
-        } else {
-          // Subject doesn't exist, create it
-          final newSubjectResponse = await supabaseClient
-              .from('subjects')
-              .insert({
-                'tenant_id': tenantId,
-                'catalog_subject_id': catalogSubjectId,
-                'is_active': true,
-              }, defaultToNull: false)
-              .select()
-              .single();
-
-          subjectId = newSubjectResponse['id'] as String;
+        for (final row in newSubjectsResponse as List) {
+          existingSubjectMap[row['catalog_subject_id'] as String] = row['id'] as String;
         }
+      }
 
-        // Create grade-section-subject mapping for each section
+      // Step 7: Build all grade-section-subject mappings
+      final gradeSubjectsToInsert = <Map<String, dynamic>>[];
+      for (final subjectName in subjectNames) {
+        final catalogId = catalogMap[subjectName];
+        if (catalogId == null) continue;
+        final subjectId = existingSubjectMap[catalogId];
+        if (subjectId == null) continue;
+
         for (final section in sections) {
           gradeSubjectsToInsert.add({
             'tenant_id': tenantId,
@@ -274,7 +301,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
         }
       }
 
-      // Step 5: UPSERT all grade-section-subject mappings
+      // Step 8: UPSERT all grade-section-subject mappings
       // Update if exists (reactivate), insert if not
       if (gradeSubjectsToInsert.isNotEmpty) {
         await supabaseClient
@@ -285,7 +312,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
             );
       }
     } catch (e) {
-      throw ServerFailure('Failed to create subjects for grade: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to create subjects for grade: ${e.toString()}');
     }
   }
 
@@ -306,7 +333,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
           .update(updateData)
           .eq('id', tenantId);
     } catch (e) {
-      throw ServerFailure(
+      throw AdminSetupDataSourceException(
           'Failed to update tenant details: ${e.toString()}');
     }
   }
@@ -321,7 +348,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
           .update({'is_initialized': true})
           .eq('id', tenantId);
     } catch (e) {
-      throw ServerFailure('Failed to mark tenant as initialized: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to mark tenant as initialized: ${e.toString()}');
     }
   }
 
@@ -430,7 +457,7 @@ class AdminSetupRemoteDataSourceImpl implements AdminSetupRemoteDataSource {
         'subjects_per_grade': subjectsPerGrade,
       };
     } catch (e) {
-      throw ServerFailure('Failed to fetch setup summary: ${e.toString()}');
+      throw AdminSetupDataSourceException('Failed to fetch setup summary: ${e.toString()}');
     }
   }
 }

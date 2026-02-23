@@ -15,8 +15,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
     try {
       final grades = await remoteDataSource.getAvailableGrades(tenantId);
       return Right(grades);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Unexpected error: ${e.toString()}'));
     }
@@ -27,8 +27,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
     try {
       final subjects = await remoteDataSource.getSubjectSuggestions(gradeNumber);
       return Right(subjects);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Unexpected error: ${e.toString()}'));
     }
@@ -39,8 +39,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
     try {
       final subjects = await remoteDataSource.getTenantSubjects(tenantId);
       return Right(subjects);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Unexpected error: ${e.toString()}'));
     }
@@ -57,8 +57,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
         gradeNumbers: gradeNumbers,
       );
       return const Right(null);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to create grades: ${e.toString()}'));
     }
@@ -77,8 +77,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
         sections: sections,
       );
       return const Right(null);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to create sections: ${e.toString()}'));
     }
@@ -97,8 +97,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
         subjectNames: subjectNames,
       );
       return const Right(null);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to create subjects: ${e.toString()}'));
     }
@@ -117,8 +117,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
         address: address,
       );
       return const Right(null);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to update tenant details: ${e.toString()}'));
     }
@@ -129,8 +129,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
     try {
       await remoteDataSource.markTenantInitialized(tenantId);
       return const Right(null);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to mark tenant as initialized: ${e.toString()}'));
     }
@@ -143,8 +143,8 @@ class AdminSetupRepositoryImpl implements AdminSetupRepository {
     try {
       final summary = await remoteDataSource.getSetupSummary(tenantId);
       return Right(summary);
-    } on Failure catch (e) {
-      return Left(e);
+    } on AdminSetupDataSourceException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(ServerFailure('Failed to fetch setup summary: ${e.toString()}'));
     }

@@ -1,353 +1,949 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../domain/entities/admin_setup_grade.dart';
-import '../../domain/entities/admin_setup_section.dart';
 import '../bloc/admin_setup_bloc.dart';
 import '../bloc/admin_setup_event.dart';
-import '../bloc/admin_setup_state.dart';
 
-/// Step 3: Select subjects for each grade+section combination
-/// KEY CHANGE: Subjects are now assigned PER SECTION, not per grade
+/// Step 3: Assign subjects to each grade+section combination.
+/// Modern UI matching the teacher onboarding Step 3 pattern.
+///
+/// DESIGN: Suggestions are passed via [subjectSuggestions] from the BLoC's
+/// cache — no BlocListener, no local _suggestions state map.
 class AdminSetupStep3Subjects extends StatefulWidget {
   final List<AdminSetupGrade> selectedGrades;
-  final Map<String, List<String>> subjectsPerGradeSection; // Key: "gradeNumber:sectionName"
+  final Map<int, List<String>> sectionsPerGrade;
+  final Map<String, List<String>> subjectsPerGradeSection; // key: "gradeNumber:sectionName"
+  final Map<int, List<String>> subjectSuggestions; // from BLoC cache, gradeNumber -> suggestions
 
   const AdminSetupStep3Subjects({
     Key? key,
     required this.selectedGrades,
+    required this.sectionsPerGrade,
     required this.subjectsPerGradeSection,
+    required this.subjectSuggestions,
   }) : super(key: key);
 
   @override
-  State<AdminSetupStep3Subjects> createState() => _AdminSetupStep3SubjectsState();
+  State<AdminSetupStep3Subjects> createState() =>
+      _AdminSetupStep3SubjectsState();
 }
 
-class _AdminSetupStep3SubjectsState extends State<AdminSetupStep3Subjects> {
-  final Map<int, List<String>> _suggestions = {};
-  String? _expandedGradeId; // Track which grade card is expanded
+class _AdminSetupStep3SubjectsState extends State<AdminSetupStep3Subjects>
+    with TickerProviderStateMixin {
+  late AnimationController _staggerController;
+  late final Map<String, bool> _expandedState; // "gradeNumber-sectionName" -> expanded
+
+  // Subject emojis for visual variety
+  static const Map<String, String> _subjectEmojis = {
+    'math': '🔢',
+    'mathematics': '🔢',
+    'english': '📖',
+    'science': '🔬',
+    'history': '📜',
+    'geography': '🌍',
+    'physics': '⚛️',
+    'chemistry': '🧪',
+    'biology': '🧬',
+    'computer': '💻',
+    'art': '🎨',
+    'music': '🎵',
+    'pe': '⚽',
+    'physical education': '⚽',
+    'hindi': '📝',
+    'social': '🌐',
+    'evs': '🌱',
+    'default': '📚',
+  };
+
+  // Grade gradients — 12 entries, same set as teacher onboarding
+  static const List<List<Color>> _gradeGradients = [
+    [Color(0xFF667eea), Color(0xFF764ba2)],
+    [Color(0xFF11998e), Color(0xFF38ef7d)],
+    [Color(0xFFf093fb), Color(0xFFf5576c)],
+    [Color(0xFF4facfe), Color(0xFF00f2fe)],
+    [Color(0xFFfa709a), Color(0xFFfee140)],
+    [Color(0xFF30cfd0), Color(0xFF330867)],
+    [Color(0xFFa8edea), Color(0xFFfed6e3)],
+    [Color(0xFF5ee7df), Color(0xFFb490ca)],
+    [Color(0xFFd299c2), Color(0xFFfef9d7)],
+    [Color(0xFF89f7fe), Color(0xFF66a6ff)],
+    [Color(0xFFf6d365), Color(0xFFfda085)],
+    [Color(0xFF96fbc4), Color(0xFFf9f586)],
+  ];
+
+  static const double _maxContentWidth = 800;
+  static const double _tabletBreakpoint = 600;
 
   @override
   void initState() {
     super.initState();
-    // Load subject suggestions for each grade
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _expandedState = {};
+    _initializeExpandedState();
+    _staggerController.forward();
+
+    // Trigger suggestion loading for each grade via BLoC
     for (final grade in widget.selectedGrades) {
-      _loadSubjectSuggestions(grade.gradeNumber);
+      context.read<AdminSetupBloc>().add(
+            LoadSubjectSuggestionsEvent(gradeNumber: grade.gradeNumber),
+          );
     }
   }
 
-  /// Load subject suggestions for a grade
-  void _loadSubjectSuggestions(int gradeNumber) {
-    context.read<AdminSetupBloc>().add(
-          LoadSubjectSuggestionsEvent(gradeNumber: gradeNumber),
-        );
+  void _initializeExpandedState() {
+    final sortedGrades = widget.selectedGrades.toList()
+      ..sort((a, b) => a.gradeNumber.compareTo(b.gradeNumber));
+
+    bool firstSet = false;
+    for (final grade in sortedGrades) {
+      final sections = widget.sectionsPerGrade[grade.gradeNumber] ?? [];
+      final sortedSections = sections.toList()..sort();
+      for (final section in sortedSections) {
+        final key = '${grade.gradeNumber}-$section';
+        _expandedState[key] = !firstSet;
+        firstSet = true;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _staggerController.dispose();
+    super.dispose();
+  }
+
+  List<Color> _getGradientForGrade(int grade) {
+    final index = (grade - 1) % _gradeGradients.length;
+    return _gradeGradients[index];
+  }
+
+  String _getSubjectEmoji(String subject) {
+    final lower = subject.toLowerCase();
+    for (final entry in _subjectEmojis.entries) {
+      if (lower.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return _subjectEmojis['default']!;
+  }
+
+  void _toggleExpanded(String key) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _expandedState[key] = !(_expandedState[key] ?? false);
+    });
+  }
+
+  int get _totalSelectedCount {
+    int count = 0;
+    for (final subjects in widget.subjectsPerGradeSection.values) {
+      count += subjects.length;
+    }
+    return count;
   }
 
   @override
   Widget build(BuildContext context) {
+    final sortedGrades = widget.selectedGrades.toList()
+      ..sort((a, b) => a.gradeNumber.compareTo(b.gradeNumber));
+
+    // Build flat list of grade-section pairs for display
+    final List<_GradeSectionPair> pairs = [];
+    for (final grade in sortedGrades) {
+      final sections = widget.sectionsPerGrade[grade.gradeNumber] ?? [];
+      final sortedSections = sections.toList()..sort();
+      for (final section in sortedSections) {
+        pairs.add(_GradeSectionPair(
+          gradeNumber: grade.gradeNumber,
+          sectionName: section,
+        ));
+      }
+    }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth >= _tabletBreakpoint;
+
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        isLargeScreen ? 32 : 20,
+        24,
+        isLargeScreen ? 32 : 20,
+        8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hero header card
+              _HeroHeader(totalSelected: _totalSelectedCount),
+
+              const SizedBox(height: 24),
+
+              // Section cards with staggered entrance
+              ...List.generate(pairs.length, (index) {
+                final pair = pairs[index];
+                final key = '${pair.gradeNumber}-${pair.sectionName}';
+                final isExpanded = _expandedState[key] ?? false;
+
+                // Suggestions from BLoC cache
+                final suggestions =
+                    widget.subjectSuggestions[pair.gradeNumber];
+
+                // Selected subjects for this grade:section
+                final sectionKey =
+                    '${pair.gradeNumber}:${pair.sectionName}';
+                final selectedSubjects =
+                    widget.subjectsPerGradeSection[sectionKey] ?? [];
+
+                // Staggered entrance animation
+                final delay = index * 0.1;
+                final animation = CurvedAnimation(
+                  parent: _staggerController,
+                  curve: Interval(
+                    delay.clamp(0.0, 0.6),
+                    (delay + 0.4).clamp(0.0, 1.0),
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
+
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Transform.translate(
+                    offset: Offset(0, 20 * (1 - animation.value)),
+                    child: Opacity(
+                      opacity: animation.value,
+                      child: child,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        bottom: index < pairs.length - 1 ? 16 : 0),
+                    child: _SectionCard(
+                      gradeNumber: pair.gradeNumber,
+                      sectionName: pair.sectionName,
+                      gradient: _getGradientForGrade(pair.gradeNumber),
+                      suggestions: suggestions,
+                      selectedSubjects: selectedSubjects,
+                      isExpanded: isExpanded,
+                      getSubjectEmoji: _getSubjectEmoji,
+                      onToggleExpanded: () => _toggleExpanded(key),
+                      onSelectAll: () {
+                        HapticFeedback.mediumImpact();
+                        if (suggestions == null) return;
+                        for (final subject in suggestions) {
+                          if (!selectedSubjects.contains(subject)) {
+                            context.read<AdminSetupBloc>().add(
+                                  AddSubjectToGradeSectionEvent(
+                                    gradeNumber: pair.gradeNumber,
+                                    section: pair.sectionName,
+                                    subjectName: subject,
+                                  ),
+                                );
+                          }
+                        }
+                      },
+                      onClearAll: () {
+                        HapticFeedback.mediumImpact();
+                        for (final subject in selectedSubjects) {
+                          context.read<AdminSetupBloc>().add(
+                                RemoveSubjectFromGradeSectionEvent(
+                                  gradeNumber: pair.gradeNumber,
+                                  section: pair.sectionName,
+                                  subjectName: subject,
+                                ),
+                              );
+                        }
+                      },
+                      onSubjectToggle: (subjectName) {
+                        HapticFeedback.lightImpact();
+                        if (selectedSubjects.contains(subjectName)) {
+                          context.read<AdminSetupBloc>().add(
+                                RemoveSubjectFromGradeSectionEvent(
+                                  gradeNumber: pair.gradeNumber,
+                                  section: pair.sectionName,
+                                  subjectName: subjectName,
+                                ),
+                              );
+                        } else {
+                          context.read<AdminSetupBloc>().add(
+                                AddSubjectToGradeSectionEvent(
+                                  gradeNumber: pair.gradeNumber,
+                                  section: pair.sectionName,
+                                  subjectName: subjectName,
+                                ),
+                              );
+                        }
+                      },
+                    ),
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Helper class to pair grade and section
+class _GradeSectionPair {
+  final int gradeNumber;
+  final String sectionName;
+
+  _GradeSectionPair({required this.gradeNumber, required this.sectionName});
+}
+
+// =============================================================================
+// Hero Header
+// =============================================================================
+
+class _HeroHeader extends StatelessWidget {
+  final int totalSelected;
+
+  const _HeroHeader({required this.totalSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFf093fb).withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          Text(
-            'Assign Subjects to Sections',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Each section can have different subjects. Select subjects for each grade+section combination.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: Colors.white,
+                  size: 28,
                 ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assign Subjects',
+                      style: TextStyle(
+                        fontSize: 22,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Choose subjects for each section',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-
-          // Grade cards with sections
-          ...widget.selectedGrades.map((grade) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: _buildGradeCard(context, grade),
-            );
-          }),
+          if (totalSelected > 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$totalSelected subject${totalSelected != 1 ? 's' : ''} selected',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
 
-  /// Build an expandable card for a grade with all its sections
-  Widget _buildGradeCard(BuildContext context, AdminSetupGrade grade) {
-    final gradeIdKey = 'grade_${grade.gradeNumber}';
-    final isExpanded = _expandedGradeId == gradeIdKey;
+// =============================================================================
+// Section Card with expandable subjects
+// =============================================================================
 
-    return Card(
-      elevation: 2,
+class _SectionCard extends StatelessWidget {
+  final int gradeNumber;
+  final String sectionName;
+  final List<Color> gradient;
+  // null = still loading; empty list = no subjects available
+  final List<String>? suggestions;
+  final List<String> selectedSubjects;
+  final bool isExpanded;
+  final String Function(String) getSubjectEmoji;
+  final VoidCallback onToggleExpanded;
+  final VoidCallback onSelectAll;
+  final VoidCallback onClearAll;
+  final void Function(String) onSubjectToggle;
+
+  const _SectionCard({
+    required this.gradeNumber,
+    required this.sectionName,
+    required this.gradient,
+    required this.suggestions,
+    required this.selectedSubjects,
+    required this.isExpanded,
+    required this.getSubjectEmoji,
+    required this.onToggleExpanded,
+    required this.onSelectAll,
+    required this.onClearAll,
+    required this.onSubjectToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final availableSubjects = suggestions ?? const <String>[];
+    final allSelected = availableSubjects.isNotEmpty &&
+        selectedSubjects.length == availableSubjects.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         children: [
-          // Grade header
+          // Header — always visible
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _expandedGradeId = isExpanded ? null : gradeIdKey;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+            onTap: onToggleExpanded,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: gradient,
+                ),
+                borderRadius: isExpanded
+                    ? const BorderRadius.vertical(top: Radius.circular(20))
+                    : BorderRadius.circular(20),
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Grade-Section badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Grade ${grade.gradeNumber}',
+                          '$gradeNumber',
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        Container(
+                          margin:
+                              const EdgeInsets.symmetric(horizontal: 8),
+                          width: 1,
+                          height: 20,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
                         Text(
-                          '${grade.sections.length} sections',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                          sectionName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.primary,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Grade $gradeNumber - $sectionName',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          suggestions == null
+                              ? 'Loading subjects...'
+                              : '${selectedSubjects.length} of ${availableSubjects.length} subjects',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color:
+                                Colors.white.withValues(alpha: 0.85),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Circular progress ring
+                  if (suggestions != null &&
+                      availableSubjects.isNotEmpty) ...[
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(
+                              value: selectedSubjects.length /
+                                  availableSubjects.length,
+                              strokeWidth: 3,
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.3),
+                              valueColor:
+                                  const AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          ),
+                          if (allSelected)
+                            const Icon(Icons.check_rounded,
+                                color: Colors.white, size: 16),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  // Expand/collapse icon
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 200),
+                    turns: isExpanded ? 0.5 : 0,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // Expanded content - sections and subjects
-          if (isExpanded) ...[
-            Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (grade.sections.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
-                        'No sections configured for this grade.\nPlease add sections in Step 2.',
-                        style: TextStyle(
-                          color: Colors.orange[700],
-                          fontStyle: FontStyle.italic,
+          // Expandable body
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: isExpanded
+                ? Column(
+                    children: [
+                      // Quick actions bar
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: const BoxDecoration(
+                          color: AppColors.backgroundSecondary,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _QuickActionChip(
+                                icon: Icons.select_all_rounded,
+                                label: 'Select All',
+                                isEnabled: !allSelected &&
+                                    suggestions != null &&
+                                    availableSubjects.isNotEmpty,
+                                onTap: onSelectAll,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _QuickActionChip(
+                                icon: Icons.clear_all_rounded,
+                                label: 'Clear',
+                                isEnabled:
+                                    selectedSubjects.isNotEmpty,
+                                onTap: onClearAll,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    )
-                  else
-                    ...grade.sections.map((section) {
-                      return _buildSectionCard(context, grade, section);
-                    }),
-                ],
-              ),
-            ),
-          ],
+                      // Subject chips / loading / empty
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildSubjectContent(
+                          suggestions: suggestions,
+                          availableSubjects: availableSubjects,
+                          selectedSubjects: selectedSubjects,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
   }
 
-  /// Build a card for a section with its subjects
-  Widget _buildSectionCard(
-    BuildContext context,
-    AdminSetupGrade grade,
-    AdminSetupSection section,
-  ) {
-    final key = '${grade.gradeNumber}:${section.sectionName}';
-    final currentSubjects = widget.subjectsPerGradeSection[key] ?? [];
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.grey[50],
+  Widget _buildSubjectContent({
+    required List<String>? suggestions,
+    required List<String> availableSubjects,
+    required List<String> selectedSubjects,
+  }) {
+    // Still loading
+    if (suggestions == null) {
+      return const SizedBox(
+        height: 64,
+        child: Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section header
-            Text(
-              'Section ${section.sectionName}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
+      );
+    }
 
-            // Current subjects as chips
-            if (currentSubjects.isNotEmpty) ...[
-              Text(
-                'Current Subjects',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: currentSubjects.map((subject) {
-                  return InputChip(
-                    label: Text(subject),
-                    onDeleted: () {
-                      context.read<AdminSetupBloc>().add(
-                            RemoveSubjectEvent(
-                              gradeNumber: grade.gradeNumber,
-                              subjectName: subject,
-                            ),
-                          );
-                    },
-                    deleteIcon: const Icon(Icons.close, size: 16),
-                    backgroundColor: AppColors.secondary10,
-                    labelStyle: TextStyle(
-                      color: AppColors.secondary,
-                      fontWeight: FontWeight.w500,
+    // No subjects available
+    if (availableSubjects.isEmpty) {
+      return const _EmptySubjects();
+    }
+
+    // Subject chips
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: availableSubjects.map((subject) {
+        final isSelected = selectedSubjects.contains(subject);
+        return _SubjectChip(
+          subjectName: subject,
+          emoji: getSubjectEmoji(subject),
+          isSelected: isSelected,
+          gradientColors: gradient,
+          onTap: () => onSubjectToggle(subject),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// =============================================================================
+// Subject Chip — large, tappable with press-scale animation
+// =============================================================================
+
+class _SubjectChip extends StatefulWidget {
+  final String subjectName;
+  final String emoji;
+  final bool isSelected;
+  final List<Color> gradientColors;
+  final VoidCallback onTap;
+
+  const _SubjectChip({
+    required this.subjectName,
+    required this.emoji,
+    required this.isSelected,
+    required this.gradientColors,
+    required this.onTap,
+  });
+
+  @override
+  State<_SubjectChip> createState() => _SubjectChipState();
+}
+
+class _SubjectChipState extends State<_SubjectChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: 0.95).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) => Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: widget.isSelected
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: widget.gradientColors,
+                  )
+                : null,
+            color: widget.isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: widget.isSelected
+                  ? Colors.transparent
+                  : AppColors.border,
+              width: 1.5,
+            ),
+            boxShadow: widget.isSelected
+                ? [
+                    BoxShadow(
+                      color: widget.gradientColors[0]
+                          .withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(4),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.emoji,
+                  style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text(
+                widget.subjectName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: widget.isSelected
+                      ? Colors.white
+                      : AppColors.textPrimary,
                 ),
-                child: Text(
-                  'No subjects selected yet',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
+              ),
+              const SizedBox(width: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: widget.isSelected
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : AppColors.backgroundSecondary,
+                  shape: BoxShape.circle,
+                  border: widget.isSelected
+                      ? null
+                      : Border.all(
+                          color: AppColors.border, width: 1.5),
+                ),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: widget.isSelected ? 1.0 : 0.0,
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 12,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            // Available subjects selector
-            _buildSubjectSelectorForSection(context, grade, section, currentSubjects),
+// =============================================================================
+// Quick Action Chip
+// =============================================================================
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isEnabled;
+  final VoidCallback onTap;
+
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.isEnabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isEnabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isEnabled
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isEnabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isEnabled
+                  ? AppColors.primary
+                  : AppColors.textTertiary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isEnabled
+                    ? AppColors.textPrimary
+                    : AppColors.textTertiary,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  /// Build subject selector for a specific section
-  Widget _buildSubjectSelectorForSection(
-    BuildContext context,
-    AdminSetupGrade grade,
-    AdminSetupSection section,
-    List<String> currentSubjects,
-  ) {
-    return BlocListener<AdminSetupBloc, AdminSetupUIState>(
-      listener: (context, state) {
-        if (state is SubjectSuggestionsLoaded &&
-            state.gradeNumber == grade.gradeNumber) {
-          setState(() {
-            _suggestions[grade.gradeNumber] = state.suggestions;
-          });
-        }
-      },
+// =============================================================================
+// Empty Subjects State
+// =============================================================================
+
+class _EmptySubjects extends StatelessWidget {
+  const _EmptySubjects();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Available Subjects',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Text('📭', style: TextStyle(fontSize: 24)),
             ),
           ),
-          const SizedBox(height: 8),
-          if (_suggestions[grade.gradeNumber] == null)
-            const SizedBox(
-              height: 32,
-              child: Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (_suggestions[grade.gradeNumber]!.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                border: Border.all(color: Colors.orange[300]!),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info, color: Colors.orange[700], size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'No subjects available for Grade ${grade.gradeNumber}',
-                      style: TextStyle(
-                        color: Colors.orange[700],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _suggestions[grade.gradeNumber]!.map((suggestion) {
-                final isSelected = currentSubjects.contains(suggestion);
-
-                return FilterChip(
-                  label: Text(suggestion),
-                  selected: isSelected,
-                  onSelected: isSelected
-                      ? null
-                      : (_) {
-                          context.read<AdminSetupBloc>().add(
-                                AddSubjectToGradeSectionEvent(
-                                  gradeNumber: grade.gradeNumber,
-                                  section: section.sectionName,
-                                  subjectName: suggestion,
-                                ),
-                              );
-                        },
-                  backgroundColor: isSelected
-                      ? AppColors.primary.withOpacity(0.2)
-                      : Colors.grey[100],
-                  selectedColor: AppColors.primary.withOpacity(0.3),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : Colors.grey[300]!,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  labelStyle: TextStyle(fontSize: 12),
-                );
-              }).toList(),
+          const SizedBox(height: 12),
+          const Text(
+            'No subjects available',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
+          ),
         ],
       ),
     );
