@@ -64,6 +64,10 @@ class _TeacherOnboardingStep3SubjectsState
     'default': '📚',
   };
 
+  // Responsive breakpoints
+  static const double _maxContentWidth = 800;
+  static const double _tabletBreakpoint = 600;
+
   // Grade gradients matching previous steps
   static const List<List<Color>> _gradeGradients = [
     [Color(0xFF667eea), Color(0xFF764ba2)],
@@ -166,114 +170,127 @@ class _TeacherOnboardingStep3SubjectsState
       }
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth >= _tabletBreakpoint;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8), // More top padding for professional look
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero header
-          _HeroHeader(totalSelected: _totalSelectedCount),
+      padding: EdgeInsets.fromLTRB(
+        isLargeScreen ? 32 : 20,
+        24,
+        isLargeScreen ? 32 : 20,
+        8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hero header
+              _HeroHeader(totalSelected: _totalSelectedCount),
 
-          const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-          // Section cards
-          ...List.generate(pairs.length, (index) {
-            final pair = pairs[index];
-            final key = '${pair.gradeNumber}-${pair.sectionName}';
-            final isExpanded = _expandedState[key] ?? false;
+              // Section cards
+              ...List.generate(pairs.length, (index) {
+                final pair = pairs[index];
+                final key = '${pair.gradeNumber}-${pair.sectionName}';
+                final isExpanded = _expandedState[key] ?? false;
 
-            // Get available subjects for this grade-section
-            final availableSubjects = widget.availableSubjectsPerGradePerSection[pair.gradeNumber]?[pair.sectionName] ??
-                                      widget.availableSubjectsPerGrade[pair.gradeNumber] ?? [];
+                // Get available subjects for this grade-section
+                final availableSubjects = widget.availableSubjectsPerGradePerSection[pair.gradeNumber]?[pair.sectionName] ??
+                                          widget.availableSubjectsPerGrade[pair.gradeNumber] ?? [];
 
-            // Get selected subjects using the key format "grade:section"
-            final selectedSubjects = widget.setupState.getSubjectsForGradeSection(pair.gradeNumber, pair.sectionName);
+                // Get selected subjects using the key format "grade:section"
+                final selectedSubjects = widget.setupState.getSubjectsForGradeSection(pair.gradeNumber, pair.sectionName);
 
-            // Staggered animation
-            final delay = index * 0.1;
-            final animation = CurvedAnimation(
-              parent: _staggerController,
-              curve: Interval(
-                delay.clamp(0.0, 0.6),
-                (delay + 0.4).clamp(0.0, 1.0),
-                curve: Curves.easeOutCubic,
-              ),
-            );
+                // Staggered animation
+                final delay = index * 0.1;
+                final animation = CurvedAnimation(
+                  parent: _staggerController,
+                  curve: Interval(
+                    delay.clamp(0.0, 0.6),
+                    (delay + 0.4).clamp(0.0, 1.0),
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
 
-            return AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(0, 20 * (1 - animation.value)),
-                child: Opacity(
-                  opacity: animation.value,
-                  child: child,
-                ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(bottom: index < pairs.length - 1 ? 16 : 0),
-                child: _SectionCard(
-                  gradeNumber: pair.gradeNumber,
-                  sectionName: pair.sectionName,
-                  gradient: _getGradientForGrade(pair.gradeNumber),
-                  availableSubjects: availableSubjects,
-                  selectedSubjects: selectedSubjects,
-                  isExpanded: isExpanded,
-                  getSubjectEmoji: _getSubjectEmoji,
-                  onToggleExpanded: () => _toggleExpanded(key),
-                  onSelectAll: () {
-                    HapticFeedback.mediumImpact();
-                    for (final subject in availableSubjects) {
-                      if (!selectedSubjects.contains(subject)) {
-                        context.read<AdminSetupBloc>().add(
-                          AddSubjectToGradeSectionEvent(
-                            gradeNumber: pair.gradeNumber,
-                            section: pair.sectionName,
-                            subjectName: subject,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  onClearAll: () {
-                    HapticFeedback.mediumImpact();
-                    for (final subject in selectedSubjects) {
-                      context.read<AdminSetupBloc>().add(
-                        RemoveSubjectFromGradeSectionEvent(
-                          gradeNumber: pair.gradeNumber,
-                          section: pair.sectionName,
-                          subjectName: subject,
-                        ),
-                      );
-                    }
-                  },
-                  onSubjectToggle: (subjectName) {
-                    HapticFeedback.lightImpact();
-                    if (selectedSubjects.contains(subjectName)) {
-                      context.read<AdminSetupBloc>().add(
-                        RemoveSubjectFromGradeSectionEvent(
-                          gradeNumber: pair.gradeNumber,
-                          section: pair.sectionName,
-                          subjectName: subjectName,
-                        ),
-                      );
-                    } else {
-                      context.read<AdminSetupBloc>().add(
-                        AddSubjectToGradeSectionEvent(
-                          gradeNumber: pair.gradeNumber,
-                          section: pair.sectionName,
-                          subjectName: subjectName,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-            );
-          }),
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Transform.translate(
+                    offset: Offset(0, 20 * (1 - animation.value)),
+                    child: Opacity(
+                      opacity: animation.value,
+                      child: child,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: index < pairs.length - 1 ? 16 : 0),
+                    child: _SectionCard(
+                      gradeNumber: pair.gradeNumber,
+                      sectionName: pair.sectionName,
+                      gradient: _getGradientForGrade(pair.gradeNumber),
+                      availableSubjects: availableSubjects,
+                      selectedSubjects: selectedSubjects,
+                      isExpanded: isExpanded,
+                      getSubjectEmoji: _getSubjectEmoji,
+                      onToggleExpanded: () => _toggleExpanded(key),
+                      onSelectAll: () {
+                        HapticFeedback.mediumImpact();
+                        for (final subject in availableSubjects) {
+                          if (!selectedSubjects.contains(subject)) {
+                            context.read<AdminSetupBloc>().add(
+                              AddSubjectToGradeSectionEvent(
+                                gradeNumber: pair.gradeNumber,
+                                section: pair.sectionName,
+                                subjectName: subject,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      onClearAll: () {
+                        HapticFeedback.mediumImpact();
+                        for (final subject in selectedSubjects) {
+                          context.read<AdminSetupBloc>().add(
+                            RemoveSubjectFromGradeSectionEvent(
+                              gradeNumber: pair.gradeNumber,
+                              section: pair.sectionName,
+                              subjectName: subject,
+                            ),
+                          );
+                        }
+                      },
+                      onSubjectToggle: (subjectName) {
+                        HapticFeedback.lightImpact();
+                        if (selectedSubjects.contains(subjectName)) {
+                          context.read<AdminSetupBloc>().add(
+                            RemoveSubjectFromGradeSectionEvent(
+                              gradeNumber: pair.gradeNumber,
+                              section: pair.sectionName,
+                              subjectName: subjectName,
+                            ),
+                          );
+                        } else {
+                          context.read<AdminSetupBloc>().add(
+                            AddSubjectToGradeSectionEvent(
+                              gradeNumber: pair.gradeNumber,
+                              section: pair.sectionName,
+                              subjectName: subjectName,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                );
+              }),
 
-          const SizedBox(height: 24),
-        ],
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       ),
     );
   }

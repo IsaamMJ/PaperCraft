@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
@@ -34,7 +34,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pearl.papercraft"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

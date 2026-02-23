@@ -116,6 +116,10 @@ class _TeacherOnboardingStep1GradesState
     if (mounted) setState(() => _isRefreshing = false);
   }
 
+  // Responsive breakpoints
+  static const double _maxContentWidth = 800; // Max content width for large screens
+  static const double _tabletBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
     final gradeNumbers = widget.availableGrades
@@ -123,70 +127,83 @@ class _TeacherOnboardingStep1GradesState
         .toList()
       ..sort();
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth >= _tabletBreakpoint;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8), // More top padding for professional look
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome hero card
-          if (widget.schoolName != null) _WelcomeCard(
-            schoolName: widget.schoolName!,
-            schoolAddress: widget.schoolAddress,
+      padding: EdgeInsets.fromLTRB(
+        isLargeScreen ? 32 : 20,
+        24,
+        isLargeScreen ? 32 : 20,
+        8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome hero card
+              if (widget.schoolName != null) _WelcomeCard(
+                schoolName: widget.schoolName!,
+                schoolAddress: widget.schoolAddress,
+              ),
+
+              const SizedBox(height: 28),
+
+              // Section title with selection count
+              _SectionTitle(
+                selectedCount: widget.selectedGrades.length,
+                totalCount: gradeNumbers.length,
+                showError: widget.showValidationError && widget.selectedGrades.isEmpty,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Grade grid - 2 columns for larger, more tappable cards
+              if (gradeNumbers.isEmpty)
+                _EmptyState(
+                  isRefreshing: _isRefreshing,
+                  onRefresh: widget.onRefresh != null ? _handleRefresh : null,
+                )
+              else
+                _buildGradeGrid(gradeNumbers),
+
+              // Quick actions
+              if (gradeNumbers.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _QuickActions(
+                  selectedCount: widget.selectedGrades.length,
+                  totalCount: gradeNumbers.length,
+                  onSelectAll: () {
+                    HapticFeedback.mediumImpact();
+                    for (final grade in widget.availableGrades) {
+                      if (!widget.selectedGrades.any((g) => g.gradeNumber == grade.gradeNumber)) {
+                        context.read<AdminSetupBloc>().add(
+                          AddGradeEvent(
+                            gradeNumber: grade.gradeNumber,
+                            gradeId: grade.gradeId,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  onClearAll: () {
+                    HapticFeedback.mediumImpact();
+                    for (final grade in widget.selectedGrades) {
+                      context.read<AdminSetupBloc>().add(
+                        RemoveGradeEvent(gradeNumber: grade.gradeNumber),
+                      );
+                    }
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 24),
+            ],
           ),
-
-          const SizedBox(height: 28),
-
-          // Section title with selection count
-          _SectionTitle(
-            selectedCount: widget.selectedGrades.length,
-            totalCount: gradeNumbers.length,
-            showError: widget.showValidationError && widget.selectedGrades.isEmpty,
-          ),
-
-          const SizedBox(height: 16),
-
-          // Grade grid - 2 columns for larger, more tappable cards
-          if (gradeNumbers.isEmpty)
-            _EmptyState(
-              isRefreshing: _isRefreshing,
-              onRefresh: widget.onRefresh != null ? _handleRefresh : null,
-            )
-          else
-            _buildGradeGrid(gradeNumbers),
-
-          // Quick actions
-          if (gradeNumbers.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _QuickActions(
-              selectedCount: widget.selectedGrades.length,
-              totalCount: gradeNumbers.length,
-              onSelectAll: () {
-                HapticFeedback.mediumImpact();
-                for (final grade in widget.availableGrades) {
-                  if (!widget.selectedGrades.any((g) => g.gradeNumber == grade.gradeNumber)) {
-                    context.read<AdminSetupBloc>().add(
-                      AddGradeEvent(
-                        gradeNumber: grade.gradeNumber,
-                        gradeId: grade.gradeId,
-                      ),
-                    );
-                  }
-                }
-              },
-              onClearAll: () {
-                HapticFeedback.mediumImpact();
-                for (final grade in widget.selectedGrades) {
-                  context.read<AdminSetupBloc>().add(
-                    RemoveGradeEvent(gradeNumber: grade.gradeNumber),
-                  );
-                }
-              },
-            ),
-          ],
-
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }
@@ -194,13 +211,39 @@ class _TeacherOnboardingStep1GradesState
   Widget _buildGradeGrid(List<int> gradeNumbers) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Always 2 columns for large, easy-to-tap cards
-        const columns = 2;
+        // Responsive columns based on screen width
+        final screenWidth = constraints.maxWidth;
+        final int columns;
+        final double maxCardWidth;
+
+        if (screenWidth >= 1200) {
+          // Large desktop: 5 columns, max card width 180
+          columns = 5;
+          maxCardWidth = 180;
+        } else if (screenWidth >= 900) {
+          // Desktop: 4 columns, max card width 200
+          columns = 4;
+          maxCardWidth = 200;
+        } else if (screenWidth >= 600) {
+          // Tablet: 3 columns, max card width 220
+          columns = 3;
+          maxCardWidth = 220;
+        } else {
+          // Mobile: 2 columns, no max (fill available space)
+          columns = 2;
+          maxCardWidth = double.infinity;
+        }
+
         const spacing = 16.0;
-        final itemWidth = (constraints.maxWidth - spacing) / columns;
-        final itemHeight = itemWidth * 0.75; // Shorter height for compact look
+        final totalSpacing = spacing * (columns - 1);
+        final calculatedWidth = (screenWidth - totalSpacing) / columns;
+        final itemWidth = maxCardWidth == double.infinity
+            ? calculatedWidth
+            : calculatedWidth.clamp(0.0, maxCardWidth);
+        final itemHeight = itemWidth * 0.75; // Maintain aspect ratio
 
         return Wrap(
+          alignment: WrapAlignment.center, // Center cards on larger screens
           spacing: spacing,
           runSpacing: spacing,
           children: List.generate(gradeNumbers.length, (index) {

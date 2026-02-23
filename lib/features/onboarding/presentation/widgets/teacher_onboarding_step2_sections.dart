@@ -127,87 +127,104 @@ class _TeacherOnboardingStep2SectionsState
     return count;
   }
 
+  // Responsive breakpoints
+  static const double _maxContentWidth = 800;
+  static const double _tabletBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
     final sortedGrades = widget.selectedGrades.toList()
       ..sort((a, b) => a.gradeNumber.compareTo(b.gradeNumber));
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth >= _tabletBreakpoint;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8), // More top padding for professional look
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero header
-          _HeroHeader(totalSelected: _totalSelectedCount),
+      padding: EdgeInsets.fromLTRB(
+        isLargeScreen ? 32 : 20,
+        24,
+        isLargeScreen ? 32 : 20,
+        8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hero header
+              _HeroHeader(totalSelected: _totalSelectedCount),
 
-          const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-          // Grade cards
-          ...List.generate(sortedGrades.length, (index) {
-            final grade = sortedGrades[index];
-            final gradeNumber = grade.gradeNumber;
-            final available = widget.availableSectionsPerGrade[gradeNumber] ?? [];
-            final selected = widget.sectionsPerGrade[gradeNumber] ?? [];
-            final isExpanded = _expandedState[gradeNumber] ?? true;
+              // Grade cards
+              ...List.generate(sortedGrades.length, (index) {
+                final grade = sortedGrades[index];
+                final gradeNumber = grade.gradeNumber;
+                final available = widget.availableSectionsPerGrade[gradeNumber] ?? [];
+                final selected = widget.sectionsPerGrade[gradeNumber] ?? [];
+                final isExpanded = _expandedState[gradeNumber] ?? true;
 
-            // Staggered animation
-            final delay = index * 0.12;
-            final animation = CurvedAnimation(
-              parent: _staggerController,
-              curve: Interval(
-                delay.clamp(0.0, 0.6),
-                (delay + 0.4).clamp(0.0, 1.0),
-                curve: Curves.easeOutCubic,
-              ),
-            );
+                // Staggered animation
+                final delay = index * 0.12;
+                final animation = CurvedAnimation(
+                  parent: _staggerController,
+                  curve: Interval(
+                    delay.clamp(0.0, 0.6),
+                    (delay + 0.4).clamp(0.0, 1.0),
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
 
-            return AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(0, 20 * (1 - animation.value)),
-                child: Opacity(
-                  opacity: animation.value,
-                  child: child,
-                ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(bottom: index < sortedGrades.length - 1 ? 16 : 0),
-                child: _GradeCard(
-                  gradeNumber: gradeNumber,
-                  gradient: _getGradientForGrade(gradeNumber),
-                  availableSections: available,
-                  selectedSections: selected,
-                  isExpanded: isExpanded,
-                  sectionEmojis: _sectionEmojis,
-                  onToggleExpanded: () => _toggleExpanded(gradeNumber),
-                  onSelectAll: () => _selectAll(context, gradeNumber, available),
-                  onClearAll: () => _clearAll(context, gradeNumber, available),
-                  onSectionToggle: (sectionName) {
-                    HapticFeedback.lightImpact();
-                    if (selected.contains(sectionName)) {
-                      context.read<AdminSetupBloc>().add(
-                        RemoveSectionEvent(
-                          gradeNumber: gradeNumber,
-                          sectionName: sectionName,
-                        ),
-                      );
-                    } else {
-                      context.read<AdminSetupBloc>().add(
-                        AddSectionEvent(
-                          gradeNumber: gradeNumber,
-                          sectionName: sectionName,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-            );
-          }),
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Transform.translate(
+                    offset: Offset(0, 20 * (1 - animation.value)),
+                    child: Opacity(
+                      opacity: animation.value,
+                      child: child,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: index < sortedGrades.length - 1 ? 16 : 0),
+                    child: _GradeCard(
+                      gradeNumber: gradeNumber,
+                      gradient: _getGradientForGrade(gradeNumber),
+                      availableSections: available,
+                      selectedSections: selected,
+                      isExpanded: isExpanded,
+                      sectionEmojis: _sectionEmojis,
+                      onToggleExpanded: () => _toggleExpanded(gradeNumber),
+                      onSelectAll: () => _selectAll(context, gradeNumber, available),
+                      onClearAll: () => _clearAll(context, gradeNumber, available),
+                      onSectionToggle: (sectionName) {
+                        HapticFeedback.lightImpact();
+                        if (selected.contains(sectionName)) {
+                          context.read<AdminSetupBloc>().add(
+                            RemoveSectionEvent(
+                              gradeNumber: gradeNumber,
+                              sectionName: sectionName,
+                            ),
+                          );
+                        } else {
+                          context.read<AdminSetupBloc>().add(
+                            AddSectionEvent(
+                              gradeNumber: gradeNumber,
+                              sectionName: sectionName,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                );
+              }),
 
-          const SizedBox(height: 24),
-        ],
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       ),
     );
   }
