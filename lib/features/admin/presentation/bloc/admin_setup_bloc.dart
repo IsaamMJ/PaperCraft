@@ -276,10 +276,11 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
       return;
     }
 
-    if (!_setupState.validateCurrentStep()) {
-      emit(const StepValidationFailed(
-        errorMessage: 'Please complete all required fields',
-      ));
+    // Validate all setup requirements (works for both admin wizard and solo
+    // teacher flow, which may not advance the BLoC's internal step counter).
+    final saveValidationError = _getFullValidationError();
+    if (saveValidationError != null) {
+      emit(StepValidationFailed(errorMessage: saveValidationError));
       return;
     }
 
@@ -298,6 +299,29 @@ class AdminSetupBloc extends Bloc<AdminSetupEvent, AdminSetupUIState> {
         emit(const AdminSetupSaved());
       },
     );
+  }
+
+  /// Validate ALL setup requirements regardless of current step.
+  /// Returns null if valid, or an error message if invalid.
+  String? _getFullValidationError() {
+    if (_setupState.selectedGrades.isEmpty) {
+      return 'Please select at least one grade';
+    }
+    for (final grade in _setupState.selectedGrades) {
+      if (_setupState.getSectionsForGrade(grade.gradeNumber).isEmpty) {
+        return 'Please add sections for Grade ${grade.gradeNumber}';
+      }
+    }
+    final gradesMissing = <int>[];
+    for (final grade in _setupState.selectedGrades) {
+      if (!_setupState.gradeHasSubjects(grade.gradeNumber)) {
+        gradesMissing.add(grade.gradeNumber);
+      }
+    }
+    if (gradesMissing.isNotEmpty) {
+      return 'Please add subjects for Grade ${gradesMissing.join(', Grade ')}';
+    }
+    return null;
   }
 
   /// Get validation error message for current step

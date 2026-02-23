@@ -11,6 +11,8 @@ class AppRoutes {
   static const String notifications = '/notifications';
 
   // Onboarding routes
+  static const String onboardingChoice = '/onboarding/choice';
+  static const String soloTeacherSetup = '/onboarding/solo-setup';
   static const String teacherOnboarding = '/onboarding/teacher';
   static const String teacherProfileSetup = '/onboarding/teacher/profile-setup';
 

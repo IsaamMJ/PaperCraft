@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/routes/app_routes.dart';
-import '../../../authentication/presentation/bloc/auth_bloc.dart';
-import '../../../authentication/presentation/bloc/auth_state.dart';
-import '../../../authentication/presentation/bloc/auth_event.dart';
 
 /// Success modal shown after admin setup completion
 class AdminSetupSuccessModal extends StatefulWidget {

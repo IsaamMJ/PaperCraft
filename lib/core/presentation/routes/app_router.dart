@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 // Core dependencies
 import '../../../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/admin_setup_wizard_page.dart';
+import '../../../features/admin/presentation/pages/onboarding_choice_page.dart';
+import '../../../features/admin/presentation/pages/solo_teacher_setup_page.dart';
 import '../../../features/admin/presentation/pages/admin_assignments_dashboard_page.dart';
 import '../../../features/admin/presentation/pages/settings_screen.dart';
 import '../../../features/office_staff/presentation/pages/office_staff_dashboard_page.dart';
@@ -147,10 +149,10 @@ class AppRouter {
     // For authenticated users, check initialization status and route accordingly
     if (authState is AuthAuthenticated) {
       // LEVEL 1: Tenant initialization (highest priority)
-      // If tenant is not initialized, redirect to admin setup wizard
-      // Only admins should see the admin setup wizard
+      // If tenant is not initialized, redirect to onboarding choice screen
+      // so the admin can pick "school setup" or "solo teacher" flow.
       if (!authState.tenantInitialized && authState.user.role.value == 'admin') {
-        return AppRoutes.adminSetupWizard;
+        return AppRoutes.onboardingChoice;
       }
 
       // LEVEL 1.5: Reviewer-only access (high priority)
@@ -447,6 +449,29 @@ class AppRouter {
               BlocProvider(create: (_) => sl<SubjectBloc>()),
             ],
             child: const AdminDashboardPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingChoice,
+        builder: (context, state) {
+          AppLogger.info('User accessing onboarding choice', category: LogCategory.navigation);
+          return const OnboardingChoicePage();
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.soloTeacherSetup,
+        builder: (context, state) {
+          AppLogger.info('Solo teacher accessing setup', category: LogCategory.navigation);
+
+          final authState = context.read<AuthBloc>().state;
+          final tenantId = (authState is AuthAuthenticated)
+              ? authState.user.tenantId ?? ''
+              : '';
+
+          return BlocProvider(
+            create: (_) => sl<AdminSetupBloc>(),
+            child: SoloTeacherSetupPage(tenantId: tenantId),
           );
         },
       ),
