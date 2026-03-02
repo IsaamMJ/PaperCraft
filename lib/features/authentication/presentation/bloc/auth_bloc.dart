@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../../../core/domain/interfaces/i_auth_provider.dart';
@@ -71,10 +70,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'timestamp': _clock.now().toIso8601String(),
           });
 
-          // ✅ Handle OAuth response for web ONLY
-          // For native: _onSignInGoogle already handles authentication
-          if (event.event == AuthChangeEvent.signedIn && event.session?.user != null && kIsWeb) {
-            // Web platform received OAuth response
+          // Handle signedIn on ALL platforms (web + native).
+          // During a normal OAuth flow _onSignInGoogle is active and handles
+          // everything, so we skip here. This listener only catches signedIn
+          // events that fire OUTSIDE the normal flow — e.g. Android kills the
+          // app during Chrome OAuth and recreates it from scratch.
+          if (event.event == AuthChangeEvent.signedIn && event.session?.user != null) {
+            if (_isOAuthInProgress) return; // normal flow handles it
+            if (state is AuthAuthenticated) return; // already signed in
+
             Future.microtask(() {
               if (!isClosed) {
                 try {
@@ -251,10 +255,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  // Replace the _onSignInGoogle method in auth_bloc.dart with this:
-
-  // Replace the _onSignInGoogle method in auth_bloc.dart with this:
-
   Future<void> _onSignInGoogle(AuthSignInGoogle event, Emitter<AuthState> emit) async {
     if (_isOAuthInProgress) {
       AppLogger.warning('OAuth already in progress, ignoring duplicate request',
@@ -269,6 +269,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     _isOAuthInProgress = true;
 
     try {
+      // If Supabase already has a valid session (from a previous
+      // partially-failed attempt or app restart), skip OAuth entirely
+      // and just verify the current state.
+      if (_authUseCase.isAuthenticated) {
+        AppLogger.info('Existing session found, skipping OAuth',
+            category: LogCategory.auth);
+        emit(const AuthLoading());
+        add(const AuthCheckStatus());
+        return;
+      }
+
       emit(const AuthLoading());
 
       AppLogger.authEvent('google_signin_started', 'pending', context: {
@@ -326,14 +337,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             'completedAt': DateTime.now().toIso8601String(),
           });
 
-          // For native platforms: emit authenticated state with user data
-          // Tenant initialization status will be verified on app startup via router
-          emit(AuthAuthenticated(
-            authResult.user,
-            isFirstLogin: authResult.isFirstLogin,
-            tenantInitialized: false, // Router will verify this on next screen
-            userOnboarded: authResult.user.hasCompletedOnboarding,
-          ));
+          // For native platforms: don't emit with hardcoded tenantInitialized=false
+          // as GoRouter would immediately redirect admins to onboarding.
+          // Instead, dispatch AuthCheckStatus to query the real value from DB.
+          // We stay in AuthLoading until the check completes with correct state.
+          add(const AuthCheckStatus());
         },
       );
     } catch (e) {
@@ -414,24 +422,43 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     try {
-      // Use the new method to get user WITH initialization status
-      final result = await _authUseCase.getCurrentUserWithInitStatus();
+      // Retry up to 3 times if session exists but profile isn't ready yet.
+      // This handles the app-restart case where the DB trigger that creates
+      // the profile row hasn't fired yet.
+      const maxProfileRetries = 3;
+      const profileRetryDelay = Duration(seconds: 1);
 
-      // Use isLeft/isRight instead of fold to support async/await properly
-      if (result.isLeft()) {
-        _userStateService.clearUser();
+      Map<String, dynamic> data = {};
+      for (int attempt = 0; attempt <= maxProfileRetries; attempt++) {
+        final result = await _authUseCase.getCurrentUserWithInitStatus();
 
-        final failure = result.fold((f) => f, (_) => null)!;
-        AppLogger.authError('Status check failed', failure, context: {
-          'failureType': failure.runtimeType.toString(),
-          'fallbackAction': 'clear_state_redirect_login',
-        });
+        if (result.isLeft()) {
+          _userStateService.clearUser();
 
-        emit(const AuthUnauthenticated());
-        return;
+          final failure = result.fold((f) => f, (_) => null)!;
+          AppLogger.authError('Status check failed', failure, context: {
+            'failureType': failure.runtimeType.toString(),
+            'fallbackAction': 'clear_state_redirect_login',
+            'attempt': attempt,
+          });
+
+          emit(const AuthUnauthenticated());
+          return;
+        }
+
+        data = result.getOrElse(() => {});
+
+        if (data.isNotEmpty) break; // Profile found
+
+        // Session exists but no profile — DB trigger might be slow
+        if (_authUseCase.isAuthenticated && attempt < maxProfileRetries) {
+          AppLogger.info('Profile not ready, retrying (${attempt + 1}/$maxProfileRetries)',
+              category: LogCategory.auth);
+          await Future.delayed(profileRetryDelay);
+          continue;
+        }
+        break;
       }
-
-      final data = result.getOrElse(() => {});
 
       if (data.isEmpty) {
         _userStateService.clearUser();
