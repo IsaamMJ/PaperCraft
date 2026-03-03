@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:convert' show utf8, base64Encode;
 import 'dart:io' show File, Platform, Directory;
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/infrastructure/di/injection_container.dart';
@@ -600,17 +598,16 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       // Generate filename
       final filename = ReportGeneratorService.getAcademicStructureReportFilename();
 
-      // Share the report
+      // Download the report using platform-appropriate method
       if (!context.mounted) return;
-      await Share.share(
-        csv,
-        subject: filename,
-      );
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report shared: $filename')),
-      );
+      if (kIsWeb) {
+        _downloadFileWeb(csv, filename);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Downloaded: $filename')),
+        );
+      } else {
+        await _downloadFileMobile(csv, filename);
+      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -902,17 +899,16 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       // Generate filename
       final filename = ReportGeneratorService.getTeacherAssignmentsReportFilename();
 
-      // Share the report
+      // Download the report using platform-appropriate method
       if (!context.mounted) return;
-      await Share.share(
-        csv,
-        subject: filename,
-      );
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report shared: $filename')),
-      );
+      if (kIsWeb) {
+        _downloadFileWeb(csv, filename);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Downloaded: $filename')),
+        );
+      } else {
+        await _downloadFileMobile(csv, filename);
+      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -922,47 +918,9 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   }
 
   /// Download CSV file on web platform
+  /// Throws on failure so callers can handle errors in their own catch blocks
   void _downloadFileWeb(String csvContent, String filename) {
-    if (!kIsWeb) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('CSV download is only supported on web platform')),
-      );
-      return;
-    }
-
-    try {
-      // Directly execute web download with CSV content
-      _executeWebDownload(csvContent, filename);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading file: $e')),
-      );
-      if (kDebugMode) {
-      }
-    }
-  }
-
-  /// Execute web download (this will work on Flutter web)
-  void _executeWebDownload(String csvContent, String filename) {
-    // Only execute on web platform
-    if (!kIsWeb) return;
-
-    try {
-      // Use web download helper to trigger browser download
-      WebDownloadHelper.downloadCsvFile(csvContent, filename);
-
-      if (kDebugMode) {
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading file: $e')),
-      );
-      if (kDebugMode) {
-      }
-    }
+    WebDownloadHelper.downloadCsvFile(csvContent, filename);
   }
 
   /// Download CSV file on mobile platform
