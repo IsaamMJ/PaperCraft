@@ -28,8 +28,6 @@ class ExamCalendarListPage extends StatefulWidget {
 
 class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   late TextEditingController _examNameController;
-  late TextEditingController _monthNumberController;
-  late TextEditingController _displayOrderController;
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _deadlineDate;
@@ -51,8 +49,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
     super.initState();
 
     _examNameController = TextEditingController();
-    _monthNumberController = TextEditingController();
-    _displayOrderController = TextEditingController(text: '1');
     _coreMaxMarksController = TextEditingController(text: '60');
     _auxiliaryMaxMarksController = TextEditingController(text: '50');
 
@@ -68,8 +64,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
   @override
   void dispose() {
     _examNameController.dispose();
-    _monthNumberController.dispose();
-    _displayOrderController.dispose();
     _coreMaxMarksController.dispose();
     _auxiliaryMaxMarksController.dispose();
     super.dispose();
@@ -89,8 +83,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
   void _showCreateDialog() {
     _examNameController.clear();
-    _monthNumberController.clear();
-    _displayOrderController.text = '1';
     _startDate = null;
     _endDate = null;
     _deadlineDate = null;
@@ -145,16 +137,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _monthNumberController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Month Number',
-                    hintText: '1-12',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
                 // Start date picker
                 ListTile(
                   title: const Text('Start Date'),
@@ -195,16 +177,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                   onTap: () => _selectDate(context, (date) {
                     setState(() => _deadlineDate = date);
                   }),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _displayOrderController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Display Order',
-                    hintText: '1, 2, 3...',
-                    border: OutlineInputBorder(),
-                  ),
                 ),
                 const SizedBox(height: 24),
                 // Grade Selection
@@ -328,7 +300,6 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
 
                 if (_examNameController.text.isEmpty ||
                     _selectedExamType == null ||
-                    _monthNumberController.text.isEmpty ||
                     _startDate == null ||
                     _endDate == null ||
                     _selectedGrades.isEmpty ||
@@ -349,11 +320,11 @@ class _ExamCalendarListPageState extends State<ExamCalendarListPage> {
                     tenantId: widget.tenantId,
                     examName: _examNameController.text.trim(),
                     examType: _selectedExamType!,
-                    monthNumber: int.tryParse(_monthNumberController.text) ?? 1,
+                    monthNumber: _startDate!.month,
                     plannedStartDate: _startDate!,
                     plannedEndDate: _endDate!,
                     paperSubmissionDeadline: _deadlineDate,
-                    displayOrder: int.tryParse(_displayOrderController.text) ?? 1,
+                    displayOrder: _startDate!.month,
                     selectedGradeNumbers: _selectedGrades.toList()..sort(),
                     coreMaxMarks: coreMaxMarks,
                     auxiliaryMaxMarks: auxiliaryMaxMarks,
