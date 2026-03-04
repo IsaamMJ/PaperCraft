@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
@@ -24,17 +25,18 @@ class TeacherAssignmentsDashboardPage extends StatefulWidget {
 class _TeacherAssignmentsDashboardPageState
     extends State<TeacherAssignmentsDashboardPage> {
   late TextEditingController _searchController;
+  List<UserEntity> _allTenantTeachers = [];
+  bool _isLoadingTeachers = true;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    // Load assignments when page initializes using the authenticated user's tenant
     _loadAssignments();
+    _loadAllTeachers();
   }
 
   void _loadAssignments() {
-    // Get the current user from the authentication bloc
     final authBloc = context.read<AuthBloc>();
     if (authBloc.state is AuthAuthenticated) {
       final user = (authBloc.state as AuthAuthenticated).user;
@@ -42,6 +44,51 @@ class _TeacherAssignmentsDashboardPageState
         context.read<TeacherAssignmentBloc>().add(
               LoadTeacherAssignmentsEvent(tenantId: user.tenantId!),
             );
+      }
+    }
+  }
+
+  Future<void> _loadAllTeachers() async {
+    final authBloc = context.read<AuthBloc>();
+    if (authBloc.state is! AuthAuthenticated) return;
+    final user = (authBloc.state as AuthAuthenticated).user;
+    if (user.tenantId == null) return;
+
+    try {
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select('id, full_name, email, role, tenant_id, is_active, created_at')
+          .eq('tenant_id', user.tenantId!)
+          .eq('role', 'teacher');
+
+      final teachers = (response as List).map((json) {
+        return UserEntity(
+          id: json['id'] as String,
+          email: json['email'] as String? ?? '',
+          fullName: json['full_name'] as String? ?? 'Unknown',
+          role: UserRole.teacher,
+          tenantId: json['tenant_id'] as String?,
+          isActive: json['is_active'] as bool? ?? true,
+          createdAt: json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : DateTime.now(),
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _allTenantTeachers = teachers;
+          _isLoadingTeachers = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingTeachers = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load all teachers: $e')),
+        );
       }
     }
   }
@@ -61,7 +108,7 @@ class _TeacherAssignmentsDashboardPageState
         appBar: _buildAppBar(),
         body: BlocBuilder<TeacherAssignmentBloc, TeacherAssignmentState>(
           builder: (context, state) {
-            if (state is TeacherAssignmentsLoading) {
+            if (state is TeacherAssignmentsLoading || _isLoadingTeachers) {
               return _buildLoadingState();
             }
 
@@ -91,33 +138,48 @@ class _TeacherAssignmentsDashboardPageState
   }
 
   Widget _buildContent(TeacherAssignmentsLoaded state) {
-    final teachers = state.assignments
+    // Build assigned teachers — prefer profile data over denormalized assignment fields
+    final profileMap = {for (final t in _allTenantTeachers) t.id: t};
+    final assignedTeachersMap = state.assignments
         .fold<Map<String, UserEntity>>({}, (map, assignment) {
       if (!map.containsKey(assignment.teacherId)) {
-        // Create a basic teacher entity from assignment data
-        map[assignment.teacherId] = UserEntity(
-          id: assignment.teacherId,
-          email: assignment.teacherEmail ?? '',
-          fullName: assignment.teacherName ?? 'Unknown',
-          role: UserRole.teacher,
-          tenantId: assignment.tenantId,
-          isActive: true,
-          createdAt: assignment.createdAt,
-        );
+        map[assignment.teacherId] = profileMap[assignment.teacherId] ??
+            UserEntity(
+              id: assignment.teacherId,
+              email: assignment.teacherEmail ?? '',
+              fullName: assignment.teacherName ?? 'Unknown',
+              role: UserRole.teacher,
+              tenantId: assignment.tenantId,
+              isActive: true,
+              createdAt: assignment.createdAt,
+            );
       }
       return map;
-    }).values.toList();
+    });
 
-    // Filter teachers based on search
-    final filteredTeachers = _filterTeachers(teachers);
+    final assignedTeachers = assignedTeachersMap.values.toList();
+    final assignedIds = assignedTeachersMap.keys.toSet();
+
+    // Unassigned = all tenant teachers minus those with assignments
+    final unassignedTeachers = _allTenantTeachers
+        .where((t) => !assignedIds.contains(t.id))
+        .toList();
+
+    // Apply search filter
+    final filteredAssigned = _filterTeachers(assignedTeachers);
+    final filteredUnassigned = _filterTeachers(unassignedTeachers);
+
+    final hasAnyTeachers =
+        filteredAssigned.isNotEmpty || filteredUnassigned.isNotEmpty;
 
     return Column(
       children: [
         _buildSearchBar(),
         Expanded(
-          child: filteredTeachers.isEmpty
+          child: !hasAnyTeachers
               ? _buildEmptyState()
-              : _buildTeachersList(filteredTeachers, state),
+              : _buildTeachersListView(
+                  filteredAssigned, filteredUnassigned, state),
         ),
       ],
     );
@@ -204,50 +266,77 @@ class _TeacherAssignmentsDashboardPageState
     );
   }
 
-  Widget _buildTeachersList(
-    List<UserEntity> teachers,
+  Widget _buildTeachersListView(
+    List<UserEntity> assignedTeachers,
+    List<UserEntity> unassignedTeachers,
     TeacherAssignmentsLoaded state,
   ) {
     return RefreshIndicator(
       onRefresh: () async {
-        final authBloc = context.read<AuthBloc>();
-        if (authBloc.state is AuthAuthenticated) {
-          final user = (authBloc.state as AuthAuthenticated).user;
-          if (user.tenantId != null) {
-            context.read<TeacherAssignmentBloc>().add(
-                  LoadTeacherAssignmentsEvent(tenantId: user.tenantId!),
-                );
-          }
-        }
-        // Wait a bit for the BLoC to process
-        await Future.delayed(const Duration(milliseconds: 500));
+        _loadAssignments();
+        await _loadAllTeachers();
       },
-      child: ListView.builder(
+      child: ListView(
         padding: EdgeInsets.all(UIConstants.paddingMedium),
-        itemCount: teachers.length,
-        itemBuilder: (context, index) {
-          final teacher = teachers[index];
-          final teacherAssignments =
-              state.assignments.where((a) => a.teacherId == teacher.id).toList();
-          final gradeCount = teacherAssignments
-              .fold<Set<String>>({}, (set, a) {
-                set.add(a.gradeId);
-                return set;
-              })
-              .length;
-          final subjectCount = teacherAssignments
-              .fold<Set<String>>({}, (set, a) {
-                set.add(a.subjectId);
-                return set;
-              })
-              .length;
+        children: [
+          // Assigned teachers section
+          if (assignedTeachers.isNotEmpty) ...[
+            ...assignedTeachers.map((teacher) {
+              final teacherAssignments = state.assignments
+                  .where((a) => a.teacherId == teacher.id)
+                  .toList();
+              final gradeCount = teacherAssignments
+                  .fold<Set<String>>({}, (set, a) {
+                    set.add(a.gradeId);
+                    return set;
+                  })
+                  .length;
+              final subjectCount = teacherAssignments
+                  .fold<Set<String>>({}, (set, a) {
+                    set.add(a.subjectId);
+                    return set;
+                  })
+                  .length;
 
-          return _buildTeacherCard(
-            teacher,
-            gradeCount,
-            subjectCount,
-          );
-        },
+              return _buildTeacherCard(teacher, gradeCount, subjectCount);
+            }),
+          ],
+
+          // Unassigned teachers section
+          if (unassignedTeachers.isNotEmpty) ...[
+            Padding(
+              padding: EdgeInsets.only(
+                top: assignedTeachers.isNotEmpty ? UIConstants.spacing16 : 0,
+                bottom: UIConstants.spacing12,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_add_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  SizedBox(width: UIConstants.spacing8),
+                  Text(
+                    'No assignments yet',
+                    style: TextStyle(
+                      fontSize: UIConstants.fontSizeMedium,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(width: UIConstants.spacing8),
+                  Expanded(
+                    child: Divider(color: AppColors.border),
+                  ),
+                ],
+              ),
+            ),
+            ...unassignedTeachers.map((teacher) {
+              return _buildUnassignedTeacherCard(teacher);
+            }),
+          ],
+        ],
       ),
     );
   }
@@ -289,7 +378,7 @@ class _TeacherAssignmentsDashboardPageState
                   ),
                   child: Center(
                     child: Text(
-                      teacher.fullName[0].toUpperCase(),
+                      (teacher.fullName.isNotEmpty ? teacher.fullName[0] : '?').toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -328,6 +417,86 @@ class _TeacherAssignmentsDashboardPageState
                 ),
                 SizedBox(width: UIConstants.spacing12),
                 _buildStatsPill(gradeCount, subjectCount),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnassignedTeacherCard(UserEntity teacher) {
+    return Container(
+      margin: EdgeInsets.only(bottom: UIConstants.spacing12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: Border.all(
+          color: AppColors.border,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigateToDetail(teacher),
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          child: Padding(
+            padding: EdgeInsets.all(UIConstants.paddingMedium),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.textTertiary.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      (teacher.fullName.isNotEmpty ? teacher.fullName[0] : '?').toUpperCase(),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: UIConstants.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        teacher.fullName,
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: UIConstants.spacing4),
+                      Text(
+                        teacher.email,
+                        style: TextStyle(
+                          fontSize: UIConstants.fontSizeSmall,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: UIConstants.spacing12),
+                Icon(
+                  Icons.add_circle_outline,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
               ],
             ),
           ),
@@ -377,14 +546,12 @@ class _TeacherAssignmentsDashboardPageState
     final query = _searchController.text.toLowerCase();
     return teachers
         .where((teacher) =>
-            (teacher.fullName?.toLowerCase().contains(query) ?? false) ||
-            (teacher.email?.toLowerCase().contains(query) ?? false))
+            (teacher.fullName.toLowerCase().contains(query)) ||
+            (teacher.email.toLowerCase().contains(query)))
         .toList();
   }
 
   void _navigateToDetail(UserEntity teacher) {
-    // Navigate using GoRouter to the detail page
-    // Route pattern: /settings/teacher-assignments/:id
     context.push(
       '/settings/teacher-assignments/${teacher.id}',
     );
