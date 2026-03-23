@@ -17,7 +17,7 @@ enum ExamType {
       case ExamType.quarterlyTest:
         return 'Quarterly Examination';
       case ExamType.finalExam:
-        return 'Final Examination';
+        return 'Annual Examination';
       case ExamType.dailyTest:
         return 'Daily Test';
     }
