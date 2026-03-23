@@ -1072,11 +1072,11 @@ class SimplePdfService implements IPdfGenerationService {
     final pages = <List<pw.Widget>>[];
     final currentPage = <pw.Widget>[];
 
-    // Page heights with safety buffer
-    // First page: Account for header (80pt) + safety margin (20pt)
-    final availableHeightFirstPage = USABLE_PAGE_HEIGHT - HEADER_HEIGHT - 20;
+    // Page heights with minimal safety buffer
+    // First page: Account for header (80pt) + safety margin (10pt)
+    final availableHeightFirstPage = USABLE_PAGE_HEIGHT - HEADER_HEIGHT - 10;
     // Subsequent pages: Minimal top margin + safety buffer
-    final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 20;
+    final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 10;
 
     debugPrint('   First page available: $availableHeightFirstPage pt');
     debugPrint('   Other pages available: $availableHeightOtherPages pt');
@@ -1140,15 +1140,10 @@ class SimplePdfService implements IPdfGenerationService {
       return height;
     }
 
-    // 2. Simple text widgets - use conservative estimation
+    // 2. Simple text widgets - tight estimation
     if (widget is pw.Text) {
-      // We use 11pt as base font for most content (questions, options)
-      // Section headers use UIConstants.fontSizeSmall (typically 12-14pt)
-      // Use conservative 13pt average × fontSizeMultiplier
-      final estimatedFontSize = 13.0 * fontSizeMultiplier;
-      // Average line height is 1.5x font size for readability
-      final height = estimatedFontSize * 1.5;
-      // debugPrint('      📏 Text: ${height.toStringAsFixed(2)} pt (font: ${estimatedFontSize.toStringAsFixed(1)}pt)');
+      final estimatedFontSize = 11.0 * fontSizeMultiplier;
+      final height = estimatedFontSize * 1.2;
       return height;
     }
 
@@ -1171,7 +1166,7 @@ class SimplePdfService implements IPdfGenerationService {
         height += _measureActualWidgetHeight(widget.child!, fontSizeMultiplier, spacingMultiplier);
       } else {
         // Fallback for containers without children (section headers)
-        height += 20 * fontSizeMultiplier;
+        height += 14 * fontSizeMultiplier;
       }
 
       return height;
@@ -1186,9 +1181,9 @@ class SimplePdfService implements IPdfGenerationService {
         totalHeight += _measureActualWidgetHeight(child, fontSizeMultiplier, spacingMultiplier);
       }
 
-      // Add inter-child spacing
+      // Add inter-child spacing (tight)
       if (widget.children.length > 1) {
-        totalHeight += (widget.children.length - 1) * 3 * spacingMultiplier;
+        totalHeight += (widget.children.length - 1) * 1.5 * spacingMultiplier;
       }
 
       return totalHeight;
@@ -1206,7 +1201,7 @@ class SimplePdfService implements IPdfGenerationService {
         }
       }
 
-      return maxChildHeight > 0 ? maxChildHeight : 15 * fontSizeMultiplier;
+      return maxChildHeight > 0 ? maxChildHeight : 12 * fontSizeMultiplier;
     }
 
     // 6. Wrap widgets (MCQ options)
@@ -1215,7 +1210,7 @@ class SimplePdfService implements IPdfGenerationService {
       final childCount = widget.children.length;
       // Assume ~2.5 options per row on average (conservative)
       final estimatedRows = (childCount / 2.5).ceil();
-      final rowHeight = 11 * fontSizeMultiplier * 1.5; // Option font × line height
+      final rowHeight = 11 * fontSizeMultiplier * 1.2; // Option font × line height
       final spacing = widget.runSpacing ?? 1;
       return estimatedRows * rowHeight + (estimatedRows - 1) * spacing;
     }
@@ -1240,7 +1235,7 @@ class SimplePdfService implements IPdfGenerationService {
       return height;
     }
 
-    // Default fallback - conservative estimate
-    return 16 * fontSizeMultiplier;
+    // Default fallback
+    return 13 * fontSizeMultiplier;
   }
 }
