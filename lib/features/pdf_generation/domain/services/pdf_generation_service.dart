@@ -1072,11 +1072,11 @@ class SimplePdfService implements IPdfGenerationService {
     final pages = <List<pw.Widget>>[];
     final currentPage = <pw.Widget>[];
 
-    // Conservative page heights with safety buffer for reliability
-    // First page: Account for header (80pt) + safety margin (40pt)
-    final availableHeightFirstPage = USABLE_PAGE_HEIGHT - HEADER_HEIGHT - 40;
+    // Page heights with safety buffer
+    // First page: Account for header (80pt) + safety margin (20pt)
+    final availableHeightFirstPage = USABLE_PAGE_HEIGHT - HEADER_HEIGHT - 20;
     // Subsequent pages: Minimal top margin + safety buffer
-    final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 40;
+    final availableHeightOtherPages = USABLE_PAGE_HEIGHT - 10 - 20;
 
     debugPrint('   First page available: $availableHeightFirstPage pt');
     debugPrint('   Other pages available: $availableHeightOtherPages pt');
