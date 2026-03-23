@@ -1087,10 +1087,6 @@ class SimplePdfService implements IPdfGenerationService {
 
     debugPrint('\n📝 WIDGET ALLOCATION:');
 
-    // Minimum space (in pt) that must remain after a section header
-    // to fit at least 2 questions. Prevents orphaned headers.
-    const double minSpaceAfterHeader = 60.0;
-
     for (int i = 0; i < allWidgets.length; i++) {
       final widget = allWidgets[i];
       final widgetHeight = _measureActualWidgetHeight(widget, fontSizeMultiplier, spacingMultiplier);
@@ -1113,22 +1109,6 @@ class SimplePdfService implements IPdfGenerationService {
         debugPrint('   📄 Starting page $currentPageNumber (max: ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
       }
 
-      // "Keep with next" check: if this is a section header (Container with
-      // Row child), ensure enough space remains for at least a couple of
-      // questions after it. Otherwise, push the header to the next page.
-      if (currentPage.isNotEmpty && _isSectionHeaderWidget(widget)) {
-        final spaceAfter = maxHeightForCurrentPage - (currentPageHeight + widgetHeight);
-        if (spaceAfter < minSpaceAfterHeader && i + 1 < allWidgets.length) {
-          debugPrint('   ⚠️  Section header would leave only ${spaceAfter.toStringAsFixed(2)} pt — moving to next page');
-          pages.add(List.from(currentPage));
-          currentPage.clear();
-          currentPageHeight = 0;
-          maxHeightForCurrentPage = availableHeightOtherPages;
-          currentPageNumber++;
-          debugPrint('   📄 Starting page $currentPageNumber (max: ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
-        }
-      }
-
       // Add widget to current page
       currentPage.add(widget);
       currentPageHeight += widgetHeight;
@@ -1145,19 +1125,6 @@ class SimplePdfService implements IPdfGenerationService {
     debugPrint('\n✅ PAGINATION COMPLETE: ${pages.length} pages created\n');
 
     return pages.isEmpty ? [allWidgets] : pages;
-  }
-
-  /// Checks if a widget is a section header (Container > Row with bold text).
-  /// Used by pagination to prevent orphaned section headers at page bottoms.
-  bool _isSectionHeaderWidget(pw.Widget widget) {
-    if (widget is pw.Container && widget.child is pw.Row) {
-      final row = widget.child as pw.Row;
-      // Section headers have an Expanded text + marks text in a Row
-      if (row.children.length >= 2 && row.children.first is pw.Expanded) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /// Accurate height measurement based on widget structure and content
