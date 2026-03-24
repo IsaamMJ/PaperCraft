@@ -33,6 +33,7 @@ class _SectionEditModalState extends State<SectionEditModal> {
     'fill_blanks': 'Fill in the blanks',
     'true_false': 'True/False',
     'match_following': 'Match the Following',
+    'word_forms': 'Word Forms',
   };
 
   /// Returns compatible types based on the current type.
@@ -49,9 +50,11 @@ class _SectionEditModalState extends State<SectionEditModal> {
       case 'fill_blanks':
       case 'fill_in_blanks':
         return ['fill_blanks', 'short_answer'];
+      case 'word_forms':
+        return ['word_forms', 'short_answer'];
       case 'short_answer':
       default:
-        return ['short_answer', 'multiple_choice', 'fill_blanks', 'true_false', 'match_following'];
+        return ['short_answer', 'multiple_choice', 'fill_blanks', 'true_false', 'match_following', 'word_forms'];
     }
   }
 

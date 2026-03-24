@@ -618,6 +618,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       case 'match_following':
         typeDisplayName = 'Match the Following';
         break;
+      case 'word_forms':
+        typeDisplayName = 'Word Forms';
+        break;
       default:
         typeDisplayName = type;
     }
