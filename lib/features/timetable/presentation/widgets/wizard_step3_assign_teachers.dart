@@ -26,15 +26,10 @@ class _WizardStep3AssignTeachersState extends State<WizardStep3AssignTeachers> {
   void _loadTeachersIfNeeded() {
     final state = context.read<ExamTimetableWizardBloc>().state;
     if (state is WizardStep3State && state.entryTeacherNames.isEmpty) {
-      // Get academic year from the initial wizard event (usually stored somewhere)
-      // For now, use the current year + next year format
-      final now = DateTime.now();
-      final academicYear = '${now.year}-${now.year + 1}';
-
       context.read<ExamTimetableWizardBloc>().add(
         LoadTeacherAssignmentsEvent(
           tenantId: state.tenantId,
-          academicYear: academicYear,
+          academicYear: state.academicYear,
         ),
       );
     }

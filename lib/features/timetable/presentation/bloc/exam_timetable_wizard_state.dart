@@ -117,8 +117,11 @@ class WizardStep2State extends ExamTimetableWizardState {
     }
   }
 
-  /// Check if all subjects are assigned
-  bool allSubjectsAssigned() => entries.length == subjects.length;
+  /// Check if all subjects have at least one entry assigned
+  bool allSubjectsAssigned() {
+    final assignedSubjectIds = entries.map((e) => e.subjectId).toSet();
+    return subjects.every((s) => assignedSubjectIds.contains(s.id));
+  }
 
   /// Get unassigned subjects
   List<SubjectEntity> getUnassignedSubjects() {
@@ -147,6 +150,7 @@ class WizardStep2State extends ExamTimetableWizardState {
 /// Step 3: Assign teachers & create papers
 class WizardStep3State extends ExamTimetableWizardState {
   final String tenantId;
+  final String academicYear;
   final ExamCalendarEntity selectedCalendar;
   final List<String> selectedGradeIds;
   final List<SubjectEntity> subjects;
@@ -167,6 +171,7 @@ class WizardStep3State extends ExamTimetableWizardState {
 
   const WizardStep3State({
     required this.tenantId,
+    required this.academicYear,
     required this.selectedCalendar,
     required this.selectedGradeIds,
     this.subjects = const [],
@@ -183,6 +188,7 @@ class WizardStep3State extends ExamTimetableWizardState {
 
   WizardStep3State copyWith({
     String? tenantId,
+    String? academicYear,
     ExamCalendarEntity? selectedCalendar,
     List<String>? selectedGradeIds,
     List<SubjectEntity>? subjects,
@@ -198,6 +204,7 @@ class WizardStep3State extends ExamTimetableWizardState {
   }) {
     return WizardStep3State(
       tenantId: tenantId ?? this.tenantId,
+      academicYear: academicYear ?? this.academicYear,
       selectedCalendar: selectedCalendar ?? this.selectedCalendar,
       selectedGradeIds: selectedGradeIds ?? this.selectedGradeIds,
       subjects: subjects ?? this.subjects,
@@ -216,6 +223,7 @@ class WizardStep3State extends ExamTimetableWizardState {
   @override
   List<Object?> get props => [
     tenantId,
+    academicYear,
     selectedCalendar,
     selectedGradeIds,
     subjects,

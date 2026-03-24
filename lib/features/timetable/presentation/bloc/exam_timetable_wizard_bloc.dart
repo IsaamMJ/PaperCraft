@@ -538,6 +538,7 @@ class ExamTimetableWizardBloc
 
       emit(WizardStep3State(
         tenantId: currentState.tenantId,
+        academicYear: _currentAcademicYear,
         selectedCalendar: currentState.selectedCalendar,
         selectedGradeIds: currentState.selectedGradeIds,
         subjects: currentState.subjects,

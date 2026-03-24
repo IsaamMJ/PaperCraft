@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../exams/domain/entities/exam_timetable_entry.dart';
 import '../bloc/exam_timetable_wizard_bloc.dart';
 import '../bloc/exam_timetable_wizard_event.dart';
 import '../bloc/exam_timetable_wizard_state.dart';
@@ -41,6 +42,7 @@ class _WizardStep2ScheduleSubjectsState extends State<WizardStep2ScheduleSubject
         }
       },
       child: BlocBuilder<ExamTimetableWizardBloc, ExamTimetableWizardState>(
+        buildWhen: (previous, current) => current is WizardStep2State,
         builder: (context, state) {
           if (state is! WizardStep2State) {
             return const SizedBox.shrink();
@@ -348,9 +350,11 @@ class _WizardStep2ScheduleSubjectsState extends State<WizardStep2ScheduleSubject
                               subject.id, () => false);
 
                           return SubjectScheduleCard(
+                            key: ValueKey(subject.id),
                             subject: subject,
                             gradesWithSubject: gradesWithSubject,
                             gradeIdToNumberMap: state.gradeIdToNumberMap,
+                            entries: state.entries,
                             isExpanded:
                                 _expandedSubjects[subject.id] ?? false,
                             onExpandChanged: (expanded) {
@@ -433,6 +437,7 @@ class SubjectScheduleCard extends StatefulWidget {
   final dynamic subject;
   final List<String> gradesWithSubject;
   final Map<String, int> gradeIdToNumberMap;
+  final List<ExamTimetableEntry> entries;
   final bool isExpanded;
   final Function(bool) onExpandChanged;
   final DateTime minDate;
@@ -444,6 +449,7 @@ class SubjectScheduleCard extends StatefulWidget {
     required this.subject,
     required this.gradesWithSubject,
     required this.gradeIdToNumberMap,
+    required this.entries,
     required this.isExpanded,
     required this.onExpandChanged,
     required this.minDate,
@@ -463,6 +469,30 @@ class _SubjectScheduleCardState extends State<SubjectScheduleCard> {
 
   // For bulk apply feature
   DateTime? _bulkApplyDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncGradeDatesFromEntries();
+  }
+
+  @override
+  void didUpdateWidget(SubjectScheduleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entries != widget.entries) {
+      _syncGradeDatesFromEntries();
+    }
+  }
+
+  /// Rebuild _gradeDates from BLoC entries to stay in sync
+  void _syncGradeDatesFromEntries() {
+    _gradeDates.clear();
+    for (final entry in widget.entries) {
+      if (entry.subjectId == widget.subject.id) {
+        _gradeDates[entry.gradeId] = entry.examDate;
+      }
+    }
+  }
 
   /// Get all available dates from minDate to maxDate, excluding Sundays
   List<DateTime> _getAvailableDates() {
