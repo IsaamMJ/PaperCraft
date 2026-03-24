@@ -227,7 +227,7 @@ $text''';
         if (questionTexts.isNotEmpty) {
           questions[uniqueName] = questionTexts.asMap().entries.map((entry) {
             final idx = entry.key;
-            final text = entry.value;
+            var text = entry.value;
 
             // Extract options for this question if available
             List<String>? opts;
@@ -235,6 +235,12 @@ $text''';
               opts = (optionsList[idx] as List<dynamic>?)
                   ?.map((o) => o.toString())
                   .toList();
+            }
+
+            // Clean MCQ question text: remove inline options like (day / night)
+            // or [option1 / option2] when options are extracted separately
+            if (type == 'multiple_choice' && opts != null && opts.isNotEmpty) {
+              text = _cleanMcqText(text, opts);
             }
 
             return Question(
@@ -350,6 +356,27 @@ $text''';
       success: sections.isNotEmpty,
       error: sections.isEmpty ? 'Could not detect any sections in the text' : null,
     );
+  }
+
+  /// Clean MCQ question text by removing inline options like (day / night) or [Umar (ra) / Abu Bakr (ra)]
+  static String _cleanMcqText(String text, List<String> options) {
+    // Pattern: (option1 / option2) or [option1 / option2]
+    var cleaned = text;
+    // Remove parenthesized options that contain a slash separator
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'\s*[\(\[]\s*([^)\]]*?/[^)\]]*?)\s*[\)\]]'),
+      (match) {
+        final content = match.group(1)!;
+        // Verify this contains at least one of the known options
+        final containsOption = options.any((opt) =>
+            content.toLowerCase().contains(opt.toLowerCase().trim()));
+        return containsOption ? ' ____' : match.group(0)!;
+      },
+    );
+    // Clean up multiple underscores and spaces
+    cleaned = cleaned.replaceAll(RegExp(r'_{2,}'), '____');
+    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    return cleaned.trim();
   }
 
   /// Detect question type from section name
