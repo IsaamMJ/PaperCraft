@@ -121,14 +121,20 @@
   
   
   
-  <!-- Cache version: bump to force browser refresh -->
-  <meta name="app-version" content="2.0.1">
   <script>
-    // Force service worker update on new deploys
+    // Unregister old service workers and clear caches from previous builds.
+    // Flutter's service worker causes stale deploys — we now build with --pwa-strategy=none.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (let registration of registrations) {
-          registration.update();
+        for (var registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (var name of names) {
+          caches.delete(name);
         }
       });
     }
