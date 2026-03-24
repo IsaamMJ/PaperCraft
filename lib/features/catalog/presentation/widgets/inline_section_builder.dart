@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/ai/services/paper_parse_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/paper_section_entity.dart';
@@ -64,6 +65,7 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
   final List<_SectionDraft> _drafts = [];
   bool _showWalkthrough = false;
   int _walkthroughStep = 0;
+  bool _isParsing = false;
 
   // Chip definitions with icons, smart defaults, and colors.
   static const List<Map<String, dynamic>> _chipDefs = [
@@ -360,6 +362,109 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
     }
   }
 
+  // ── AI Paste Paper ─────────────────────────────────────────────────────
+
+  void _showPastePaperDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Paste Paper Content'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Paste the full paper text (from WhatsApp, document, etc). AI will auto-detect sections, question types, and marks.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 12,
+                minLines: 6,
+                decoration: InputDecoration(
+                  hintText: 'I) Choose the correct answer: (5 marks)\n1. Question...\n2. Question...\n\nII) Fill in the blanks: (5 marks)\n1. Question...',
+                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.pop(ctx);
+                _parsePaperText(text);
+              }
+            },
+            icon: const Icon(Icons.auto_awesome, size: 16),
+            label: const Text('Parse with AI'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _parsePaperText(String text) async {
+    setState(() => _isParsing = true);
+
+    final result = await PaperParseService.parsePaperText(text);
+
+    if (!mounted) return;
+
+    setState(() => _isParsing = false);
+
+    if (result.success && result.sections.isNotEmpty) {
+      // Clear existing drafts
+      for (final d in _drafts) {
+        d.questionsController.removeListener(_onFieldChanged);
+        d.marksController.removeListener(_onFieldChanged);
+        d.dispose();
+      }
+      _drafts.clear();
+
+      // Load parsed sections
+      _loadFromSections(result.sections);
+      setState(() {});
+      _notify();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Detected ${result.sections.length} sections. Review and adjust if needed.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Could not parse paper. Try adding sections manually.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   // ── Computed totals ───────────────────────────────────────────────────────
 
   int get _totalSections => _drafts.length;
@@ -376,8 +481,25 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
       children: [
         _buildHeader(),
         const SizedBox(height: UIConstants.spacing12),
-        if (!widget.readOnly) _buildChips(),
-        if (!widget.readOnly) const SizedBox(height: UIConstants.spacing12),
+        if (!widget.readOnly) ...[
+          _buildPastePaperButton(),
+          const SizedBox(height: UIConstants.spacing12),
+          _buildChips(),
+          const SizedBox(height: UIConstants.spacing12),
+        ],
+        if (_isParsing)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Analyzing paper structure...', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
         if (_drafts.isEmpty) _buildEmptyState() else _buildSectionList(),
         if (_drafts.length > 1 && !widget.readOnly)
           Padding(
@@ -437,6 +559,26 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPastePaperButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _isParsing ? null : _showPastePaperDialog,
+        icon: const Icon(Icons.auto_awesome, size: 18),
+        label: const Text('Paste Paper - Auto Detect Sections'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.deepPurple,
+          side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
+          backgroundColor: Colors.deepPurple.withValues(alpha: 0.04),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          ),
+        ),
+      ),
     );
   }
 
