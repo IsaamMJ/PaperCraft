@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/app_messages.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
@@ -10,7 +9,6 @@ import '../../../../core/presentation/constants/app_assets.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
-import '../../../../core/presentation/routes/app_routes.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -60,11 +58,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     if (state is AuthError) {
       _showErrorDialog(context, state.message);
     }
-    if (state is AuthAuthenticated) {
-      try {
-        context.go(AppRoutes.home);
-      } catch (_) {}
-    }
+    // Navigation after authentication is handled by GoRouter's refreshListenable.
+    // Do NOT call context.go() here — it races with GoRouter's redirect chain
+    // and can bypass onboarding/initialization gates.
   }
 
   void _showErrorDialog(BuildContext context, String message) {

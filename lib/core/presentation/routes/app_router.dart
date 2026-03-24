@@ -141,12 +141,7 @@ class AppRouter {
       return null;
     }
 
-    // Handle authenticated user trying to access login
-    if (authState is AuthAuthenticated && currentLocation == AppRoutes.login) {
-      return AppRoutes.home;
-    }
-
-    // For authenticated users, check initialization status and route accordingly
+    // For authenticated users, check initialization and onboarding status
     if (authState is AuthAuthenticated) {
       // LEVEL 1: Tenant initialization (highest priority)
       // If tenant is not initialized, redirect to onboarding choice screen
@@ -190,7 +185,20 @@ class AppRouter {
       // LEVEL 2: User onboarding (only for non-admins)
       // If user is not an admin and hasn't completed onboarding, send them there
       if (!authState.userOnboarded && authState.user.role.value != 'admin') {
-        return AppRoutes.teacherOnboarding;
+        // Allow navigation within teacher onboarding flow
+        const teacherOnboardingRoutes = [
+          AppRoutes.teacherOnboarding,
+          AppRoutes.teacherProfileSetup,
+        ];
+        if (!teacherOnboardingRoutes.contains(currentLocation)) {
+          return AppRoutes.teacherOnboarding;
+        }
+        return null;
+      }
+
+      // Handle authenticated user sitting on the login page — send them home
+      if (currentLocation == AppRoutes.login) {
+        return AppRoutes.home;
       }
 
       // LEVEL 3: Normal operation - allow navigation

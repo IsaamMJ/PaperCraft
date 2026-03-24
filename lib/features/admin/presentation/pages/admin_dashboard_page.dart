@@ -115,6 +115,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push(AppRoutes.questionPaperCreate),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Create Paper'),
+        elevation: 4,
+      ),
     );
   }
 

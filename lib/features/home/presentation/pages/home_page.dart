@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ],
             ),
           ),
-          floatingActionButton: null,
+          floatingActionButton: isAdmin ? _buildCreateButton() : null,
         );
       },
     );

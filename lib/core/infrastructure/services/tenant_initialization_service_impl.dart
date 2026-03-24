@@ -56,8 +56,11 @@ class TenantInitializationServiceImpl implements TenantInitializationService {
 
       final isInitialized = (response['is_initialized'] as bool?) ?? false;
 
-      // Cache the result
-      _cache[tenantId] = isInitialized;
+      // Only cache 'true' — a false value is transient (tenant may be
+      // initialized at any moment by the admin) so always re-query it.
+      if (isInitialized) {
+        _cache[tenantId] = true;
+      }
 
       logger.debug(
         'Tenant initialization status retrieved successfully',
