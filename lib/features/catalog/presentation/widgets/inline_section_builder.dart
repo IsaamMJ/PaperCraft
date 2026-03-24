@@ -167,8 +167,19 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
   @override
   void didUpdateWidget(InlineSectionBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Reload if parent pushed new initialSections (e.g., navigating to a different paper)
     if (_drafts.isEmpty && widget.initialSections.isNotEmpty) {
       _loadFromSections(widget.initialSections);
+      setState(() {});
+    }
+    // Reset if parent cleared sections (new paper with no sections yet)
+    if (widget.initialSections.isEmpty && oldWidget.initialSections.isNotEmpty) {
+      for (final d in _drafts) {
+        d.questionsController.removeListener(_onFieldChanged);
+        d.marksController.removeListener(_onFieldChanged);
+        d.dispose();
+      }
+      _drafts.clear();
       setState(() {});
     }
   }
