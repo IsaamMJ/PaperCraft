@@ -12,12 +12,14 @@ import '../../domain/entities/paper_section_entity.dart';
 class InlineSectionBuilder extends StatefulWidget {
   final List<PaperSectionEntity> initialSections;
   final ValueChanged<List<PaperSectionEntity>> onSectionsChanged;
+  final ValueChanged<Map<String, List<dynamic>>>? onQuestionsExtracted;
   final bool readOnly;
 
   const InlineSectionBuilder({
     Key? key,
     required this.initialSections,
     required this.onSectionsChanged,
+    this.onQuestionsExtracted,
     this.readOnly = false,
   }) : super(key: key);
 
@@ -456,10 +458,16 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
       setState(() {});
       _notify();
 
+      // Pass extracted questions to parent
+      if (result.questions.isNotEmpty) {
+        widget.onQuestionsExtracted?.call(result.questions);
+      }
+
       if (mounted) {
+        final qCount = result.questions.values.fold(0, (sum, list) => sum + list.length);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Detected ${result.sections.length} sections. Review and adjust if needed.'),
+            content: Text('Detected ${result.sections.length} sections${qCount > 0 ? ' with $qCount questions' : ''}. Review and adjust if needed.'),
             backgroundColor: Colors.green,
           ),
         );

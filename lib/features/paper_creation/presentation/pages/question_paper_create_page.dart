@@ -927,6 +927,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                 onSectionsChanged: (sections) {
                   setState(() => _paperSections = sections);
                 },
+                onQuestionsExtracted: (questions) {
+                  _savedQuestions = Map<String, List<Question>>.from(
+                    questions.map((k, v) => MapEntry(k, List<Question>.from(v))),
+                  );
+                },
               ),
             ],
 
@@ -1021,6 +1026,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               initialSections: _paperSections,
               onSectionsChanged: (sections) {
                 setState(() => _paperSections = sections);
+              },
+              onQuestionsExtracted: (questions) {
+                _savedQuestions = Map<String, List<Question>>.from(
+                  questions.map((k, v) => MapEntry(k, List<Question>.from(v))),
+                );
               },
             ),
             // Show marks validation warning if maxMarks mismatch
