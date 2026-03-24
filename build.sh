@@ -10,10 +10,11 @@ flutter config --enable-web
 # Get dependencies
 flutter pub get
 
-# Build web app without service worker caching (prevents stale deploys)
-flutter build web --pwa-strategy=none --dart-define=ENV=$ENV --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_KEY=$SUPABASE_KEY --dart-define=API_BASE_URL=$API_BASE_URL --verbose 2>&1
+# Build web app
+flutter build web --dart-define=ENV=$ENV --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_KEY=$SUPABASE_KEY --dart-define=API_BASE_URL=$API_BASE_URL --verbose 2>&1
 
-# Copy self-destructing service worker to build output.
-# This replaces any old cached service worker in users' browsers,
-# clears all caches, unregisters itself, and reloads the page.
-cp web/flutter_service_worker.js build/web/flutter_service_worker.js
+# Replace the Flutter-generated service worker with a self-destructing one.
+# This clears all old caches in users' browsers and unregisters the service worker,
+# ensuring users always get the latest deploy.
+cp -f web/flutter_service_worker.js build/web/flutter_service_worker.js
+echo "Replaced flutter_service_worker.js with self-destructing version"
