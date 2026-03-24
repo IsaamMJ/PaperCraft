@@ -154,16 +154,26 @@ class SimplePdfService implements IPdfGenerationService {
               return '$itemLabel) ${question.text}';
             }).join('  ');
 
+            // Word forms render as a single compact line (or 2-3 lines if wrapping).
+            // Use SizedBox with explicit height so the pagination estimator
+            // allocates the correct small height instead of a generic estimate.
+            final wordFormsLineHeight = 11 * fontSizeMultiplier * 1.3;
+            final estimatedLines = (itemsText.length / 80).ceil().clamp(1, 3);
+            final wordFormsHeight = wordFormsLineHeight * estimatedLines;
+
             allQuestionWidgets.add(
-              pw.Text(
-                itemsText,
-                style: pw.TextStyle(
-                  fontSize: 11 * fontSizeMultiplier,
-                  fontWeight: pw.FontWeight.normal,
-                  font: _regularFont,
+              pw.SizedBox(
+                height: wordFormsHeight,
+                child: pw.Text(
+                  itemsText,
+                  style: pw.TextStyle(
+                    fontSize: 11 * fontSizeMultiplier,
+                    fontWeight: pw.FontWeight.normal,
+                    font: _regularFont,
+                  ),
+                  maxLines: 3,
+                  textAlign: pw.TextAlign.left,
                 ),
-                maxLines: 3,
-                textAlign: pw.TextAlign.left,
               ),
             );
           } else if (isMissingLettersSection) {
