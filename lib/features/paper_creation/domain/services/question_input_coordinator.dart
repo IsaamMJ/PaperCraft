@@ -356,26 +356,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                   _buildWordBankModeIndicator(isMobile),
                 if (_currentSection.type == 'fill_in_blanks')
                   SizedBox(height: UIConstants.spacing16),
-                // Section name heading with edit
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _currentSection.name,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showRenameSectionDialog(_currentSectionIndex),
-                      child: Icon(Icons.edit, size: 16, color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-                SizedBox(height: UIConstants.spacing12),
                 _buildQuestionInput(isMobile),
                 SizedBox(height: isMobile ? 32 : 20),
                 _buildActions(isMobile),
