@@ -667,6 +667,49 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             ],
           ),
         ),
+        // Shared word bank for fill_blanks sections (displayed once below header)
+        if (questions.isNotEmpty &&
+            (questions.first.type == 'fill_blanks' || questions.first.type == 'fill_in_blanks')) ...[
+          Builder(builder: (_) {
+            final allWords = <String>{};
+            for (final q in questions) {
+              if (q.options != null) allWords.addAll(q.options!);
+            }
+            if (allWords.isEmpty) return const SizedBox.shrink();
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary10,
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Word Bank:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: allWords.map((word) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          border: Border.all(color: AppColors.primary, width: 1),
+                        ),
+                        child: Text(word, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
         ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value, name)),
         SizedBox(height: UIConstants.spacing24),
       ],
@@ -696,36 +739,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
-                // Word Bank for Fill in the Blanks
-                if (question.type == 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
-                  SizedBox(height: UIConstants.spacing12),
-                  Text(
-                    'Word Bank:',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                  ),
-                  SizedBox(height: UIConstants.spacing8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: question.options!.map((word) {
-                      return Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary10,
-                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
-                          border: Border.all(color: AppColors.primary, width: 1),
-                        ),
-                        child: Text(
-                          word,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primary),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: UIConstants.spacing12),
-                ],
-
-                // Options for MCQ and other types
+                // Options for MCQ and other types (word bank for fill_blanks shown at section level)
                 if (question.type != 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
                   SizedBox(height: UIConstants.spacing12),
                   if (question.type == 'match_following' && question.options!.contains('---SEPARATOR---')) ...[
