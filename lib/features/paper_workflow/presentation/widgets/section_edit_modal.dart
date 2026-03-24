@@ -5,13 +5,15 @@ import '../../../../core/presentation/constants/ui_constants.dart';
 class SectionEditModal extends StatefulWidget {
   final String sectionName;
   final int sectionNumber;
-  final Function(String newName) onSave;
+  final String currentType;
+  final Function(String newName, String? newType) onSave;
   final VoidCallback onCancel;
 
   const SectionEditModal({
     super.key,
     required this.sectionName,
     required this.sectionNumber,
+    required this.currentType,
     required this.onSave,
     required this.onCancel,
   });
@@ -22,12 +24,43 @@ class SectionEditModal extends StatefulWidget {
 
 class _SectionEditModalState extends State<SectionEditModal> {
   late TextEditingController _sectionNameController;
+  late String _selectedType;
   bool _isSaving = false;
+
+  static const Map<String, String> _questionTypes = {
+    'short_answer': 'Short Answer',
+    'multiple_choice': 'Multiple Choice',
+    'fill_blanks': 'Fill in the blanks',
+    'true_false': 'True/False',
+    'match_following': 'Match the Following',
+  };
+
+  /// Returns compatible types based on the current type.
+  /// Some types can freely switch between each other,
+  /// but structural types (match_following, multiple_choice) are more restrictive.
+  List<String> _getCompatibleTypes() {
+    switch (widget.currentType) {
+      case 'multiple_choice':
+        return ['multiple_choice', 'short_answer', 'true_false'];
+      case 'true_false':
+        return ['true_false', 'multiple_choice', 'short_answer'];
+      case 'match_following':
+        return ['match_following', 'short_answer'];
+      case 'fill_blanks':
+      case 'fill_in_blanks':
+        return ['fill_blanks', 'short_answer'];
+      case 'short_answer':
+      default:
+        return ['short_answer', 'multiple_choice', 'fill_blanks', 'true_false', 'match_following'];
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _sectionNameController = TextEditingController(text: widget.sectionName);
+    // Normalize legacy type
+    _selectedType = widget.currentType == 'fill_in_blanks' ? 'fill_blanks' : widget.currentType;
   }
 
   @override
@@ -37,31 +70,25 @@ class _SectionEditModalState extends State<SectionEditModal> {
   }
 
   void _saveChanges() {
-
     final updatedName = _sectionNameController.text.trim();
 
-    // Validation
     if (updatedName.isEmpty) {
       _showErrorSnackBar('Section name cannot be empty');
       return;
     }
 
-    if (updatedName == widget.sectionName) {
+    final nameChanged = updatedName != widget.sectionName;
+    final normalizedCurrentType = widget.currentType == 'fill_in_blanks' ? 'fill_blanks' : widget.currentType;
+    final typeChanged = _selectedType != normalizedCurrentType;
+
+    if (!nameChanged && !typeChanged) {
       Navigator.pop(context);
       return;
     }
 
     setState(() => _isSaving = true);
 
-    // Call the save callback
-
-    widget.onSave(updatedName);
-
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    });
+    widget.onSave(updatedName, typeChanged ? _selectedType : null);
   }
 
   void _showErrorSnackBar(String message) {
@@ -77,6 +104,7 @@ class _SectionEditModalState extends State<SectionEditModal> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final compatibleTypes = _getCompatibleTypes();
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
@@ -150,6 +178,54 @@ class _SectionEditModalState extends State<SectionEditModal> {
                         contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
                       ),
                     ),
+                    SizedBox(height: UIConstants.spacing16),
+
+                    // Question Type
+                    _buildLabel('Question Type'),
+                    SizedBox(height: UIConstants.spacing8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedType,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: UIConstants.paddingSmall,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: compatibleTypes.map((type) {
+                        return DropdownMenuItem<String>(
+                          value: type,
+                          child: Text(_questionTypes[type] ?? type),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedType = value);
+                        }
+                      },
+                    ),
+                    if (compatibleTypes.length < _questionTypes.length) ...[
+                      SizedBox(height: UIConstants.spacing8),
+                      Text(
+                        'Only compatible types are shown based on the current question format.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     SizedBox(height: UIConstants.spacing16),
                   ],
                 ),

@@ -217,6 +217,20 @@ class UpdateSectionName extends QuestionPaperEvent {
   List<Object> get props => [oldSectionName, newSectionName];
 }
 
+/// Update section type and all questions in that section
+class UpdateSectionType extends QuestionPaperEvent {
+  final String sectionName;
+  final String newType;
+
+  const UpdateSectionType({
+    required this.sectionName,
+    required this.newType,
+  });
+
+  @override
+  List<Object> get props => [sectionName, newType];
+}
+
 // =============== STATES ===============
 abstract class QuestionPaperState extends Equatable {
   const QuestionPaperState();
@@ -461,6 +475,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<LoadAllTeacherPapers>(_onLoadAllTeacherPapers);
     on<UpdateQuestionInline>(_onUpdateQuestionInline);
     on<UpdateSectionName>(_onUpdateSectionName);
+    on<UpdateSectionType>(_onUpdateSectionType);
   }
 
   Future<void> _onLoadDrafts(LoadDrafts event, Emitter<QuestionPaperState> emit) async {
@@ -1026,6 +1041,66 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       );
     } catch (e, stackTrace) {
       emit(QuestionPaperError('Failed to update section: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onUpdateSectionType(UpdateSectionType event, Emitter<QuestionPaperState> emit) async {
+    if (state is! QuestionPaperLoaded) return;
+
+    final currentState = state as QuestionPaperLoaded;
+    final currentPaper = currentState.currentPaper;
+
+    if (currentPaper == null) {
+      emit(const QuestionPaperError('No paper loaded'));
+      return;
+    }
+
+    try {
+      // Update section type in paperSections
+      final updatedSections = List<PaperSectionEntity>.from(currentPaper.paperSections ?? []);
+      var sectionIndex = -1;
+
+      for (int i = 0; i < updatedSections.length; i++) {
+        if (updatedSections[i].name == event.sectionName) {
+          sectionIndex = i;
+          break;
+        }
+      }
+
+      if (sectionIndex == -1) {
+        emit(const QuestionPaperError('Section not found'));
+        return;
+      }
+
+      updatedSections[sectionIndex] = updatedSections[sectionIndex].copyWith(type: event.newType);
+
+      // Update all questions in this section to the new type
+      final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
+      if (updatedQuestions.containsKey(event.sectionName)) {
+        updatedQuestions[event.sectionName] = updatedQuestions[event.sectionName]!
+            .map((q) => q.copyWith(type: event.newType))
+            .toList();
+      }
+
+      final updatedPaper = currentPaper.copyWith(
+        paperSections: updatedSections,
+        questions: updatedQuestions,
+      );
+
+      emit(currentState.copyWith(currentPaper: updatedPaper));
+
+      final result = await _updatePaperUseCase(updatedPaper);
+
+      result.fold(
+        (failure) {
+          emit(QuestionPaperError('Failed to save changes: ${failure.message}'));
+        },
+        (savedPaper) {
+          emit(currentState.copyWith(currentPaper: savedPaper));
+        },
+      );
+    } catch (e, stackTrace) {
+      emit(QuestionPaperError('Failed to update section type: ${e.toString()}'));
     }
   }
 }

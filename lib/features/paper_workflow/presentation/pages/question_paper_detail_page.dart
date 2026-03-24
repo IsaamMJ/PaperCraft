@@ -591,14 +591,37 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           SizedBox(height: UIConstants.spacing16),
           ...orderedSections.map((orderedSection) =>
-              _buildSection(orderedSection.sectionNumber, orderedSection.section.name, orderedSection.questions)),
+              _buildSection(orderedSection.sectionNumber, orderedSection.section.name, orderedSection.section.type, orderedSection.questions)),
         ],
       ),
     );
   }
 
 
-  Widget _buildSection(int sectionNumber, String name, List<dynamic> questions) {
+  Widget _buildSection(int sectionNumber, String name, String type, List<dynamic> questions) {
+    // Get display name for the question type
+    String typeDisplayName;
+    switch (type) {
+      case 'multiple_choice':
+        typeDisplayName = 'Multiple Choice';
+        break;
+      case 'short_answer':
+        typeDisplayName = 'Short Answer';
+        break;
+      case 'fill_in_blanks':
+      case 'fill_blanks':
+        typeDisplayName = 'Fill in the blanks';
+        break;
+      case 'true_false':
+        typeDisplayName = 'True/False';
+        break;
+      case 'match_following':
+        typeDisplayName = 'Match the Following';
+        break;
+      default:
+        typeDisplayName = type;
+    }
+
     return Column(
       children: [
         Container(
@@ -609,15 +632,32 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                    'Section $sectionNumber: $name (${questions.length} questions)',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        'Section $sectionNumber: $name (${questions.length} questions)',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        typeDisplayName,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (!widget.isViewOnly)
                 IconButton(
                   icon: const Icon(Icons.edit, size: 18, color: Colors.white),
-                  onPressed: () => _showEditSectionModal(name, sectionNumber),
-                  tooltip: 'Edit section name',
+                  onPressed: () => _showEditSectionModal(name, sectionNumber, type),
+                  tooltip: 'Edit section',
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: EdgeInsets.zero,
                 ),
@@ -824,7 +864,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     );
   }
 
-  void _showEditSectionModal(String sectionName, int sectionNumber) {
+  void _showEditSectionModal(String sectionName, int sectionNumber, String currentType) {
 
     final bloc = context.read<QuestionPaperBloc>();
 
@@ -833,15 +873,27 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       builder: (dialogContext) => SectionEditModal(
         sectionName: sectionName,
         sectionNumber: sectionNumber,
-        onSave: (newName) {
+        currentType: currentType,
+        onSave: (newName, newType) {
 
           try {
-            bloc.add(
-              UpdateSectionName(
-                oldSectionName: sectionName,
-                newSectionName: newName,
-              ),
-            );
+            if (newName != sectionName) {
+              bloc.add(
+                UpdateSectionName(
+                  oldSectionName: sectionName,
+                  newSectionName: newName,
+                ),
+              );
+            }
+
+            if (newType != null && newType != currentType) {
+              bloc.add(
+                UpdateSectionType(
+                  sectionName: newName,
+                  newType: newType,
+                ),
+              );
+            }
 
             // Close the modal
             Navigator.pop(dialogContext);
