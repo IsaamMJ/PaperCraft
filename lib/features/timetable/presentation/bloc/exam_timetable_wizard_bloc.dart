@@ -57,6 +57,7 @@ class ExamTimetableWizardBloc
     on<SelectExamCalendarEvent>(_onSelectExamCalendar);
     on<AssignSubjectDateEvent>(_onAssignSubjectDate);
     on<RemoveSubjectAssignmentEvent>(_onRemoveSubjectAssignment);
+    on<RemoveGradeDateEvent>(_onRemoveGradeDate);
     on<UpdateSubjectAssignmentEvent>(_onUpdateSubjectAssignment);
     on<BatchAssignSubjectsEvent>(_onBatchAssignSubjects);
     on<GoToNextStepEvent>(_onGoToNextStep);
@@ -479,6 +480,20 @@ class ExamTimetableWizardBloc
 
     final updatedEntries =
     step2State.entries.where((e) => e.subjectId != event.subjectId).toList();
+
+    emit(step2State.copyWith(entries: updatedEntries));
+  }
+
+  Future<void> _onRemoveGradeDate(
+      RemoveGradeDateEvent event,
+      Emitter<ExamTimetableWizardState> emit,
+      ) async {
+    if (state is! WizardStep2State) return;
+    final step2State = state as WizardStep2State;
+
+    final updatedEntries = step2State.entries
+        .where((e) => !(e.subjectId == event.subjectId && e.gradeId == event.gradeId))
+        .toList();
 
     emit(step2State.copyWith(entries: updatedEntries));
   }

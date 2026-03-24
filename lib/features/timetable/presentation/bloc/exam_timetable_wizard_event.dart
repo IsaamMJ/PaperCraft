@@ -97,6 +97,20 @@ class RemoveSubjectAssignmentEvent extends ExamTimetableWizardEvent {
   List<Object?> get props => [subjectId];
 }
 
+/// Remove a single grade's date assignment for a subject
+class RemoveGradeDateEvent extends ExamTimetableWizardEvent {
+  final String subjectId;
+  final String gradeId;
+
+  const RemoveGradeDateEvent({
+    required this.subjectId,
+    required this.gradeId,
+  });
+
+  @override
+  List<Object?> get props => [subjectId, gradeId];
+}
+
 /// Update a subject assignment (change date/time)
 class UpdateSubjectAssignmentEvent extends ExamTimetableWizardEvent {
   final String subjectId;

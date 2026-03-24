@@ -755,16 +755,27 @@ class _SubjectScheduleCardState extends State<SubjectScheduleCard> {
                                 ),
                                 selected: isSelected,
                                 onSelected: (selected) {
-                                  setState(() {
-                                    _gradeDates[gradeId] = date;
-                                  });
-                                  // Auto-trigger date selection
-                                  widget.onGradeDateSelected(
-                                    gradeId,
-                                    date,
-                                    const TimeOfDay(hour: 9, minute: 0),
-                                    const TimeOfDay(hour: 11, minute: 0),
-                                  );
+                                  if (selected) {
+                                    setState(() {
+                                      _gradeDates[gradeId] = date;
+                                    });
+                                    widget.onGradeDateSelected(
+                                      gradeId,
+                                      date,
+                                      const TimeOfDay(hour: 9, minute: 0),
+                                      const TimeOfDay(hour: 11, minute: 0),
+                                    );
+                                  } else {
+                                    setState(() {
+                                      _gradeDates[gradeId] = null;
+                                    });
+                                    context
+                                        .read<ExamTimetableWizardBloc>()
+                                        .add(RemoveGradeDateEvent(
+                                          subjectId: widget.subject.id,
+                                          gradeId: gradeId,
+                                        ));
+                                  }
                                 },
                                 backgroundColor: Colors.blue.shade50,
                                 selectedColor: Colors.green.shade200,
@@ -792,7 +803,13 @@ class _SubjectScheduleCardState extends State<SubjectScheduleCard> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: widget.onRemove,
+                      onPressed: () {
+                        setState(() {
+                          _gradeDates.clear();
+                          _bulkApplyDate = null;
+                        });
+                        widget.onRemove();
+                      },
                       icon: const Icon(Icons.delete_outline, size: 16),
                       label: const Text('Clear All Assignments'),
                     ),
