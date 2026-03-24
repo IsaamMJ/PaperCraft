@@ -124,8 +124,15 @@ RULES:
 
 9. If two sections have same name, add (A), (B) suffix.
 
+10. CRITICAL for match_following type: Each line has format "Left item - Right item". Extract as:
+   - "match_left": array of left-side items (before the dash)
+   - "match_right": array of right-side items (after the dash)
+   - "questions_count": number of pairs
+   - "question_texts": ["Match the following"] (always just one entry)
+   Example: "Anu Lululah - haram activities" → match_left: ["Anu Lululah"], match_right: ["haram activities"]
+
 Return ONLY valid JSON array:
-[{"name": "...", "type": "...", "questions_count": N, "marks_per_question": N.N, "question_texts": ["q1", "q2"], "options": [["opt1", "opt2"], null]}]
+[{"name": "...", "type": "...", "questions_count": N, "marks_per_question": N.N, "question_texts": ["q1", "q2"], "options": [["opt1", "opt2"], null], "match_left": null, "match_right": null}]
 
 Paper text:
 $text''';
@@ -224,7 +231,49 @@ $text''';
         ));
 
         // Build Question objects
-        if (questionTexts.isNotEmpty) {
+        if (type == 'match_following') {
+          // Special handling: build single question with ---SEPARATOR--- format
+          final matchLeft = (item['match_left'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim()).toList();
+          final matchRight = (item['match_right'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim()).toList();
+
+          if (matchLeft != null && matchRight != null && matchLeft.isNotEmpty) {
+            final options = [...matchLeft, '---SEPARATOR---', ...matchRight];
+            final totalSectionMarks = actualCount * marksPerQuestion;
+            questions[uniqueName] = [
+              Question(
+                text: 'Match the following',
+                type: type,
+                marks: totalSectionMarks,
+                options: options,
+              ),
+            ];
+          } else if (questionTexts.isNotEmpty) {
+            // Fallback: try to extract pairs from question_texts with "left - right" format
+            final leftItems = <String>[];
+            final rightItems = <String>[];
+            for (final qt in questionTexts) {
+              final dashIdx = qt.indexOf(' - ');
+              if (dashIdx > 0) {
+                leftItems.add(qt.substring(0, dashIdx).trim());
+                rightItems.add(qt.substring(dashIdx + 3).trim());
+              }
+            }
+            if (leftItems.isNotEmpty) {
+              final options = [...leftItems, '---SEPARATOR---', ...rightItems];
+              final totalSectionMarks = actualCount * marksPerQuestion;
+              questions[uniqueName] = [
+                Question(
+                  text: 'Match the following',
+                  type: type,
+                  marks: totalSectionMarks,
+                  options: options,
+                ),
+              ];
+            }
+          }
+        } else if (questionTexts.isNotEmpty) {
           questions[uniqueName] = questionTexts.asMap().entries.map((entry) {
             final idx = entry.key;
             var text = entry.value;
@@ -238,7 +287,6 @@ $text''';
             }
 
             // Clean MCQ question text: remove inline options like (day / night)
-            // or [option1 / option2] when options are extracted separately
             if (type == 'multiple_choice' && opts != null && opts.isNotEmpty) {
               text = _cleanMcqText(text, opts);
             }
@@ -334,7 +382,30 @@ $text''';
         ));
 
         // Build Question objects from extracted text
-        if (sectionQuestions.isNotEmpty) {
+        if (type == 'match_following' && sectionQuestions.isNotEmpty) {
+          // Extract "left - right" pairs for match_following
+          final leftItems = <String>[];
+          final rightItems = <String>[];
+          for (final qText in sectionQuestions) {
+            final dashIdx = qText.indexOf(' - ');
+            if (dashIdx > 0) {
+              leftItems.add(qText.substring(0, dashIdx).trim());
+              rightItems.add(qText.substring(dashIdx + 3).trim());
+            }
+          }
+          if (leftItems.isNotEmpty) {
+            final options = [...leftItems, '---SEPARATOR---', ...rightItems];
+            final totalSectionMarks = questionCount * double.parse(marksPerQuestion.toStringAsFixed(2));
+            questions[uniqueName] = [
+              Question(
+                text: 'Match the following',
+                type: type,
+                marks: totalSectionMarks,
+                options: options,
+              ),
+            ];
+          }
+        } else if (sectionQuestions.isNotEmpty) {
           questions[uniqueName] = sectionQuestions.map((qText) {
             return Question(
               text: qText,
