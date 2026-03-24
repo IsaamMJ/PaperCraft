@@ -27,7 +27,12 @@ class PaperParseResult {
 /// Uses Groq API with llama-3.3-70b-versatile for structured extraction.
 /// Completely separate from the existing GroqService (polish flow).
 class PaperParseService {
-  static String get _apiKey => dotenv.get('GROQ_API_KEY', fallback: '');
+  static String get _apiKey {
+    // Prefer compile-time env (--dart-define), fallback to .env file for local dev
+    const compileTimeKey = String.fromEnvironment('GROQ_API_KEY');
+    if (compileTimeKey.isNotEmpty) return compileTimeKey;
+    return dotenv.get('GROQ_API_KEY', fallback: '');
+  }
   static const _baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   static const _model = 'llama-3.3-70b-versatile';
   static const _timeout = Duration(seconds: 20);
@@ -68,9 +73,8 @@ class PaperParseService {
       return PaperParseResult.failure('No text provided');
     }
 
-    // Use local parsing first (instant, no API dependency).
-    // AI parsing can be enabled later by setting useAI = true.
-    const useAI = false;
+    // Try AI first, fall back to local parsing if unavailable
+    const useAI = true;
 
     if (!useAI || _apiKey.isEmpty) {
       debugPrint('[PaperParse] Using local parsing');
