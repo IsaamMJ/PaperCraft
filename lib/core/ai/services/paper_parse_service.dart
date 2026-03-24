@@ -68,8 +68,12 @@ class PaperParseService {
       return PaperParseResult.failure('No text provided');
     }
 
-    if (_apiKey.isEmpty) {
-      debugPrint('[PaperParse] No API key, using local parsing');
+    // Use local parsing first (instant, no API dependency).
+    // AI parsing can be enabled later by setting useAI = true.
+    const useAI = false;
+
+    if (!useAI || _apiKey.isEmpty) {
+      debugPrint('[PaperParse] Using local parsing');
       return _parseLocally(text);
     }
 
@@ -78,7 +82,6 @@ class PaperParseService {
       if (result.success && result.sections.isNotEmpty) {
         return result;
       }
-      // Fallback to local parsing if AI returns empty
       debugPrint('[PaperParse] AI returned empty, falling back to local');
       return _parseLocally(text);
     } catch (e) {
