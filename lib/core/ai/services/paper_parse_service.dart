@@ -96,25 +96,34 @@ class PaperParseService {
 
   /// Parse using Groq AI
   static Future<PaperParseResult> _parseWithAI(String text) async {
-    final prompt = '''Analyze this exam paper text and extract the sections.
+    final prompt = '''You are an exam paper structure extractor. Extract each question section from the paper text below.
 
-For each section, identify:
-1. "name" - the section title/instruction (e.g., "Choose the correct answer", "Fill in the blanks")
-2. "type" - one of: multiple_choice, true_false, fill_in_blanks, match_following, short_answer, missing_letters, word_forms
-3. "questions" - number of questions in that section (count them)
-4. "marks_per_question" - marks for each question (calculate from total marks / question count)
+RULES:
+1. "name" = the ACTUAL instruction text from the paper (e.g., "Tick the correct answer", "Match the following", "Fill in the blanks", "Answer the following", "Say"). Do NOT use generic names like "Section A" or "Section I". Strip any Roman numerals (I, II, III) or numbering prefixes. Strip any marks info like "(5 marks)".
 
-Rules for type detection:
-- Options like (a/b) or choices = multiple_choice
-- True/false, tick/cross = true_false
-- Blanks with ____ = fill_in_blanks
-- Column A matched to Column B = match_following
-- "Answer the following", "Write", essay-type = short_answer
-- Missing letters like h_ro = missing_letters
-- Jumbled letters, word rearrangement = word_forms
-- Oral/Say sections = short_answer
+2. "type" = one of these ONLY: multiple_choice, true_false, fill_in_blanks, match_following, short_answer, missing_letters, word_forms
+   - Tick correct/wrong, state true or false = true_false
+   - Choose correct answer, options in brackets like (a / b) = multiple_choice
+   - Fill in the blanks, sentences with ____ = fill_in_blanks
+   - Match the following, Column A to Column B = match_following
+   - Answer the following, Write, Explain, essay-type = short_answer
+   - Missing letters like h_ro, p_nce = missing_letters
+   - Jumbled letters, rearrange, word forms = word_forms
+   - Say, Recite, Oral sections = short_answer
 
-Return ONLY valid JSON array, no markdown, no explanation:
+3. "questions" = count the actual numbered questions (1, 2, 3...) in each section
+
+4. "marks_per_question" = total section marks divided by question count. If marks not specified, use 1.
+
+5. IMPORTANT: Ignore group headers like "Section A (Writing)", "Section B (Oral)" — these are NOT question sections. Only extract sections that have actual questions under them.
+
+6. If Match the Following has sub-groups (A) and (B) with separate sets of pairs, treat them as TWO separate sections: "Match the following (A)" and "Match the following (B)".
+
+7. If two sections have the same instruction (e.g., two "Answer the following"), add suffix (A), (B) to make names unique.
+
+8. Single-item tasks like "Write your name in Arabic" count as 1 question.
+
+Return ONLY a valid JSON array. No markdown, no explanation, no extra text:
 [{"name": "...", "type": "...", "questions": N, "marks_per_question": N.N}]
 
 Paper text:
@@ -237,10 +246,15 @@ $text''';
       final line = lines[i];
 
       if (sectionPattern.hasMatch(line)) {
-        // Extract section name (remove roman numeral prefix)
+        // Extract section name: strip Roman numeral prefix, marks info, trailing colons
         var name = line.replaceFirst(RegExp(r'^[IVXLC]+[\).\s]+', caseSensitive: false), '').trim();
-        // Remove marks info from name
-        name = name.replaceFirst(marksPattern, '').replaceAll(RegExp(r'[:]+$'), '').trim();
+        name = name.replaceFirst(marksPattern, '').trim();
+        name = name.replaceAll(RegExp(r'[:]+$'), '').trim();
+        // Skip group headers like "Section A (Writing)", "Section B (Oral)"
+        if (RegExp(r'^Section\s+[A-Z]\b', caseSensitive: false).hasMatch(name)) {
+          i++;
+          continue;
+        }
         if (name.isEmpty) name = 'Section';
 
         // Extract total marks
