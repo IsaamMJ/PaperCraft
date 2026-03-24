@@ -206,11 +206,13 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
     final base = _defaultNameForType(type);
     final existingNames = _drafts.map((d) => d.name.toLowerCase()).toList();
     if (!existingNames.contains(base.toLowerCase())) return base;
-    int counter = 2;
-    while (existingNames.contains('$base $counter'.toLowerCase())) {
-      counter++;
+    // Use (A), (B), (C) ... (Z) suffixes for duplicates
+    for (int i = 0; i < 26; i++) {
+      final suffix = String.fromCharCode(65 + i); // A=65, B=66, ...
+      final candidate = '$base ($suffix)';
+      if (!existingNames.contains(candidate.toLowerCase())) return candidate;
     }
-    return '$base $counter';
+    return '$base (${DateTime.now().millisecondsSinceEpoch})'; // fallback
   }
 
   static String _shortLabel(String type) {
@@ -326,10 +328,28 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
     });
   }
 
+  /// Ensure a name is unique among all drafts (excluding the draft at [excludeIndex]).
+  String _ensureUniqueName(String name, int excludeIndex) {
+    final existingNames = _drafts
+        .asMap()
+        .entries
+        .where((e) => e.key != excludeIndex)
+        .map((e) => e.value.name.toLowerCase())
+        .toList();
+    if (!existingNames.contains(name.toLowerCase())) return name;
+    for (int i = 0; i < 26; i++) {
+      final suffix = String.fromCharCode(65 + i);
+      final candidate = '$name ($suffix)';
+      if (!existingNames.contains(candidate.toLowerCase())) return candidate;
+    }
+    return '$name (${DateTime.now().millisecondsSinceEpoch})';
+  }
+
   void _finishEditingName(int index, String newName) {
     if (newName.trim().isNotEmpty) {
+      final safeName = _ensureUniqueName(newName.trim(), index);
       setState(() {
-        _drafts[index].name = newName.trim();
+        _drafts[index].name = safeName;
         _drafts[index].isEditingName = false;
       });
       _notify();
