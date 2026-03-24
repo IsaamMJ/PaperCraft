@@ -23,8 +23,7 @@ import '../../../catalog/domain/entities/exam_type.dart';
 import '../../../catalog/presentation/bloc/grade_bloc.dart';
 import '../../../catalog/presentation/bloc/subject_bloc.dart';
 import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
-import '../../../catalog/presentation/widgets/pattern_selector_widget.dart';
-import '../../../catalog/presentation/widgets/section_builder_widget.dart';
+import '../../../catalog/presentation/widgets/inline_section_builder.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 import '../../domain/services/question_input_coordinator.dart';
@@ -71,8 +70,6 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   // Exam type fields
   ExamType? _selectedExamType;
   final TextEditingController _examNumberController = TextEditingController();
-
-  bool _showPatternSelector = false; // Manual toggle for pattern selector
 
   // Loaded paper from draft (auto-assigned)
   QuestionPaperEntity? _loadedPaper; // Paper loaded from draft (for auto-assigned papers)
@@ -224,6 +221,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
 
       setState(() => _availableGrades = grades);
+      // Auto-select if only one grade (and not already selected)
+      if (grades.length == 1 && _selectedGrade == null) {
+        _onGradeSelected(grades.first);
+      }
     } catch (e, stackTrace) {
       setState(() => _availableGrades = []);
     }
@@ -277,12 +278,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isStepValid(int step) {
     switch (step) {
       case 1:
+        // Sections must exist AND each must have valid questions/marks
+        final sectionsValid = _paperSections.isNotEmpty &&
+            _paperSections.every((s) => s.questions > 0 && s.marksPerQuestion > 0);
+
         // If editing a draft paper (auto-assigned), pattern must be complete + marks must match paper's maxMarks
         if (_loadedPaper != null) {
-          final hasPattern = _paperSections.isNotEmpty;
           // If paper has maxMarks, pattern must match exactly; otherwise any pattern is fine
           final marksValid = _loadedPaper?.maxMarks == null || _marksMatchTarget();
-          return hasPattern && marksValid;
+          return sectionsValid && marksValid;
         }
 
         // For new papers, all metadata must be filled
@@ -290,7 +294,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
             _selectedSubject != null &&
             _selectedSubjectId != null &&
             _selectedExamType != null &&
-            _paperSections.isNotEmpty &&
+            sectionsValid &&
             _selectedExamDate != null &&
             !_isSectionsLoading &&
             !_isSubjectsLoading &&
@@ -376,6 +380,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         _availableSections = sectionsList;
         _isSectionsLoading = false;
       });
+      // Auto-select if only one section (and none selected yet)
+      if (sectionsList.length == 1 && _selectedSections.isEmpty) {
+        _onSectionToggled(sectionsList.first, true);
+      }
     } catch (e, stackTrace) {
       setState(() {
         _availableSections = [];
@@ -549,6 +557,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         _selectedSubjectId = null;
         _isSubjectsLoading = false;
       });
+      // Auto-select if only one subject
+      if (subjectNames.length == 1) {
+        final subjectName = subjectNames.first;
+        final subjectId = nameToIdMap[subjectName];
+        setState(() {
+          _selectedSubject = subjectName;
+          _selectedSubjectId = subjectId;
+        });
+      }
     } catch (e, stackTrace) {
       setState(() {
         _availableSubjects = [];
@@ -631,6 +648,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               if (state is GradesLoaded) {
                 if (!mounted) return;
                 setState(() => _availableGrades = state.grades);
+                // Auto-select if only one grade (and not already selected)
+                if (state.grades.length == 1 && _selectedGrade == null) {
+                  _onGradeSelected(state.grades.first);
+                }
               }
               if (state is SectionsLoaded) {
                 if (!mounted) return;
@@ -834,11 +855,9 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
                                   if (selected) {
                                     _selectedSubject = subjectName;
                                     _selectedSubjectId = subjectId;
-                                    _showPatternSelector = false;
                                   } else {
                                     _selectedSubject = null;
                                     _selectedSubjectId = null;
-                                    _showPatternSelector = false;
                                   }
                                 });
                               },
@@ -898,71 +917,12 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
               ),
             ],
 
-            // Section Builder (Main Focus)
+            // Section Builder (Main Focus) — Inline chips + editable cards
             if (_selectedGradeLevel != null && _selectedSubject != null) ...[
               SizedBox(height: UIConstants.spacing24),
-              if (_paperSections.isEmpty) ...[
-                Text(
-                  'Question Sections',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: UIConstants.spacing12),
-                Text(
-                  'Define sections and question pattern',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                SizedBox(height: UIConstants.spacing12),
-              ] else ...[
-                // Paper Structure Summary Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary10,
-                    borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                    border: Border.all(color: AppColors.primary20),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.article_outlined, color: AppColors.primary, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_paperSections.length} Section${_paperSections.length != 1 ? 's' : ''} • ${_paperSections.fold<int>(0, (sum, s) => sum + s.totalMarks.toInt())} Marks',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: UIConstants.spacing12),
-              ],
-              SectionBuilderWidget(
+              InlineSectionBuilder(
                 initialSections: _paperSections,
                 onSectionsChanged: (sections) {
-                  // Validate for duplicate section names
-                  final sectionNames = sections.map((s) => s.name.toLowerCase()).toList();
-                  final uniqueNames = sectionNames.toSet();
-
-                  if (sectionNames.length != uniqueNames.length) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Duplicate section names not allowed.'),
-                        backgroundColor: AppColors.error,
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                    return;
-                  }
-
                   setState(() => _paperSections = sections);
                 },
               ),
@@ -1054,70 +1014,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
 
             SizedBox(height: UIConstants.spacing24),
 
-            // Section Builder (Main Focus)
-            if (_paperSections.isEmpty) ...[
-              Text(
-                'Question Sections',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing12),
-              Text(
-                'Define sections and question pattern',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing16),
-            ] else ...[
-              // Paper Structure Summary Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary10,
-                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                  border: Border.all(color: AppColors.primary20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.article_outlined, color: AppColors.primary, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_paperSections.length} Section${_paperSections.length != 1 ? 's' : ''} • ${_paperSections.fold<int>(0, (sum, s) => sum + s.totalMarks.toInt())} Marks',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: UIConstants.spacing12),
-            ],
-
-            SectionBuilderWidget(
+            // Section Builder (Main Focus) — Inline chips + editable cards
+            InlineSectionBuilder(
               initialSections: _paperSections,
               onSectionsChanged: (sections) {
-                // Validate for duplicate section names
-                final sectionNames = sections.map((s) => s.name.toLowerCase()).toList();
-                final uniqueNames = sectionNames.toSet();
-
-                if (sectionNames.length != uniqueNames.length) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Duplicate section names not allowed.'),
-                      backgroundColor: AppColors.error,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                  return;
-                }
-
                 setState(() => _paperSections = sections);
               },
             ),
