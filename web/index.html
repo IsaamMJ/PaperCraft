@@ -121,6 +121,18 @@
   
   
   
+  <!-- Cache version: bump to force browser refresh -->
+  <meta name="app-version" content="2.0.1">
+  <script>
+    // Force service worker update on new deploys
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.update();
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async=""></script>
 
 
