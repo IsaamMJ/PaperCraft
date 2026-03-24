@@ -60,6 +60,10 @@ class QuestionInputCoordinator extends StatefulWidget {
   final String? existingUserId;
   final String? examTimetableEntryId; // For auto-assigned draft papers
 
+  // Callbacks to preserve state across step navigation
+  final ValueChanged<Map<String, List<Question>>>? onQuestionsChanged;
+  final ValueChanged<List<PaperSectionEntity>>? onSectionsChanged;
+
   const QuestionInputCoordinator({
     super.key,
     required this.paperSections,
@@ -80,6 +84,8 @@ class QuestionInputCoordinator extends StatefulWidget {
     this.existingUserId,
     this.examDate,
     this.examTimetableEntryId,
+    this.onQuestionsChanged,
+    this.onSectionsChanged,
   });
 
   @override
@@ -175,12 +181,26 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   @override
+  @override
   void dispose() {
+    // Preserve state before destruction (back-navigation)
+    _notifyQuestionsChanged();
+    _notifySectionsChanged();
     _autoSaveService.dispose();
     super.dispose();
   }
 
   PaperSectionEntity get _currentSection => _sections[_currentSectionIndex];
+
+  /// Notify parent of question changes for state preservation
+  void _notifyQuestionsChanged() {
+    widget.onQuestionsChanged?.call(Map.from(_allQuestions));
+  }
+
+  /// Notify parent of section changes for state preservation
+  void _notifySectionsChanged() {
+    widget.onSectionsChanged?.call(List.from(_sections));
+  }
 
   void _showRenameSectionDialog(int index) {
     final section = _sections[index];
@@ -245,6 +265,8 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         _allQuestions[safeName] = _allQuestions.remove(oldName) ?? [];
       }
     });
+    _notifyQuestionsChanged();
+    _notifySectionsChanged();
     Navigator.pop(ctx);
   }
   List<Question> get _currentSectionQuestions => _allQuestions[_currentSection.name] ?? [];

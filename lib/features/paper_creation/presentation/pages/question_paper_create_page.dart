@@ -26,6 +26,7 @@ import '../../../catalog/presentation/bloc/teacher_pattern_bloc.dart';
 import '../../../catalog/presentation/widgets/inline_section_builder.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/domain/entities/question_entity.dart';
 import '../../domain/services/question_input_coordinator.dart';
 import '../widgets/paper_details_card.dart' show PaperDetailsDisplay;
 
@@ -58,6 +59,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   bool _isSectionsLoading = false;
 
   List<PaperSectionEntity> _paperSections = [];
+  Map<String, List<Question>> _savedQuestions = {}; // Preserved across step navigation
   DateTime? _selectedExamDate;
 
   // Subject management - teacher's assigned subjects for selected grade
@@ -1218,8 +1220,15 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         examNumber: _examNumberController.text.isEmpty ? null : int.tryParse(_examNumberController.text),
         examDate: _selectedExamDate,
         isAdmin: userStateService.isAdmin,
+        existingQuestions: _savedQuestions.isNotEmpty ? _savedQuestions : null,
         onPaperCreated: (paper) {
           _showSuccess();
+        },
+        onQuestionsChanged: (questions) {
+          _savedQuestions = questions;
+        },
+        onSectionsChanged: (sections) {
+          _paperSections = sections;
         },
       ),
     );
@@ -1269,10 +1278,16 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         // Edit mode parameters for updating existing draft
         isEditing: true,
         existingPaperId: paper.id,
-        existingQuestions: paper.questions,
+        existingQuestions: _savedQuestions.isNotEmpty ? _savedQuestions : paper.questions,
         existingTenantId: tenantId,
         existingUserId: userStateService.currentUser?.id,
         examTimetableEntryId: paper.examTimetableEntryId, // Preserve exam timetable link
+        onQuestionsChanged: (questions) {
+          _savedQuestions = questions;
+        },
+        onSectionsChanged: (sections) {
+          _paperSections = sections;
+        },
       ),
     );
   }
