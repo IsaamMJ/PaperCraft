@@ -3,11 +3,12 @@ import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
 
-class PaperPreviewWidget extends StatelessWidget {
+class PaperPreviewWidget extends StatefulWidget {
   final QuestionPaperEntity paper;
   final VoidCallback? onSubmit;
   final bool isAdmin;
   final bool aiPolishCompleted;
+  final Function(String oldName, String newName)? onSectionRenamed;
 
   const PaperPreviewWidget({
     super.key,
@@ -15,7 +16,55 @@ class PaperPreviewWidget extends StatelessWidget {
     this.onSubmit,
     this.isAdmin = false,
     this.aiPolishCompleted = false,
+    this.onSectionRenamed,
   });
+
+  @override
+  State<PaperPreviewWidget> createState() => _PaperPreviewWidgetState();
+}
+
+class _PaperPreviewWidgetState extends State<PaperPreviewWidget> {
+
+  void _showRenameSectionDialog(String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Section'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Section Name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) {
+            final newName = controller.text.trim();
+            if (newName.isNotEmpty && newName != currentName) {
+              widget.onSectionRenamed?.call(currentName, newName);
+            }
+            Navigator.pop(ctx);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && newName != currentName) {
+                widget.onSectionRenamed?.call(currentName, newName);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +116,7 @@ class PaperPreviewWidget extends StatelessWidget {
                   children: [
                     // Title
                     Text(
-                      paper.title,
+                      widget.paper.title,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -89,35 +138,48 @@ class PaperPreviewWidget extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildMetadataRow(Icons.subject_rounded, 'Subject', paper.subject ?? 'N/A'),
-                          _buildMetadataRow(Icons.school_rounded, 'Grade', paper.gradeDisplayName),
-                          _buildMetadataRow(Icons.quiz_rounded, 'Exam Type', paper.examNumber != null ? '${paper.examType.displayName} - ${paper.examNumber}' : paper.examType.displayName),
-                          _buildMetadataRow(Icons.numbers_rounded, 'Total Questions', '${paper.totalQuestions}'),
-                          _buildMetadataRow(Icons.stars_rounded, 'Total Marks', '${paper.totalMarks}'),
+                          _buildMetadataRow(Icons.subject_rounded, 'Subject', widget.paper.subject ?? 'N/A'),
+                          _buildMetadataRow(Icons.school_rounded, 'Grade', widget.paper.gradeDisplayName),
+                          _buildMetadataRow(Icons.quiz_rounded, 'Exam Type', widget.paper.examNumber != null ? '${widget.paper.examType.displayName} - ${widget.paper.examNumber}' : widget.paper.examType.displayName),
+                          _buildMetadataRow(Icons.numbers_rounded, 'Total Questions', '${widget.paper.totalQuestions}'),
+                          _buildMetadataRow(Icons.stars_rounded, 'Total Marks', '${widget.paper.totalMarks}'),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
                     // Questions by section
-                    ...paper.questions.entries.map((entry) {
+                    ...widget.paper.questions.entries.map((entry) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Section header
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
-                            ),
-                            child: Text(
-                              entry.key.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                          // Section header — tap to rename
+                          GestureDetector(
+                            onTap: widget.onSectionRenamed != null
+                                ? () => _showRenameSectionDialog(entry.key)
+                                : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.key.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  if (widget.onSectionRenamed != null)
+                                    Icon(Icons.edit, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                                ],
                               ),
                             ),
                           ),
@@ -348,13 +410,13 @@ class PaperPreviewWidget extends StatelessWidget {
                         child: const Text('Close'),
                       ),
                     ),
-                    if (onSubmit != null) ...[
+                    if (widget.onSubmit != null) ...[
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(context);
-                            onSubmit!();
+                            widget.onSubmit!();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -362,9 +424,9 @@ class PaperPreviewWidget extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                           child: Text(
-                            isAdmin
+                            widget.isAdmin
                                 ? 'Submit Paper'
-                                : (aiPolishCompleted ? 'Submit' : 'Save Draft'),
+                                : (widget.aiPolishCompleted ? 'Submit' : 'Save Draft'),
                           ),
                         ),
                       ),

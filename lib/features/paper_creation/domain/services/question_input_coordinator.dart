@@ -89,6 +89,7 @@ class QuestionInputCoordinator extends StatefulWidget {
 class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   int _currentSectionIndex = 0;
   Map<String, List<Question>> _allQuestions = {};
+  late List<PaperSectionEntity> _sections; // Mutable copy for renaming
   bool _isProcessing = false;
   final _autoSaveService = AutoSaveService();
   DateTime? _lastAutoSave;
@@ -102,12 +103,13 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   @override
   void initState() {
     super.initState();
+    _sections = List.from(widget.paperSections);
     _initializeQuestions();
     _startAutoSave();
   }
 
   void _initializeQuestions() {
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       if (widget.existingQuestions != null && widget.existingQuestions!.containsKey(section.name)) {
         _allQuestions[section.name] = List.from(widget.existingQuestions![section.name]!);
       } else {
@@ -138,7 +140,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           createdAt: now,
           modifiedAt: now,
           status: PaperStatus.draft,
-          paperSections: widget.paperSections,
+          paperSections: _sections,
           questions: _allQuestions,
           examType: widget.examType,
           examDate: widget.examDate,
@@ -178,7 +180,73 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     super.dispose();
   }
 
-  PaperSectionEntity get _currentSection => widget.paperSections[_currentSectionIndex];
+  PaperSectionEntity get _currentSection => _sections[_currentSectionIndex];
+
+  void _showRenameSectionDialog(int index) {
+    final section = _sections[index];
+    final controller = TextEditingController(text: section.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Section'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Section Name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) {
+            _renameSectionAndClose(ctx, index, controller.text);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _renameSectionAndClose(ctx, index, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _renameSectionAndClose(BuildContext ctx, int index, String newName) {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    final oldName = _sections[index].name;
+    if (trimmed == oldName) {
+      Navigator.pop(ctx);
+      return;
+    }
+    // Check for duplicates
+    final existingNames = _sections.asMap().entries
+        .where((e) => e.key != index)
+        .map((e) => e.value.name.toLowerCase())
+        .toSet();
+    var safeName = trimmed;
+    if (existingNames.contains(trimmed.toLowerCase())) {
+      for (int i = 0; i < 26; i++) {
+        final suffix = String.fromCharCode(65 + i);
+        final candidate = '$trimmed ($suffix)';
+        if (!existingNames.contains(candidate.toLowerCase())) {
+          safeName = candidate;
+          break;
+        }
+      }
+    }
+    setState(() {
+      _sections[index] = _sections[index].copyWith(name: safeName);
+      // Update questions map key
+      if (_allQuestions.containsKey(oldName)) {
+        _allQuestions[safeName] = _allQuestions.remove(oldName) ?? [];
+      }
+    });
+    Navigator.pop(ctx);
+  }
   List<Question> get _currentSectionQuestions => _allQuestions[_currentSection.name] ?? [];
 
   @override
@@ -254,7 +322,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 SizedBox(height: UIConstants.spacing16),
                 SectionProgressWidget(
                   currentSection: _currentSectionIndex,
-                  sections: widget.paperSections,
+                  sections: _sections,
                   allQuestions: _allQuestions,
                 ),
                 SizedBox(height: isMobile ? 24 : 20),
@@ -292,7 +360,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   Widget _buildHeader(bool isMobile) {
     final currentMarks = _getCurrentMarks();
-    final totalMarks = widget.paperSections.fold(0.0, (sum, section) => sum + section.totalMarks);
+    final totalMarks = _sections.fold(0.0, (sum, section) => sum + section.totalMarks);
     final optionalMarks = _getOptionalMarks();
 
     return Column(
@@ -421,7 +489,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: widget.paperSections.asMap().entries.map((entry) {
+        children: _sections.asMap().entries.map((entry) {
           final index = entry.key;
           final section = entry.value;
           final isActive = index == _currentSectionIndex;
@@ -462,15 +530,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                             color: AppColors.success,
                           ),
                         ),
-                      Text(
-                        section.name,
-                        style: TextStyle(
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                          color: isActive ? AppColors.primary : AppColors.textPrimary,
-                          fontSize: 14,
+                      Flexible(
+                        child: Text(
+                          section.name,
+                          style: TextStyle(
+                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                            color: isActive ? AppColors.primary : AppColors.textPrimary,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Text(
                         '($mandatoryCount/${section.questions})',
                         style: TextStyle(
@@ -478,6 +549,13 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                           color: AppColors.textSecondary,
                         ),
                       ),
+                      if (isActive) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => _showRenameSectionDialog(index),
+                          child: Icon(Icons.edit, size: 14, color: AppColors.primary),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -647,7 +725,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   double _getOptionalMarks() {
     double total = 0.0;
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
         if (question.isOptional) {
@@ -660,7 +738,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   double _getCurrentMarks() {
     double total = 0.0;
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       final questions = _allQuestions[section.name] ?? [];
       for (var question in questions) {
         if (!question.isOptional) {
@@ -748,7 +826,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   Widget _buildActions(bool isMobile) {
     final currentMarks = _getCurrentMarks();
-    final totalMarks = widget.paperSections.fold(0.0, (sum, section) => sum + section.totalMarks);
+    final totalMarks = _sections.fold(0.0, (sum, section) => sum + section.totalMarks);
     final optionalMarks = _getOptionalMarks();
 
     return Column(
@@ -859,7 +937,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       createdAt: now,
       modifiedAt: now,
       status: PaperStatus.draft,
-      paperSections: widget.paperSections,
+      paperSections: _sections,
       questions: _allQuestions,
       examType: widget.examType,
       examDate: widget.examDate,
@@ -891,7 +969,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   Future<Map<String, List<Question>>?> _runAIPolish() async {
     // Calculate total sections with questions
     int nonEmptySections = 0;
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       if ((_allQuestions[section.name] ?? []).isNotEmpty) {
         nonEmptySections++;
       }
@@ -977,7 +1055,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     final result = <String, List<Question>>{};
 
     // Process each section
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       // Check if user cancelled
       if (_aiPolishCancelled) {
         if (mounted) {
@@ -1163,7 +1241,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       builder: (context) => AIPolishReviewDialog(
         originalQuestions: _allQuestions,
         polishedQuestions: polished,
-        paperSections: widget.paperSections,
+        paperSections: _sections,
       ),
     );
 
@@ -1317,7 +1395,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
       }
     }
 
-    if (sectionComplete && _currentSectionIndex < widget.paperSections.length - 1) {
+    if (sectionComplete && _currentSectionIndex < _sections.length - 1) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) setState(() => _currentSectionIndex++);
       });
@@ -1325,7 +1403,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   bool _allComplete() {
-    for (var section in widget.paperSections) {
+    for (var section in _sections) {
       final questions = _allQuestions[section.name] ?? [];
       final mandatoryQuestions = questions.where((q) => !q.isOptional).toList();
 
@@ -1368,7 +1446,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         gradeLevel: widget.gradeLevel,
         selectedSections: widget.selectedSections,
         selectedSubjects: widget.selectedSubjects,
-        paperSections: widget.paperSections,
+        paperSections: _sections,
       );
 
       if (errors.isNotEmpty) {
@@ -1391,7 +1469,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         createdAt: widget.isEditing ? now.subtract(const Duration(hours: 1)) : now,
         modifiedAt: now,
         status: PaperStatus.draft,
-        paperSections: widget.paperSections,
+        paperSections: _sections,
         questions: _allQuestions,
         examType: widget.examType,
         examDate: widget.examDate,
@@ -1468,7 +1546,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
           createdAt: widget.isEditing ? now.subtract(const Duration(hours: 1)) : now,
           modifiedAt: now,
           status: PaperStatus.draft,
-          paperSections: widget.paperSections,
+          paperSections: _sections,
           questions: _allQuestions,
           examType: widget.examType,
           examDate: widget.examDate,
@@ -1509,9 +1587,9 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         teacherId: userId,
         subjectId: widget.selectedSubjects.first.id,
         name: patternName,
-        sections: widget.paperSections,
-        totalQuestions: widget.paperSections.fold(0, (sum, s) => sum + s.questions),
-        totalMarks: widget.paperSections.fold(0.0, (sum, s) => sum + s.totalMarks).toInt(),
+        sections: _sections,
+        totalQuestions: _sections.fold(0, (sum, s) => sum + s.questions),
+        totalMarks: _sections.fold(0.0, (sum, s) => sum + s.totalMarks).toInt(),
         useCount: 1,
         lastUsedAt: DateTime.now(),
         createdAt: DateTime.now(),
