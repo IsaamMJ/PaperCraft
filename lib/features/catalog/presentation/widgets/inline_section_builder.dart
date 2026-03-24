@@ -359,6 +359,25 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
         if (!widget.readOnly) _buildChips(),
         if (!widget.readOnly) const SizedBox(height: UIConstants.spacing12),
         if (_drafts.isEmpty) _buildEmptyState() else _buildSectionList(),
+        if (_drafts.length > 1 && !widget.readOnly)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.drag_indicator, size: 14, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(
+                  'Hold and drag to reorder sections',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade400,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (_showWalkthrough) _buildWalkthroughOverlay(),
       ],
     );
@@ -526,6 +545,16 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
             ),
             child: Row(
               children: [
+                // Drag handle
+                if (!widget.readOnly)
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.drag_indicator, size: 20, color: Colors.grey.shade400),
+                    ),
+                  ),
+
                 // Section number badge
                 Container(
                   width: 24,
