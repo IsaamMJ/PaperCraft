@@ -825,15 +825,39 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     size: 18,
                     color: isOptional ? Colors.orange : Colors.grey.shade400,
                   ),
-                  onPressed: () {
-                    context.read<QuestionPaperBloc>().add(
-                      UpdateQuestionInline(
-                        sectionName: sectionName,
-                        questionIndex: index - 1,
-                        updatedText: question.text,
-                        isOptional: !isOptional,
+                  onPressed: () async {
+                    final action = isOptional ? 'required' : 'optional';
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Mark as $action?'),
+                        content: Text('Are you sure you want to mark this question as $action?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isOptional ? AppColors.primary : Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text('Mark as $action'),
+                          ),
+                        ],
                       ),
                     );
+                    if (confirmed == true && context.mounted) {
+                      context.read<QuestionPaperBloc>().add(
+                        UpdateQuestionInline(
+                          sectionName: sectionName,
+                          questionIndex: index - 1,
+                          updatedText: question.text,
+                          isOptional: !isOptional,
+                        ),
+                      );
+                    }
                   },
                   tooltip: isOptional ? 'Mark as required' : 'Mark as optional',
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -848,108 +872,15 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   Widget _buildAddQuestionButton(String sectionName) {
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        bool isAdding = false;
-        bool isOptional = false;
-        final controller = TextEditingController();
-
-        return Column(
-          children: [
-            if (!isAdding)
-              Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 8),
-                child: OutlinedButton.icon(
-                  onPressed: () => setLocalState(() => isAdding = true),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Question'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                ),
-              )
-            else
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      maxLines: 2,
-                      minLines: 1,
-                      decoration: InputDecoration(
-                        hintText: 'Type your question here...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.all(10),
-                        isDense: true,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => setLocalState(() => isOptional = !isOptional),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isOptional ? Icons.check_box : Icons.check_box_outline_blank,
-                                size: 20,
-                                color: isOptional ? Colors.orange : Colors.grey,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Optional',
-                                style: TextStyle(fontSize: 13, color: isOptional ? Colors.orange : Colors.grey.shade600),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () => setLocalState(() => isAdding = false),
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            final text = controller.text.trim();
-                            if (text.isNotEmpty) {
-                              context.read<QuestionPaperBloc>().add(
-                                AddQuestionToSection(
-                                  sectionName: sectionName,
-                                  questionText: text,
-                                  isOptional: isOptional,
-                                ),
-                              );
-                              setLocalState(() => isAdding = false);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          ),
-                          child: const Text('Add'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
+    return _AddQuestionInline(
+      sectionName: sectionName,
+      onAdd: (text, isOptional) {
+        context.read<QuestionPaperBloc>().add(
+          AddQuestionToSection(
+            sectionName: sectionName,
+            questionText: text,
+            isOptional: isOptional,
+          ),
         );
       },
     );
@@ -1471,6 +1402,138 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+      ),
+    );
+  }
+}
+
+/// Inline add question widget with proper state management
+class _AddQuestionInline extends StatefulWidget {
+  final String sectionName;
+  final Function(String text, bool isOptional) onAdd;
+
+  const _AddQuestionInline({
+    required this.sectionName,
+    required this.onAdd,
+  });
+
+  @override
+  State<_AddQuestionInline> createState() => _AddQuestionInlineState();
+}
+
+class _AddQuestionInlineState extends State<_AddQuestionInline> {
+  bool _isAdding = false;
+  bool _isOptional = false;
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isAdding) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: OutlinedButton.icon(
+          onPressed: () => setState(() => _isAdding = true),
+          icon: const Icon(Icons.add, size: 16),
+          label: const Text('Add Question'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLines: 2,
+            minLines: 1,
+            decoration: InputDecoration(
+              hintText: 'Type your question here...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.all(10),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isOptional = !_isOptional),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isOptional ? Icons.check_box : Icons.check_box_outline_blank,
+                      size: 20,
+                      color: _isOptional ? Colors.orange : Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Optional',
+                      style: TextStyle(fontSize: 13, color: _isOptional ? Colors.orange : Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => setState(() {
+                  _isAdding = false;
+                  _controller.clear();
+                  _isOptional = false;
+                }),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  final text = _controller.text.trim();
+                  if (text.isNotEmpty) {
+                    widget.onAdd(text, _isOptional);
+                    setState(() {
+                      _isAdding = false;
+                      _controller.clear();
+                      _isOptional = false;
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
