@@ -711,26 +711,28 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           }),
         ],
         ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value, name)),
+        if (!widget.isViewOnly) _buildAddQuestionButton(name),
         SizedBox(height: UIConstants.spacing24),
       ],
     );
   }
 
   Widget _buildQuestion(int index, dynamic question, String sectionName) {
+    final bool isOptional = question.isOptional ?? false;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(UIConstants.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.backgroundSecondary,
+        color: isOptional ? Colors.orange.shade50 : AppColors.backgroundSecondary,
         borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isOptional ? Colors.orange.shade200 : AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
+            decoration: BoxDecoration(color: isOptional ? Colors.orange : AppColors.primary, borderRadius: BorderRadius.circular(UIConstants.radiusMedium)),
             child: Center(child: Text('$index', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: UIConstants.fontSizeMedium))),
           ),
           const SizedBox(width: 12),
@@ -738,6 +740,18 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (isOptional)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text('Optional', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.orange.shade800)),
+                    ),
+                  ),
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
                 // Options for MCQ and other types (word bank for fill_blanks shown at section level)
                 if (question.type != 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
@@ -797,7 +811,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 child: Text('${question.marks} marks', style: TextStyle(fontSize: UIConstants.fontSizeSmall, fontWeight: FontWeight.w600, color: AppColors.primary)),
               ),
               SizedBox(height: UIConstants.spacing8),
-              if (!widget.isViewOnly)
+              if (!widget.isViewOnly) ...[
                 IconButton(
                   icon: Icon(Icons.edit, size: 18, color: AppColors.primary),
                   onPressed: () => _showEditQuestionModal(question, index - 1, sectionName),
@@ -805,10 +819,139 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: EdgeInsets.zero,
                 ),
+                IconButton(
+                  icon: Icon(
+                    isOptional ? Icons.star : Icons.star_border,
+                    size: 18,
+                    color: isOptional ? Colors.orange : Colors.grey.shade400,
+                  ),
+                  onPressed: () {
+                    context.read<QuestionPaperBloc>().add(
+                      UpdateQuestionInline(
+                        sectionName: sectionName,
+                        questionIndex: index - 1,
+                        updatedText: question.text,
+                        isOptional: !isOptional,
+                      ),
+                    );
+                  },
+                  tooltip: isOptional ? 'Mark as required' : 'Mark as optional',
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAddQuestionButton(String sectionName) {
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        bool isAdding = false;
+        bool isOptional = false;
+        final controller = TextEditingController();
+
+        return Column(
+          children: [
+            if (!isAdding)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => setLocalState(() => isAdding = true),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add Question'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                ),
+              )
+            else
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      maxLines: 2,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        hintText: 'Type your question here...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.all(10),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => setLocalState(() => isOptional = !isOptional),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isOptional ? Icons.check_box : Icons.check_box_outline_blank,
+                                size: 20,
+                                color: isOptional ? Colors.orange : Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Optional',
+                                style: TextStyle(fontSize: 13, color: isOptional ? Colors.orange : Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => setLocalState(() => isAdding = false),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            final text = controller.text.trim();
+                            if (text.isNotEmpty) {
+                              context.read<QuestionPaperBloc>().add(
+                                AddQuestionToSection(
+                                  sectionName: sectionName,
+                                  questionText: text,
+                                  isOptional: isOptional,
+                                ),
+                              );
+                              setLocalState(() => isAdding = false);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

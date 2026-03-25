@@ -190,6 +190,7 @@ class UpdateQuestionInline extends QuestionPaperEvent {
   final String updatedText;
   final List<String>? updatedOptions;
   final String? newType;
+  final bool? isOptional;
 
   const UpdateQuestionInline({
     required this.sectionName,
@@ -197,10 +198,27 @@ class UpdateQuestionInline extends QuestionPaperEvent {
     required this.updatedText,
     this.updatedOptions,
     this.newType,
+    this.isOptional,
   });
 
   @override
-  List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions, newType];
+  List<Object?> get props => [sectionName, questionIndex, updatedText, updatedOptions, newType, isOptional];
+}
+
+/// Add a new question to a section (admin feature)
+class AddQuestionToSection extends QuestionPaperEvent {
+  final String sectionName;
+  final String questionText;
+  final bool isOptional;
+
+  const AddQuestionToSection({
+    required this.sectionName,
+    required this.questionText,
+    this.isOptional = false,
+  });
+
+  @override
+  List<Object?> get props => [sectionName, questionText, isOptional];
 }
 
 /// Update section name
@@ -476,6 +494,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     on<UpdateQuestionInline>(_onUpdateQuestionInline);
     on<UpdateSectionName>(_onUpdateSectionName);
     on<UpdateSectionType>(_onUpdateSectionType);
+    on<AddQuestionToSection>(_onAddQuestionToSection);
   }
 
   Future<void> _onLoadDrafts(LoadDrafts event, Emitter<QuestionPaperState> emit) async {
@@ -925,6 +944,7 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
         text: event.updatedText,
         options: event.updatedOptions ?? oldQuestion.options,
         type: event.newType,
+        isOptional: event.isOptional ?? oldQuestion.isOptional,
       );
 
       updatedQuestions[event.sectionName] = sectionQuestions;
@@ -1101,6 +1121,72 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       );
     } catch (e, stackTrace) {
       emit(QuestionPaperError('Failed to update section type: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onAddQuestionToSection(AddQuestionToSection event, Emitter<QuestionPaperState> emit) async {
+    if (state is! QuestionPaperLoaded) return;
+
+    final currentState = state as QuestionPaperLoaded;
+    final currentPaper = currentState.currentPaper;
+
+    if (currentPaper == null) {
+      emit(const QuestionPaperError('No paper loaded'));
+      return;
+    }
+
+    try {
+      final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
+
+      if (!updatedQuestions.containsKey(event.sectionName)) {
+        emit(QuestionPaperError('Section "${event.sectionName}" not found'));
+        return;
+      }
+
+      // Find the section to get type and marks
+      final section = currentPaper.paperSections.firstWhere(
+        (s) => s.name == event.sectionName,
+        orElse: () => PaperSectionEntity(name: event.sectionName, type: 'short_answer', questions: 0, marksPerQuestion: 1),
+      );
+
+      final sectionQuestions = List<Question>.from(updatedQuestions[event.sectionName]!);
+      sectionQuestions.add(Question(
+        text: event.questionText,
+        type: section.type,
+        marks: section.marksPerQuestion,
+        isOptional: event.isOptional,
+      ));
+
+      updatedQuestions[event.sectionName] = sectionQuestions;
+
+      // Update section question count
+      final updatedSections = List<PaperSectionEntity>.from(currentPaper.paperSections);
+      for (int i = 0; i < updatedSections.length; i++) {
+        if (updatedSections[i].name == event.sectionName) {
+          updatedSections[i] = updatedSections[i].copyWith(questions: sectionQuestions.length);
+          break;
+        }
+      }
+
+      final updatedPaper = currentPaper.copyWith(
+        questions: updatedQuestions,
+        paperSections: updatedSections,
+      );
+
+      emit(currentState.copyWith(currentPaper: updatedPaper));
+
+      final result = await _updatePaperUseCase(updatedPaper);
+
+      result.fold(
+        (failure) {
+          emit(QuestionPaperError('Failed to add question: ${failure.message}'));
+        },
+        (savedPaper) {
+          emit(currentState.copyWith(currentPaper: savedPaper));
+        },
+      );
+    } catch (e, stackTrace) {
+      emit(QuestionPaperError('Failed to add question: ${e.toString()}'));
     }
   }
 }
