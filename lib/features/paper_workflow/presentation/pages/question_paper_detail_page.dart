@@ -884,6 +884,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   void _showEditSectionModal(String sectionName, int sectionNumber, String currentType) {
 
     final bloc = context.read<QuestionPaperBloc>();
+    final state = bloc.state;
+    final existingNames = state is QuestionPaperLoaded && state.currentPaper != null
+        ? state.currentPaper!.paperSections.map((s) => s.name).toList()
+        : <String>[];
 
     showDialog(
       context: context,
@@ -891,6 +895,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         sectionName: sectionName,
         sectionNumber: sectionNumber,
         currentType: currentType,
+        existingSectionNames: existingNames,
         onSave: (newName, newType) {
 
           try {

@@ -8,6 +8,7 @@ class SectionEditModal extends StatefulWidget {
   final String currentType;
   final Function(String newName, String? newType) onSave;
   final VoidCallback onCancel;
+  final List<String> existingSectionNames;
 
   const SectionEditModal({
     super.key,
@@ -16,6 +17,7 @@ class SectionEditModal extends StatefulWidget {
     required this.currentType,
     required this.onSave,
     required this.onCancel,
+    this.existingSectionNames = const [],
   });
 
   @override
@@ -80,7 +82,19 @@ class _SectionEditModalState extends State<SectionEditModal> {
       return;
     }
 
+    // Check for duplicate section names (excluding the current section)
     final nameChanged = updatedName != widget.sectionName;
+    if (nameChanged) {
+      final otherNames = widget.existingSectionNames
+          .where((n) => n.toLowerCase() != widget.sectionName.toLowerCase())
+          .map((n) => n.toLowerCase())
+          .toSet();
+      if (otherNames.contains(updatedName.toLowerCase())) {
+        _showErrorSnackBar('This section name already exists. Please use a unique name.');
+        return;
+      }
+    }
+
     final normalizedCurrentType = widget.currentType == 'fill_in_blanks' ? 'fill_blanks' : widget.currentType;
     final typeChanged = _selectedType != normalizedCurrentType;
 
