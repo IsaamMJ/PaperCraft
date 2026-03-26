@@ -104,7 +104,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   // AI Polish timeout and cancellation
   bool _aiPolishCancelled = false;
-  static const Duration _aiPolishTimeout = Duration(seconds: 120); // 2 minutes total timeout
+  static const Duration _aiPolishTimeout = Duration(seconds: 30); // 30 seconds timeout
 
   @override
   void initState() {
@@ -918,27 +918,42 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   Future<void> _showPreviewAndSubmit() async {
-    // Step 1: Run mandatory AI polish
+    // Step 1: Run AI polish (optional — failure/cancel proceeds with originals)
     final polishedQuestions = await _runAIPolish();
 
-    if (polishedQuestions == null) {
-      // Polish failed or was cancelled
-      _showMessage('Unable to proceed without AI polish', AppColors.error);
-      return;
+    // Use polished if available, otherwise use originals
+    final questionsForReview = polishedQuestions ?? _allQuestions;
+
+    // Step 2: Show review dialog only if polish actually changed question text
+    bool hasChanges = false;
+    if (polishedQuestions != null) {
+      for (final entry in polishedQuestions.entries) {
+        final originals = _allQuestions[entry.key] ?? [];
+        for (int i = 0; i < entry.value.length && i < originals.length; i++) {
+          if (entry.value[i].text != originals[i].text) {
+            hasChanges = true;
+            break;
+          }
+        }
+        if (hasChanges) break;
+      }
+    }
+    Map<String, List<Question>>? finalQuestions;
+
+    if (hasChanges) {
+      finalQuestions = await _showPolishReview(questionsForReview);
+      if (finalQuestions == null) {
+        // User cancelled at review step — go back, don't submit
+        return;
+      }
+    } else {
+      finalQuestions = questionsForReview;
     }
 
-    // Step 2: Show review dialog with undo options
-    final finalQuestions = await _showPolishReview(polishedQuestions);
-
-    if (finalQuestions == null) {
-      // User cancelled at review step
-      return;
-    }
-
-    // Step 3: Update questions with reviewed (and possibly reverted) changes
+    // Step 3: Update questions with reviewed changes
     setState(() {
-      _allQuestions = finalQuestions;
-      _aiPolishCompleted = true; // Mark AI polish as completed
+      _allQuestions = finalQuestions!;
+      _aiPolishCompleted = polishedQuestions != null;
     });
 
     // Step 4: Show paper preview
@@ -1033,33 +1048,33 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         },
       );
 
+      processedSectionsNotifier.dispose();
+
       if (_aiPolishCancelled) {
-        if (mounted) {
-          Navigator.pop(context);
-        }
-        processedSectionsNotifier.dispose();
-        return null; // User cancelled - return null to indicate no changes
+        // Dialog already closed by cancel callback
+        _showMessage('AI Polish skipped', AppColors.warning);
+        return null; // Caller will use originals
       }
 
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+        Navigator.pop(context); // Close loading dialog (only if not cancelled)
       }
-      processedSectionsNotifier.dispose(); // Clean up notifier
 
       return polished;
     } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        if (e.toString().contains('timed out')) {
-          _showMessage('AI Polish timed out. Returning original questions.', AppColors.warning);
-          processedSectionsNotifier.dispose();
-          return _allQuestions; // Return original questions as fallback
-        } else {
-          _showMessage('AI Polish failed: $e', AppColors.error);
-        }
+      // Only pop if cancel callback hasn't already closed the dialog
+      if (mounted && !_aiPolishCancelled) {
+        Navigator.pop(context);
       }
       processedSectionsNotifier.dispose();
-      return null;
+      if (mounted) {
+        if (e.toString().contains('timed out')) {
+          _showMessage('AI Polish timed out. Proceeding with original questions.', AppColors.warning);
+        } else {
+          _showMessage('AI Polish unavailable. Proceeding with original questions.', AppColors.warning);
+        }
+      }
+      return null; // Caller will use originals
     }
   }
 
@@ -1074,10 +1089,6 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     for (var section in _sections) {
       // Check if user cancelled
       if (_aiPolishCancelled) {
-        if (mounted) {
-          Navigator.pop(context);
-        }
-        _showMessage('AI Polish cancelled', AppColors.warning);
         return null;
       }
 
@@ -1110,141 +1121,57 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     return result;
   }
 
-  /// Polish all questions in a section using per-section API optimization
+  /// Polish all questions in a section using batch API for performance
+  /// Skips types that AI can't handle well (match, missing_letters, fill_blanks, word_forms)
   Future<List<Question>> _polishSectionQuestions(
     List<Question> sectionQuestions,
     String sectionType,
   ) async {
-    final polishedList = <Question>[];
+    // Types to skip — AI tends to corrupt these
+    const skipTypes = {'match_following', 'missing_letters', 'fill_in_blanks', 'fill_blanks', 'word_forms'};
 
-    for (final q in sectionQuestions) {
-      try {
-        // SKIP Match the Following questions - too complex for masking
-        if (q.type == 'match_following') {
-          polishedList.add(q); // Return unchanged
-          continue;
-        }
+    // If entire section should be skipped, return unchanged
+    if (skipTypes.contains(sectionType)) {
+      return sectionQuestions;
+    }
 
-        // SKIP Missing Letters questions - AI tends to fill in the blanks
-        if (q.type == 'missing_letters') {
-          polishedList.add(q); // Return unchanged
-          continue;
-        }
+    // Collect polishable question texts and their indices
+    final textsToPolish = <String>[];
+    final polishableIndices = <int>[];
 
-        // SKIP Fill in the Blanks questions - AI fills in answers despite masking
-        if (q.type == 'fill_in_blanks' || q.type == 'fill_blanks') {
-          polishedList.add(q); // Return unchanged
-          continue;
-        }
-
-        // SKIP Word Forms questions - single-word transformation questions
-        if (q.type == 'word_forms') {
-          polishedList.add(q); // Return unchanged
-          continue;
-        }
-
-        // Prepare text with smart masking for misc_grammar (if needed in future)
-        String textToPolish = q.text;
-        bool hasBlanks = false;
-
-        // For misc_grammar: Replace "________" with "[BLANK]" if it has blanks
-        if (q.type == 'misc_grammar') {
-          if (q.text.contains('_')) {
-            textToPolish = q.text.replaceAll(RegExp(r'_{2,}'), '[BLANK]');
-            hasBlanks = true;
-          }
-        }
-
-        // Polish question text with masked version, passing question type for better AI context
-        final textResult = await GroqService.polishText(textToPolish, questionType: q.type);
-
-        // Restore original blanks in polished text
-        String restoredText = textResult.polished;
-        if (hasBlanks) {
-          // Restore blanks by matching [BLANK] back to original blanks
-          final originalBlanks = RegExp(r'_{2,}').allMatches(q.text).map((m) => m.group(0)!).toList();
-          int blankIndex = 0;
-          restoredText = restoredText.replaceAllMapped(
-            RegExp(r'\[BLANK\]'),
-            (match) {
-              if (blankIndex < originalBlanks.length) {
-                return originalBlanks[blankIndex++];
-              }
-              return match.group(0)!;
-            },
-          );
-        }
-
-        // Polish MCQ options if present (with question context for better accuracy)
-        List<String>? polishedOptions;
-        if (q.type == 'multiple_choice' && q.options != null && q.options!.isNotEmpty) {
-          polishedOptions = [];
-          for (final option in q.options!) {
-            // Skip empty options
-            if (option.trim().isEmpty) {
-              polishedOptions.add(option);
-              continue;
-            }
-            try {
-              // Format option with question context for Groq to understand the MCQ context
-              // This prevents meaningless rewording and keeps options in proper context
-              final contextualOption = 'Question: ${restoredText}\nOption: $option';
-              final optionResult = await GroqService.polishText(
-                contextualOption,
-                questionType: 'mcq',
-              );
-
-              // Extract only the polished option (everything after "Option: ")
-              final polishedText = optionResult.polished;
-              final optionPrefix = 'Option: ';
-              final optionStartIndex = polishedText.indexOf(optionPrefix);
-
-              if (optionStartIndex != -1) {
-                // Extract only the option part after "Option: "
-                final extractedOption = polishedText.substring(optionStartIndex + optionPrefix.length).trim();
-                polishedOptions.add(extractedOption);
-              } else {
-                // Fallback: if extraction fails, use the whole response or original
-                polishedOptions.add(polishedText.isNotEmpty ? polishedText : option);
-              }
-            } catch (e) {
-              // If option polish fails, keep original
-              polishedOptions.add(option);
-            }
-          }
-        }
-
-        // Polish subquestions if present
-        List<SubQuestion>? polishedSubQuestions;
-        if (q.subQuestions.isNotEmpty) {
-          polishedSubQuestions = [];
-          for (final subQ in q.subQuestions) {
-            try {
-              final subQResult = await GroqService.polishText(subQ.text);
-              polishedSubQuestions.add(SubQuestion(
-                text: subQResult.polished,
-              ));
-            } catch (e) {
-              // If subquestion polish fails, keep original
-              polishedSubQuestions.add(subQ);
-            }
-          }
-        }
-
-        polishedList.add(q.copyWith(
-          text: restoredText,
-          options: polishedOptions ?? q.options,
-          subQuestions: polishedSubQuestions ?? q.subQuestions,
-          originalText: textResult.original,
-          polishChanges: textResult.changesSummary,
-        ));
-      } catch (e) {
-        // If polishing fails for one question, keep original
-        polishedList.add(q);
+    for (int i = 0; i < sectionQuestions.length; i++) {
+      final q = sectionQuestions[i];
+      if (!skipTypes.contains(q.type) && q.text.trim().isNotEmpty) {
+        textsToPolish.add(q.text);
+        polishableIndices.add(i);
       }
     }
 
-    return polishedList;
+    if (textsToPolish.isEmpty) {
+      return sectionQuestions;
+    }
+
+    // Batch polish all texts in one API call
+    final polishResults = await GroqService.polishSection(
+      textsToPolish,
+      questionTypes: polishableIndices.map((i) => sectionQuestions[i].type).toList(),
+    );
+
+    // Build result list, merging polished texts back
+    final result = List<Question>.from(sectionQuestions);
+    for (int i = 0; i < polishableIndices.length && i < polishResults.length; i++) {
+      final originalIndex = polishableIndices[i];
+      final polishResult = polishResults[i];
+      final original = sectionQuestions[originalIndex];
+
+      result[originalIndex] = original.copyWith(
+        text: polishResult.polished,
+        originalText: polishResult.original,
+        polishChanges: polishResult.changesSummary,
+      );
+    }
+
+    return result;
   }
 
   /// Show polish review dialog with undo options

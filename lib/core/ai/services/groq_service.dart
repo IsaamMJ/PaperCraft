@@ -30,7 +30,11 @@ class PolishResult {
 
 class GroqService {
   // API key is loaded from .env file
-  static String get apiKey => dotenv.get('GROQ_API_KEY', fallback: '');
+  static String get apiKey {
+    const compileTimeKey = String.fromEnvironment('GROQ_API_KEY');
+    if (compileTimeKey.isNotEmpty) return compileTimeKey;
+    return dotenv.get('GROQ_API_KEY', fallback: '');
+  }
   static const baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   static const timeoutDuration = Duration(seconds: 15);
   static const maxRetries = 3;
@@ -38,7 +42,7 @@ class GroqService {
   /// Toggle to enable dry-run mode (AI polishing flow without making actual changes)
   /// When true: Shows loading & review dialogs, but returns original text unchanged
   /// When false: Calls Groq API for actual AI polishing
-  static bool isDryRun = true;
+  static bool isDryRun = false;
 
   /// Polish educational question text with grammar, spelling, and punctuation fixes
   ///
@@ -67,7 +71,7 @@ class GroqService {
                 'Content-Type': 'application/json',
               },
               body: jsonEncode({
-                'model': 'llama-3.1-8b-instant',
+                'model': 'llama-3.3-70b-versatile',
                 'messages': [
                   {
                     'role': 'system',
@@ -215,13 +219,9 @@ class GroqService {
   /// Build user prompt with question-type context
   static String _buildUserPrompt(String text, String? questionType) {
     if (questionType != null && questionType.isNotEmpty) {
-      if (questionType.toLowerCase() == 'mcq') {
-        // Special handling for MCQ - provide clearer instructions for option extraction
-        return 'Proofread this multiple-choice question and option. Fix ONLY spelling mistakes:\n\n$text\n\nReturn the output in exactly this format:\nQuestion: [proofread question]\nOption: [proofread option]';
-      }
-      return 'This is a $questionType exam question. Proofread it and fix only spelling/grammar:\n\n$text';
+      return 'This is a $questionType exam question. Fix only spelling/grammar. Return ONLY the corrected text:\n\n$text';
     }
-    return 'Proofread this exam question (fix only spelling/grammar):\n\n$text';
+    return 'Fix only spelling/grammar. Return ONLY the corrected text:\n\n$text';
   }
 
   /// Polish multiple questions in a single API call (per-section optimization)
@@ -298,7 +298,7 @@ Return one polished question per pair of markers. Do NOT add any other text.''';
                 'Content-Type': 'application/json',
               },
               body: jsonEncode({
-                'model': 'llama-3.1-8b-instant',
+                'model': 'llama-3.3-70b-versatile',
                 'messages': [
                   {
                     'role': 'system',
