@@ -178,6 +178,26 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
+  void _fixAllSuggestions() {
+    final bloc = context.read<QuestionPaperBloc>();
+    for (final entry in Map<String, String>.from(_aiSuggestions).entries) {
+      final parts = entry.key.split('_');
+      if (parts.length >= 2) {
+        final sectionName = parts.sublist(0, parts.length - 1).join('_');
+        final questionIndex = int.tryParse(parts.last);
+        if (questionIndex != null) {
+          bloc.add(UpdateQuestionInline(
+            sectionName: sectionName,
+            questionIndex: questionIndex,
+            updatedText: entry.value,
+          ));
+        }
+      }
+    }
+    setState(() => _aiSuggestions.clear());
+    _showMessage('All spelling fixes applied', AppColors.success);
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -771,7 +791,44 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          Row(
+            children: [
+              Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Spacer(),
+              if (_isAiChecking)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber.shade700)),
+                    const SizedBox(width: 6),
+                    Text('Checking spelling...', style: TextStyle(fontSize: 12, color: Colors.amber.shade700)),
+                  ],
+                ),
+              if (!_isAiChecking && _aiSuggestions.isNotEmpty)
+                GestureDetector(
+                  onTap: _fixAllSuggestions,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_fix_high, size: 14, color: Colors.amber.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Fix All (${_aiSuggestions.length})',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.amber.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
           SizedBox(height: UIConstants.spacing16),
           ...orderedSections.map((orderedSection) =>
               _buildSection(orderedSection.sectionNumber, orderedSection.section.name, orderedSection.section.type, orderedSection.questions)),
