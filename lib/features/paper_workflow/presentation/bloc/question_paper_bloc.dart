@@ -1168,10 +1168,26 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       updatedQuestions[event.sectionName] = sectionQuestions;
 
       // Update section question count
+      // For match_following, count pairs (options before SEPARATOR) not question objects
+      int newQuestionCount;
+      if (section.type == 'match_following' && event.options != null) {
+        final separatorIndex = event.options!.indexOf('---SEPARATOR---');
+        newQuestionCount = separatorIndex > 0 ? separatorIndex : sectionQuestions.length;
+      } else {
+        newQuestionCount = sectionQuestions.length;
+      }
+
       final updatedSections = List<PaperSectionEntity>.from(currentPaper.paperSections);
       for (int i = 0; i < updatedSections.length; i++) {
         if (updatedSections[i].name == event.sectionName) {
-          updatedSections[i] = updatedSections[i].copyWith(questions: sectionQuestions.length);
+          // For match_following, also update marks_per_question = total / pairs
+          final newMarksPerQuestion = section.type == 'match_following' && newQuestionCount > 0
+              ? questionMarks / newQuestionCount
+              : updatedSections[i].marksPerQuestion;
+          updatedSections[i] = updatedSections[i].copyWith(
+            questions: newQuestionCount,
+            marksPerQuestion: newMarksPerQuestion,
+          );
           break;
         }
       }
