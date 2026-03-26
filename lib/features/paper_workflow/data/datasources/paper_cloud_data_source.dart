@@ -360,7 +360,7 @@ class PaperCloudDataSourceImpl implements PaperCloudDataSource {
           .from(_tableName)
           .select('id,title,subject_id,grade_id,academic_year,created_at,updated_at,status,tenant_id,user_id,submitted_at,reviewed_at,reviewed_by,rejection_reason,exam_type,exam_date,questions,subjects(catalog_subject_id,subject_catalog(subject_name)),grades(grade_number)')
           .eq('tenant_id', tenantId)
-          .eq('status', 'approved')
+          .inFilter('status', ['approved', 'submitted'])
           .gte('exam_date', fromDate.toIso8601String())
           .lte('exam_date', toDate.toIso8601String())
           .order('exam_date', ascending: true);

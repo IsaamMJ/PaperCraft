@@ -11,6 +11,7 @@ import '../../../../core/presentation/utils/ui_helpers.dart';
 import '../../../../core/presentation/widgets/common_state_widgets.dart';
 import '../../../authentication/domain/services/user_state_service.dart';
 import '../../../paper_workflow/domain/entities/question_paper_entity.dart';
+import '../../../paper_workflow/domain/entities/paper_status.dart';
 import '../../../paper_workflow/presentation/bloc/question_paper_bloc.dart';
 
 class OfficeStaffDashboardPage extends StatefulWidget {
@@ -460,45 +461,64 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
   Widget _buildPaperCard(QuestionPaperEntity paper) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600;
+    final isSubmitted = paper.status == PaperStatus.submitted;
 
     // Calculate days until exam
     final daysUntilExam = _getDaysUntilExam(paper.examDate);
 
-    return Container(
-      key: ValueKey(paper.id),
-      margin: const EdgeInsets.only(bottom: UIConstants.spacing12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black04,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(UIConstants.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        paper.title,
-                        style: TextStyle(
-                          fontSize: isSmallScreen
-                              ? UIConstants.fontSizeMedium
-                              : UIConstants.fontSizeLarge,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+    return Opacity(
+      opacity: isSubmitted ? 0.55 : 1.0,
+      child: Container(
+        key: ValueKey(paper.id),
+        margin: const EdgeInsets.only(bottom: UIConstants.spacing12),
+        decoration: BoxDecoration(
+          color: isSubmitted ? Colors.grey.shade100 : AppColors.surface,
+          borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+          boxShadow: isSubmitted ? [] : [
+            BoxShadow(
+              color: AppColors.black04,
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: isSubmitted ? Border.all(color: Colors.grey.shade300) : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(UIConstants.paddingMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isSubmitted)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Not yet approved',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade800),
+                    ),
+                  ),
+                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          paper.title,
+                          style: TextStyle(
+                            fontSize: isSmallScreen
+                                ? UIConstants.fontSizeMedium
+                                : UIConstants.fontSizeLarge,
+                            fontWeight: FontWeight.w600,
+                            color: isSubmitted ? Colors.grey : AppColors.textPrimary,
+                          ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -580,6 +600,7 @@ class _OfficeStaffDashboardPageState extends State<OfficeStaffDashboardPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
