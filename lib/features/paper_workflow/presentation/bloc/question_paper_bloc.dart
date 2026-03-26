@@ -1140,9 +1140,9 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
     try {
       final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
 
+      // Create the key if section has 0 questions (empty section)
       if (!updatedQuestions.containsKey(event.sectionName)) {
-        emit(QuestionPaperError('Section "${event.sectionName}" not found'));
-        return;
+        updatedQuestions[event.sectionName] = [];
       }
 
       // Find the section to get type and marks
