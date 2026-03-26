@@ -210,15 +210,17 @@ class AddQuestionToSection extends QuestionPaperEvent {
   final String sectionName;
   final String questionText;
   final bool isOptional;
+  final List<String>? options;
 
   const AddQuestionToSection({
     required this.sectionName,
     required this.questionText,
     this.isOptional = false,
+    this.options,
   });
 
   @override
-  List<Object?> get props => [sectionName, questionText, isOptional];
+  List<Object?> get props => [sectionName, questionText, isOptional, options];
 }
 
 /// Update section name
@@ -1150,11 +1152,17 @@ class QuestionPaperBloc extends Bloc<QuestionPaperEvent, QuestionPaperState> {
       );
 
       final sectionQuestions = List<Question>.from(updatedQuestions[event.sectionName]!);
+      // For match_following, marks = total section marks (all pairs in one question)
+      final questionMarks = event.options != null && section.type == 'match_following'
+          ? section.questions * section.marksPerQuestion
+          : section.marksPerQuestion;
+
       sectionQuestions.add(Question(
         text: event.questionText,
         type: section.type,
-        marks: section.marksPerQuestion,
+        marks: questionMarks,
         isOptional: event.isOptional,
+        options: event.options,
       ));
 
       updatedQuestions[event.sectionName] = sectionQuestions;

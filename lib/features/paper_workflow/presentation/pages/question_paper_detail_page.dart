@@ -711,7 +711,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           }),
         ],
         ...questions.asMap().entries.map((e) => _buildQuestion(e.key + 1, e.value, name)),
-        if (!widget.isViewOnly) _buildAddQuestionButton(name),
+        if (!widget.isViewOnly) _buildAddQuestionButton(name, type),
         SizedBox(height: UIConstants.spacing24),
       ],
     );
@@ -871,15 +871,17 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     );
   }
 
-  Widget _buildAddQuestionButton(String sectionName) {
+  Widget _buildAddQuestionButton(String sectionName, String sectionType) {
     return _AddQuestionInline(
       sectionName: sectionName,
-      onAdd: (text, isOptional) {
+      sectionType: sectionType,
+      onAdd: (text, isOptional, {List<String>? options}) {
         context.read<QuestionPaperBloc>().add(
           AddQuestionToSection(
             sectionName: sectionName,
             questionText: text,
             isOptional: isOptional,
+            options: options,
           ),
         );
       },
@@ -1408,12 +1410,15 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 }
 
 /// Inline add question widget with proper state management
+/// Supports regular text input for most types and pair input for match_following
 class _AddQuestionInline extends StatefulWidget {
   final String sectionName;
-  final Function(String text, bool isOptional) onAdd;
+  final String sectionType;
+  final Function(String text, bool isOptional, {List<String>? options}) onAdd;
 
   const _AddQuestionInline({
     required this.sectionName,
+    required this.sectionType,
     required this.onAdd,
   });
 
@@ -1426,6 +1431,11 @@ class _AddQuestionInlineState extends State<_AddQuestionInline> {
   bool _isOptional = false;
   late TextEditingController _controller;
 
+  // Match pair state
+  final List<_MatchPair> _matchPairs = [];
+
+  bool get _isMatchType => widget.sectionType == 'match_following';
+
   @override
   void initState() {
     super.initState();
@@ -1435,7 +1445,55 @@ class _AddQuestionInlineState extends State<_AddQuestionInline> {
   @override
   void dispose() {
     _controller.dispose();
+    for (final pair in _matchPairs) {
+      pair.dispose();
+    }
     super.dispose();
+  }
+
+  void _addMatchPair() {
+    setState(() {
+      _matchPairs.add(_MatchPair());
+    });
+  }
+
+  void _removeMatchPair(int index) {
+    setState(() {
+      _matchPairs[index].dispose();
+      _matchPairs.removeAt(index);
+    });
+  }
+
+  void _resetForm() {
+    setState(() {
+      _isAdding = false;
+      _controller.clear();
+      _isOptional = false;
+      for (final pair in _matchPairs) {
+        pair.dispose();
+      }
+      _matchPairs.clear();
+    });
+  }
+
+  void _submitRegular() {
+    final text = _controller.text.trim();
+    if (text.isNotEmpty) {
+      widget.onAdd(text, _isOptional);
+      _resetForm();
+    }
+  }
+
+  void _submitMatch() {
+    final validPairs = _matchPairs.where((p) => p.left.trim().isNotEmpty && p.right.trim().isNotEmpty).toList();
+    if (validPairs.isEmpty) return;
+
+    final leftItems = validPairs.map((p) => p.left.trim()).toList();
+    final rightItems = validPairs.map((p) => p.right.trim()).toList();
+    final options = [...leftItems, '---SEPARATOR---', ...rightItems];
+
+    widget.onAdd('Match the following', _isOptional, options: options);
+    _resetForm();
   }
 
   @override
@@ -1444,9 +1502,14 @@ class _AddQuestionInlineState extends State<_AddQuestionInline> {
       return Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 8),
         child: OutlinedButton.icon(
-          onPressed: () => setState(() => _isAdding = true),
+          onPressed: () {
+            setState(() => _isAdding = true);
+            if (_isMatchType && _matchPairs.isEmpty) {
+              _addMatchPair();
+            }
+          },
           icon: const Icon(Icons.add, size: 16),
-          label: const Text('Add Question'),
+          label: Text(_isMatchType ? 'Add Match Pairs' : 'Add Question'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
@@ -1467,20 +1530,7 @@ class _AddQuestionInlineState extends State<_AddQuestionInline> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            maxLines: 2,
-            minLines: 1,
-            decoration: InputDecoration(
-              hintText: 'Type your question here...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.all(10),
-              isDense: true,
-            ),
-          ),
+          if (_isMatchType) _buildMatchPairInput() else _buildRegularInput(),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1504,37 +1554,138 @@ class _AddQuestionInlineState extends State<_AddQuestionInline> {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => setState(() {
-                  _isAdding = false;
-                  _controller.clear();
-                  _isOptional = false;
-                }),
+                onPressed: _resetForm,
                 child: const Text('Cancel'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: () {
-                  final text = _controller.text.trim();
-                  if (text.isNotEmpty) {
-                    widget.onAdd(text, _isOptional);
-                    setState(() {
-                      _isAdding = false;
-                      _controller.clear();
-                      _isOptional = false;
-                    });
-                  }
-                },
+                onPressed: _isMatchType ? _submitMatch : _submitRegular,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
-                child: const Text('Add'),
+                child: Text(_isMatchType ? 'Add Match' : 'Add'),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildRegularInput() {
+    return TextField(
+      controller: _controller,
+      autofocus: true,
+      maxLines: 2,
+      minLines: 1,
+      decoration: InputDecoration(
+        hintText: 'Type your question here...',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.all(10),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildMatchPairInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Row(
+          children: [
+            Expanded(
+              child: Text('Column A', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Column B', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+            ),
+            const SizedBox(width: 32),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Pair rows
+        ..._matchPairs.asMap().entries.map((entry) {
+          final index = entry.key;
+          final pair = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: pair.leftController,
+                    autofocus: index == _matchPairs.length - 1,
+                    decoration: InputDecoration(
+                      hintText: 'Left item',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(Icons.arrow_forward, size: 14, color: Colors.grey.shade400),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: pair.rightController,
+                    decoration: InputDecoration(
+                      hintText: 'Right item',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _removeMatchPair(index),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(Icons.close, size: 18, color: Colors.red.shade300),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        // Add pair button
+        TextButton.icon(
+          onPressed: _addMatchPair,
+          icon: const Icon(Icons.add, size: 16),
+          label: const Text('Add pair'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Helper class for match pair input
+class _MatchPair {
+  final TextEditingController leftController;
+  final TextEditingController rightController;
+
+  _MatchPair()
+      : leftController = TextEditingController(),
+        rightController = TextEditingController();
+
+  String get left => leftController.text;
+  String get right => rightController.text;
+
+  void dispose() {
+    leftController.dispose();
+    rightController.dispose();
   }
 }
