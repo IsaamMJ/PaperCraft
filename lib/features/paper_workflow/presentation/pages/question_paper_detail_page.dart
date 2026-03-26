@@ -203,15 +203,6 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                 widget.isViewOnly ? 'View Paper' : 'Paper Details',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               ),
-              if (paper != null) ...[
-                SizedBox(height: UIConstants.spacing4),
-                Text(
-                  paper.title,
-                  style: TextStyle(fontSize: 16, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
             ],
           ),
         ),
@@ -252,11 +243,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
           padding: const EdgeInsets.all(UIConstants.paddingMedium),
           child: Column(
             children: [
-              _buildOverview(paper),
-              SizedBox(height: UIConstants.spacing16),
-              _buildActions(paper),
-              SizedBox(height: UIConstants.spacing24),
-              _buildInfo(paper),
+              _buildCombinedHeader(paper),
               SizedBox(height: UIConstants.spacing24),
               _buildQuestions(paper),
               const SizedBox(height: 100),
@@ -268,6 +255,142 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
 
+
+  Widget _buildCombinedHeader(QuestionPaperEntity paper) {
+    final examDateText = paper.examDate != null
+        ? EnhancedDateFormatter.formatForContext(paper.examDate!, DateContext.examDate)
+        : 'Not set';
+    final createdByText = _loadingUserInfo ? 'Loading...' : (_createdByName ?? 'Unknown');
+    final marksText = paper.maxMarks != null
+        ? '${paper.totalMarks}/${paper.maxMarks}'
+        : '${paper.totalMarks}';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(UIConstants.radiusXLarge),
+        boxShadow: [BoxShadow(color: AppColors.black04, blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title + Status
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [AppColors.primary05, AppColors.secondary08]),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            paper.subject ?? 'Unknown Subject',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${paper.examType.displayName} • ${paper.gradeDisplayName} • Section ${paper.sectionsDisplayName}',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildStatusChip(paper.status),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Metadata grid
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildCompactInfo(Icons.event_rounded, 'Exam Date', examDateText)),
+                    Expanded(child: _buildCompactInfo(Icons.person_rounded, 'Created by', createdByText)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildCompactInfo(Icons.quiz_rounded, 'Questions', '${paper.totalQuestions}')),
+                    Expanded(child: _buildCompactInfo(Icons.grade_rounded, 'Marks', marksText)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildCompactInfo(Icons.library_books_rounded, 'Sections', '${paper.paperSections.length}')),
+                    Expanded(child: _buildCompactInfo(Icons.update_rounded, 'Modified', EnhancedDateFormatter.formatForContext(paper.modifiedAt, DateContext.modified))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Rejection reason
+          if (paper.rejectionReason != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.error05,
+                  borderRadius: BorderRadius.circular(UIConstants.radiusLarge),
+                  border: Border.all(color: AppColors.error20),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: AppColors.error, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(paper.rejectionReason!, style: TextStyle(fontSize: 13, color: AppColors.error80, height: 1.4)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Action buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: _buildActions(paper),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactInfo(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildOverview(QuestionPaperEntity paper) {
     return Container(
