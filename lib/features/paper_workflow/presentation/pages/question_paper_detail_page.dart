@@ -18,6 +18,7 @@ import '../../domain/entities/question_entity.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
+import '../../../../core/ai/services/groq_service.dart';
 import '../bloc/question_paper_bloc.dart';
 import '../bloc/shared_bloc_provider.dart';
 import '../widgets/question_inline_edit_modal.dart';
@@ -64,6 +65,12 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   late final UserInfoService _userInfoService;
   String? _createdByName;
   bool _loadingUserInfo = false;
+
+  // AI spelling check — runs automatically on page load
+  // Maps "sectionName_questionIndex" -> suggested corrected text
+  final Map<String, String> _aiSuggestions = {};
+  bool _isAiChecking = false;
+  bool _aiCheckDone = false;
 
   @override
   void initState() {
@@ -123,6 +130,54 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
+  /// Run AI spelling check in background when paper loads
+  Future<void> _runAiSpellingCheck(QuestionPaperEntity paper) async {
+    if (_aiCheckDone || _isAiChecking || widget.isViewOnly) return;
+    if (GroqService.isDryRun || GroqService.apiKey.isEmpty) return;
+
+    // Only check submitted papers (admin reviewing)
+    if (paper.status != PaperStatus.submitted) return;
+
+    setState(() => _isAiChecking = true);
+
+    const skipTypes = {'match_following', 'missing_letters', 'fill_in_blanks', 'fill_blanks', 'word_forms'};
+
+    try {
+      for (final entry in paper.questions.entries) {
+        final sectionName = entry.key;
+        final questions = entry.value;
+
+        // Skip types AI can't handle
+        if (questions.isNotEmpty && skipTypes.contains(questions.first.type)) continue;
+
+        final texts = questions.map((q) => q.text).where((t) => t.trim().isNotEmpty).toList();
+        if (texts.isEmpty) continue;
+
+        final results = await GroqService.polishSection(texts);
+
+        for (int i = 0; i < results.length && i < questions.length; i++) {
+          if (results[i].hasChanges) {
+            final key = '${sectionName}_$i';
+            if (mounted) {
+              setState(() {
+                _aiSuggestions[key] = results[i].polished;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[AI Check] Failed: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAiChecking = false;
+        _aiCheckDone = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -143,6 +198,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   }
 
   void _handleStateChanges(BuildContext context, QuestionPaperState state) {
+    // Trigger AI spelling check when paper loads
+    if (state is QuestionPaperLoaded && state.currentPaper != null && !_aiCheckDone) {
+      _loadUserInfo(state.currentPaper!.createdBy);
+      _runAiSpellingCheck(state.currentPaper!);
+    }
 
     if (state is QuestionPaperSuccess) {
       UiHelpers.showSuccessMessage(context, state.message);
@@ -876,6 +936,61 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ),
                   ),
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
+                // AI spelling suggestion (inline)
+                Builder(builder: (_) {
+                  final suggestionKey = '${sectionName}_${index - 1}';
+                  final suggestion = _aiSuggestions[suggestionKey];
+                  if (suggestion == null) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_fix_high, size: 14, color: Colors.amber.shade700),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            suggestion,
+                            style: TextStyle(fontSize: 13, color: Colors.amber.shade900, fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            // Accept: update the question text
+                            context.read<QuestionPaperBloc>().add(
+                              UpdateQuestionInline(
+                                sectionName: sectionName,
+                                questionIndex: index - 1,
+                                updatedText: suggestion,
+                              ),
+                            );
+                            setState(() => _aiSuggestions.remove(suggestionKey));
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text('Fix', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _aiSuggestions.remove(suggestionKey));
+                          },
+                          child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
                 // Options for MCQ and other types (word bank for fill_blanks shown at section level)
                 if (question.type != 'fill_blanks' && question.options != null && question.options!.isNotEmpty) ...[
                   SizedBox(height: UIConstants.spacing12),
