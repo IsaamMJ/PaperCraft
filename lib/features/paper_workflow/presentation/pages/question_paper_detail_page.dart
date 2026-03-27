@@ -71,6 +71,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   final Map<String, String> _aiSuggestions = {};
   // Maps "sectionName_questionIndex" -> reason for suggestion
   final Map<String, String> _aiSuggestionReasons = {};
+  // Maps "sectionName_questionIndex" -> suggested fixed options
+  final Map<String, List<String>> _aiOptionSuggestions = {};
   // Maps "sectionName_questionIndex" -> warning text (no fix, informational only)
   final Map<String, String> _aiWarnings = {};
   bool _isAiChecking = false;
@@ -144,20 +146,39 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
       for (int i = 0; i < questions.length; i++) {
         String text = questions[i].text;
-        bool hasChanges = false;
+        bool hasTextChanges = false;
+        bool hasOptionChanges = false;
 
         for (final charEntry in pdfUnsafeChars.entries) {
           if (text.contains(charEntry.key)) {
             text = text.replaceAll(charEntry.key, charEntry.value);
-            hasChanges = true;
+            hasTextChanges = true;
           }
         }
 
-        if (hasChanges) {
+        // Check options too (MCQ, etc.)
+        List<String>? fixedOptions;
+        if (questions[i].options != null) {
+          fixedOptions = questions[i].options!.map((o) {
+            String fixed = o;
+            for (final charEntry in pdfUnsafeChars.entries) {
+              if (fixed.contains(charEntry.key)) {
+                fixed = fixed.replaceAll(charEntry.key, charEntry.value);
+                hasOptionChanges = true;
+              }
+            }
+            return fixed;
+          }).toList();
+        }
+
+        if (hasTextChanges || hasOptionChanges) {
           final key = '${sectionName}_$i';
           setState(() {
             _aiSuggestions[key] = text;
             _aiSuggestionReasons[key] = 'Symbol won\'t display in PDF printout';
+            if (hasOptionChanges && fixedOptions != null) {
+              _aiOptionSuggestions[key] = fixedOptions;
+            }
           });
         }
 
@@ -290,6 +311,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             sectionName: sectionName,
             questionIndex: questionIndex,
             updatedText: entry.value,
+            updatedOptions: _aiOptionSuggestions[entry.key],
           ));
         }
       }
@@ -297,6 +319,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     setState(() {
       _aiSuggestions.clear();
       _aiSuggestionReasons.clear();
+      _aiOptionSuggestions.clear();
     });
     _showMessage('All fixes applied', AppColors.success);
   }
@@ -1152,17 +1175,19 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         ),
                         GestureDetector(
                           onTap: () {
-                            // Accept: update the question text
+                            // Accept: update the question text and options
                             context.read<QuestionPaperBloc>().add(
                               UpdateQuestionInline(
                                 sectionName: sectionName,
                                 questionIndex: index - 1,
                                 updatedText: suggestion,
+                                updatedOptions: _aiOptionSuggestions[suggestionKey],
                               ),
                             );
                             setState(() {
                               _aiSuggestions.remove(suggestionKey);
                               _aiSuggestionReasons.remove(suggestionKey);
+                              _aiOptionSuggestions.remove(suggestionKey);
                             });
                           },
                           child: Container(
