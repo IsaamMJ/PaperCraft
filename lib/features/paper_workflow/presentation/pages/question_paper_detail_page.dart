@@ -162,16 +162,22 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  /// Run AI spelling check in background when paper loads
+  /// Run full AI check (spelling + PDF symbols) — for submitted papers
   Future<void> _runAiSpellingCheck(QuestionPaperEntity paper) async {
     if (_aiCheckDone || _isAiChecking || widget.isViewOnly) return;
+
+    // PDF symbol check runs for submitted + approved
+    if (paper.status == PaperStatus.submitted || paper.status == PaperStatus.approved) {
+      _runPdfSymbolCheck(paper);
+    }
+
+    // AI spelling check only for submitted papers
+    if (paper.status != PaperStatus.submitted) {
+      setState(() => _aiCheckDone = true);
+      return;
+    }
+
     if (GroqService.isDryRun || GroqService.apiKey.isEmpty) return;
-
-    // Only check submitted papers (admin reviewing)
-    if (paper.status != PaperStatus.submitted) return;
-
-    // Step 1: Instant PDF compatibility check (no API needed)
-    _runPdfSymbolCheck(paper);
 
     setState(() => _isAiChecking = true);
 
@@ -203,6 +209,53 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       }
     } catch (e) {
       debugPrint('[AI Check] Failed: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAiChecking = false;
+        _aiCheckDone = true;
+      });
+    }
+  }
+
+  /// Manual AI check for approved papers (triggered by button)
+  Future<void> _runManualAiCheck(QuestionPaperEntity paper) async {
+    if (_isAiChecking) return;
+    if (GroqService.isDryRun || GroqService.apiKey.isEmpty) {
+      setState(() => _aiCheckDone = true);
+      return;
+    }
+
+    setState(() => _isAiChecking = true);
+
+    const skipTypes = {'match_following', 'missing_letters', 'fill_in_blanks', 'fill_blanks', 'word_forms'};
+
+    try {
+      for (final entry in paper.questions.entries) {
+        final sectionName = entry.key;
+        final questions = entry.value;
+
+        if (questions.isNotEmpty && skipTypes.contains(questions.first.type)) continue;
+
+        final texts = questions.map((q) => q.text).where((t) => t.trim().isNotEmpty).toList();
+        if (texts.isEmpty) continue;
+
+        final results = await GroqService.polishSection(texts);
+
+        for (int i = 0; i < results.length && i < questions.length; i++) {
+          if (results[i].hasChanges) {
+            final key = '${sectionName}_$i';
+            if (mounted && !_aiSuggestions.containsKey(key)) {
+              setState(() {
+                _aiSuggestions[key] = results[i].polished;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[AI Check] Manual check failed: $e');
     }
 
     if (mounted) {
@@ -686,6 +739,27 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             () => _markPaperAsSpare(paper),
           ),
         );
+
+        // AI Check Spelling button for approved papers (manual trigger)
+        if (!_aiCheckDone || _aiSuggestions.isNotEmpty) {
+          actions.add(
+            _buildActionBtn(
+              Icons.auto_fix_high,
+              _isAiChecking ? 'Checking...' : 'AI Check Spelling',
+              Colors.amber.shade700,
+              _isAiChecking ? () {} : () {
+                setState(() {
+                  _aiCheckDone = false;
+                  _aiSuggestions.clear();
+                  _aiSuggestionReasons.clear();
+                });
+                _runPdfSymbolCheck(paper);
+                _runManualAiCheck(paper);
+              },
+              _isAiChecking,
+            ),
+          );
+        }
       }
     }
 
