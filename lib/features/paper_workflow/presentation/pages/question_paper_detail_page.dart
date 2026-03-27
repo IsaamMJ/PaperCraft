@@ -69,6 +69,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   // AI spelling check — runs automatically on page load
   // Maps "sectionName_questionIndex" -> suggested corrected text
   final Map<String, String> _aiSuggestions = {};
+  // Maps "sectionName_questionIndex" -> reason for suggestion
+  final Map<String, String> _aiSuggestionReasons = {};
   bool _isAiChecking = false;
   bool _aiCheckDone = false;
 
@@ -130,6 +132,36 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
+  /// Check for characters that won't render correctly in PDF
+  void _runPdfSymbolCheck(QuestionPaperEntity paper) {
+    const pdfUnsafeChars = {'₹': 'Rs.'};
+
+    for (final entry in paper.questions.entries) {
+      final sectionName = entry.key;
+      final questions = entry.value;
+
+      for (int i = 0; i < questions.length; i++) {
+        String text = questions[i].text;
+        bool hasChanges = false;
+
+        for (final charEntry in pdfUnsafeChars.entries) {
+          if (text.contains(charEntry.key)) {
+            text = text.replaceAll(charEntry.key, charEntry.value);
+            hasChanges = true;
+          }
+        }
+
+        if (hasChanges) {
+          final key = '${sectionName}_$i';
+          setState(() {
+            _aiSuggestions[key] = text;
+            _aiSuggestionReasons[key] = 'Symbol won\'t display in PDF printout';
+          });
+        }
+      }
+    }
+  }
+
   /// Run AI spelling check in background when paper loads
   Future<void> _runAiSpellingCheck(QuestionPaperEntity paper) async {
     if (_aiCheckDone || _isAiChecking || widget.isViewOnly) return;
@@ -137,6 +169,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
     // Only check submitted papers (admin reviewing)
     if (paper.status != PaperStatus.submitted) return;
+
+    // Step 1: Instant PDF compatibility check (no API needed)
+    _runPdfSymbolCheck(paper);
 
     setState(() => _isAiChecking = true);
 
@@ -194,8 +229,11 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         }
       }
     }
-    setState(() => _aiSuggestions.clear());
-    _showMessage('All spelling fixes applied', AppColors.success);
+    setState(() {
+      _aiSuggestions.clear();
+      _aiSuggestionReasons.clear();
+    });
+    _showMessage('All fixes applied', AppColors.success);
   }
 
   @override
@@ -1011,9 +1049,19 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         Icon(Icons.auto_fix_high, size: 14, color: Colors.amber.shade700),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            suggestion,
-                            style: TextStyle(fontSize: 13, color: Colors.amber.shade900, fontStyle: FontStyle.italic),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_aiSuggestionReasons.containsKey(suggestionKey))
+                                Text(
+                                  _aiSuggestionReasons[suggestionKey]!,
+                                  style: TextStyle(fontSize: 10, color: Colors.amber.shade800, fontWeight: FontWeight.w600),
+                                ),
+                              Text(
+                                suggestion,
+                                style: TextStyle(fontSize: 13, color: Colors.amber.shade900, fontStyle: FontStyle.italic),
+                              ),
+                            ],
                           ),
                         ),
                         GestureDetector(
@@ -1026,7 +1074,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                                 updatedText: suggestion,
                               ),
                             );
-                            setState(() => _aiSuggestions.remove(suggestionKey));
+                            setState(() {
+                              _aiSuggestions.remove(suggestionKey);
+                              _aiSuggestionReasons.remove(suggestionKey);
+                            });
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1040,7 +1091,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () {
-                            setState(() => _aiSuggestions.remove(suggestionKey));
+                            setState(() {
+                              _aiSuggestions.remove(suggestionKey);
+                              _aiSuggestionReasons.remove(suggestionKey);
+                            });
                           },
                           child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
                         ),
