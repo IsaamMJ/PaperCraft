@@ -86,7 +86,16 @@ class SimplePdfService implements IPdfGenerationService {
     final pdf = pw.Document();
 
     try {
-      final sortedSections = _getSortedSections(paper.questions, paper.paperSections);
+      final rawSections = _getSortedSections(paper.questions, paper.paperSections);
+
+      // Sanitize all text for PDF rendering (replace ₹ → Rs. etc.)
+      final sortedSections = rawSections.map((entry) {
+        final sanitizedQuestions = entry.value.map((q) => q.copyWith(
+          text: _sanitizeForPdf(q.text),
+          options: q.options?.map((o) => _sanitizeForPdf(o)).toList(),
+        )).toList();
+        return MapEntry(entry.key, sanitizedQuestions);
+      }).toList();
 
       List<pw.Widget> allQuestionWidgets = [];
       int sectionIndex = 1;
@@ -373,16 +382,14 @@ class SimplePdfService implements IPdfGenerationService {
   }
 
   Future<void> _loadFonts() async {
-    try {
-      final regularData = await rootBundle.load('assets/fonts/Tinos-Regular.ttf');
-      final boldData = await rootBundle.load('assets/fonts/Tinos-Bold.ttf');
-      _regularFont = pw.Font.ttf(regularData);
-      _boldFont = pw.Font.ttf(boldData);
-    } catch (e) {
-      debugPrint('[PDF] Failed to load Tinos font, falling back to built-in: $e');
-      _regularFont = pw.Font.times();
-      _boldFont = pw.Font.timesBold();
-    }
+    _regularFont = pw.Font.times();
+    _boldFont = pw.Font.timesBold();
+  }
+
+  /// Sanitize text for PDF rendering — replaces Unicode symbols
+  /// that built-in PDF fonts can't render
+  static String _sanitizeForPdf(String text) {
+    return text.replaceAll('₹', 'Rs.');
   }
 
   pw.Widget _buildCompactHeaderForSinglePage({
