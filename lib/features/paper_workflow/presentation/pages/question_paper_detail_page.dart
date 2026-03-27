@@ -1029,16 +1029,48 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         'Section $sectionNumber: $name (${questions.length} questions)',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        typeDisplayName,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            typeDisplayName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                          ),
+                        ),
+                        if (!widget.isViewOnly && type == 'word_forms' && _aiWarnings.keys.any((k) => k.startsWith('${name}_')))
+                          GestureDetector(
+                            onTap: () {
+                              context.read<QuestionPaperBloc>().add(UpdateSectionType(sectionName: name, newType: 'short_answer'));
+                              setState(() {
+                                _aiWarnings.removeWhere((k, _) => k.startsWith('${name}_'));
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.swap_horiz, size: 12, color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Switch to Short Answer',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
