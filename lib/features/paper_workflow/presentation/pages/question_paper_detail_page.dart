@@ -71,6 +71,8 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   final Map<String, String> _aiSuggestions = {};
   // Maps "sectionName_questionIndex" -> reason for suggestion
   final Map<String, String> _aiSuggestionReasons = {};
+  // Maps "sectionName_questionIndex" -> warning text (no fix, informational only)
+  final Map<String, String> _aiWarnings = {};
   bool _isAiChecking = false;
   bool _aiCheckDone = false;
 
@@ -157,6 +159,16 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             _aiSuggestions[key] = text;
             _aiSuggestionReasons[key] = 'Symbol won\'t display in PDF printout';
           });
+        }
+
+        // Check for type mismatch: long questions in word_forms type
+        if (questions[i].type == 'word_forms' && questions[i].text.length > 50) {
+          final key = '${sectionName}_$i';
+          if (!_aiSuggestions.containsKey(key)) {
+            setState(() {
+              _aiWarnings[key] = 'Long question in \'Word Forms\' section — may look cramped in PDF';
+            });
+          }
         }
       }
     }
@@ -1171,6 +1183,37 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                             });
                           },
                           child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                // Warning chip (informational, no fix action)
+                Builder(builder: (_) {
+                  final warningKey = '${sectionName}_${index - 1}';
+                  final warning = _aiWarnings[warningKey];
+                  if (warning == null) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange.shade700),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            warning,
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => setState(() => _aiWarnings.remove(warningKey)),
+                          child: Icon(Icons.close, size: 14, color: Colors.grey.shade400),
                         ),
                       ],
                     ),
