@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/presentation/constants/ui_constants.dart';
@@ -373,11 +374,14 @@ class SimplePdfService implements IPdfGenerationService {
 
   Future<void> _loadFonts() async {
     try {
+      final regularData = await rootBundle.load('assets/fonts/Tinos-Regular.ttf');
+      final boldData = await rootBundle.load('assets/fonts/Tinos-Bold.ttf');
+      _regularFont = pw.Font.ttf(regularData);
+      _boldFont = pw.Font.ttf(boldData);
+    } catch (e) {
+      debugPrint('[PDF] Failed to load Tinos font, falling back to built-in: $e');
       _regularFont = pw.Font.times();
       _boldFont = pw.Font.timesBold();
-    } catch (e) {
-      _regularFont = pw.Font.courier();
-      _boldFont = pw.Font.courierBold();
     }
   }
 
