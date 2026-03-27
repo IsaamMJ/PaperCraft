@@ -73,6 +73,10 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
   final Map<String, String> _aiSuggestionReasons = {};
   // Maps "sectionName_questionIndex" -> suggested fixed options
   final Map<String, List<String>> _aiOptionSuggestions = {};
+  // Maps "sectionName_questionIndex" -> original text before fix (for undo)
+  final Map<String, String> _aiUndoTexts = {};
+  // Maps "sectionName_questionIndex" -> original options before fix (for undo)
+  final Map<String, List<String>?> _aiUndoOptions = {};
   // Maps "sectionName_questionIndex" -> warning text (no fix, informational only)
   final Map<String, String> _aiWarnings = {};
   bool _isAiChecking = false;
@@ -1172,6 +1176,47 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ),
                   ),
                 Text(question.text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.4)),
+                // Undo button (appears after fix, auto-expires in 10s)
+                Builder(builder: (_) {
+                  final undoKey = '${sectionName}_${index - 1}';
+                  final undoText = _aiUndoTexts[undoKey];
+                  if (undoText == null) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    child: GestureDetector(
+                      onTap: () {
+                        context.read<QuestionPaperBloc>().add(
+                          UpdateQuestionInline(
+                            sectionName: sectionName,
+                            questionIndex: index - 1,
+                            updatedText: undoText,
+                            updatedOptions: _aiUndoOptions[undoKey],
+                          ),
+                        );
+                        setState(() {
+                          _aiUndoTexts.remove(undoKey);
+                          _aiUndoOptions.remove(undoKey);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.undo, size: 13, color: Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Text('Undo', style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
                 // AI spelling suggestion (inline)
                 Builder(builder: (_) {
                   final suggestionKey = '${sectionName}_${index - 1}';
@@ -1207,6 +1252,9 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                         ),
                         GestureDetector(
                           onTap: () {
+                            // Store original for undo
+                            final originalText = question.text;
+                            final originalOptions = question.options;
                             // Accept: update the question text and options
                             context.read<QuestionPaperBloc>().add(
                               UpdateQuestionInline(
@@ -1217,9 +1265,20 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                               ),
                             );
                             setState(() {
+                              _aiUndoTexts[suggestionKey] = originalText;
+                              _aiUndoOptions[suggestionKey] = originalOptions;
                               _aiSuggestions.remove(suggestionKey);
                               _aiSuggestionReasons.remove(suggestionKey);
                               _aiOptionSuggestions.remove(suggestionKey);
+                            });
+                            // Auto-expire undo after 10 seconds
+                            Future.delayed(const Duration(seconds: 10), () {
+                              if (mounted) {
+                                setState(() {
+                                  _aiUndoTexts.remove(suggestionKey);
+                                  _aiUndoOptions.remove(suggestionKey);
+                                });
+                              }
                             });
                           },
                           child: Container(
