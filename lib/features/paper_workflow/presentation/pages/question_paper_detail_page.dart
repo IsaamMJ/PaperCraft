@@ -183,7 +183,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         }
 
         // Check for type mismatch: long questions in word_forms type
-        if (questions[i].type == 'word_forms' && questions[i].text.length > 50) {
+        if (questions[i].type == 'word_forms' && questions[i].text.length > 25) {
           final key = '${sectionName}_$i';
           if (!_aiSuggestions.containsKey(key)) {
             setState(() {
