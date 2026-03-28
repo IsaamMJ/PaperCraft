@@ -342,6 +342,8 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters[RouteParams.id]!;
           debugPrint('[DEBUG ROUTER] Opening QuestionPaperDetailPage (View) with id: $id');
+          final userStateService = sl<UserStateService>();
+          final isTeacher = userStateService.currentRole.value == 'teacher';
           return MultiBlocProvider(
             providers: [
               BlocProvider(create: (_) => _createQuestionPaperBloc()),
@@ -351,7 +353,7 @@ class AppRouter {
             child: QuestionPaperDetailPage(
               key: ValueKey(id),
               questionPaperId: id,
-              isViewOnly: false,
+              isViewOnly: isTeacher,
             ),
           );
         },

@@ -1210,7 +1210,11 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       createdAt: DateTime.now(),
     );
 
+    // Key based on section metadata so widget rebuilds when edited in Step 1
+    final sectionsKey = _paperSections.map((s) => '${s.name}_${s.questions}_${s.marksPerQuestion}').join('|');
+
     return BlocProvider(
+      key: ValueKey('new_$sectionsKey'),
       create: (context) => sl<TeacherPatternBloc>(),
       child: QuestionInputCoordinator(
         paperSections: _paperSections,
@@ -1262,7 +1266,10 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
       createdAt: DateTime.now(),
     );
 
+    final sectionsKey = _paperSections.map((s) => '${s.name}_${s.questions}_${s.marksPerQuestion}').join('|');
+
     return BlocProvider(
+      key: ValueKey('edit_$sectionsKey'),
       create: (context) => sl<TeacherPatternBloc>(),
       child: QuestionInputCoordinator(
         paperSections: _paperSections,
