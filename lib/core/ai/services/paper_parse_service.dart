@@ -221,7 +221,21 @@ $text''';
         }
         usedNames.add(uniqueName.toLowerCase());
 
-        final actualCount = questionTexts.isNotEmpty ? questionTexts.length : questionsCount;
+        var actualCount = questionTexts.isNotEmpty ? questionTexts.length : questionsCount;
+
+        // Build Question objects
+        if (type == 'match_following') {
+          // Special handling: build single question with ---SEPARATOR--- format
+          final matchLeft = (item['match_left'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim()).toList();
+          final matchRight = (item['match_right'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim()).toList();
+
+          // For match_following, pair count is the real question count
+          if (matchLeft != null && matchLeft.isNotEmpty) {
+            actualCount = matchLeft.length;
+          }
+        }
 
         sections.add(PaperSectionEntity(
           name: uniqueName,
@@ -230,9 +244,7 @@ $text''';
           marksPerQuestion: marksPerQuestion,
         ));
 
-        // Build Question objects
         if (type == 'match_following') {
-          // Special handling: build single question with ---SEPARATOR--- format
           final matchLeft = (item['match_left'] as List<dynamic>?)
               ?.map((e) => e.toString().trim()).toList();
           final matchRight = (item['match_right'] as List<dynamic>?)

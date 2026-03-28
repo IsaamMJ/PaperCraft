@@ -537,6 +537,7 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
         source: source,
         imageQuality: 85,
         maxWidth: 2048,
+        requestFullMetadata: false,
       );
 
       if (image == null) return;
