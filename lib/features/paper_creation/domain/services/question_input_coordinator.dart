@@ -650,7 +650,9 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '($mandatoryCount/${section.questions})',
+                        section.type == 'match_following'
+                            ? '($mandatoryCount/1)'
+                            : '($mandatoryCount/${section.questions})',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
