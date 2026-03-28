@@ -1,5 +1,6 @@
 // features/catalog/presentation/widgets/inline_section_builder.dart
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -496,40 +497,45 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
 
     final picker = ImagePicker();
 
-    // Let user choose camera or gallery (multi-image)
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 16),
-            const Text('Scan Question Paper', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('Supports multiple pages', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.teal),
-              title: const Text('Take Photos'),
-              subtitle: const Text('Capture one or more pages'),
-              onTap: () => Navigator.pop(ctx, 'camera'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.teal),
-              title: const Text('Choose from Gallery'),
-              subtitle: const Text('Select multiple photos'),
-              onTap: () => Navigator.pop(ctx, 'gallery'),
-            ),
-            const SizedBox(height: 16),
-          ],
+    // On web, skip camera option — go directly to file upload
+    String? choice;
+    if (kIsWeb) {
+      choice = 'gallery';
+    } else {
+      choice = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              const Text('Scan Question Paper', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('Supports multiple pages', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Colors.teal),
+                title: const Text('Take Photos'),
+                subtitle: const Text('Capture one or more pages'),
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Colors.teal),
+                title: const Text('Choose from Gallery'),
+                subtitle: const Text('Select multiple photos'),
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     if (choice == null) return;
 
