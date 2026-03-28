@@ -114,6 +114,29 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     _startAutoSave();
   }
 
+  @override
+  void didUpdateWidget(covariant QuestionInputCoordinator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync section metadata (marks, question count, type) from parent
+    // without losing questions already entered in Step 2
+    if (widget.paperSections != oldWidget.paperSections) {
+      setState(() {
+        for (int i = 0; i < widget.paperSections.length; i++) {
+          final newSection = widget.paperSections[i];
+          final existingIdx = _sections.indexWhere((s) => s.name == newSection.name);
+          if (existingIdx >= 0) {
+            _sections[existingIdx] = newSection;
+          } else {
+            _sections.add(newSection);
+            _allQuestions[newSection.name] = [];
+          }
+        }
+        // Remove sections that no longer exist in parent
+        _sections.removeWhere((s) => !widget.paperSections.any((ps) => ps.name == s.name));
+      });
+    }
+  }
+
   void _initializeQuestions() {
     for (var section in _sections) {
       if (widget.existingQuestions != null && widget.existingQuestions!.containsKey(section.name)) {
