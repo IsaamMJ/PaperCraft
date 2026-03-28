@@ -918,35 +918,46 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   }
 
   Future<void> _showPreviewAndSubmit() async {
+    // Step 0: Silent auto-fixes (no UI, no waiting)
+    _applySilentFixes();
+
     // Step 1: Run AI polish (optional — failure/cancel proceeds with originals)
     final polishedQuestions = await _runAIPolish();
 
     // Use polished if available, otherwise use originals
     final questionsForReview = polishedQuestions ?? _allQuestions;
 
-    // Step 2: Show review dialog only if polish actually changed question text
-    bool hasChanges = false;
+    // Step 2: Show review dialog only for ambiguous changes
+    // (skip review for minor single-word spelling fixes)
+    int ambiguousChanges = 0;
     if (polishedQuestions != null) {
       for (final entry in polishedQuestions.entries) {
         final originals = _allQuestions[entry.key] ?? [];
         for (int i = 0; i < entry.value.length && i < originals.length; i++) {
           if (entry.value[i].text != originals[i].text) {
-            hasChanges = true;
-            break;
+            // Count words changed — if more than 2 words differ, it's ambiguous
+            final origWords = originals[i].text.split(RegExp(r'\s+'));
+            final newWords = entry.value[i].text.split(RegExp(r'\s+'));
+            int wordDiffs = 0;
+            for (int w = 0; w < origWords.length && w < newWords.length; w++) {
+              if (origWords[w] != newWords[w]) wordDiffs++;
+            }
+            wordDiffs += (origWords.length - newWords.length).abs();
+            if (wordDiffs > 2) ambiguousChanges++;
           }
         }
-        if (hasChanges) break;
       }
     }
     Map<String, List<Question>>? finalQuestions;
 
-    if (hasChanges) {
+    if (ambiguousChanges > 0) {
       finalQuestions = await _showPolishReview(questionsForReview);
       if (finalQuestions == null) {
         // User cancelled at review step — go back, don't submit
         return;
       }
     } else {
+      // Minor fixes — auto-accept silently
       finalQuestions = questionsForReview;
     }
 
@@ -992,6 +1003,72 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         aiPolishCompleted: _aiPolishCompleted,
       ),
     );
+  }
+
+  /// Silent auto-fixes applied before AI polish — no UI, instant
+  /// 1. Replaces ₹ with Rs. (PDF can't render ₹)
+  /// 2. word_forms with long text (>25 chars) auto-switched to short_answer
+  void _applySilentFixes() {
+    final fixedQuestions = <String, List<Question>>{};
+    bool anyChanges = false;
+
+    for (final entry in _allQuestions.entries) {
+      final sectionName = entry.key;
+      final questions = entry.value;
+      final fixedList = <Question>[];
+
+      for (final q in questions) {
+        var text = q.text;
+        var options = q.options;
+        var type = q.type;
+        bool changed = false;
+
+        // Fix 1: Replace ₹ with Rs. in text and options
+        if (text.contains('\u20B9')) {
+          text = text.replaceAll('\u20B9', 'Rs.');
+          changed = true;
+        }
+        if (options != null) {
+          final fixedOptions = options.map((o) {
+            if (o.contains('\u20B9')) {
+              changed = true;
+              return o.replaceAll('\u20B9', 'Rs.');
+            }
+            return o;
+          }).toList();
+          if (changed) options = fixedOptions;
+        }
+
+        // Fix 2: Long word_forms → short_answer
+        if (type == 'word_forms' && text.length > 25) {
+          type = 'short_answer';
+          changed = true;
+        }
+
+        if (changed) {
+          anyChanges = true;
+          fixedList.add(q.copyWith(text: text, options: options, type: type));
+        } else {
+          fixedList.add(q);
+        }
+      }
+      fixedQuestions[sectionName] = fixedList;
+    }
+
+    if (anyChanges) {
+      setState(() {
+        _allQuestions = fixedQuestions;
+
+        // Update section types if word_forms questions were changed
+        _sections = _sections.map((s) {
+          final questions = fixedQuestions[s.name] ?? [];
+          if (s.type == 'word_forms' && questions.any((q) => q.type == 'short_answer')) {
+            return s.copyWith(type: 'short_answer');
+          }
+          return s;
+        }).toList();
+      });
+    }
   }
 
   /// Run AI polish on all questions with progress dialog (per-section optimization)
