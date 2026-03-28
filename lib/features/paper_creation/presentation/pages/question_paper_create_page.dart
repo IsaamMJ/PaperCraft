@@ -718,13 +718,7 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
         'Create Paper',
         style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
       ),
-      actions: [
-        if (_currentStep > 1)
-          TextButton(
-            onPressed: () => setState(() => _currentStep = 1),
-            child: Text('Start Over', style: TextStyle(color: AppColors.primary)),
-          ),
-      ],
+      actions: const [],
     );
   }
 
@@ -1451,7 +1445,33 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
     return false; // Return false to prevent default behavior
   }
 
-  void _navigateBack() {
+  Future<void> _navigateBack() async {
+    // If teacher has made progress, confirm before leaving
+    if (_paperSections.isNotEmpty || _savedQuestions.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Leave paper?'),
+          content: const Text('Your progress will be lost. Are you sure you want to go back?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Stay'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Leave'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
     if (context.canPop()) {
       context.pop();
     } else {
