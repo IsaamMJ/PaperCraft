@@ -1,4 +1,5 @@
 // features/catalog/presentation/widgets/inline_section_builder.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -543,38 +544,36 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
           requestFullMetadata: false,
         );
       } else {
-        // Camera: take photos in a loop until user cancels
+        // Camera: take photos with preview & retake option
         while (true) {
-          final image = await picker.pickImage(
+          var image = await picker.pickImage(
             source: ImageSource.camera,
             imageQuality: 85,
             maxWidth: 2048,
             requestFullMetadata: false,
           );
           if (image == null) break;
-          images.add(image);
 
           if (!mounted) return;
-          // Ask if there are more pages
-          final addMore = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text('Page ${images.length} captured'),
-              content: const Text('Is there another page to scan?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('No, done'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                  child: const Text('Yes, scan next page'),
-                ),
-              ],
+
+          // Show full-screen preview with retake option
+          final action = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => _PhotoPreviewPage(
+                imagePath: image!.path,
+                pageNumber: images.length + 1,
+              ),
             ),
           );
-          if (addMore != true) break;
+
+          if (action == null) break; // Back pressed — cancel
+          if (action == 'retake') continue; // Retake — loop back to camera
+          if (action == 'use' || action == 'done') {
+            images.add(image);
+            if (action == 'done') break; // Done — process pages
+            // 'use' means use & add more — loop back to camera
+          }
         }
       }
 
@@ -1278,5 +1277,99 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
     if (n == null || n <= 0) return 'Must be > 0';
     if (n > 100) return 'Max 100';
     return null;
+  }
+}
+
+/// Full-screen photo preview with retake option
+class _PhotoPreviewPage extends StatelessWidget {
+  final String imagePath;
+  final int pageNumber;
+
+  const _PhotoPreviewPage({
+    required this.imagePath,
+    required this.pageNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('Page $pageNumber', style: const TextStyle(fontSize: 16)),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context), // Cancel
+        ),
+      ),
+      body: Column(
+        children: [
+          // Image preview
+          Expanded(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.file(
+                  File(imagePath),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          // Action buttons
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            color: Colors.black,
+            child: Row(
+              children: [
+                // Retake
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context, 'retake'),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Retake'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Use & Add More
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context, 'use'),
+                    icon: const Icon(Icons.add_a_photo, size: 18),
+                    label: const Text('Add More'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Done
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context, 'done'),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Done'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
