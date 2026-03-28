@@ -227,21 +227,52 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   void _showRenameSectionDialog(int index) {
     final section = _sections[index];
-    final controller = TextEditingController(text: section.name);
+    final nameController = TextEditingController(text: section.name);
+    final marksController = TextEditingController(text: section.marksPerQuestion.toString());
+    final questionsController = TextEditingController(text: section.questions.toString());
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename Section'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Section Name',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (_) {
-            _renameSectionAndClose(ctx, index, controller.text);
-          },
+        title: const Text('Edit Section'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Section Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: questionsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Questions',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: marksController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Marks each',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -249,7 +280,33 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => _renameSectionAndClose(ctx, index, controller.text),
+            onPressed: () {
+              final newName = nameController.text.trim();
+              final newMarks = double.tryParse(marksController.text) ?? section.marksPerQuestion;
+              final newQuestions = int.tryParse(questionsController.text) ?? section.questions;
+
+              if (newName.isEmpty) return;
+
+              Navigator.pop(ctx);
+
+              setState(() {
+                final oldName = section.name;
+
+                _sections[index] = section.copyWith(
+                  name: newName,
+                  marksPerQuestion: newMarks,
+                  questions: newQuestions,
+                );
+
+                // Update questions map key if name changed
+                if (oldName != newName && _allQuestions.containsKey(oldName)) {
+                  _allQuestions[newName] = _allQuestions.remove(oldName) ?? [];
+                }
+              });
+
+              _notifySectionsChanged();
+              _notifyQuestionsChanged();
+            },
             child: const Text('Save'),
           ),
         ],
