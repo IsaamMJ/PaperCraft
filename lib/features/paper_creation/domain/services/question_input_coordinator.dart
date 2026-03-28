@@ -291,6 +291,7 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
               setState(() {
                 final oldName = section.name;
+                final oldMarks = section.marksPerQuestion;
 
                 _sections[index] = section.copyWith(
                   name: newName,
@@ -299,8 +300,18 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 );
 
                 // Update questions map key if name changed
+                final questionsKey = oldName != newName && _allQuestions.containsKey(oldName)
+                    ? newName
+                    : oldName;
                 if (oldName != newName && _allQuestions.containsKey(oldName)) {
                   _allQuestions[newName] = _allQuestions.remove(oldName) ?? [];
+                }
+
+                // Update marks on existing questions if marks changed
+                if (newMarks != oldMarks && _allQuestions.containsKey(questionsKey)) {
+                  _allQuestions[questionsKey] = _allQuestions[questionsKey]!
+                      .map((q) => q.copyWith(marks: newMarks))
+                      .toList();
                 }
               });
 

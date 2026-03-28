@@ -1446,7 +1446,13 @@ class _CreatePageState extends State<QuestionPaperCreatePage> with TickerProvide
   }
 
   Future<void> _navigateBack() async {
-    // If teacher has made progress, confirm before leaving
+    // If on Step 2, go back to Step 1 (preserve progress)
+    if (_currentStep > 1) {
+      _previousStep();
+      return;
+    }
+
+    // On Step 1: confirm before leaving if teacher has progress
     if (_paperSections.isNotEmpty || _savedQuestions.isNotEmpty) {
       final confirmed = await showDialog<bool>(
         context: context,
