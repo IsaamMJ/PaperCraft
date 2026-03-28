@@ -488,15 +488,15 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
   Future<void> _scanPaperFromPhoto() async {
     if (GeminiVisionService.apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Photo scanning not available — API key missing'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Photo scanning not available — API key missing'), backgroundColor: Colors.red),
       );
       return;
     }
 
     final picker = ImagePicker();
 
-    // Let user choose camera or gallery
-    final source = await showModalBottomSheet<ImageSource>(
+    // Let user choose camera or gallery (multi-image)
+    final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -510,19 +510,19 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
             const SizedBox(height: 16),
             const Text('Scan Question Paper', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text('Take a photo or pick from gallery', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            Text('Supports multiple pages', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.deepPurple),
-              title: const Text('Take Photo'),
-              subtitle: const Text('Use camera to scan paper'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              leading: const Icon(Icons.camera_alt, color: Colors.teal),
+              title: const Text('Take Photos'),
+              subtitle: const Text('Capture one or more pages'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.deepPurple),
+              leading: const Icon(Icons.photo_library, color: Colors.teal),
               title: const Text('Choose from Gallery'),
-              subtitle: const Text('Pick an existing photo'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              subtitle: const Text('Select multiple photos'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             const SizedBox(height: 16),
           ],
@@ -530,36 +530,81 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
       ),
     );
 
-    if (source == null) return;
+    if (choice == null) return;
 
     try {
-      final image = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 2048,
-        requestFullMetadata: false,
-      );
+      List<XFile> images = [];
 
-      if (image == null) return;
+      if (choice == 'gallery') {
+        // Multi-image from gallery
+        images = await picker.pickMultiImage(
+          imageQuality: 85,
+          maxWidth: 2048,
+          requestFullMetadata: false,
+        );
+      } else {
+        // Camera: take photos in a loop until user cancels
+        while (true) {
+          final image = await picker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 85,
+            maxWidth: 2048,
+            requestFullMetadata: false,
+          );
+          if (image == null) break;
+          images.add(image);
+
+          if (!mounted) return;
+          // Ask if there are more pages
+          final addMore = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Page ${images.length} captured'),
+              content: const Text('Is there another page to scan?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('No, done'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                  child: const Text('Yes, scan next page'),
+                ),
+              ],
+            ),
+          );
+          if (addMore != true) break;
+        }
+      }
+
+      if (images.isEmpty) return;
 
       setState(() => _isParsing = true);
 
-      // Step 1: Extract text from image using Gemini Vision
-      final imageBytes = await image.readAsBytes();
-      final extractedText = await GeminiVisionService.extractTextFromImage(imageBytes);
+      // Extract text from all images and concatenate
+      final allTexts = <String>[];
+      for (int i = 0; i < images.length; i++) {
+        final imageBytes = await images[i].readAsBytes();
+        final extractedText = await GeminiVisionService.extractTextFromImage(imageBytes);
+        if (extractedText != null && extractedText.isNotEmpty) {
+          allTexts.add(extractedText);
+        }
+      }
 
       if (!mounted) return;
 
-      if (extractedText == null || extractedText.isEmpty) {
+      if (allTexts.isEmpty) {
         setState(() => _isParsing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not read text from image. Try a clearer photo.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Could not read text from images. Try clearer photos.'), backgroundColor: Colors.red),
         );
         return;
       }
 
-      // Step 2: Parse extracted text using existing parser
-      await _parsePaperText(extractedText);
+      // Combine all pages and parse
+      final combinedText = allTexts.join('\n\n');
+      await _parsePaperText(combinedText);
 
     } catch (e) {
       if (mounted) {
@@ -718,14 +763,13 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
   }
 
   Widget _buildPastePaperButton() {
-    return Column(
+    return Row(
       children: [
-        SizedBox(
-          width: double.infinity,
+        Expanded(
           child: OutlinedButton.icon(
             onPressed: _isParsing ? null : _showPastePaperDialog,
-            icon: const Icon(Icons.auto_awesome, size: 18),
-            label: const Text('Paste Paper - Auto Detect Sections'),
+            icon: const Icon(Icons.content_paste, size: 18),
+            label: const Text('Paste Content'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.deepPurple,
               side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
@@ -737,13 +781,12 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
+        const SizedBox(width: 10),
+        Expanded(
           child: OutlinedButton.icon(
             onPressed: _isParsing ? null : _scanPaperFromPhoto,
             icon: const Icon(Icons.camera_alt, size: 18),
-            label: const Text('Scan Paper - Photo to Questions'),
+            label: const Text('Scan Paper'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.teal,
               side: BorderSide(color: Colors.teal.withValues(alpha: 0.4)),
