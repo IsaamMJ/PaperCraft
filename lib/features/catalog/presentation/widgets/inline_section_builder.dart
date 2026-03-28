@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/ai/services/paper_parse_service.dart';
+import '../../../../core/ai/services/gemini_vision_service.dart';
 import '../../../../core/presentation/constants/app_colors.dart';
 import '../../../../core/presentation/constants/ui_constants.dart';
 import '../../domain/entities/paper_section_entity.dart';
@@ -481,6 +483,93 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
     );
   }
 
+  // ── Scan Paper (Photo to Questions) ─────────────────────────────────
+
+  Future<void> _scanPaperFromPhoto() async {
+    if (GeminiVisionService.apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Photo scanning not available — API key missing'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+
+    // Let user choose camera or gallery
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            const Text('Scan Question Paper', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text('Take a photo or pick from gallery', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.deepPurple),
+              title: const Text('Take Photo'),
+              subtitle: const Text('Use camera to scan paper'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.deepPurple),
+              title: const Text('Choose from Gallery'),
+              subtitle: const Text('Pick an existing photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final image = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 2048,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isParsing = true);
+
+      // Step 1: Extract text from image using Gemini Vision
+      final imageBytes = await image.readAsBytes();
+      final extractedText = await GeminiVisionService.extractTextFromImage(imageBytes);
+
+      if (!mounted) return;
+
+      if (extractedText == null || extractedText.isEmpty) {
+        setState(() => _isParsing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not read text from image. Try a clearer photo.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Step 2: Parse extracted text using existing parser
+      await _parsePaperText(extractedText);
+
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isParsing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to scan paper: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _parsePaperText(String text) async {
     setState(() => _isParsing = true);
 
@@ -628,22 +717,44 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
   }
 
   Widget _buildPastePaperButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _isParsing ? null : _showPastePaperDialog,
-        icon: const Icon(Icons.auto_awesome, size: 18),
-        label: const Text('Paste Paper - Auto Detect Sections'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.deepPurple,
-          side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
-          backgroundColor: Colors.deepPurple.withValues(alpha: 0.04),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isParsing ? null : _showPastePaperDialog,
+            icon: const Icon(Icons.auto_awesome, size: 18),
+            label: const Text('Paste Paper - Auto Detect Sections'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.deepPurple,
+              side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
+              backgroundColor: Colors.deepPurple.withValues(alpha: 0.04),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isParsing ? null : _scanPaperFromPhoto,
+            icon: const Icon(Icons.camera_alt, size: 18),
+            label: const Text('Scan Paper - Photo to Questions'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.teal,
+              side: BorderSide(color: Colors.teal.withValues(alpha: 0.4)),
+              backgroundColor: Colors.teal.withValues(alpha: 0.04),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
