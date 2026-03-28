@@ -140,7 +140,17 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
   void _initializeQuestions() {
     for (var section in _sections) {
       if (widget.existingQuestions != null && widget.existingQuestions!.containsKey(section.name)) {
-        _allQuestions[section.name] = List.from(widget.existingQuestions![section.name]!);
+        // Load existing questions but sync marks with current section metadata
+        final existingQs = List<Question>.from(widget.existingQuestions![section.name]!);
+        _allQuestions[section.name] = existingQs.map((q) {
+          // For match_following, marks = pairs × marksPerQuestion
+          if (section.type == 'match_following' && q.options != null) {
+            final separatorIdx = q.options!.indexOf('---SEPARATOR---');
+            final pairCount = separatorIdx > 0 ? separatorIdx : section.questions;
+            return q.copyWith(marks: section.marksPerQuestion * pairCount);
+          }
+          return q.copyWith(marks: section.marksPerQuestion);
+        }).toList();
       } else {
         _allQuestions[section.name] = [];
       }
