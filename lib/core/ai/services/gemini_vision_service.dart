@@ -18,8 +18,22 @@ class GeminiVisionService {
     }
 
     try {
+      // Try primary model first, fallback to older model
+      final result = await _tryExtract(imageBytes, 'gemini-2.5-flash');
+      if (result != null) return result;
+
+      debugPrint('[Gemini Vision] Primary model failed, trying fallback...');
+      return await _tryExtract(imageBytes, 'gemini-2.0-flash');
+    } catch (e) {
+      debugPrint('[Gemini Vision] Error: $e');
+      return null;
+    }
+  }
+
+  static Future<String?> _tryExtract(Uint8List imageBytes, String modelName) async {
+    try {
       final model = GenerativeModel(
-        model: 'gemini-2.0-flash',
+        model: modelName,
         apiKey: apiKey,
       );
 
