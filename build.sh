@@ -11,7 +11,7 @@ flutter config --enable-web
 flutter pub get
 
 # Build web app
-flutter build web --dart-define=ENV=$ENV --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_KEY=$SUPABASE_KEY --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=GROQ_API_KEY=$GROQ_API_KEY --verbose 2>&1
+flutter build web --dart-define=ENV=$ENV --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_KEY=$SUPABASE_KEY --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=GROQ_API_KEY=$GROQ_API_KEY --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY --verbose 2>&1
 
 # Replace the Flutter-generated service worker with a self-destructing one.
 # This clears all old caches in users' browsers and unregisters the service worker,
