@@ -725,7 +725,7 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
               ],
             ),
           ),
-        if (_showWalkthrough) _buildWalkthroughOverlay(),
+        // Walkthrough removed — replaced with info button on import buttons
       ],
     );
   }
@@ -786,24 +786,93 @@ class _InlineSectionBuilderState extends State<InlineSectionBuilder> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _isParsing ? null : _scanPaperFromPhoto,
-            icon: const Icon(Icons.camera_alt, size: 18),
-            label: const Text('Scan Paper'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.teal,
-              side: BorderSide(color: Colors.teal.withValues(alpha: 0.4)),
-              backgroundColor: Colors.teal.withValues(alpha: 0.04),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isParsing ? null : _scanPaperFromPhoto,
+                  icon: const Icon(Icons.camera_alt, size: 18),
+                  label: const Text('Scan Paper'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.teal,
+                    side: BorderSide(color: Colors.teal.withValues(alpha: 0.4)),
+                    backgroundColor: Colors.teal.withValues(alpha: 0.04),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(UIConstants.radiusMedium),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                top: -6,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.teal,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('NEW', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(width: 4),
+        GestureDetector(
+          onTap: _showImportInfo,
+          child: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade400),
+        ),
       ],
+    );
+  }
+
+  void _showImportInfo() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                alignment: Alignment.center,
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.content_paste, size: 20, color: Colors.deepPurple),
+                  const SizedBox(width: 8),
+                  const Text('Paste Content', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 28, top: 4, bottom: 16),
+                child: Text('Copy text from a document or message and paste here. AI detects sections and questions automatically.', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.camera_alt, size: 20, color: Colors.teal),
+                  const SizedBox(width: 8),
+                  const Text('Scan Paper', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 28, top: 4, bottom: 16),
+                child: Text('Take a photo of a printed or handwritten paper. Supports multiple pages. AI reads and extracts all questions.', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
