@@ -978,6 +978,29 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ),
                   ),
                 ),
+              if (!_isAiChecking && _aiWarnings.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(left: _aiSuggestions.isNotEmpty ? 6 : 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_aiWarnings.length} warning${_aiWarnings.length == 1 ? '' : 's'}',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
           SizedBox(height: UIConstants.spacing16),
