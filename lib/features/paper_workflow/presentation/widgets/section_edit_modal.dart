@@ -6,9 +6,10 @@ class SectionEditModal extends StatefulWidget {
   final String sectionName;
   final int sectionNumber;
   final String currentType;
-  final Function(String newName, String? newType) onSave;
+  final Function(String newName, String? newType, {double? newMarks}) onSave;
   final VoidCallback onCancel;
   final List<String> existingSectionNames;
+  final double? currentMarksPerQuestion;
 
   const SectionEditModal({
     super.key,
@@ -18,6 +19,7 @@ class SectionEditModal extends StatefulWidget {
     required this.onSave,
     required this.onCancel,
     this.existingSectionNames = const [],
+    this.currentMarksPerQuestion,
   });
 
   @override
@@ -26,6 +28,7 @@ class SectionEditModal extends StatefulWidget {
 
 class _SectionEditModalState extends State<SectionEditModal> {
   late TextEditingController _sectionNameController;
+  late TextEditingController _marksController;
   late String _selectedType;
   bool _isSaving = false;
 
@@ -64,6 +67,13 @@ class _SectionEditModalState extends State<SectionEditModal> {
   void initState() {
     super.initState();
     _sectionNameController = TextEditingController(text: widget.sectionName);
+    _marksController = TextEditingController(
+      text: widget.currentMarksPerQuestion != null
+          ? (widget.currentMarksPerQuestion! % 1 == 0
+              ? widget.currentMarksPerQuestion!.toInt().toString()
+              : widget.currentMarksPerQuestion.toString())
+          : '',
+    );
     // Normalize legacy type
     _selectedType = widget.currentType == 'fill_in_blanks' ? 'fill_blanks' : widget.currentType;
   }
@@ -71,6 +81,7 @@ class _SectionEditModalState extends State<SectionEditModal> {
   @override
   void dispose() {
     _sectionNameController.dispose();
+    _marksController.dispose();
     super.dispose();
   }
 
@@ -97,15 +108,17 @@ class _SectionEditModalState extends State<SectionEditModal> {
 
     final normalizedCurrentType = widget.currentType == 'fill_in_blanks' ? 'fill_blanks' : widget.currentType;
     final typeChanged = _selectedType != normalizedCurrentType;
+    final newMarks = double.tryParse(_marksController.text);
+    final marksChanged = newMarks != null && newMarks != widget.currentMarksPerQuestion;
 
-    if (!nameChanged && !typeChanged) {
+    if (!nameChanged && !typeChanged && !marksChanged) {
       Navigator.pop(context);
       return;
     }
 
     setState(() => _isSaving = true);
 
-    widget.onSave(updatedName, typeChanged ? _selectedType : null);
+    widget.onSave(updatedName, typeChanged ? _selectedType : null, newMarks: marksChanged ? newMarks : null);
   }
 
   void _showErrorSnackBar(String message) {
@@ -243,6 +256,31 @@ class _SectionEditModalState extends State<SectionEditModal> {
                         ),
                       ),
                     ],
+                    SizedBox(height: UIConstants.spacing16),
+
+                    // Marks per Question
+                    _buildLabel('Marks per Question'),
+                    SizedBox(height: UIConstants.spacing8),
+                    TextField(
+                      controller: _marksController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: 'e.g., 2',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(UIConstants.radiusSmall),
+                          borderSide: BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.all(UIConstants.paddingSmall),
+                      ),
+                    ),
                     SizedBox(height: UIConstants.spacing16),
                   ],
                 ),

@@ -1714,14 +1714,24 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         ? state.currentPaper!.paperSections.map((s) => s.name).toList()
         : <String>[];
 
+    // Get current marks per question for this section
+    double? currentMarks;
+    if (state is QuestionPaperLoaded && state.currentPaper != null) {
+      final section = state.currentPaper!.paperSections
+          .where((s) => s.name == sectionName)
+          .firstOrNull;
+      currentMarks = section?.marksPerQuestion;
+    }
+
     showDialog(
       context: context,
       builder: (dialogContext) => SectionEditModal(
         sectionName: sectionName,
         sectionNumber: sectionNumber,
         currentType: currentType,
+        currentMarksPerQuestion: currentMarks,
         existingSectionNames: existingNames,
-        onSave: (newName, newType) {
+        onSave: (newName, newType, {double? newMarks}) {
 
           try {
             if (newName != sectionName) {
@@ -1740,6 +1750,42 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                   newType: newType,
                 ),
               );
+            }
+
+            // Update marks on all questions and section metadata
+            if (newMarks != null && state is QuestionPaperLoaded && state.currentPaper != null) {
+              final paper = state.currentPaper!;
+              final effectiveName = newName;
+              final updatedQuestions = Map<String, List<Question>>.from(paper.questions);
+              final sectionKey = updatedQuestions.containsKey(effectiveName) ? effectiveName : sectionName;
+
+              if (updatedQuestions.containsKey(sectionKey)) {
+                updatedQuestions[sectionKey] = updatedQuestions[sectionKey]!
+                    .map((q) => q.copyWith(marks: newMarks))
+                    .toList();
+              }
+
+              final updatedSections = paper.paperSections.map((s) {
+                if (s.name == sectionName || s.name == effectiveName) {
+                  return s.copyWith(marksPerQuestion: newMarks);
+                }
+                return s;
+              }).toList();
+
+              final updatedPaper = paper.copyWith(
+                questions: updatedQuestions,
+                paperSections: updatedSections,
+              );
+
+              () async {
+                try {
+                  final repo = sl<QuestionPaperRepository>();
+                  await repo.updatePaper(updatedPaper);
+                } catch (e) {
+                  debugPrint('[Edit Section] Save marks failed: $e');
+                }
+                if (mounted) bloc.add(LoadPaperById(widget.questionPaperId));
+              }();
             }
 
             // Close the modal
