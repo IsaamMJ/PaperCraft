@@ -15,6 +15,7 @@ import '../../../authentication/domain/services/user_state_service.dart';
 import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
+import '../../../catalog/domain/entities/paper_section_entity.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
@@ -334,6 +335,112 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         _aiCheckDone = true;
       });
     }
+  }
+
+  void _splitAndFixQuestion(String sectionName, int questionIndex, dynamic question) {
+    // Parse numbered lines from the text block
+    final text = question.text as String;
+    final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+    // Extract individual questions by removing numbering prefixes
+    final splitQuestions = <String>[];
+    for (final line in lines) {
+      // Remove patterns like "1)", "2)", "a)", "b)", leading whitespace
+      final cleaned = line.trim().replaceFirst(RegExp(r'^[\d]+\)\s*'), '').replaceFirst(RegExp(r'^[a-z]\)\s*'), '').trim();
+      if (cleaned.isNotEmpty) {
+        splitQuestions.add(cleaned);
+      }
+    }
+
+    if (splitQuestions.length <= 1) {
+      _showMessage('Could not detect separate questions', AppColors.warning);
+      return;
+    }
+
+    // Detect "any X" to know how many to mark optional
+    final anyMatch = RegExp(r'any\s+(\d+)', caseSensitive: false).firstMatch(sectionName);
+    final requiredCount = anyMatch != null ? (int.tryParse(anyMatch.group(1) ?? '') ?? splitQuestions.length) : splitQuestions.length;
+    final optionalCount = splitQuestions.length - requiredCount;
+
+    final bloc = context.read<QuestionPaperBloc>();
+    final marks = question.marks as double;
+    final marksPerQuestion = marks / splitQuestions.length;
+
+    // Step 1: Delete the original block question
+    // We'll rebuild by updating the paper directly
+    final state = bloc.state;
+    if (state is! QuestionPaperLoaded || state.currentPaper == null) return;
+
+    final currentPaper = state.currentPaper!;
+    final updatedQuestions = Map<String, List<Question>>.from(currentPaper.questions);
+
+    if (!updatedQuestions.containsKey(sectionName)) return;
+
+    final sectionQuestions = List<Question>.from(updatedQuestions[sectionName]!);
+
+    // Remove the original block
+    if (questionIndex < sectionQuestions.length) {
+      sectionQuestions.removeAt(questionIndex);
+    }
+
+    // Add split questions
+    for (int i = 0; i < splitQuestions.length; i++) {
+      final isOptional = optionalCount > 0 && i >= requiredCount;
+      sectionQuestions.insert(questionIndex + i, Question(
+        text: splitQuestions[i],
+        type: question.type,
+        marks: marksPerQuestion,
+        isOptional: isOptional,
+      ));
+    }
+
+    updatedQuestions[sectionName] = sectionQuestions;
+
+    // Update section question count
+    final updatedSections = List<PaperSectionEntity>.from(currentPaper.paperSections);
+    for (int i = 0; i < updatedSections.length; i++) {
+      if (updatedSections[i].name == sectionName) {
+        updatedSections[i] = updatedSections[i].copyWith(
+          questions: sectionQuestions.length,
+          marksPerQuestion: marksPerQuestion,
+        );
+        break;
+      }
+    }
+
+    // Save the updated paper by updating first question (triggers save)
+    // Then reload to reflect all changes
+    updatedQuestions[sectionName] = sectionQuestions;
+
+    // Use multiple UpdateQuestionInline calls to rebuild the section
+    // First, update the existing question at index 0 with first split text
+    bloc.add(UpdateQuestionInline(
+      sectionName: sectionName,
+      questionIndex: 0,
+      updatedText: sectionQuestions[0].text,
+    ));
+
+    // Add remaining questions
+    for (int i = 1; i < sectionQuestions.length; i++) {
+      bloc.add(AddQuestionToSection(
+        sectionName: sectionName,
+        questionText: sectionQuestions[i].text,
+        isOptional: sectionQuestions[i].isOptional,
+      ));
+    }
+
+    // Reload to reflect all changes
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        bloc.add(LoadPaperById(widget.questionPaperId));
+      }
+    });
+
+    setState(() {
+      _aiWarnings.remove('${sectionName}_$questionIndex');
+    });
+
+    _showMessage('Split into ${splitQuestions.length} questions${optionalCount > 0 ? ' ($optionalCount optional)' : ''}', AppColors.success);
   }
 
   void _fixAllSuggestions() {
@@ -1360,11 +1467,12 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                     ),
                   );
                 }),
-                // Warning chip (informational, no fix action)
+                // Warning chip with optional Split & Fix action
                 Builder(builder: (_) {
                   final warningKey = '${sectionName}_${index - 1}';
                   final warning = _aiWarnings[warningKey];
                   if (warning == null) return const SizedBox.shrink();
+                  final isMultiQuestionBlock = warning.contains('questions in one block');
                   return Container(
                     margin: const EdgeInsets.only(top: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -1383,6 +1491,20 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
                             style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
                           ),
                         ),
+                        if (isMultiQuestionBlock) ...[
+                          GestureDetector(
+                            onTap: () => _splitAndFixQuestion(sectionName, index - 1, question),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade700,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Split & Fix', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         GestureDetector(
                           onTap: () => setState(() => _aiWarnings.remove(warningKey)),
                           child: Icon(Icons.close, size: 14, color: Colors.grey.shade400),
