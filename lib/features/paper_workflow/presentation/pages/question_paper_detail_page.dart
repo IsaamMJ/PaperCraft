@@ -16,6 +16,7 @@ import '../../domain/entities/paper_status.dart';
 import '../../domain/entities/question_paper_entity.dart';
 import '../../domain/entities/question_entity.dart';
 import '../../../catalog/domain/entities/paper_section_entity.dart';
+import '../../domain/repositories/question_paper_repository.dart';
 import '../../domain/services/enhanced_date_formatter.dart';
 import '../../domain/services/section_ordering_helper.dart';
 import '../../domain/services/user_info_service.dart';
@@ -337,7 +338,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
     }
   }
 
-  void _splitAndFixQuestion(String sectionName, int questionIndex, dynamic question) {
+  Future<void> _splitAndFixQuestion(String sectionName, int questionIndex, dynamic question) async {
     // Parse numbered lines from the text block
     final text = question.text as String;
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
@@ -364,7 +365,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
 
     final bloc = context.read<QuestionPaperBloc>();
     final marks = question.marks as double;
-    final marksPerQuestion = marks / splitQuestions.length;
+    final marksPerQuestion = requiredCount > 0 ? marks / requiredCount : marks / splitQuestions.length;
 
     // Step 1: Delete the original block question
     // We'll rebuild by updating the paper directly
@@ -408,33 +409,21 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       }
     }
 
-    // Save the updated paper by updating first question (triggers save)
-    // Then reload to reflect all changes
-    updatedQuestions[sectionName] = sectionQuestions;
+    // Save directly via repository
+    final updatedPaper = currentPaper.copyWith(
+      questions: updatedQuestions,
+      paperSections: updatedSections,
+    );
 
-    // Use multiple UpdateQuestionInline calls to rebuild the section
-    // First, update the existing question at index 0 with first split text
-    bloc.add(UpdateQuestionInline(
-      sectionName: sectionName,
-      questionIndex: 0,
-      updatedText: sectionQuestions[0].text,
-    ));
-
-    // Add remaining questions
-    for (int i = 1; i < sectionQuestions.length; i++) {
-      bloc.add(AddQuestionToSection(
-        sectionName: sectionName,
-        questionText: sectionQuestions[i].text,
-        isOptional: sectionQuestions[i].isOptional,
-      ));
+    try {
+      final repo = sl<QuestionPaperRepository>();
+      await repo.updatePaper(updatedPaper);
+    } catch (e) {
+      debugPrint('[Split & Fix] Save failed: $e');
     }
 
     // Reload to reflect all changes
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        bloc.add(LoadPaperById(widget.questionPaperId));
-      }
-    });
+    bloc.add(LoadPaperById(widget.questionPaperId));
 
     setState(() {
       _aiWarnings.remove('${sectionName}_$questionIndex');
