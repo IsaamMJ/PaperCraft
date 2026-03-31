@@ -225,6 +225,16 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
 
   PaperSectionEntity get _currentSection => _sections[_currentSectionIndex];
 
+  /// Detect "any X" pattern in section name and return a tip
+  String? _getAnyXHint(String sectionName) {
+    final match = RegExp(r'any\s+(\d+)', caseSensitive: false).firstMatch(sectionName);
+    if (match == null) return null;
+    final requiredCount = int.tryParse(match.group(1) ?? '');
+    if (requiredCount == null) return null;
+    final totalCount = requiredCount + 1;
+    return 'Add $totalCount questions separately. Mark ${totalCount - requiredCount} as optional with the ☆ icon so marks calculate correctly.';
+  }
+
   /// Notify parent of question changes for state preservation
   void _notifyQuestionsChanged() {
     widget.onQuestionsChanged?.call(Map.from(_allQuestions));
@@ -442,6 +452,30 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
                 _buildHeader(isMobile),
                 SizedBox(height: UIConstants.spacing24),
                 _buildSectionTabs(),
+                if (_getAnyXHint(_currentSection.name) != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline, size: 14, color: Colors.blue.shade700),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _getAnyXHint(_currentSection.name)!,
+                              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 SizedBox(height: isMobile ? 24 : 20),
                 QuestionListWidget(
                   sectionName: _currentSection.name,
@@ -1024,6 +1058,36 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
     // Step 0: Silent auto-fixes (no UI, no waiting)
     _applySilentFixes();
 
+    // Step 0.5: Check "any X" sections for missing optional questions
+    final anyXWarnings = _checkAnyXSections();
+    if (anyXWarnings.isNotEmpty && mounted) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Optional Questions'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: anyXWarnings.map((w) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(w, style: const TextStyle(fontSize: 13)),
+            )).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go back & fix'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Submit anyway'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
+
     // Step 1: Run AI polish (optional — failure/cancel proceeds with originals)
     final polishedQuestions = await _runAIPolish();
 
@@ -1106,6 +1170,26 @@ class _QuestionInputCoordinatorState extends State<QuestionInputCoordinator> {
         aiPolishCompleted: _aiPolishCompleted,
       ),
     );
+  }
+
+  /// Check sections with "any X" pattern for missing optional questions
+  List<String> _checkAnyXSections() {
+    final warnings = <String>[];
+    for (final section in _sections) {
+      final match = RegExp(r'any\s+(\d+)', caseSensitive: false).firstMatch(section.name);
+      if (match == null) continue;
+
+      final requiredCount = int.tryParse(match.group(1) ?? '');
+      if (requiredCount == null) continue;
+
+      final questions = _allQuestions[section.name] ?? [];
+      final optionalCount = questions.where((q) => q.isOptional).length;
+
+      if (questions.length > requiredCount && optionalCount == 0) {
+        warnings.add('"${section.name}" has ${questions.length} questions but none marked as optional. Mark ${questions.length - requiredCount} with ☆ so marks calculate correctly.');
+      }
+    }
+    return warnings;
   }
 
   /// Silent auto-fixes applied before AI polish — no UI, instant

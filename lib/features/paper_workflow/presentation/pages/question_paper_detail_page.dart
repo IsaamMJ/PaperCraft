@@ -197,6 +197,28 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
         }
       }
     }
+
+    // Check "any X" sections for missing optional questions
+    for (final entry in paper.questions.entries) {
+      final sectionName = entry.key;
+      final questions = entry.value;
+      final match = RegExp(r'any\s+(\d+)', caseSensitive: false).firstMatch(sectionName);
+      if (match == null) continue;
+
+      final requiredCount = int.tryParse(match.group(1) ?? '');
+      if (requiredCount == null) continue;
+
+      final optionalCount = questions.where((q) => q.isOptional == true).length;
+      if (questions.length > requiredCount && optionalCount == 0) {
+        // Add warning to the first question in this section
+        final key = '${sectionName}_0';
+        if (!_aiWarnings.containsKey(key)) {
+          setState(() {
+            _aiWarnings[key] = '\'$sectionName\' has ${questions.length} questions but none marked optional. Mark ${questions.length - requiredCount} with ☆ for correct marks.';
+          });
+        }
+      }
+    }
   }
 
   /// Run full AI check (spelling + PDF symbols) — for submitted papers
