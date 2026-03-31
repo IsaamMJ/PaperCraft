@@ -1224,8 +1224,8 @@ class SimplePdfService implements IPdfGenerationService {
     if (widget is pw.Wrap) {
       // Estimate based on number of children and typical wrapping
       final childCount = widget.children.length;
-      // Assume ~2.5 options per row on average (conservative)
-      final estimatedRows = (childCount / 2.5).ceil();
+      // Most MCQs have 3-4 short options that fit on 1 row
+      final estimatedRows = (childCount / 4).ceil().clamp(1, 5);
       final rowHeight = 11 * fontSizeMultiplier * 1.2; // Option font × line height
       final spacing = widget.runSpacing ?? 1;
       return estimatedRows * rowHeight + (estimatedRows - 1) * spacing;
