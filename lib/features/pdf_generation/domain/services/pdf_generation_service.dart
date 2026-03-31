@@ -1150,17 +1150,11 @@ class SimplePdfService implements IPdfGenerationService {
       return height;
     }
 
-    // 2. Simple text widgets - account for wrapping on long texts
+    // 2. Simple text widgets - tight estimation
     if (widget is pw.Text) {
       final estimatedFontSize = 11.0 * fontSizeMultiplier;
-      final lineHeight = estimatedFontSize * 1.2;
-      final textLength = widget.text.toPlainText().length;
-      // Only adjust for genuinely long texts (80+ chars) that will wrap
-      if (textLength > 80) {
-        final estimatedLines = (textLength / 80).ceil();
-        return lineHeight * estimatedLines;
-      }
-      return lineHeight;
+      final height = estimatedFontSize * 1.2;
+      return height;
     }
 
     // 3. Containers (section headers, etc.)
