@@ -209,8 +209,17 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
       if (requiredCount == null) continue;
 
       final optionalCount = questions.where((q) => q.isOptional == true).length;
-      if (questions.length > requiredCount && optionalCount == 0) {
-        // Add warning to the first question in this section
+
+      // Check if multiple questions typed in one block
+      if (questions.length == 1 && questions.first.text.contains(RegExp(r'\d\)'))) {
+        final numberedLines = RegExp(r'\d+\)').allMatches(questions.first.text).length;
+        if (numberedLines > 1) {
+          final key = '${sectionName}_0';
+          setState(() {
+            _aiWarnings[key] = 'This looks like $numberedLines questions in one block. Add each question separately and mark ${numberedLines - requiredCount} as optional with ☆.';
+          });
+        }
+      } else if (questions.length > requiredCount && optionalCount == 0) {
         final key = '${sectionName}_0';
         if (!_aiWarnings.containsKey(key)) {
           setState(() {
@@ -261,6 +270,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             if (mounted) {
               setState(() {
                 _aiSuggestions[key] = results[i].polished;
+                _aiSuggestionReasons[key] = 'Spelling / grammar fix';
               });
             }
           }
@@ -308,6 +318,7 @@ class _DetailViewState extends State<_DetailView> with TickerProviderStateMixin 
             if (mounted && !_aiSuggestions.containsKey(key)) {
               setState(() {
                 _aiSuggestions[key] = results[i].polished;
+                _aiSuggestionReasons[key] = 'Spelling / grammar fix';
               });
             }
           }
