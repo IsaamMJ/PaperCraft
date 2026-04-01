@@ -1106,6 +1106,27 @@ class SimplePdfService implements IPdfGenerationService {
 
       // Check if adding this widget would exceed page capacity
       if (currentPageHeight + widgetHeight > maxHeightForCurrentPage && currentPage.isNotEmpty) {
+        // "Keep header with first question" rule:
+        // If the last 1-2 widgets on this page are a section header (Container) + spacer (SizedBox),
+        // pull them back so they move to the next page with this question.
+        int pullBackCount = 0;
+        double pullBackHeight = 0;
+        if (currentPage.length >= 2 &&
+            currentPage.last is pw.SizedBox &&
+            currentPage[currentPage.length - 2] is pw.Container) {
+          pullBackCount = 2;
+          pullBackHeight = _measureActualWidgetHeight(currentPage.last, fontSizeMultiplier, spacingMultiplier) +
+              _measureActualWidgetHeight(currentPage[currentPage.length - 2], fontSizeMultiplier, spacingMultiplier);
+          debugPrint('   🔗 Pulling section header back to keep with first question');
+        }
+
+        // Remove pulled-back widgets from current page
+        final pulledWidgets = <pw.Widget>[];
+        for (int p = 0; p < pullBackCount; p++) {
+          pulledWidgets.insert(0, currentPage.removeLast());
+        }
+        currentPageHeight -= pullBackHeight;
+
         // Page is full - save it and start a new page
         debugPrint('   ⚠️  Page $currentPageNumber FULL (${currentPageHeight.toStringAsFixed(2)} pt used of ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
         debugPrint('   💾 Saving page $currentPageNumber with ${currentPage.length} widgets');
@@ -1115,6 +1136,13 @@ class SimplePdfService implements IPdfGenerationService {
         currentPageHeight = 0;
         maxHeightForCurrentPage = availableHeightOtherPages;
         currentPageNumber++;
+
+        // Add pulled-back widgets to new page
+        for (final pw in pulledWidgets) {
+          currentPage.add(pw);
+          final h = _measureActualWidgetHeight(pw, fontSizeMultiplier, spacingMultiplier);
+          currentPageHeight += h;
+        }
 
         debugPrint('   📄 Starting page $currentPageNumber (max: ${maxHeightForCurrentPage.toStringAsFixed(2)} pt)');
       }
@@ -1191,10 +1219,8 @@ class SimplePdfService implements IPdfGenerationService {
         totalHeight += _measureActualWidgetHeight(child, fontSizeMultiplier, spacingMultiplier);
       }
 
-      // Add inter-child spacing (tight)
-      if (widget.children.length > 1) {
-        totalHeight += (widget.children.length - 1) * 1.5 * spacingMultiplier;
-      }
+      // pw.Column adds no automatic spacing between children
+      // All spacing is via explicit SizedBox widgets (measured separately)
 
       return totalHeight;
     }
